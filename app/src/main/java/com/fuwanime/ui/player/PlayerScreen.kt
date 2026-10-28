@@ -6,12 +6,14 @@ import android.content.ContextWrapper
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.media.AudioManager
+import android.net.ConnectivityManager
 import android.util.Log
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
@@ -52,6 +54,8 @@ import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.FastRewind
 import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.FullscreenExit
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PictureInPictureAlt
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -88,6 +92,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -122,6 +127,12 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import androidx.compose.animation.core.tween
+import com.fuwanime.ui.motion.rememberIsExiting
+import com.fuwanime.ui.motion.rememberIsEntering
+import com.fuwanime.ui.motion.LocalNavScope
+import com.fuwanime.ui.motion.sharedKey
+import com.fuwanime.ui.motion.Motion
 import com.fuwanime.FuwaApp
 import com.fuwanime.util.formatBytes
 import com.fuwanime.data.DownloadState
@@ -136,6 +147,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarHost
 import androidx.media3.datasource.DefaultDataSource
 import com.fuwanime.data.Episode
+import com.fuwanime.data.OpMark
 import com.fuwanime.data.StreamSource
 import com.fuwanime.data.local.AppSettings
 import com.fuwanime.data.remote.AnimeApiService
@@ -172,6 +184,9 @@ private fun buildPlayer(context: Context): ExoPlayer {
         .build()
 }
 
+private fun Context.isMeteredNetwork(): Boolean =
+    (getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager)?.isActiveNetworkMetered == true
+
 private tailrec fun Context.findActivity(): Activity? = when (this) {
     is Activity -> this
     is ContextWrapper -> baseContext.findActivity()
@@ -196,6 +211,9 @@ private class PlaybackState {
      * would jump to 0:00. We hold the target and apply it once the index is in.
      */
     var pendingSeek by mutableStateOf<Long?>(null)
+
+    /** False until the current source shows its first frame; the thumbnail placeholder covers the gap. */
+    var firstFrame by mutableStateOf(false)
 }
 
 private fun ExoPlayer.seekSafely(positionMs: Long, playback: PlaybackState) {
@@ -214,9 +232,18 @@ private fun ExoPlayer.effectivePosition(playback: PlaybackState): Long = playbac
 
 @OptIn(UnstableApi::class)
 @Composable
-fun PlayerRoute(onBack: () -> Unit) {
+fun PlayerRoute(
+    /** Key of the image (episode thumbnail or detail backdrop) that flies into the video area. */
+    sharedKey: String? = null,
+    onBack: () -> Unit,
+) {
+    val appContext = LocalContext.current.applicationContext
     val vm: PlayerViewModel = fuwaViewModel { c, h ->
-        PlayerViewModel(c.animeRepository, c.libraryRepository, c.downloadRepository, c.settingsStore, c.appScope, h)
+        PlayerViewModel(
+            c.animeRepository, c.libraryRepository, c.downloadRepository, c.settingsStore, c.appScope,
+            isMetered = { appContext.isMeteredNetwork() },
+            saved = h,
+        )
     }
     val state by vm.state.collectAsStateWithLifecycle()
     val download by vm.download.collectAsStateWithLifecycle()
@@ -228,6 +255,7 @@ fun PlayerRoute(onBack: () -> Unit) {
         }
     }
     val settings by vm.settings.collectAsStateWithLifecycle()
+    val opMark by vm.opMark.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val activity = remember(context) { context.findActivity() }
     val view = LocalView.current
@@ -236,15 +264,25 @@ fun PlayerRoute(onBack: () -> Unit) {
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     val player = remember { buildPlayer(context) }
+    val initialEpisodeId = remember { state.episode.id }
+    // The nav-arg thumbnail, which is what flew in; the stream may report a different URL for the same image.
+    val initialThumbnail = remember { state.episode.thumbnail }
     val playback = remember { PlaybackState() }
     var speed by remember { mutableFloatStateOf(1f) }
     var resizeMode by remember { mutableIntStateOf(AspectRatioFrameLayout.RESIZE_MODE_FIT) }
+    var sleep by remember { mutableStateOf(SleepOption.OFF) }
+    var sleepAtMs by remember { mutableStateOf<Long?>(null) }
+    /** Set when a timed sleep fired; blocks autoplay until the user presses play again. */
+    var sleepExpired by remember { mutableStateOf(false) }
+    /** Episode whose opening was auto-skipped or re-marked; survives rotation and PiP unlike VideoSurface state. */
+    var autoSkipHandledFor by remember { mutableStateOf<String?>(null) }
 
     // --- Player wiring ---------------------------------------------------------------------
     DisposableEffect(player) {
         val listener = object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 playback.isPlaying = isPlaying
+                if (isPlaying) sleepExpired = false
                 view.keepScreenOn = isPlaying
             }
 
@@ -272,6 +310,10 @@ fun PlayerRoute(onBack: () -> Unit) {
                 Log.d(TAG, "speed=${params.speed}")
             }
 
+            override fun onRenderedFirstFrame() {
+                playback.firstFrame = true
+            }
+
             override fun onVideoSizeChanged(size: VideoSize) {
                 if (size.width > 0 && size.height > 0) {
                     playback.videoWidth = size.width
@@ -280,9 +322,12 @@ fun PlayerRoute(onBack: () -> Unit) {
             }
 
             override fun onPlayerError(error: PlaybackException) {
+                // A smaller file often plays where the bigger one failed; only surface the error when nothing is left.
+                if (shouldFallBack(error.errorCode) && vm.fallBack(player.effectivePosition(playback).coerceAtLeast(0))) return
                 playback.error = when (error.errorCode) {
-                    PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
-                    PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> "Koneksi terputus saat memutar video."
+                    PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED -> "Koneksi terputus saat memutar video."
+                    PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT ->
+                        "Server video lambat merespons. Coba lagi atau pilih kualitas lain."
                     PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> "Sumber video tidak bisa diakses. Coba kualitas lain."
                     else -> "Video gagal diputar. Coba kualitas lain."
                 }
@@ -301,13 +346,14 @@ fun PlayerRoute(onBack: () -> Unit) {
         playback.error = null
         playback.ended = false
         playback.pendingSeek = null
+        playback.firstFrame = false
         val source = state.source ?: run {
             player.stop()
             return@LaunchedEffect
         }
         player.setMediaItem(MediaItem.fromUri(source.url), state.startPositionMs.coerceAtLeast(0))
         player.prepare()
-        player.playWhenReady = true
+        player.playWhenReady = !sleepExpired
     }
 
     LaunchedEffect(player) {
@@ -325,6 +371,21 @@ fun PlayerRoute(onBack: () -> Unit) {
             delay(5_000)
             if (player.isPlaying) vm.saveProgress(player.currentPosition, player.duration)
         }
+    }
+
+    // Sleep timer: a wall-clock deadline, so it keeps counting across episode changes.
+    LaunchedEffect(sleepAtMs) {
+        val at = sleepAtMs ?: return@LaunchedEffect
+        delay((at - System.currentTimeMillis()).coerceAtLeast(0))
+        sleepExpired = true
+        player.pause()
+        sleep = SleepOption.OFF
+        sleepAtMs = null
+        snackbar.showSnackbar("Timer tidur: video dijeda")
+    }
+    // "Akhir episode" is one-shot: it covers the episode it was set on.
+    LaunchedEffect(state.episode.id) {
+        if (sleep == SleepOption.END_OF_EPISODE) sleep = SleepOption.OFF
     }
 
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
@@ -375,6 +436,15 @@ fun PlayerRoute(onBack: () -> Unit) {
             state = state,
             settings = settings,
             resizeMode = resizeMode,
+            speed = speed,
+            opMark = opMark,
+            sleep = sleep,
+            sleepExpired = sleepExpired,
+            // Only the episode that was tapped has a thumbnail to fly in; later episodes just fade.
+            thumbnailKey = sharedKey?.takeIf { state.episode.id == initialEpisodeId },
+            placeholderUrl = if (state.episode.id == initialEpisodeId) initialThumbnail.ifBlank { state.episode.thumbnail } else state.episode.thumbnail,
+            autoSkipHandledFor = autoSkipHandledFor,
+            onAutoSkipped = { autoSkipHandledFor = it },
             fullscreen = fullscreen,
             inPip = inPip,
             onBack = { if (fullscreen) setFullscreen(false) else onBack() },
@@ -429,6 +499,9 @@ fun PlayerRoute(onBack: () -> Unit) {
             current = state.source,
             speed = speed,
             resizeMode = resizeMode,
+            positionMs = playback.position,
+            opMark = opMark,
+            sleep = sleep,
             onDismiss = { showSettings = false },
             onSource = {
                 vm.selectSource(it, player.currentPosition)
@@ -439,11 +512,25 @@ fun PlayerRoute(onBack: () -> Unit) {
                 player.setPlaybackSpeed(it)
             },
             onResize = { resizeMode = it },
+            onMarkOpStart = {
+                autoSkipHandledFor = state.episode.id
+                vm.markOpStart(player.effectivePosition(playback))
+            },
+            onMarkOpEnd = {
+                autoSkipHandledFor = state.episode.id
+                vm.markOpEnd(player.effectivePosition(playback))
+            },
+            onClearOpMark = vm::clearOpMark,
+            onSleep = { option ->
+                sleep = option
+                sleepAtMs = sleepDeadline(option, System.currentTimeMillis())
+            },
         )
     }
 }
 
 @OptIn(UnstableApi::class)
+@kotlin.OptIn(ExperimentalAnimationApi::class)
 @Composable
 private fun VideoSurface(
     player: ExoPlayer,
@@ -451,6 +538,14 @@ private fun VideoSurface(
     state: PlayerUiState,
     settings: AppSettings,
     resizeMode: Int,
+    speed: Float,
+    opMark: OpMark?,
+    sleep: SleepOption,
+    sleepExpired: Boolean,
+    thumbnailKey: String?,
+    placeholderUrl: String,
+    autoSkipHandledFor: String?,
+    onAutoSkipped: (String) -> Unit,
     fullscreen: Boolean,
     inPip: Boolean,
     pipSupported: Boolean,
@@ -470,9 +565,12 @@ private fun VideoSurface(
     var hideJob by remember { mutableStateOf<Job?>(null) }
     var seekFeedback by remember { mutableStateOf<Pair<Boolean, Int>?>(null) } // (forward, seconds)
     var gestureLevel by remember { mutableStateOf<Pair<ImageVector, Float>?>(null) }
-    var holdSpeedJob by remember { mutableStateOf<Job?>(null) }
-    var holdSpeedActive by remember { mutableStateOf(false) }
-    var holdSpeedPrevious by remember { mutableStateOf(1f) }
+    var boosting by remember { mutableStateOf(false) }
+    val baseSpeed by rememberUpdatedState(speed)
+    var locked by remember { mutableStateOf(false) }
+    var showUnlock by remember { mutableStateOf(false) }
+    LaunchedEffect(fullscreen) { if (!fullscreen) locked = false }
+    BackHandler(enabled = locked) { showUnlock = true }
 
     fun scheduleHide() {
         hideJob?.cancel()
@@ -488,8 +586,14 @@ private fun VideoSurface(
 
     val seekStepMs = settings.doubleTapSeekSeconds * 1000L
 
+    // Inflating PlayerView (a SurfaceView) is heavy; doing it on the transition's first frame made the flying
+    // thumbnail stall. It is attached once the open transition settles; the thumbnail covers the wait.
+    val navTransitionRunning = LocalNavScope.current?.transition?.isRunning == true
+    var surfaceReady by remember { mutableStateOf(!navTransitionRunning) }
+    LaunchedEffect(navTransitionRunning) { if (!navTransitionRunning) surfaceReady = true }
+
     Box(modifier.background(Color.Black)) {
-        AndroidView(
+        if (surfaceReady) AndroidView(
             factory = { ctx ->
                 PlayerView(ctx).apply {
                     useController = false
@@ -502,42 +606,56 @@ private fun VideoSurface(
             modifier = Modifier.fillMaxSize(),
         )
 
+        // Thumbnail until the first frame: the landing spot for the shared thumbnail, then a soft reveal.
+        // Held while the open transition runs, so a fast first frame never cuts the flying thumbnail short. Only on
+        // open: appearing mid-way through the close transition left the detail backdrop stuck above its header.
+        val entering = rememberIsEntering()
+        val exiting = rememberIsExiting()
+        AnimatedVisibility(
+            visible = (!playback.firstFrame || entering) && !state.offline && placeholderUrl.isNotBlank(),
+            enter = fadeIn(tween(Motion.Short)),
+            exit = fadeOut(tween(Motion.Medium, easing = Motion.EmphasizedAccelerate)),
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            Box(Modifier.fillMaxSize()) {
+                NetImage(placeholderUrl, Modifier.fillMaxSize().sharedKey(thumbnailKey.takeIf { !exiting }))
+                // Keeps the white loading text legible on bright thumbnails.
+                Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)))
+            }
+        }
+
         if (inPip) return@Box
 
-        // Gesture layer: tap toggles controls, double-tap seeks, hold = 2x speed,
-        // vertical drags adjust brightness/volume.
+        // Gesture layer: tap toggles controls, double-tap seeks, hold plays at 2x, vertical drags adjust brightness/volume.
         Box(
             Modifier
                 .fillMaxSize()
                 .pointerInput(seekStepMs) {
                     detectTapGestures(
                         onPress = {
-                            holdSpeedJob?.cancel()
-                            holdSpeedJob = scope.launch {
-                                delay(350)
-                                if (player.isPlaying) {
-                                    holdSpeedPrevious = player.playbackParameters.speed
-                                    holdSpeedActive = true
-                                    player.setPlaybackSpeed(2f)
+                            val boost = scope.launch {
+                                delay(viewConfiguration.longPressTimeoutMillis)
+                                boosting = true
+                                player.setPlaybackSpeed(boostedSpeed(baseSpeed))
+                            }
+                            try {
+                                tryAwaitRelease()
+                            } finally {
+                                // Also runs when the gesture is cancelled (rotation, PiP), so 2x never sticks.
+                                boost.cancel()
+                                if (boosting) {
+                                    boosting = false
+                                    player.setPlaybackSpeed(baseSpeed)
                                 }
                             }
-                            tryAwaitRelease()
-                            holdSpeedJob?.cancel()
-                            if (holdSpeedActive) {
-                                holdSpeedActive = false
-                                player.setPlaybackSpeed(holdSpeedPrevious)
-                            }
                         },
+                        // Handled in onPress; declaring it stops the release from also counting as a tap.
+                        onLongPress = {},
                         onTap = {
                             controlsVisible = !controlsVisible
                             if (controlsVisible) scheduleHide()
                         },
                         onDoubleTap = { offset ->
-                            holdSpeedJob?.cancel()
-                            if (holdSpeedActive) {
-                                holdSpeedActive = false
-                                player.setPlaybackSpeed(holdSpeedPrevious)
-                            }
                             val forward = offset.x > size.width / 2
                             player.seekSafely(player.effectivePosition(playback) + if (forward) seekStepMs else -seekStepMs, playback)
                             val prev = seekFeedback
@@ -585,20 +703,20 @@ private fun VideoSurface(
         seekFeedback?.let { (forward, secs) ->
             SeekBubble(forward, secs, Modifier.align(if (forward) Alignment.CenterEnd else Alignment.CenterStart))
         }
-        if (holdSpeedActive) {
+        gestureLevel?.let { (icon, level) -> LevelIndicator(icon, level, Modifier.align(Alignment.Center)) }
+        if (boosting) {
             Surface(
                 color = Color.Black.copy(alpha = 0.6f),
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.align(Alignment.Center),
+                shape = RoundedCornerShape(50),
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 16.dp),
             ) {
-                Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.FastForward, null, tint = Color.White)
-                    Spacer(Modifier.width(8.dp))
-                    Text("2× kecepatan", color = Color.White, style = MaterialTheme.typography.labelLarge)
+                Row(Modifier.padding(horizontal = 14.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.FastForward, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("${boostedSpeed(baseSpeed)}x".replace(".0x", "x"), color = Color.White, style = MaterialTheme.typography.labelLarge)
                 }
             }
         }
-        gestureLevel?.let { (icon, level) -> LevelIndicator(icon, level, Modifier.align(Alignment.Center)) }
 
         if ((playback.buffering || playback.pendingSeek != null) && playback.error == null && !state.loading) {
             CircularProgressIndicator(Modifier.align(Alignment.Center).size(48.dp), color = Color.White, strokeWidth = 3.dp)
@@ -612,7 +730,7 @@ private fun VideoSurface(
         }
 
         AnimatedVisibility(
-            visible = controlsVisible && !state.loading,
+            visible = controlsVisible && !state.loading && !locked,
             enter = fadeIn(),
             exit = fadeOut(),
             modifier = Modifier.fillMaxSize(),
@@ -623,6 +741,11 @@ private fun VideoSurface(
                 state = state,
                 fullscreen = fullscreen,
                 pipSupported = pipSupported,
+                onLock = {
+                    locked = true
+                    showUnlock = false
+                    controlsVisible = false
+                },
                 onBack = onBack,
                 onToggleFullscreen = onToggleFullscreen,
                 onOpenSettings = onOpenSettings,
@@ -631,6 +754,32 @@ private fun VideoSurface(
                 onPrevious = onPrevious,
                 onInteract = ::scheduleHide,
             )
+        }
+
+        val skip = if (!state.loading && playback.error == null && !playback.ended) {
+            skipActionAt(playback.position, playback.duration, opMark)
+        } else null
+        LaunchedEffect((skip as? SkipAction.SkipOp)?.targetMs, state.episode.id) {
+            if (skip != null && shouldAutoSkip(settings.autoSkipOp, skip, state.episode.id, autoSkipHandledFor)) {
+                onAutoSkipped(state.episode.id)
+                player.seekSafely(skip.targetMs, playback)
+            }
+        }
+        if (skip != null && skipButtonVisible(controlsVisible, fullscreen, locked)) {
+            OutlinedButton(
+                onClick = {
+                    player.seekSafely(skip.targetMs, playback)
+                    if (controlsVisible) scheduleHide()
+                },
+                colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.Black.copy(alpha = 0.55f), contentColor = Color.White),
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = if (fullscreen) 32.dp else 12.dp, bottom = if (controlsVisible) 72.dp else 16.dp),
+            ) {
+                Icon(Icons.Rounded.FastForward, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(if (skip is SkipAction.SkipOp) "Lewati OP" else "+85 dtk")
+            }
         }
 
         val error = state.error ?: playback.error
@@ -654,11 +803,25 @@ private fun VideoSurface(
         if (playback.ended && !state.loading) {
             EndOverlay(
                 next = state.next,
-                autoPlay = settings.autoPlayNext,
+                autoPlay = autoPlayAllowed(settings.autoPlayNext, sleep, sleepExpired),
                 onNext = onNext,
                 onReplay = {
                     player.seekTo(0)
                     player.play()
+                },
+            )
+        }
+
+        // Topmost, so it swallows every touch meant for the layers below.
+        if (locked) {
+            LockedLayer(
+                showUnlock = showUnlock,
+                onTap = { showUnlock = !showUnlock },
+                onUnlock = {
+                    locked = false
+                    showUnlock = false
+                    controlsVisible = true
+                    scheduleHide()
                 },
             )
         }
@@ -672,6 +835,7 @@ private fun Controls(
     state: PlayerUiState,
     fullscreen: Boolean,
     pipSupported: Boolean,
+    onLock: () -> Unit,
     onBack: () -> Unit,
     onToggleFullscreen: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -713,6 +877,9 @@ private fun Controls(
                     color = Color.White.copy(alpha = 0.75f),
                     style = MaterialTheme.typography.labelSmall,
                 )
+            }
+            if (fullscreen) {
+                IconButton(onClick = onLock) { Icon(Icons.Rounded.Lock, "Kunci layar", tint = Color.White) }
             }
             if (pipSupported) {
                 IconButton(onClick = onEnterPip) { Icon(Icons.Rounded.PictureInPictureAlt, "Picture-in-Picture", tint = Color.White) }
@@ -805,6 +972,30 @@ private fun Controls(
     }
 }
 
+/** While locked, touches only reveal the unlock button; seeking, gestures and back are ignored. */
+@Composable
+private fun LockedLayer(showUnlock: Boolean, onTap: () -> Unit, onUnlock: () -> Unit) {
+    LaunchedEffect(showUnlock) {
+        if (showUnlock) {
+            delay(3_000)
+            onTap()
+        }
+    }
+    Box(Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures(onTap = { onTap() }) }) {
+        if (showUnlock) {
+            Button(
+                onClick = onUnlock,
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Black.copy(alpha = 0.6f), contentColor = Color.White),
+                modifier = Modifier.align(Alignment.Center),
+            ) {
+                Icon(Icons.Rounded.LockOpen, null)
+                Spacer(Modifier.width(8.dp))
+                Text("Buka kunci")
+            }
+        }
+    }
+}
+
 @Composable
 private fun TransportButton(icon: ImageVector, description: String, enabled: Boolean = true, onClick: () -> Unit) {
     IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(48.dp)) {
@@ -850,7 +1041,11 @@ private fun LevelIndicator(icon: ImageVector, level: Float, modifier: Modifier) 
 private fun EndOverlay(next: Episode?, autoPlay: Boolean, onNext: () -> Unit, onReplay: () -> Unit) {
     var remaining by remember(next?.id) { mutableIntStateOf(if (autoPlay && next != null) 6 else -1) }
     LaunchedEffect(next?.id, autoPlay) {
-        if (!autoPlay || next == null) return@LaunchedEffect
+        if (!autoPlay || next == null) {
+            // Autoplay can be switched off mid-countdown (sleep timer); drop the frozen count.
+            remaining = -1
+            return@LaunchedEffect
+        }
         while (remaining > 0) {
             delay(1_000)
             remaining--
@@ -1013,10 +1208,17 @@ private fun PlayerSettingsSheet(
     current: StreamSource?,
     speed: Float,
     resizeMode: Int,
+    positionMs: Long,
+    opMark: OpMark?,
+    sleep: SleepOption,
     onDismiss: () -> Unit,
     onSource: (StreamSource) -> Unit,
     onSpeed: (Float) -> Unit,
     onResize: (Int) -> Unit,
+    onMarkOpStart: () -> Unit,
+    onMarkOpEnd: () -> Unit,
+    onClearOpMark: () -> Unit,
+    onSleep: (SleepOption) -> Unit,
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
@@ -1056,6 +1258,37 @@ private fun PlayerSettingsSheet(
                         label = { Text("Isi layar") },
                         leadingIcon = { Icon(Icons.Rounded.AspectRatio, null, Modifier.size(16.dp)) },
                     )
+                }
+            }
+            item {
+                SheetTitle("Timer tidur")
+                LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(SleepOption.entries) { option ->
+                        FilterChip(selected = option == sleep, onClick = { onSleep(option) }, label = { Text(option.label) })
+                    }
+                }
+            }
+            item {
+                SheetTitle("Opening (OP)")
+                Text(
+                    if (opMark?.isValid == true) {
+                        "Tertanda ${formatDuration(opMark.startMs)} – ${formatDuration(opMark.endMs)} untuk semua episode anime ini."
+                    } else {
+                        "Tandai awal dan akhir OP sekali, tombol Lewati OP muncul di episode lain."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 20.dp),
+                )
+                Row(
+                    Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    OutlinedButton(onClick = onMarkOpStart) { Text("Awal di ${formatDuration(positionMs)}") }
+                    OutlinedButton(onClick = onMarkOpEnd) { Text("Akhir di ${formatDuration(positionMs)}") }
+                }
+                if (opMark != null) {
+                    TextButton(onClick = onClearOpMark, modifier = Modifier.padding(horizontal = 12.dp)) { Text("Hapus tanda OP") }
                 }
             }
         }

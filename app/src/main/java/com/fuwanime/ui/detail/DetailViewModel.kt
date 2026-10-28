@@ -1,6 +1,5 @@
 package com.fuwanime.ui.detail
 
-import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -12,7 +11,8 @@ import com.fuwanime.data.DownloadState
 import com.fuwanime.data.local.SettingsStore
 import com.fuwanime.data.Episode
 import com.fuwanime.data.LibraryRepository
-import com.fuwanime.data.SortOrder
+import com.fuwanime.data.SeasonEntry
+import com.fuwanime.data.rankSimilar
 import com.fuwanime.data.local.WatchHistoryEntity
 import com.fuwanime.data.remote.AnimeApiService.Companion.EPISODE_PAGE_SIZE
 import com.fuwanime.util.friendlyMessage
@@ -27,6 +27,10 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.math.ceil
+
+/** Franchise entries worth linking from a detail page. */
+fun relatedSeasons(currentId: String, seasons: List<SeasonEntry>): List<SeasonEntry> =
+    seasons.filter { it.anime.id.isNotBlank() && it.anime.id != currentId }.distinctBy { it.anime.id }
 
 /** A page of episodes as shown in the range picker, e.g. "1–30". */
 data class EpisodeRange(val page: Int, val label: String)
@@ -45,8 +49,10 @@ data class DetailUiState(
     val episodeQuery: String = "",
     /** Earliest episode of the series; the primary button plays it when there is no history. */
     val firstEpisode: Episode? = null,
-    /** Popular anime sharing at least one genre, shown as "Anime Serupa". */
+    /** Titles with closely matching genres, shown as "Anime Serupa". */
     val similar: List<Anime> = emptyList(),
+    /** Other seasons, movies and spin-offs of the same franchise, shown as "Season & Terkait". */
+    val seasons: List<SeasonEntry> = emptyList(),
 )
 
 class DetailViewModel(
@@ -54,12 +60,10 @@ class DetailViewModel(
     private val library: LibraryRepository,
     private val downloads: DownloadRepository,
     private val settings: SettingsStore,
-    private val debugLog: (String) -> Unit,
     saved: SavedStateHandle,
 ) : ViewModel() {
 
     val animeId: String = checkNotNull(saved["animeId"])
-    private val TAG = "FuwaDetail"
 
     private val _state = MutableStateFlow(DetailUiState(anime = repo.cachedAnime(animeId)))
     val state: StateFlow<DetailUiState> = _state.asStateFlow()
@@ -81,10 +85,12 @@ class DetailViewModel(
     fun loadInfo() {
         _state.update { it.copy(loadingInfo = true, infoError = null) }
         viewModelScope.launch {
-            repo.detail(animeId)
-                .onSuccess { a ->
-                    _state.update { it.copy(anime = a, loadingInfo = false) }
-                    loadSimilar(a)
+            repo.detailWithSeasons(animeId)
+                .onSuccess { d ->
+                    _state.update {
+                        it.copy(anime = d.anime, loadingInfo = false, seasons = relatedSeasons(animeId, d.seasons))
+                    }
+                    loadSimilar(d.anime)
                 }
                 .onFailure { e ->
                     _state.update { it.copy(loadingInfo = false, infoError = e.friendlyMessage()) }
@@ -95,23 +101,14 @@ class DetailViewModel(
         }
     }
 
-    /** Popular anime sharing at least one of this anime's first two genres (single cheap call). */
+    /** Titles whose genres resemble this anime's, from a genre-filtered pool, without its own franchise. */
     private suspend fun loadSimilar(anime: Anime) {
-        val genres = anime.genres.take(2).map { it.lowercase() }
-        debugLog("DBG-start: genres=$genres")
-        if (genres.isEmpty()) return
-        val result = repo.explore(0, SortOrder.POPULAR.apiValue)
-        val items = result.getOrNull().orEmpty()
-        val err = result.exceptionOrNull()?.let { it.friendlyMessage() } ?: "none"
-        val matched = items.filter { candidate ->
-            candidate.id != anime.id &&
-                candidate.genres.any { genres.contains(it.lowercase()) }
-        }.take(12)
+        if (anime.genres.isEmpty()) return
+        val candidates = repo.similarCandidates(anime).getOrNull().orEmpty()
         _state.update { s ->
-            if (s.anime?.id != anime.id) return@update s.copy(similar = s.similar)
-            s.copy(similar = matched)
+            if (s.anime?.id != anime.id) return@update s
+            s.copy(similar = rankSimilar(anime, candidates, exclude = s.seasons.map { it.anime.id }.toSet()))
         }
-        debugLog("DBG-end: items=${items.size} withGenres=${items.count { it.genres.isNotEmpty() }} matched=${matched.size} err=$err")
     }
 
     fun loadEpisodes() {

@@ -11,6 +11,8 @@ import com.fuwanime.data.closestTo
 import com.fuwanime.data.AnimeRepository
 import com.fuwanime.data.Episode
 import com.fuwanime.data.LibraryRepository
+import com.fuwanime.data.OpMark
+import com.fuwanime.data.nextLowerThan
 import com.fuwanime.data.StreamSource
 import com.fuwanime.data.local.AppSettings
 import com.fuwanime.data.local.SettingsStore
@@ -55,8 +57,10 @@ class PlayerViewModel(
     private val repo: AnimeRepository,
     private val library: LibraryRepository,
     private val downloads: DownloadRepository,
-    settingsStore: SettingsStore,
+    private val settingsStore: SettingsStore,
     private val appScope: CoroutineScope,
+    /** Whether the active network is metered (mobile data), for the mobile-data quality setting. */
+    private val isMetered: () -> Boolean,
     saved: SavedStateHandle,
 ) : ViewModel() {
 
@@ -69,6 +73,8 @@ class PlayerViewModel(
                 id = checkNotNull(saved["episodeId"]),
                 number = saved.get<String>("number").orEmpty(),
                 title = "Episode ${saved.get<String>("number").orEmpty()}",
+                // Shown in the video area until the first frame, so the tapped thumbnail has somewhere to land.
+                thumbnail = saved.get<String>("thumb").orEmpty(),
             ),
         ),
     )
@@ -82,7 +88,17 @@ class PlayerViewModel(
         .flatMapLatest { downloads.forEpisode(it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    /** The user's opening mark for this anime, shared by all its episodes. */
+    val opMark: StateFlow<OpMark?> =
+        settingsStore.opMark(animeId).stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
     private var loadJob: Job? = null
+
+    /** Height the user picked by hand in this player session; kept for the following episodes. */
+    private var sessionHeight: Int? = null
+
+    /** Sources of the current episode that already failed, so fallback never loops. */
+    private val failedUrls = mutableSetOf<String>()
 
     init {
         if (_state.value.anime == null) {
@@ -95,6 +111,7 @@ class PlayerViewModel(
 
     fun play(episode: Episode) {
         loadJob?.cancel()
+        failedUrls.clear()
         _state.update {
             it.copy(
                 episode = episode, sources = emptyList(), source = null, loading = true, error = null,
@@ -119,7 +136,7 @@ class PlayerViewModel(
                     number = episode.number.ifBlank { info.number },
                 )
             } ?: episode
-            val preferred = settings.first().preferredQuality
+            val preferred = preferredHeight(settings.first(), isMetered(), sessionHeight)
             _state.update {
                 it.copy(
                     episode = merged,
@@ -194,7 +211,38 @@ class PlayerViewModel(
     }
 
     fun selectSource(source: StreamSource, currentPositionMs: Long) {
+        if (source.height > 0) sessionHeight = source.height
         _state.update { it.copy(source = source, startPositionMs = currentPositionMs) }
+    }
+
+    /**
+     * Switches to the next lower quality after a playback error. Returns false when playing offline
+     * or when nothing lower is left, so the caller shows the error instead.
+     */
+    fun fallBack(positionMs: Long): Boolean {
+        val s = _state.value
+        val current = s.source ?: return false
+        if (s.offline) return false
+        failedUrls += current.url
+        val lower = s.sources.nextLowerThan(current, failedUrls) ?: return false
+        _state.update {
+            it.copy(
+                source = lower,
+                startPositionMs = positionMs,
+                message = "Gagal memutar ${current.quality}, beralih ke ${lower.quality}",
+            )
+        }
+        return true
+    }
+
+    fun markOpStart(positionMs: Long) = saveOpMark(markOp(opMark.value, positionMs, isStart = true))
+    fun markOpEnd(positionMs: Long) = saveOpMark(markOp(opMark.value, positionMs, isStart = false))
+    fun clearOpMark() {
+        viewModelScope.launch { settingsStore.clearOpMark(animeId) }
+    }
+
+    private fun saveOpMark(mark: OpMark) {
+        viewModelScope.launch { settingsStore.setOpMark(animeId, mark) }
     }
 
     fun playNext() {

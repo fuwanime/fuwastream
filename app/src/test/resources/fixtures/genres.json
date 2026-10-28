@@ -1,0 +1,173 @@
+{
+ "status": 200,
+ "error": false,
+ "data": {
+  "genre": [
+   {
+    "id": "14",
+    "name": "Action",
+    "group": "Genre"
+   },
+   {
+    "id": "16",
+    "name": "Adventure",
+    "group": "Genre"
+   },
+   {
+    "id": "25",
+    "name": "Comedy",
+    "group": "Genre"
+   },
+   {
+    "id": "43",
+    "name": "Demons",
+    "group": "Theme"
+   },
+   {
+    "id": "20",
+    "name": "Drama",
+    "group": "Genre"
+   },
+   {
+    "id": "17",
+    "name": "Ecchi",
+    "group": "Genre"
+   },
+   {
+    "id": "13",
+    "name": "Fantasy",
+    "group": "Genre"
+   },
+   {
+    "id": "37",
+    "name": "Game",
+    "group": "Theme"
+   },
+   {
+    "id": "29",
+    "name": "Harem",
+    "group": "Theme"
+   },
+   {
+    "id": "18",
+    "name": "Historical",
+    "group": "Theme"
+   },
+   {
+    "id": "35",
+    "name": "Horror",
+    "group": "Genre"
+   },
+   {
+    "id": "30",
+    "name": "Magic",
+    "group": "Theme"
+   },
+   {
+    "id": "15",
+    "name": "Martial Arts",
+    "group": "Theme"
+   },
+   {
+    "id": "40",
+    "name": "Mecha",
+    "group": "Theme"
+   },
+   {
+    "id": "36",
+    "name": "Military",
+    "group": "Theme"
+   },
+   {
+    "id": "33",
+    "name": "Music",
+    "group": "Genre"
+   },
+   {
+    "id": "21",
+    "name": "Mystery",
+    "group": "Genre"
+   },
+   {
+    "id": "44",
+    "name": "Parody",
+    "group": "Theme"
+   },
+   {
+    "id": "23",
+    "name": "Psychological",
+    "group": "Theme"
+   },
+   {
+    "id": "19",
+    "name": "Romance",
+    "group": "Genre"
+   },
+   {
+    "id": "26",
+    "name": "School",
+    "group": "Theme"
+   },
+   {
+    "id": "31",
+    "name": "Sci-Fi",
+    "group": "Genre"
+   },
+   {
+    "id": "22",
+    "name": "Seinen",
+    "group": "Demographic"
+   },
+   {
+    "id": "38",
+    "name": "Shoujo",
+    "group": "Demographic"
+   },
+   {
+    "id": "49",
+    "name": "Shoujo Ai",
+    "group": "Demographic"
+   },
+   {
+    "id": "32",
+    "name": "Shounen",
+    "group": "Demographic"
+   },
+   {
+    "id": "51",
+    "name": "Shounen Ai",
+    "group": "Demographic"
+   },
+   {
+    "id": "27",
+    "name": "Slice of Life",
+    "group": "Genre"
+   },
+   {
+    "id": "42",
+    "name": "Sports",
+    "group": "Genre"
+   },
+   {
+    "id": "41",
+    "name": "Super Power",
+    "group": "Theme"
+   },
+   {
+    "id": "24",
+    "name": "Supernatural",
+    "group": "Genre"
+   },
+   {
+    "id": "34",
+    "name": "Thriller",
+    "group": "Genre"
+   },
+   {
+    "id": "128",
+    "name": "Tokusatsu",
+    "group": "Theme"
+   }
+  ]
+ }
+}

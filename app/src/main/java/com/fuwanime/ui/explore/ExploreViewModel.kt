@@ -21,24 +21,32 @@ import kotlinx.coroutines.launch
 
 enum class StatusFilter(val label: String) { ALL("Semua"), ONGOING("Tayang"), FINISHED("Tamat") }
 
-/** Content types exposed by the API (verified via probe): SERIES, MOVIE, OVA, ONA, SPECIAL. */
-val AnimeTypes = listOf("Series", "Movie", "OVA", "ONA", "Special")
+/** [apiType] is the API's `type` value; null means no type filter. */
+enum class TypeFilter(val label: String, val apiType: String?) {
+    ALL("Semua", null),
+    SERIES("Series", "SERIES"),
+    MOVIE("Film", "MOVIE"),
+    LIVE_ACTION("Live Action", "LIVE ACTION"),
+    ONA("ONA", "ONA"),
+    OVA("OVA", "OVA"),
+    SPECIAL("Special", "SPECIAL");
+
+    fun matches(type: String): Boolean =
+        apiType == null || type.trim().replace('-', ' ').equals(apiType, ignoreCase = true)
+}
 
 data class ExploreFilters(
     val query: String = "",
     val genre: String? = null,
     val status: StatusFilter = StatusFilter.ALL,
+    val type: TypeFilter = TypeFilter.ALL,
     val sort: SortOrder = SortOrder.POPULAR,
-    val type: String? = null,
 ) {
-    val activeCount: Int get() = listOfNotNull(genre, status.takeIf { it != StatusFilter.ALL }, type).size
-
-    /**
-     * Server sort used for fetching. The popular feed is dominated by SERIES, so rare
-     * content types (Movie/OVA/ONA) are only findable in the latest feed — verified by
-     * probing 360 items of both feeds through the phone's browser.
-     */
-    val apiSort: String get() = if (type != null) "latest" else sort.apiValue
+    val activeCount: Int get() = listOfNotNull(
+        genre,
+        status.takeIf { it != StatusFilter.ALL },
+        type.takeIf { it != TypeFilter.ALL },
+    ).size
 }
 
 data class ExploreUiState(
@@ -95,25 +103,18 @@ class ExploreViewModel(
 
     fun setGenre(genre: String?) = updateFilters { it.copy(genre = genre) }
     fun setStatus(status: StatusFilter) = updateFilters { it.copy(status = status) }
+    fun setType(type: TypeFilter) = updateFilters { it.copy(type = type) }
     fun setSort(sort: SortOrder) = updateFilters { it.copy(sort = sort) }
-    fun setType(type: String?) {
-        if (type != null) {
-            // Rare types need the latest feed as the fetch basis — refetch from page 0.
-            _state.update { it.copy(filters = it.filters.copy(type = type)) }
-            reload()
-        } else {
-            updateFilters { it.copy(type = null) }
-        }
-    }
-    fun clearFilters() = updateFilters { it.copy(genre = null, status = StatusFilter.ALL, type = null) }
+    fun clearFilters() = updateFilters { it.copy(genre = null, status = StatusFilter.ALL, type = TypeFilter.ALL) }
 
     private fun updateFilters(change: (ExploreFilters) -> ExploreFilters) {
         val before = _state.value.filters
         val after = change(before)
         if (after == before) return
         _state.update { it.copy(filters = after) }
-        // Sort and query hit the server; genre/status only re-filter what we already have.
-        if (after.sort != before.sort || after.query != before.query) reload() else refilter(fillPage = true)
+        // Sort, query and type hit the server; genre/status only re-filter what we already have.
+        if (after.sort != before.sort || after.query != before.query || after.type != before.type) reload()
+        else refilter(fillPage = true)
     }
 
     fun reload() {
@@ -131,10 +132,10 @@ class ExploreViewModel(
         loadJob = viewModelScope.launch {
             _state.update { it.copy(loadingMore = !it.loading, error = null) }
             val startCount = _state.value.results.size
-            // Genre/status/type filtering is client-side, so keep fetching until enough new matches show up.
+            // Genre/status filtering is client-side, so keep fetching until enough new matches show up.
             repeat(MAX_PAGES_PER_BATCH) {
                 val f = _state.value.filters
-                val page = repo.explore(nextPage, f.apiSort, f.query).getOrElse { e ->
+                val page = repo.explore(nextPage, f.sort, f.query, f.type.apiType).getOrElse { e ->
                     _state.update { it.copy(loading = false, loadingMore = false, error = e.friendlyMessage()) }
                     return@launch
                 }
@@ -157,12 +158,13 @@ class ExploreViewModel(
         val filtered = raw.filter { a ->
             (f.genre == null || a.genres.any { it.equals(f.genre, ignoreCase = true) } ||
                 (f.genre.equals("Isekai", true) && a.synopsis.contains("isekai", true))) &&
-                (f.type == null || a.type.equals(f.type, ignoreCase = true)) &&
                 when (f.status) {
                     StatusFilter.ALL -> true
                     StatusFilter.ONGOING -> a.isOngoing
                     StatusFilter.FINISHED -> !a.isOngoing && !a.isUpcoming
-                }
+                } &&
+                // Server-filtered pages already match; keyword searches are type-filtered here.
+                f.type.matches(a.type)
         }
         _state.update { it.copy(results = filtered) }
         if (fillPage) {

@@ -22,10 +22,12 @@ import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.ManageSearch
-import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.PictureInPictureAlt
 import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.FastForward
+import androidx.compose.material.icons.rounded.NotificationsActive
+import androidx.compose.material.icons.rounded.SignalCellularAlt
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -140,6 +142,17 @@ fun SettingsRoute(onBack: () -> Unit) {
                 }
             }
             item {
+                ChoiceRow(
+                    Icons.Rounded.SignalCellularAlt,
+                    "Kualitas di data seluler",
+                    listOf(0, 360, 480, 720),
+                    s.mobileDataQuality,
+                    { if (it == 0) "Ikuti default" else "${it}p" },
+                ) {
+                    vm.update { setMobileDataQuality(it) }
+                }
+            }
+            item {
                 SwitchRow(Icons.Rounded.SkipNext, "Putar otomatis episode berikutnya", "Hitung mundur 6 detik di akhir episode", s.autoPlayNext) {
                     vm.update { setAutoPlayNext(it) }
                 }
@@ -147,6 +160,16 @@ fun SettingsRoute(onBack: () -> Unit) {
             item {
                 SwitchRow(Icons.Rounded.PictureInPictureAlt, "Picture-in-Picture otomatis", "Video mengecil saat kamu keluar aplikasi", s.autoPip) {
                     vm.update { setAutoPip(it) }
+                }
+            }
+            item {
+                SwitchRow(
+                    Icons.Rounded.FastForward,
+                    "Lewati OP otomatis",
+                    "Untuk anime yang OP-nya sudah kamu tandai di pemutar",
+                    s.autoSkipOp,
+                ) {
+                    vm.update { setAutoSkipOp(it) }
                 }
             }
             item {

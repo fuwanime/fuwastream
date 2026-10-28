@@ -22,6 +22,8 @@ android {
           ?.takeIf { it > 1_000_000 }
           ?: (System.currentTimeMillis() / 60_000L).toInt()
       versionName = System.getenv("VERSION_NAME") ?: "2.0.0"
+      // The in-app update checker looks at the repo this APK was built from (a fork checks its own releases).
+      buildConfigField("String", "UPDATE_REPO", "\"${System.getenv("GITHUB_REPOSITORY") ?: "fuwanime/fuwastream"}\"")
   }
 
   signingConfigs {

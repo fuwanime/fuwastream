@@ -1,0 +1,59 @@
+{
+ "status": 200,
+ "error": false,
+ "data": {
+  "movie": [
+   {
+    "id": "6622",
+    "title": "Tensei Goblin dakedo Shitsumon Aru?",
+    "synopsis": "Sifat altruistik Akira Yagami, seorang p",
+    "synonyms": "So What's Wrong with Getting Reborn as a Goblin?",
+    "image_poster": "https://xyz-api.animein.net//assets_xyz/images/movie/poster/98ef6efb69ead575c6232e8cc61fc9ea.jpg",
+    "image_cover": "https://xyz-api.animein.net//assets_xyz/images/movie/cover/46f51fdcc4c63c592cd3641c0e2dca57.jpg",
+    "type": "SERIES",
+    "year": "2026",
+    "day": "SENIN",
+    "status": "ONGOING",
+    "views": "44522",
+    "favorites": "5669",
+    "aired_start": "2026-10-05",
+    "key_time_update": "2026-10-26 20:10:10",
+    "genre": "Episode 5"
+   },
+   {
+    "id": "6566",
+    "title": "Doumo, Suki na Hito ni Horegusuri wo Irai sareta Majo desu.",
+    "synopsis": "Jauh di dalam hutan, sebuah pondok yang ",
+    "synonyms": "I'm a Witch Who's Crush Requested a Love Potion, Hello, I Am a Witch and My Crush Wants Me to Make a Love Potion!",
+    "image_poster": "https://xyz-api.animein.net//assets_xyz/images/movie/poster/bd53d2dff62cb3d744059bea27e79d08.jpg",
+    "image_cover": "https://xyz-api.animein.net//assets_xyz/images/movie/cover/e7f31cb60f95e4f1650678c21517d17b.jpg",
+    "type": "SERIES",
+    "year": "2026",
+    "day": "SENIN",
+    "status": "ONGOING",
+    "views": "17203",
+    "favorites": "6737",
+    "aired_start": "2026-10-00",
+    "key_time_update": "2026-10-26 19:55:16",
+    "genre": "Episode 4"
+   },
+   {
+    "id": "6103",
+    "title": "Xian Ni",
+    "synopsis": "Wang Lin adalah anak yang sangat cerdas ",
+    "synonyms": "Renegade Immortal, 仙逆",
+    "image_poster": "https://xyz-api.animein.net//assets_xyz/images/movie/poster/833d75110fb953cf84ead5a2c7f4390e.jpg",
+    "image_cover": "https://xyz-api.animein.net//assets_xyz/images/movie/cover/4b340b485525961cd25c2589bb2bcca8.jpg",
+    "type": "ONA",
+    "year": "2026",
+    "day": "SENIN",
+    "status": "ONGOING",
+    "views": "409599",
+    "favorites": "5172",
+    "aired_start": "2023-09-25",
+    "key_time_update": "2026-10-26 01:10:16",
+    "genre": "Episode 164"
+   }
+  ]
+ }
+}

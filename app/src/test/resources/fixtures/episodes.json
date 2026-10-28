@@ -1,0 +1,30 @@
+{
+ "status": 200,
+ "error": false,
+ "data": {
+  "episode": [
+   {
+    "id": "321665",
+    "index": "5",
+    "title": "Episode 5",
+    "views": "1016",
+    "id_movie": "6622",
+    "key_time": "26 Oct 2026",
+    "image": "",
+    "is_new": "1",
+    "is_book": 0
+   },
+   {
+    "id": "321547",
+    "index": "4",
+    "title": "Episode 4",
+    "views": "8577",
+    "id_movie": "6622",
+    "key_time": "19 Oct 2026",
+    "image": "",
+    "is_new": "0",
+    "is_book": 0
+   }
+  ]
+ }
+}

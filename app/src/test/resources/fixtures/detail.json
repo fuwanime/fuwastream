@@ -1,0 +1,77 @@
+{
+ "status": 200,
+ "error": false,
+ "data": {
+  "movie": {
+   "id": "4832",
+   "title": "One Piece: Live Action",
+   "synopsis": "Adaptasi live action dari seri One Piece.",
+   "synonyms": "OP Live Action",
+   "image_poster": "https://api.animein.net//assets/images/movie/poster/9f5e7cc5b9d7f7ae12ef4fec8ac85622.jpg",
+   "image_cover": "https://api.animein.net//assets/images/movie/cover/87c5ab56d2acb2af96b7371982df94b2.jpg",
+   "type": "LIVE ACTION",
+   "year": "2023",
+   "day": "RANDOM",
+   "status": "FINISHED",
+   "views": "37321",
+   "favorites": "2104",
+   "studio": "Tomorrow Studios",
+   "aired_start": "2023-08-31",
+   "aired_end": "2023-08-31",
+   "key_status": "active",
+   "genre": "Action,Adventure,Comedy,Fantasy,Shounen,Super Power",
+   "is_fav": 0
+  },
+  "episode": {
+   "id": "128692",
+   "index": "1",
+   "title": "Episode 1",
+   "views": "13270",
+   "id_movie": "4832",
+   "key_time": "31 Aug 2023",
+   "image": "/assets/images/movie/episode/ee99747b4f0ba0cde3f4eab9b591e681.jpg_large.jpg"
+  },
+  "season": [
+   {
+    "id": "4832",
+    "title": "One Piece: Live Action",
+    "synopsis": "Adaptasi live action dari seri One Piece",
+    "synonyms": "OP Live Action",
+    "image_poster": "https://api.animein.net//assets/images/movie/poster/9f5e7cc5b9d7f7ae12ef4fec8ac85622.jpg",
+    "image_cover": "https://api.animein.net//assets/images/movie/cover/87c5ab56d2acb2af96b7371982df94b2.jpg",
+    "type": "LIVE ACTION",
+    "year": "2023",
+    "day": "RANDOM",
+    "status": "FINISHED",
+    "views": "37321",
+    "favorites": "2104",
+    "season": "S1",
+    "genre": "-",
+    "is_fav": "0",
+    "studio": "Tomorrow Studios",
+    "aired_start": "2023-08-31",
+    "aired_end": "2023-08-31"
+   },
+   {
+    "id": "6335",
+    "title": "One Piece: Into the Grand Line",
+    "synopsis": "Mengikuti kru Topi Jerami ke Grand Line ",
+    "synonyms": "One Piece: Live Action Season 2, OP Live Action Season 2",
+    "image_poster": "https://xyz-api.animein.net//assets_xyz/images/movie/poster/7e86687c15daf623626c439a3dbec2bc.jpg",
+    "image_cover": "https://xyz-api.animein.net//assets_xyz/images/movie/cover/606e38eb7f50d75445f88868c47a16d5.jpg",
+    "type": "LIVE ACTION",
+    "year": "2026",
+    "day": "RANDOM",
+    "status": "FINISHED",
+    "views": "18030",
+    "favorites": "1146",
+    "season": "S2",
+    "genre": "-",
+    "is_fav": "0",
+    "studio": "Tomorrow Studios",
+    "aired_start": "2026-03-10",
+    "aired_end": "2026-03-10"
+   }
+  ]
+ }
+}

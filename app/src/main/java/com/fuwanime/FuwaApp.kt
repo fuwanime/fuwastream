@@ -19,7 +19,7 @@ import kotlinx.coroutines.SupervisorJob
 import okhttp3.OkHttpClient
 
 /** Manual DI: one instance of each dependency for the whole process. */
-class AppContainer(val app: Application) {
+class AppContainer(app: Application) {
     val httpClient: OkHttpClient = AnimeApiService.createHttpClient()
     val animeRepository = AnimeRepository(AnimeApiService.create(httpClient))
     private val database = FuwaDatabase.create(app)
@@ -33,16 +33,6 @@ class AppContainer(val app: Application) {
 
     /** In-app update checker against GitHub Releases. */
     val updateRepository = UpdateRepository(settingsStore)
-
-    /** Append-only debug file in the app's external dir (readable via adb shell cat). */
-    fun debugLog(line: String) {
-        runCatching {
-            val dir = app.getExternalFilesDir(null) ?: return
-            java.io.File(dir, "fuwa-debug.log").appendText(
-                "${System.currentTimeMillis()} $line\n",
-            )
-        }
-    }
 
     /** Video requests get the same UA as the API but none of its JSON headers. */
     val videoHttpClient: OkHttpClient = httpClient.newBuilder().apply { interceptors().clear() }.build()

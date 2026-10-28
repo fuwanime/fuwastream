@@ -73,6 +73,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
+import com.fuwanime.ui.motion.Motion
+import com.fuwanime.ui.motion.sharedPosterKey
+import com.fuwanime.ui.motion.sharedKey
+import com.fuwanime.ui.motion.pressScale
+import com.fuwanime.ui.motion.OpenAnime
 import com.fuwanime.data.Anime
 import com.fuwanime.data.UpdateRepository
 import com.fuwanime.data.local.WatchHistoryEntity
@@ -87,6 +96,8 @@ import com.fuwanime.ui.components.StatusPill
 import com.fuwanime.ui.components.fadeToBackground
 import com.fuwanime.util.airTime
 import com.fuwanime.util.compactNumber
+import com.fuwanime.util.episodeShortLabel
+import com.fuwanime.util.relativeTime
 import com.fuwanime.util.fuwaViewModel
 import kotlinx.coroutines.delay
 
@@ -97,7 +108,7 @@ val QuickGenres = listOf(
 
 @Composable
 fun HomeRoute(
-    onAnimeClick: (Anime) -> Unit,
+    onAnimeClick: OpenAnime,
     onContinue: (WatchHistoryEntity) -> Unit,
     onSearch: () -> Unit,
     onSettings: () -> Unit,
@@ -132,7 +143,7 @@ private fun HomeScreen(
     onRefresh: () -> Unit,
     update: UpdateRepository.UpdateInfo?,
     onDismissUpdate: () -> Unit,
-    onAnimeClick: (Anime) -> Unit,
+    onAnimeClick: OpenAnime,
     onContinue: (WatchHistoryEntity) -> Unit,
     onSearch: () -> Unit,
     onSettings: () -> Unit,
@@ -145,18 +156,23 @@ private fun HomeScreen(
 
     PullToRefreshBox(isRefreshing = feed.refreshing, onRefresh = onRefresh, modifier = Modifier.fillMaxSize()) {
         LazyColumn(state = listState, contentPadding = PaddingValues(bottom = 24.dp), modifier = Modifier.fillMaxSize()) {
+            item(key = "hero") {
+                val heroLoading = feed.loading && state.hero.isEmpty()
+                Crossfade(heroLoading, animationSpec = tween(Motion.Medium), label = "hero") { loading ->
+                    if (loading) {
+                        SkeletonBox(Modifier.fillMaxWidth().height(600.dp), shape = MaterialTheme.shapes.extraSmall)
+                    } else if (state.hero.isNotEmpty()) {
+                        HeroPager(state.hero) { onAnimeClick(it, "home-hero") }
+                    } else {
+                        Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars).height(72.dp))
+                    }
+                }
+            }
+
+            // Below the hero, not under the status bar where the edge-to-edge hero starts.
             if (update != null) {
                 item(key = "updateBanner") {
                     UpdateBanner(update, onClick = { showUpdateSheet = true }, onDismiss = onDismissUpdate)
-                }
-            }
-            item(key = "hero") {
-                if (feed.loading && state.hero.isEmpty()) {
-                    SkeletonBox(Modifier.fillMaxWidth().height(600.dp), shape = MaterialTheme.shapes.extraSmall)
-                } else if (state.hero.isNotEmpty()) {
-                    HeroPager(state.hero, onAnimeClick)
-                } else {
-                    Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars).height(72.dp))
                 }
             }
 
@@ -172,9 +188,25 @@ private fun HomeScreen(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
                             items(state.continueWatching, key = { it.episodeId }) { entry ->
-                                ContinueWatchingCard(entry, onClick = { onContinue(entry) })
+                                ContinueWatchingCard(entry, onClick = { onContinue(entry) }, sharedOrigin = "home-cw")
                             }
                         }
+                    }
+                }
+            }
+
+            if (feed.loading || feed.latest.isNotEmpty()) {
+                item(key = "latest") {
+                    Section("Episode Terbaru", subtitle = "Baru saja dirilis") {
+                        val releases = remember(feed.latest) { feed.latest.associateBy { it.anime.id } }
+                        PosterRow(feed.latest.map { it.anime }, feed.loading, { onAnimeClick(it, "home-latest") }, origin = "home-latest", caption = { a ->
+                            releases[a.id]?.let { r ->
+                                listOf(episodeShortLabel(r.episodeLabel), relativeTime(r.updatedAt))
+                                    .filter { it.isNotBlank() }
+                                    .joinToString(" • ")
+                                    .ifBlank { null }
+                            }
+                        })
                     }
                 }
             }
@@ -182,7 +214,7 @@ private fun HomeScreen(
             if (feed.loading || feed.today.isNotEmpty()) {
                 item(key = "today") {
                     Section("Tayang Hari Ini", subtitle = todayLabel, onSeeAll = onSchedule) {
-                        PosterRow(feed.today, feed.loading, onAnimeClick, caption = { a ->
+                        PosterRow(feed.today, feed.loading, { onAnimeClick(it, "home-today") }, origin = "home-today", caption = { a ->
                             a.nextAirTime.takeIf { it.isNotBlank() }?.let { "Rilis ${airTime(it)}" }
                         })
                     }
@@ -192,14 +224,20 @@ private fun HomeScreen(
             if (feed.loading || feed.thisSeason.isNotEmpty()) {
                 item(key = "season") {
                     Section("Sedang Tayang", subtitle = "Anime ongoing musim ini") {
-                        PosterRow(feed.thisSeason, feed.loading, onAnimeClick, caption = { "${compactNumber(it.views)} ditonton" })
+                        PosterRow(
+                            feed.thisSeason, feed.loading, { onAnimeClick(it, "home-season") },
+                            origin = "home-season", caption = { "${compactNumber(it.views)} ditonton" },
+                        )
                     }
                 }
             }
 
             item(key = "popular") {
                 Section("Terpopuler", subtitle = "Paling banyak ditonton", onSeeAll = { onExplore(null) }) {
-                    PosterRow(feed.popular.take(20), feed.loading, onAnimeClick, caption = { "${compactNumber(it.views)} ditonton" })
+                    PosterRow(
+                        feed.popular.take(20), feed.loading, { onAnimeClick(it, "home-popular") },
+                        origin = "home-popular", caption = { "${compactNumber(it.views)} ditonton" },
+                    )
                 }
             }
 
@@ -409,14 +447,17 @@ private fun HeroPager(items: List<Anime>, onOpen: (Anime) -> Unit) {
                     Modifier.align(Alignment.BottomCenter).padding(start = 24.dp, end = 24.dp, bottom = 36.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
+                    val press = remember { MutableInteractionSource() }
                     NetImage(
                         anime.poster,
                         Modifier
                             .width(176.dp)
                             .aspectRatio(2f / 3f)
+                            .pressScale(press)
+                            .sharedKey(sharedPosterKey(anime.id, "home-hero"))
                             .shadow(24.dp, MaterialTheme.shapes.large)
                             .clip(MaterialTheme.shapes.large)
-                            .clickable { onOpen(anime) },
+                            .clickable(interactionSource = press, indication = LocalIndication.current) { onOpen(anime) },
                         anime.title,
                     )
                     Spacer(Modifier.height(18.dp))

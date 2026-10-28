@@ -51,6 +51,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import com.fuwanime.ui.motion.sharedKey
+import com.fuwanime.ui.motion.sharedEpisodeKey
+import com.fuwanime.ui.motion.OpenAnime
 import com.fuwanime.data.Anime
 import com.fuwanime.util.formatBytes
 import com.fuwanime.data.local.DownloadEntity
@@ -105,7 +108,7 @@ fun FavoriteEntity.toAnime() = Anime(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryRoute(
-    onAnimeClick: (Anime) -> Unit,
+    onAnimeClick: OpenAnime,
     onResume: (WatchHistoryEntity) -> Unit,
     onPlayDownload: (DownloadEntity) -> Unit,
 ) {
@@ -158,7 +161,7 @@ fun LibraryRoute(
 private fun HistoryList(
     items: List<WatchHistoryEntity>?,
     onResume: (WatchHistoryEntity) -> Unit,
-    onAnimeClick: (Anime) -> Unit,
+    onAnimeClick: OpenAnime,
     onRemove: (String) -> Unit,
 ) {
     if (items == null) return
@@ -173,7 +176,10 @@ private fun HistoryList(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(Modifier.width(140.dp).aspectRatio(16f / 9f).clip(MaterialTheme.shapes.small)) {
-                    NetImage(entry.episodeThumbnail.ifBlank { entry.animeCover }, Modifier.fillMaxSize())
+                    NetImage(
+                        entry.episodeThumbnail.ifBlank { entry.animeCover },
+                        Modifier.fillMaxSize().sharedKey(sharedEpisodeKey(entry.episodeId, "library")).clip(MaterialTheme.shapes.small),
+                    )
                     LinearProgressIndicator(
                         progress = { entry.progress },
                         modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(3.dp),
@@ -189,7 +195,7 @@ private fun HistoryList(
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.clickable {
-                            onAnimeClick(Anime(entry.animeId, entry.animeTitle, poster = entry.animePoster, cover = entry.animeCover))
+                            onAnimeClick(Anime(entry.animeId, entry.animeTitle, poster = entry.animePoster, cover = entry.animeCover), "library-history")
                         },
                     )
                     Text("Episode ${entry.episodeNumber}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
@@ -211,7 +217,7 @@ private fun HistoryList(
 }
 
 @Composable
-private fun FavoriteGrid(items: List<FavoriteEntity>?, onAnimeClick: (Anime) -> Unit) {
+private fun FavoriteGrid(items: List<FavoriteEntity>?, onAnimeClick: OpenAnime) {
     if (items == null) return
     if (items.isEmpty()) {
         MessageState(Icons.Rounded.FavoriteBorder, "Belum ada favorit", message = "Ketuk ikon hati di halaman anime untuk menyimpannya di sini.")
@@ -225,7 +231,7 @@ private fun FavoriteGrid(items: List<FavoriteEntity>?, onAnimeClick: (Anime) -> 
     ) {
         items(items, key = { it.animeId }) { fav ->
             val anime = fav.toAnime()
-            PosterCard(anime, onClick = { onAnimeClick(anime) })
+            PosterCard(anime, onClick = { onAnimeClick(anime, "library-fav") }, sharedOrigin = "library-fav")
         }
     }
 }

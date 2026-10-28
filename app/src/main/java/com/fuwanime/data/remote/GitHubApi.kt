@@ -1,5 +1,6 @@
 package com.fuwanime.data.remote
 
+import com.fuwanime.BuildConfig
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
@@ -24,7 +25,7 @@ data class GitHubAsset(
 )
 
 object GitHubApi {
-    private const val LATEST_URL = "https://api.github.com/repos/fuwanime/fuwastream/releases/latest"
+    private val LATEST_URL = "https://api.github.com/repos/${BuildConfig.UPDATE_REPO}/releases/latest"
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
