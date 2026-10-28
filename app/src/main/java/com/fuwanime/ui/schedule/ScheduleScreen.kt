@@ -40,6 +40,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import com.fuwanime.ui.motion.sharedPosterKey
+import com.fuwanime.ui.motion.sharedKey
+import com.fuwanime.ui.motion.OpenAnime
 import com.fuwanime.data.Anime
 import com.fuwanime.data.AnimeRepository
 import com.fuwanime.ui.components.ErrorState
@@ -90,7 +93,7 @@ class ScheduleViewModel(private val repo: AnimeRepository) : ViewModel() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ScheduleRoute(onAnimeClick: (Anime) -> Unit) {
+fun ScheduleRoute(onAnimeClick: OpenAnime) {
     val vm: ScheduleViewModel = fuwaViewModel { c, _ -> ScheduleViewModel(c.animeRepository) }
     val days by vm.days.collectAsStateWithLifecycle()
     val today = Day.today()
@@ -153,7 +156,7 @@ fun ScheduleRoute(onAnimeClick: (Anime) -> Unit) {
                         modifier = Modifier.fillMaxSize(),
                     ) {
                         items(schedule.items, key = { it.id }) { anime ->
-                            ScheduleRow(anime, onClick = { onAnimeClick(anime) })
+                            ScheduleRow(anime, origin = "schedule-${day.apiValue}", onClick = { onAnimeClick(anime, "schedule-${day.apiValue}") })
                         }
                     }
                 }
@@ -163,7 +166,7 @@ fun ScheduleRoute(onAnimeClick: (Anime) -> Unit) {
 }
 
 @Composable
-private fun ScheduleRow(anime: Anime, onClick: () -> Unit) {
+private fun ScheduleRow(anime: Anime, origin: String, onClick: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -172,7 +175,11 @@ private fun ScheduleRow(anime: Anime, onClick: () -> Unit) {
             .padding(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        NetImage(anime.poster, Modifier.width(76.dp).aspectRatio(2f / 3f).clip(MaterialTheme.shapes.small), anime.title)
+        NetImage(
+            anime.poster,
+            Modifier.width(76.dp).aspectRatio(2f / 3f).sharedKey(sharedPosterKey(anime.id, origin)).clip(MaterialTheme.shapes.small),
+            anime.title,
+        )
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             val time = airTime(anime.nextAirTime)

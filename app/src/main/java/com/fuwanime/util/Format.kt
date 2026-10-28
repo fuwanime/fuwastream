@@ -1,7 +1,9 @@
 package com.fuwanime.util
 
+import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
+import java.util.TimeZone
 
 private val ID = Locale.forLanguageTag("id-ID")
 
@@ -58,6 +60,26 @@ enum class Day(val apiValue: String, val label: String, val short: String) {
 /** "2026-10-22 00:36:10" -> "00:36"; anything unparseable is shown as-is. */
 fun airTime(raw: String): String =
     Regex("""\d{4}-\d{2}-\d{2} (\d{2}:\d{2})""").find(raw)?.groupValues?.get(1) ?: raw
+
+/** "Episode 5" -> "Ep 5". */
+fun episodeShortLabel(label: String): String = label.trim().replace(Regex("^episode\\s*", RegexOption.IGNORE_CASE), "Ep ")
+
+/** "2026-10-26 20:10:10" (WIB, as the API sends it) -> "3 jam lalu"; unparseable or future -> "". */
+fun relativeTime(raw: String, nowMs: Long = System.currentTimeMillis()): String {
+    val format = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).apply {
+        timeZone = TimeZone.getTimeZone("Asia/Jakarta")
+        isLenient = false
+    }
+    val at = runCatching { format.parse(raw.trim()) }.getOrNull()?.time ?: return ""
+    val diff = nowMs - at
+    return when {
+        diff < -60_000 -> ""
+        diff < 60_000 -> "baru saja"
+        diff < 3_600_000 -> "${diff / 60_000} mnt lalu"
+        diff < 86_400_000 -> "${diff / 3_600_000} jam lalu"
+        else -> "${diff / 86_400_000} hari lalu"
+    }
+}
 
 fun Throwable.friendlyMessage(): String = when (this) {
     is java.net.UnknownHostException -> "Tidak ada koneksi internet."

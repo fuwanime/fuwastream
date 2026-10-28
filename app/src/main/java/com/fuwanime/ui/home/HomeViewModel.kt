@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fuwanime.data.Anime
 import com.fuwanime.data.AnimeRepository
+import com.fuwanime.data.LatestRelease
 import com.fuwanime.data.LibraryRepository
 import com.fuwanime.data.SortOrder
 import com.fuwanime.data.UpdateRepository
@@ -27,6 +28,8 @@ data class HomeFeed(
     val popular: List<Anime> = emptyList(),
     val today: List<Anime> = emptyList(),
     val thisSeason: List<Anime> = emptyList(),
+    /** Titles with a freshly released episode, newest first. */
+    val latest: List<LatestRelease> = emptyList(),
     val loading: Boolean = true,
     val refreshing: Boolean = false,
     val error: String? = null,
@@ -90,7 +93,8 @@ class HomeViewModel(
 
     /** Returns true when something useful was loaded. */
     private suspend fun fetch(showError: Boolean): Boolean = coroutineScope {
-        val popularJob = async { anime.explore(page = 0, sort = SortOrder.POPULAR.apiValue) }
+        val popularJob = async { anime.explore(page = 0, sort = SortOrder.POPULAR) }
+        val latestJob = async { anime.latestReleases(LATEST_LIMIT) }
         // Every day's schedule together approximates "currently airing this season".
         val dayJobs = Day.entries.map { day -> day to async { anime.schedule(day.apiValue) } }
 
@@ -108,6 +112,7 @@ class HomeViewModel(
             popular = popular.getOrDefault(feed.value.popular),
             today = todayList,
             thisSeason = season,
+            latest = latestJob.await().getOrDefault(feed.value.latest),
             loading = false,
             refreshing = false,
             error = error,
@@ -117,5 +122,6 @@ class HomeViewModel(
 
     private companion object {
         const val AUTO_RETRIES = 3
+        const val LATEST_LIMIT = 20
     }
 }

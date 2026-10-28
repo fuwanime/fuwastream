@@ -7,6 +7,24 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
+ * True only when [candidate] is a later release of the same kind as [current]: "build-N" by number, "vX.Y.Z" by
+ * version. Anything else (older, equal, mixed or unknown tags) is not offered as an update.
+ */
+fun isNewerRelease(candidate: String, current: String): Boolean {
+    fun build(tag: String) = tag.removePrefix("build-").takeIf { tag.startsWith("build-") }?.toIntOrNull()
+    fun version(tag: String) = tag.takeIf { it.startsWith("v") }?.drop(1)?.split('.')?.map { it.toIntOrNull() ?: return null }
+    build(candidate)?.let { c -> return build(current)?.let { c > it } ?: false }
+    val c = version(candidate) ?: return false
+    val v = version(current) ?: return false
+    for (i in 0 until maxOf(c.size, v.size)) {
+        val a = c.getOrElse(i) { 0 }
+        val b = v.getOrElse(i) { 0 }
+        if (a != b) return a > b
+    }
+    return false
+}
+
+/**
  * In-app update checker against the GitHub Releases page. The changelog (release body)
  * is shown inside the app so users never have to open a GitHub compare view.
  */
@@ -36,7 +54,7 @@ class UpdateRepository(private val settingsStore: SettingsStore) {
         if (!settingsStore.shouldCheckUpdate(currentTag)) return@withContext null
         val release = GitHubApi.latest() ?: return@withContext null
         settingsStore.markUpdateChecked()
-        if (release.tagName == currentTag) return@withContext null
+        if (!isNewerRelease(release.tagName, currentTag)) return@withContext null
 
         UpdateInfo(
             tag = release.tagName,

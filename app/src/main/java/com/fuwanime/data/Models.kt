@@ -39,6 +39,7 @@ data class Episode(
     val thumbnail: String = "",
     val releaseDate: String = "",
     val views: Long = 0,
+    val isNew: Boolean = false,
 ) {
     /** Numeric episode index for sorting; fractional episodes (e.g. 12.5) keep their order. */
     val sortKey: Double get() = number.toDoubleOrNull() ?: Double.MAX_VALUE
@@ -54,9 +55,29 @@ data class StreamSource(
     val height: Int get() = Regex("""(\d{3,4})""").find(quality)?.value?.toIntOrNull() ?: 0
 }
 
+/** The best source below [current] that has not been tried yet; null when there is nothing lower. */
+fun List<StreamSource>.nextLowerThan(current: StreamSource, tried: Set<String>): StreamSource? =
+    filter { it.height in 1 until current.height && it.url !in tried }.maxByOrNull { it.height }
+
 /** Source whose resolution is nearest the preferred height; unlabeled sources rank last. */
 fun List<StreamSource>.closestTo(preferredHeight: Int): StreamSource? =
     minByOrNull { s -> if (s.height == 0) Int.MAX_VALUE else kotlin.math.abs(s.height - preferredHeight) }
+
+/** Where the opening sits in an anime's episodes, as marked by the user. */
+data class OpMark(val startMs: Long, val endMs: Long) {
+    val isValid: Boolean get() = endMs > startMs
+}
+
+/** A title from the latest-episodes feed. */
+@Immutable
+data class LatestRelease(val anime: Anime, val episodeLabel: String, val updatedAt: String)
+
+/** One entry of a title's franchise list ("S1", "Movie", …) from the detail response. */
+@Immutable
+data class SeasonEntry(val anime: Anime, val label: String)
+
+@Immutable
+data class AnimeDetail(val anime: Anime, val seasons: List<SeasonEntry>)
 
 @Immutable
 data class EpisodeStream(
@@ -78,7 +99,8 @@ fun AnimeDto.toAnime() = Anime(
     favorites = favorites?.toLongOrNull() ?: 0,
     studio = studio.orEmpty(),
     airedStart = airedStart.orEmpty(),
-    genres = genre.orEmpty().split(',').map { it.trim() }.filter { it.isNotEmpty() },
+    // Franchise entries send "-" for no genre.
+    genres = genre.orEmpty().split(',').map { it.trim() }.filter { it.isNotEmpty() && it != "-" },
     nextAirTime = keyTime.orEmpty(),
 )
 
@@ -95,8 +117,21 @@ fun EpisodeDto.toEpisode(): Episode {
         thumbnail = imageUrl(image),
         releaseDate = keyTime.orEmpty(),
         views = views?.toLongOrNull() ?: 0,
+        isNew = when (val n = isNew) {
+            is String -> n.trim() == "1" || n.trim().equals("true", ignoreCase = true)
+            is Number -> n.toInt() == 1
+            is Boolean -> n
+            else -> false
+        },
     )
 }
+
+/** The latest-episodes feed reuses `genre` for the episode label, so the anime gets no genres from it. */
+fun AnimeDto.toLatestRelease() = LatestRelease(
+    anime = toAnime().copy(genres = emptyList()),
+    episodeLabel = genre?.trim()?.takeIf { it.startsWith("Episode", ignoreCase = true) }.orEmpty(),
+    updatedAt = keyTimeUpdate?.trim().orEmpty(),
+)
 
 fun ServerDto.toSource() = StreamSource(
     url = link.trim(),

@@ -11,6 +11,10 @@ on:
         description: Run the emulator smoke test and capture screenshots
         type: boolean
         default: false
+      qa:
+        description: QA run with animations on, gesture navigation and screen recordings
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -81,7 +85,7 @@ jobs:
 
   smoke:
     needs: build
-    if: github.event_name == 'workflow_dispatch' && inputs.smoke
+    if: github.event_name == 'workflow_dispatch' && (inputs.smoke || inputs.qa)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -103,9 +107,9 @@ jobs:
           arch: x86_64
           target: google_apis
           profile: pixel_6
-          disable-animations: true
+          disable-animations: ${{ !inputs.qa }}
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
-          script: .github/scripts/smoke.sh "$(ls apk/*.apk | head -1)" screenshots
+          script: .github/scripts/${{ inputs.qa && 'qa' || 'smoke' }}.sh "$(ls apk/*.apk | head -1)" screenshots
 
       - uses: actions/upload-artifact@v4
         if: always()

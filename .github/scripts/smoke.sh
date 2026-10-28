@@ -54,6 +54,8 @@ shot 02-home-scrolled 3; alive
 
 tap "Jelajah" && shot 03-explore 8; alive
 tap "Action" && shot 04-explore-action 8; alive
+# Clear the genre, then filter by type on the server.
+tap "Action" && tap "Tipe" && sleep 1 && tap "Film" && shot 04b-explore-film 8; alive
 tap "Jadwal" && shot 05-schedule 8; alive
 tap "Koleksi" && shot 06-library 3; alive
 tap "Beranda" && sleep 3

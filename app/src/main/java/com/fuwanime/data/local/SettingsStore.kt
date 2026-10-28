@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.fuwanime.data.OpMark
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
@@ -29,6 +30,10 @@ data class AppSettings(
     val downloadWifiOnly: Boolean = false,
     /** Periodic background check for new episodes of favorited, ongoing anime. */
     val notifyNewEpisodes: Boolean = true,
+    /** Skip a marked opening without waiting for a tap. */
+    val autoSkipOp: Boolean = false,
+    /** Stream height on metered networks; 0 follows [preferredQuality]. */
+    val mobileDataQuality: Int = 0,
 )
 
 private val Context.dataStore by preferencesDataStore(name = "settings")
@@ -46,6 +51,8 @@ class SettingsStore(private val context: Context) {
         val downloadQuality = intPreferencesKey("download_quality")
         val downloadWifiOnly = booleanPreferencesKey("download_wifi_only")
         val notifyNewEpisodes = booleanPreferencesKey("notify_new_episodes")
+        val autoSkipOp = booleanPreferencesKey("auto_skip_op")
+        val mobileDataQuality = intPreferencesKey("mobile_data_quality")
         val updateLastCheckMs = longPreferencesKey("update_last_check_ms")
         val updateDismissedTag = stringPreferencesKey("update_dismissed_tag")
     }
@@ -65,6 +72,8 @@ class SettingsStore(private val context: Context) {
             downloadQuality = this[Keys.downloadQuality] ?: d.downloadQuality,
             downloadWifiOnly = this[Keys.downloadWifiOnly] ?: d.downloadWifiOnly,
             notifyNewEpisodes = this[Keys.notifyNewEpisodes] ?: d.notifyNewEpisodes,
+            autoSkipOp = this[Keys.autoSkipOp] ?: d.autoSkipOp,
+            mobileDataQuality = this[Keys.mobileDataQuality] ?: d.mobileDataQuality,
         )
     }
 
@@ -78,6 +87,25 @@ class SettingsStore(private val context: Context) {
     suspend fun setDownloadQuality(height: Int) = context.dataStore.edit { it[Keys.downloadQuality] = height }
     suspend fun setDownloadWifiOnly(enabled: Boolean) = context.dataStore.edit { it[Keys.downloadWifiOnly] = enabled }
     suspend fun setNotifyNewEpisodes(enabled: Boolean) = context.dataStore.edit { it[Keys.notifyNewEpisodes] = enabled }
+    suspend fun setAutoSkipOp(enabled: Boolean) = context.dataStore.edit { it[Keys.autoSkipOp] = enabled }
+    suspend fun setMobileDataQuality(height: Int) = context.dataStore.edit { it[Keys.mobileDataQuality] = height }
+
+    /** Opening marked by the user for an anime; the same range applies to all its episodes. */
+    fun opMark(animeId: String): Flow<OpMark?> = context.dataStore.data.map { prefs ->
+        val start = prefs[longPreferencesKey("op_start_$animeId")]
+        val end = prefs[longPreferencesKey("op_end_$animeId")]
+        if (start != null && end != null) OpMark(start, end) else null
+    }
+
+    suspend fun setOpMark(animeId: String, mark: OpMark) = context.dataStore.edit {
+        it[longPreferencesKey("op_start_$animeId")] = mark.startMs
+        it[longPreferencesKey("op_end_$animeId")] = mark.endMs
+    }
+
+    suspend fun clearOpMark(animeId: String) = context.dataStore.edit {
+        it.remove(longPreferencesKey("op_start_$animeId"))
+        it.remove(longPreferencesKey("op_end_$animeId"))
+    }
 
     /** Latest episode number already seen/notified for a favorited anime (per-anime key). */
     suspend fun notifyBaseline(animeId: String): Double? =
