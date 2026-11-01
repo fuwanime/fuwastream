@@ -36,16 +36,11 @@ import androidx.compose.material.icons.rounded.Sort
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -55,6 +50,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.fuwanime.ui.components.TagChip
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -69,13 +72,11 @@ import com.fuwanime.ui.motion.Motion
 import com.fuwanime.ui.motion.staggerIn
 import com.fuwanime.ui.motion.rememberStaggerState
 import com.fuwanime.ui.motion.OpenAnime
-import com.fuwanime.data.Anime
 import com.fuwanime.data.SortOrder
 import com.fuwanime.ui.components.ErrorState
 import com.fuwanime.ui.components.MessageState
 import com.fuwanime.ui.components.PosterCard
 import com.fuwanime.ui.components.PosterSkeleton
-import com.fuwanime.util.compactNumber
 import com.fuwanime.util.fuwaViewModel
 
 val AllGenres = listOf(
@@ -112,10 +113,10 @@ private fun ExploreScreen(
             style = MaterialTheme.typography.headlineMedium,
             modifier = Modifier.padding(start = 20.dp, top = 12.dp, bottom = 12.dp),
         )
-        TextField(
+        OutlinedTextField(
             value = state.filters.query,
             onValueChange = vm::onQueryChange,
-            placeholder = { Text("Cari judul anime…") },
+            placeholder = { Text("Judul, genre, atau studio") },
             leadingIcon = { Icon(Icons.Rounded.Search, null) },
             trailingIcon = {
                 if (state.filters.query.isNotEmpty()) {
@@ -123,12 +124,12 @@ private fun ExploreScreen(
                 }
             },
             singleLine = true,
-            shape = RoundedCornerShape(50),
-            colors = TextFieldDefaults.colors(
-                focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            shape = RoundedCornerShape(14.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
             ),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = {
@@ -155,9 +156,9 @@ private fun ExploreScreen(
             return@Column
         }
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(14.dp))
         FilterBar(state.filters, vm)
-        Spacer(Modifier.height(4.dp))
+        ResultsHeader(state.filters, vm)
         ResultsGrid(state, vm, onAnimeClick)
     }
 }
@@ -189,71 +190,82 @@ private fun RecentSearches(items: List<String>, onPick: (String) -> Unit, onRemo
 
 @Composable
 private fun FilterBar(filters: ExploreFilters, vm: ExploreViewModel) {
-    var sortOpen by remember { mutableStateOf(false) }
-    var statusOpen by remember { mutableStateOf(false) }
-    var typeOpen by remember { mutableStateOf(false) }
-
-    LazyRow(
-        contentPadding = PaddingValues(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        item {
-            Box {
-                FilterChip(
-                    selected = false,
-                    onClick = { sortOpen = true },
-                    label = { Text(filters.sort.label) },
-                    leadingIcon = { Icon(Icons.Rounded.Sort, null, Modifier.size(FilterChipDefaults.IconSize)) },
-                    trailingIcon = { Icon(Icons.Rounded.ArrowDropDown, null) },
-                )
-                DropdownMenu(sortOpen, onDismissRequest = { sortOpen = false }) {
-                    SortOrder.entries.forEach { s ->
-                        DropdownMenuItem(text = { Text(s.label) }, onClick = { vm.setSort(s); sortOpen = false })
-                    }
-                }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(TypeFilter.entries, key = { it.name }) { t ->
+                TagChip(t.label, onClick = { vm.setType(t) }, selected = t == filters.type)
             }
         }
-        item {
-            Box {
-                FilterChip(
-                    selected = filters.status != StatusFilter.ALL,
-                    onClick = { statusOpen = true },
-                    label = { Text(if (filters.status == StatusFilter.ALL) "Status" else filters.status.label) },
-                    trailingIcon = { Icon(Icons.Rounded.ArrowDropDown, null) },
-                )
-                DropdownMenu(statusOpen, onDismissRequest = { statusOpen = false }) {
-                    StatusFilter.entries.forEach { s ->
-                        DropdownMenuItem(text = { Text(s.label) }, onClick = { vm.setStatus(s); statusOpen = false })
-                    }
-                }
+        LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(AllGenres, key = { it }) { g ->
+                val selected = filters.genre == g
+                TagChip(g, onClick = { vm.setGenre(if (selected) null else g) }, selected = selected)
             }
-        }
-        item {
-            Box {
-                FilterChip(
-                    selected = filters.type != TypeFilter.ALL,
-                    onClick = { typeOpen = true },
-                    label = { Text(if (filters.type == TypeFilter.ALL) "Tipe" else filters.type.label) },
-                    trailingIcon = { Icon(Icons.Rounded.ArrowDropDown, null) },
-                )
-                DropdownMenu(typeOpen, onDismissRequest = { typeOpen = false }) {
-                    TypeFilter.entries.forEach { t ->
-                        DropdownMenuItem(text = { Text(t.label) }, onClick = { vm.setType(t); typeOpen = false })
-                    }
-                }
-            }
-        }
-        item { VerticalDivider(Modifier.height(24.dp)) }
-        items(AllGenres, key = { it }) { g ->
-            val selected = filters.genre == g
-            FilterChip(
-                selected = selected,
-                onClick = { vm.setGenre(if (selected) null else g) },
-                label = { Text(g) },
-            )
         }
     }
+}
+
+/** Title of what is shown, plus one menu for sort order and airing status. */
+@Composable
+private fun ResultsHeader(filters: ExploreFilters, vm: ExploreViewModel) {
+    var menuOpen by remember { mutableStateOf(false) }
+    Row(
+        Modifier.fillMaxWidth().padding(start = 20.dp, end = 16.dp, top = 14.dp, bottom = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            filters.genre ?: filters.type.takeIf { it != TypeFilter.ALL }?.label ?: "Semua anime",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.weight(1f),
+        )
+        Box {
+            FilledTonalButton(
+                onClick = { menuOpen = true },
+                shape = RoundedCornerShape(10.dp),
+                contentPadding = PaddingValues(start = 12.dp, end = 8.dp),
+                colors = ButtonDefaults.filledTonalButtonColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                modifier = Modifier.height(36.dp),
+            ) {
+                Icon(Icons.Rounded.Sort, null, Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    if (filters.status == StatusFilter.ALL) filters.sort.label else "${filters.sort.label} · ${filters.status.label}",
+                    style = MaterialTheme.typography.labelLarge,
+                )
+                Icon(Icons.Rounded.ArrowDropDown, null)
+            }
+            DropdownMenu(menuOpen, onDismissRequest = { menuOpen = false }) {
+                MenuLabel("Urutkan")
+                SortOrder.entries.forEach { s ->
+                    DropdownMenuItem(
+                        text = { Text(s.label) },
+                        onClick = { vm.setSort(s); menuOpen = false },
+                        trailingIcon = { if (s == filters.sort) Icon(Icons.Rounded.Check, null) },
+                    )
+                }
+                HorizontalDivider()
+                MenuLabel("Status")
+                StatusFilter.entries.forEach { st ->
+                    DropdownMenuItem(
+                        text = { Text(st.label) },
+                        onClick = { vm.setStatus(st); menuOpen = false },
+                        trailingIcon = { if (st == filters.status) Icon(Icons.Rounded.Check, null) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MenuLabel(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 4.dp),
+    )
 }
 
 @Composable
@@ -299,7 +311,7 @@ private fun ResultsGrid(state: ExploreUiState, vm: ExploreViewModel, onAnimeClic
         ResultsBranch.RESULTS -> LazyVerticalGrid(
             state = gridState,
             columns = GridCells.Adaptive(108.dp),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 24.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
@@ -308,7 +320,6 @@ private fun ResultsGrid(state: ExploreUiState, vm: ExploreViewModel, onAnimeClic
                     anime,
                     onClick = { onAnimeClick(anime, "explore") },
                     modifier = Modifier.animateItem().staggerIn(stagger, anime.id, index),
-                    caption = "${compactNumber(anime.views)} ditonton",
                     sharedOrigin = "explore",
                 )
             }
