@@ -133,14 +133,14 @@ def main():
     for folder, size in MIPMAPS.items():
         d = os.path.join(RES, folder)
         os.makedirs(d, exist_ok=True)
-        render(size).save(os.path.join(d, "ic_launcher.png"))
+        render(size, scale=1.12).save(os.path.join(d, "ic_launcher.png"))
         # The round variant keeps the mark inside the circular crop.
-        render(size, round_icon=True, scale=0.78).save(os.path.join(d, "ic_launcher_round.png"))
+        render(size, round_icon=True, scale=1.12).save(os.path.join(d, "ic_launcher_round.png"))
         print(f"{folder}: {size}px ok")
 
     # Large previews for the store listing.
     render(512).save("/tmp/store-icon-512.png")
-    render(192, round_icon=True, scale=0.78).save("/tmp/adaptive-round-preview.png")
+    render(192, round_icon=True, scale=1.12).save("/tmp/adaptive-round-preview.png")
     print("wrote /tmp/store-icon-512.png")
     print("pathData:", path)
 
