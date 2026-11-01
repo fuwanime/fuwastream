@@ -399,8 +399,6 @@ private fun DetailScreen(
     }
 }
 
-private const val HERO_ORIGIN = "home-hero"
-
 /** Header scroll offset beyond which the poster no longer flies back on close. */
 private const val HEADER_LINK_MAX_OFFSET_PX = 600
 
@@ -411,22 +409,15 @@ private fun Header(anime: Anime?, origin: String?, entryKey: String, linkBackdro
         if (anime == null) {
             SkeletonBox(Modifier.fillMaxWidth().height(280.dp), RoundedCornerShape(0.dp))
         } else {
-            // Two keys on nested layers: the outer one catches the Beranda hero, the inner one flies into the player.
-            Box(
+            NetImage(
+                anime.backdrop,
                 Modifier
                     .navEnter(0, rise = false)
                     .fillMaxWidth()
                     .height(280.dp)
-                    .sharedKey(sharedBackdropKey(anime.id, HERO_ORIGIN).takeIf { origin == HERO_ORIGIN }),
-            ) {
-                NetImage(
-                    anime.backdrop,
-                    Modifier
-                        .fillMaxSize()
-                        .sharedKey(sharedBackdropKey(anime.id, entryKey).takeIf { linkBackdrop })
-                        .fadeToBackground(bg),
-                )
-            }
+                    .sharedKey(sharedBackdropKey(anime.id, entryKey).takeIf { linkBackdrop })
+                    .fadeToBackground(bg),
+            )
         }
         Row(
             Modifier.padding(top = 190.dp, start = 20.dp, end = 20.dp),
@@ -441,8 +432,6 @@ private fun Header(anime: Anime?, origin: String?, entryKey: String, linkBackdro
                         .width(116.dp)
                         .aspectRatio(2f / 3f)
                         .sharedKey(origin?.let { sharedPosterKey(anime.id, it) })
-                        // From the Beranda hero only the backdrop flies; keep the poster above it, not hidden under it.
-                        .then(if (origin == HERO_ORIGIN) Modifier.aboveSharedElements() else Modifier)
                         .shadow(24.dp, MaterialTheme.shapes.medium)
                         .clip(MaterialTheme.shapes.medium),
                     anime.title,

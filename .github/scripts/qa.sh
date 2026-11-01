@@ -88,14 +88,14 @@ stop_record qa3-season; alive
 
 # 4. Detail -> episode row -> player -> back; "Tonton/Lanjutkan" -> player -> back (header must be intact) -> back.
 fresh
-tap "Tonton"; sleep 5; shot qa4a-detail 0
 record qa4-player
+tap "Tonton"; shot qa4a0-hero-poster-flying 0.15; sleep 5; shot qa4a-detail 0
 scroll_to "Episode 1" && tap "Episode 1"; shot qa4b-player 6
 adb shell input keyevent KEYCODE_BACK; shot qa4c-detail-after-player 2.5
 adb shell input swipe 540 900 540 1700 300; adb shell input swipe 540 900 540 1700 300; sleep 1
 tap "Tonton EP*" || tap "Lanjut EP*"; shot qa4d-player-from-button 6
 adb shell input keyevent KEYCODE_BACK; shot qa4e-detail-header 2.5
-adb shell input keyevent KEYCODE_BACK; shot qa4f-home 2.5
+adb shell input keyevent KEYCODE_BACK; shot qa4f0-hero-landing 0.15; shot qa4f-home 2.5
 stop_record qa4-player; alive
 
 # 5. Tabs.
