@@ -48,6 +48,8 @@ alive() {
 }
 
 adb shell pm grant "$PKG" android.permission.POST_NOTIFICATIONS || true
+# Home screen first, so the launcher icon is captured with the app installed.
+adb shell input keyevent KEYCODE_HOME; sleep 3; shot 00-launcher 1
 adb shell am start -W -n "$PKG/com.fuwanime.MainActivity"
 # Fresh installs show the one-time 13+ gate; capture it, then clear it before walking the app.
 shot 01a-age-gate 6
