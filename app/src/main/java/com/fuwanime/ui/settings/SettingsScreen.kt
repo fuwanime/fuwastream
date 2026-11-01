@@ -173,6 +173,16 @@ fun SettingsRoute(onBack: () -> Unit) {
                 }
             }
             item {
+                SwitchRow(
+                    Icons.Rounded.FastForward,
+                    "Tombol +85 detik",
+                    "Lompat 85 detik di awal episode yang OP-nya belum ditandai",
+                    s.jumpAheadButton,
+                ) {
+                    vm.update { setJumpAheadButton(it) }
+                }
+            }
+            item {
                 ChoiceRow(Icons.Rounded.TouchApp, "Ketuk dua kali untuk lompat", listOf(5, 10, 15, 30), s.doubleTapSeekSeconds, { "${it}s" }) {
                     vm.update { setDoubleTapSeekSeconds(it) }
                 }

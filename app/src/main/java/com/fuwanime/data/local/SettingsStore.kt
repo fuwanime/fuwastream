@@ -32,6 +32,8 @@ data class AppSettings(
     val notifyNewEpisodes: Boolean = true,
     /** Skip a marked opening without waiting for a tap. */
     val autoSkipOp: Boolean = false,
+    /** Generic "+85 dtk" jump for anime whose opening is not marked yet. */
+    val jumpAheadButton: Boolean = true,
     /** Stream height on metered networks; 0 follows [preferredQuality]. */
     val mobileDataQuality: Int = 0,
 )
@@ -52,6 +54,7 @@ class SettingsStore(private val context: Context) {
         val downloadWifiOnly = booleanPreferencesKey("download_wifi_only")
         val notifyNewEpisodes = booleanPreferencesKey("notify_new_episodes")
         val autoSkipOp = booleanPreferencesKey("auto_skip_op")
+        val jumpAheadButton = booleanPreferencesKey("jump_ahead_button")
         val mobileDataQuality = intPreferencesKey("mobile_data_quality")
         val updateLastCheckMs = longPreferencesKey("update_last_check_ms")
         val updateDismissedTag = stringPreferencesKey("update_dismissed_tag")
@@ -73,6 +76,7 @@ class SettingsStore(private val context: Context) {
             downloadWifiOnly = this[Keys.downloadWifiOnly] ?: d.downloadWifiOnly,
             notifyNewEpisodes = this[Keys.notifyNewEpisodes] ?: d.notifyNewEpisodes,
             autoSkipOp = this[Keys.autoSkipOp] ?: d.autoSkipOp,
+            jumpAheadButton = this[Keys.jumpAheadButton] ?: d.jumpAheadButton,
             mobileDataQuality = this[Keys.mobileDataQuality] ?: d.mobileDataQuality,
         )
     }
@@ -88,6 +92,7 @@ class SettingsStore(private val context: Context) {
     suspend fun setDownloadWifiOnly(enabled: Boolean) = context.dataStore.edit { it[Keys.downloadWifiOnly] = enabled }
     suspend fun setNotifyNewEpisodes(enabled: Boolean) = context.dataStore.edit { it[Keys.notifyNewEpisodes] = enabled }
     suspend fun setAutoSkipOp(enabled: Boolean) = context.dataStore.edit { it[Keys.autoSkipOp] = enabled }
+    suspend fun setJumpAheadButton(enabled: Boolean) = context.dataStore.edit { it[Keys.jumpAheadButton] = enabled }
     suspend fun setMobileDataQuality(height: Int) = context.dataStore.edit { it[Keys.mobileDataQuality] = height }
 
     /** Opening marked by the user for an anime; the same range applies to all its episodes. */
