@@ -54,4 +54,12 @@ class SkipIntroTest {
         assertEquals(OpMark(60_000, 100_000), markOp(mark, 100_000, isStart = false))
         assertEquals(OpMark(0, 40_000), markOp(mark, 40_000, isStart = false))
     }
+
+    @Test
+    fun jumpAheadOff_hidesGenericJumpButKeepsMarkedOp() {
+        val duration = 1_440_000L
+        assertNull(skipActionAt(5_000, duration, null, jumpAhead = false))
+        assertNull(skipActionAt(120_000, duration, null, jumpAhead = false))
+        assertEquals(SkipAction.SkipOp(150_000), skipActionAt(60_000, duration, OpMark(60_000, 150_000), jumpAhead = false))
+    }
 }
