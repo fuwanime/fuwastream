@@ -31,9 +31,7 @@ import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.CloudOff
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -47,6 +45,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.fuwanime.util.remainingLabel
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.draw.alpha
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.border
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
@@ -148,7 +153,7 @@ fun Pill(
 
 @Composable
 fun LiveDot(modifier: Modifier = Modifier) {
-    Box(modifier.size(6.dp).clip(CircleShape).background(Color(0xFF4ADE80)))
+    Box(modifier.size(6.dp).clip(CircleShape).background(Color(0xFFFF7A93)))
 }
 
 @OptIn(ExperimentalSharedTransitionApi::class)
@@ -161,6 +166,10 @@ fun PosterCard(
     caption: String? = null,
     /** Row the card sits in; when set, its poster flies into the detail header. */
     sharedOrigin: String? = null,
+    /** Shows the BARU badge (it wins over Tayang). */
+    isNew: Boolean = false,
+    /** Marks the title the user is on, e.g. the open season in "Season & Terkait". */
+    highlighted: Boolean = false,
 ) {
     val interaction = remember { MutableInteractionSource() }
     Column(
@@ -174,68 +183,90 @@ fun PosterCard(
             Modifier
                 .fillMaxWidth()
                 .aspectRatio(2f / 3f)
-                .clip(MaterialTheme.shapes.medium),
+                .clip(MaterialTheme.shapes.medium)
+                .then(if (highlighted) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.medium) else Modifier),
         ) {
-            // Only the image is shared. Scrim and badges render above shared elements, so while a transition is
-            // active the image (drawn in the transition overlay) never covers them.
+            // Only the image is shared. Badges render above shared elements, so while a transition is active the
+            // image (drawn in the transition overlay) never covers them.
             NetImage(
                 anime.poster,
                 // Clip after the shared key so the flying copy keeps its rounded corners.
-                Modifier.fillMaxSize().sharedKey(poster).clip(MaterialTheme.shapes.medium),
+                // Dim outside the shared element so the flying copy stays at full brightness.
+                Modifier.fillMaxSize().alpha(if (highlighted) 0.55f else 1f).sharedKey(poster).clip(MaterialTheme.shapes.medium),
                 anime.title,
             )
-            // Bottom scrim keeps badges legible on bright posters.
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .aboveSharedElements()
-                    .revealWhenLanded(poster)
-                    .background(Brush.verticalGradient(0.6f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.55f))),
-            )
-            if (anime.isOngoing) {
-                Row(
-                    Modifier
-                        .align(Alignment.TopStart)
-                        .aboveSharedElements()
-                        .revealWhenLanded(poster)
-                        .padding(6.dp)
+            val badge = Modifier.align(Alignment.TopStart).aboveSharedElements().revealWhenLanded(poster).padding(7.dp)
+            when {
+                isNew -> NewBadge(badge)
+                anime.isOngoing -> Row(
+                    badge
                         .clip(RoundedCornerShape(50))
-                        .background(Color.Black.copy(alpha = 0.6f))
-                        .padding(horizontal = 7.dp, vertical = 3.dp),
+                        .background(ImageScrim.copy(alpha = 0.78f))
+                        .padding(start = 6.dp, end = 7.dp, top = 3.dp, bottom = 3.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     LiveDot()
                     Spacer(Modifier.width(4.dp))
-                    Text("Tayang", style = MaterialTheme.typography.labelSmall, color = Color.White)
+                    Text("Tayang", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color.White)
                 }
-            }
-            val meta = listOf(anime.type, anime.displayYear).filter { it.isNotBlank() }.joinToString(" · ")
-            if (meta.isNotBlank()) {
-                Text(
-                    meta,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.White.copy(alpha = 0.9f),
-                    modifier = Modifier.align(Alignment.BottomStart).aboveSharedElements().revealWhenLanded(poster).padding(8.dp),
-                )
             }
         }
         Text(
             anime.title,
-            style = MaterialTheme.typography.titleSmall,
+            style = MaterialTheme.typography.labelLarge,
             maxLines = 2,
             minLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 8.dp),
         )
-        if (caption != null) {
+        val meta = caption ?: listOf(anime.type, anime.displayYear).filter { it.isNotBlank() }.joinToString(" · ")
+        if (meta.isNotBlank()) {
             Text(
-                caption,
+                meta,
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = if (highlighted) FontWeight.Bold else null,
+                color = if (highlighted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(horizontal = 4.dp),
             )
+        }
+    }
+}
+
+/** Near-black used for scrims and pills drawn on top of artwork. */
+val ImageScrim = Color(0xFF0B0A0F)
+
+@Composable
+fun NewBadge(modifier: Modifier = Modifier) {
+    Text(
+        "BARU",
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.ExtraBold,
+        letterSpacing = 0.06.em,
+        color = MaterialTheme.colorScheme.onPrimary,
+        modifier = modifier
+            .clip(RoundedCornerShape(5.dp))
+            .background(MaterialTheme.colorScheme.primary)
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+    )
+}
+
+/** Rounded filter/genre chip; [selected] fills it with the accent. */
+@Composable
+fun TagChip(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, selected: Boolean = false) {
+    val colors = MaterialTheme.colorScheme
+    Surface(
+        selected = selected,
+        onClick = onClick,
+        modifier = modifier.defaultMinSize(minHeight = 36.dp),
+        shape = RoundedCornerShape(50),
+        color = if (selected) colors.primary else colors.surfaceContainer,
+        contentColor = if (selected) colors.onPrimary else colors.onSurface,
+        border = if (selected) null else BorderStroke(1.dp, colors.outlineVariant),
+    ) {
+        Box(Modifier.padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
+            Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold, maxLines = 1)
         }
     }
 }
@@ -263,16 +294,14 @@ fun SectionHeader(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.titleLarge)
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             if (subtitle != null) {
                 Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         if (onSeeAll != null) {
             TextButton(onClick = onSeeAll) {
-                Text("Lihat semua")
-                Spacer(Modifier.width(4.dp))
-                Icon(Icons.AutoMirrored.Rounded.ArrowForward, null, Modifier.size(16.dp))
+                Text("Lihat semua", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -286,6 +315,8 @@ fun PosterRow(
     caption: (Anime) -> String? = { null },
     /** Shared-poster origin for this row, e.g. "home-popular"; null disables the poster transition. */
     origin: String? = null,
+    isNew: (Anime) -> Boolean = { false },
+    highlightId: String? = null,
 ) {
     val stagger = rememberStaggerState()
     Crossfade(loading && items.isEmpty(), animationSpec = tween(Motion.Medium), label = "posterRow") { skeleton ->
@@ -305,6 +336,8 @@ fun PosterRow(
                         width = 124.dp,
                         caption = caption(anime),
                         sharedOrigin = origin,
+                        isNew = isNew(anime),
+                        highlighted = anime.id == highlightId,
                     )
                 }
             }
@@ -334,19 +367,19 @@ fun ContinueWatchingCard(
                 entry.episodeThumbnail.ifBlank { entry.animeCover },
                 Modifier.fillMaxSize().sharedKey(thumb).clip(MaterialTheme.shapes.medium),
             )
-            Box(Modifier.fillMaxSize().aboveSharedElements().revealWhenLanded(thumb).background(Color.Black.copy(alpha = 0.25f)))
-            Surface(
-                shape = CircleShape,
-                color = Color.Black.copy(alpha = 0.55f),
-                modifier = Modifier.align(Alignment.Center).aboveSharedElements().revealWhenLanded(thumb).size(44.dp),
-            ) {
-                Icon(Icons.Rounded.PlayArrow, "Lanjutkan", tint = Color.White, modifier = Modifier.padding(8.dp))
-            }
-            Pill(
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .aboveSharedElements()
+                    .revealWhenLanded(thumb)
+                    .background(Brush.verticalGradient(0.5f to Color.Transparent, 1f to ImageScrim.copy(alpha = 0.75f))),
+            )
+            Text(
                 "EP ${entry.episodeNumber}",
-                Modifier.align(Alignment.TopStart).aboveSharedElements().revealWhenLanded(thumb).padding(8.dp),
-                container = MaterialTheme.colorScheme.primary,
-                content = MaterialTheme.colorScheme.onPrimary,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                modifier = Modifier.align(Alignment.BottomStart).aboveSharedElements().revealWhenLanded(thumb).padding(start = 10.dp, bottom = 10.dp),
             )
             LinearProgressIndicator(
                 progress = { entry.progress },
@@ -365,7 +398,7 @@ fun ContinueWatchingCard(
             modifier = Modifier.padding(top = 8.dp, start = 2.dp, end = 2.dp),
         )
         Text(
-            entry.episodeTitle,
+            if (entry.isFinished) "Selesai ditonton" else remainingLabel(entry.positionMs, entry.durationMs) ?: entry.episodeTitle,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,

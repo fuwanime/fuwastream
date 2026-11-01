@@ -17,11 +17,13 @@ private const val JUMP_FROM_MS = 5_000L
 private const val JUMP_UNTIL_MS = 180_000L
 private const val GUESSED_OP_MS = 90_000L
 
-fun skipActionAt(positionMs: Long, durationMs: Long, mark: OpMark?): SkipAction? {
+/** [jumpAhead] off hides the generic +85s jump; a marked opening still offers "Lewati OP". */
+fun skipActionAt(positionMs: Long, durationMs: Long, mark: OpMark?, jumpAhead: Boolean = true): SkipAction? {
     if (mark != null && mark.isValid) {
         // Leave the last second alone: skipping it is pointless and the button would flash.
         return if (positionMs >= mark.startMs && positionMs < mark.endMs - 1_000) SkipAction.SkipOp(mark.endMs) else null
     }
+    if (!jumpAhead) return null
     if (positionMs < JUMP_FROM_MS || positionMs >= JUMP_UNTIL_MS) return null
     val target = positionMs + JUMP_MS
     return if (durationMs <= 0 || target < durationMs) SkipAction.JumpAhead(target) else null

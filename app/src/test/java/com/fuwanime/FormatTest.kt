@@ -9,8 +9,12 @@ import com.fuwanime.data.toEpisode
 import com.fuwanime.util.airTime
 import com.fuwanime.util.compactNumber
 import com.fuwanime.util.formatDuration
+import com.fuwanime.util.historyDayLabel
+import com.fuwanime.util.remainingLabel
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
+import java.util.TimeZone
 
 class FormatTest {
     @Test
@@ -77,5 +81,30 @@ class FormatTest {
     fun airTime_extractsClock() {
         assertEquals("00:36", airTime("2026-10-22 00:36:10"))
         assertEquals("new !!", airTime("new !!"))
+    }
+
+    @Test
+    fun remainingLabel_roundsUpToWholeMinutes() {
+        assertEquals("Sisa 14 menit", remainingLabel(600_000, 1_440_000))
+        assertEquals("Sisa 1 menit", remainingLabel(1_439_000, 1_440_000))
+        assertEquals("Sisa 1 menit", remainingLabel(-5, 60_000))
+    }
+
+    @Test
+    fun remainingLabel_nullWhenUnknownOrDone() {
+        assertNull(remainingLabel(0, 0))
+        assertNull(remainingLabel(5_000, -1))
+        assertNull(remainingLabel(1_440_000, 1_440_000))
+        assertNull(remainingLabel(1_500_000, 1_440_000))
+    }
+
+    @Test
+    fun historyDayLabel_groupsByCalendarDayInZone() {
+        val jkt = TimeZone.getTimeZone("Asia/Jakarta")
+        val now = 1_793_466_060_000L // 2026-11-01 00:01 WIB
+        assertEquals("HARI INI", historyDayLabel(now - 30_000, now, jkt))
+        assertEquals("KEMARIN", historyDayLabel(now - 120_000, now, jkt)) // 2026-10-31 23:59
+        assertEquals("30 OKT", historyDayLabel(now - 30 * 3_600_000L, now, jkt))
+        assertEquals("28 DES 2025", historyDayLabel(1_766_880_000_000L, now, jkt))
     }
 }

@@ -33,8 +33,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.PrimaryTabRow
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -45,6 +43,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.fuwanime.util.remainingLabel
+import com.fuwanime.util.historyDayLabel
+import com.fuwanime.ui.components.ImageScrim
+import androidx.compose.foundation.background
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -70,14 +77,11 @@ import com.fuwanime.data.local.WatchHistoryEntity
 import com.fuwanime.ui.components.MessageState
 import com.fuwanime.ui.components.NetImage
 import com.fuwanime.ui.components.PosterCard
-import com.fuwanime.util.formatDuration
 import com.fuwanime.util.fuwaViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.text.DateFormat
-import java.util.Date
 
 class LibraryViewModel(private val library: LibraryRepository, private val downloadRepo: DownloadRepository) : ViewModel() {
     val downloads: StateFlow<List<DownloadItem>?> =
@@ -127,15 +131,12 @@ fun LibraryRoute(
                 IconButton(onClick = { confirmClear = true }) { Icon(Icons.Rounded.DeleteSweep, "Hapus riwayat") }
             }
         }
-        PrimaryTabRow(selectedTabIndex = pager.currentPage) {
-            listOf("Riwayat" to history?.size, "Favorit" to favorites?.size, "Unduhan" to downloads?.size).forEachIndexed { i, (label, count) ->
-                Tab(
-                    selected = pager.currentPage == i,
-                    onClick = { scope.launch { pager.animateScrollToPage(i) } },
-                    text = { Text(if (count != null && count > 0) "$label ($count)" else label) },
-                )
-            }
-        }
+        SegmentedTabs(
+            listOf("Riwayat" to history?.size, "Favorit" to favorites?.size, "Unduhan" to downloads?.size)
+                .map { (label, count) -> if (count != null && count > 0) "$label · $count" else label },
+            selected = pager.currentPage,
+            onSelect = { scope.launch { pager.animateScrollToPage(it) } },
+        )
         HorizontalPager(pager, Modifier.fillMaxSize(), verticalAlignment = Alignment.Top) { page ->
             when (page) {
                 0 -> HistoryList(history, onResume, onAnimeClick, onRemove = { vm.removeHistory(it) })
@@ -169,48 +170,115 @@ private fun HistoryList(
         MessageState(Icons.Rounded.History, "Belum ada riwayat", message = "Episode yang kamu tonton akan muncul di sini.")
         return
     }
-    LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        items(items, key = { it.episodeId }) { entry ->
-            Row(
-                Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium).clickable { onResume(entry) }.padding(4.dp),
-                verticalAlignment = Alignment.CenterVertically,
+    val groups = remember(items) { items.groupBy { historyDayLabel(it.updatedAt) } }
+    LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 8.dp, bottom = 16.dp)) {
+        groups.forEach { (day, entries) ->
+            item(key = "day-$day") {
+                Text(
+                    day,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.08.em,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 4.dp, top = 14.dp, bottom = 6.dp),
+                )
+            }
+            items(entries, key = { it.episodeId }) { entry -> HistoryRow(entry, onResume, onAnimeClick, onRemove) }
+        }
+    }
+}
+
+@Composable
+private fun HistoryRow(
+    entry: WatchHistoryEntity,
+    onResume: (WatchHistoryEntity) -> Unit,
+    onAnimeClick: OpenAnime,
+    onRemove: (String) -> Unit,
+) {
+    Row(
+        Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium).clickable { onResume(entry) }.padding(vertical = 8.dp, horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.width(132.dp).height(74.dp).clip(RoundedCornerShape(12.dp))) {
+            NetImage(
+                entry.episodeThumbnail.ifBlank { entry.animeCover },
+                Modifier.fillMaxSize().sharedKey(sharedEpisodeKey(entry.episodeId, "library")).clip(RoundedCornerShape(12.dp)),
+            )
+            Text(
+                "EP ${entry.episodeNumber}",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(8.dp)
+                    .clip(RoundedCornerShape(5.dp))
+                    .background(ImageScrim.copy(alpha = 0.78f))
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
+            )
+            LinearProgressIndicator(
+                progress = { entry.progress },
+                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(3.dp),
+                trackColor = Color.White.copy(alpha = 0.2f),
+                drawStopIndicator = {},
+                gapSize = 0.dp,
+            )
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                entry.animeTitle,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.clickable {
+                    onAnimeClick(Anime(entry.animeId, entry.animeTitle, poster = entry.animePoster, cover = entry.animeCover), "library-history")
+                },
+            )
+            Text(
+                when {
+                    entry.isFinished -> "Selesai ditonton"
+                    else -> remainingLabel(entry.positionMs, entry.durationMs) ?: entry.episodeTitle
+                },
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        IconButton(onClick = { onRemove(entry.animeId) }) { Icon(Icons.Rounded.Close, "Hapus dari riwayat") }
+    }
+}
+
+/** Pill-shaped tab switcher that follows the pager. */
+@Composable
+private fun SegmentedTabs(titles: List<String>, selected: Int, onSelect: (Int) -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 4.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        titles.forEachIndexed { i, title ->
+            val on = i == selected
+            Box(
+                Modifier
+                    .weight(1f)
+                    .height(40.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(if (on) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
+                    .selectable(selected = on, role = Role.Tab, onClick = { onSelect(i) }),
+                contentAlignment = Alignment.Center,
             ) {
-                Box(Modifier.width(140.dp).aspectRatio(16f / 9f).clip(MaterialTheme.shapes.small)) {
-                    NetImage(
-                        entry.episodeThumbnail.ifBlank { entry.animeCover },
-                        Modifier.fillMaxSize().sharedKey(sharedEpisodeKey(entry.episodeId, "library")).clip(MaterialTheme.shapes.small),
-                    )
-                    LinearProgressIndicator(
-                        progress = { entry.progress },
-                        modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(3.dp),
-                        drawStopIndicator = {},
-                        gapSize = 0.dp,
-                    )
-                }
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        entry.animeTitle,
-                        style = MaterialTheme.typography.titleSmall,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.clickable {
-                            onAnimeClick(Anime(entry.animeId, entry.animeTitle, poster = entry.animePoster, cover = entry.animeCover), "library-history")
-                        },
-                    )
-                    Text("Episode ${entry.episodeNumber}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
-                    Text(
-                        if (entry.isFinished) "Selesai ditonton" else "${formatDuration(entry.positionMs)} / ${formatDuration(entry.durationMs)}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(entry.updatedAt)),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.outline,
-                    )
-                }
-                IconButton(onClick = { onRemove(entry.animeId) }) { Icon(Icons.Rounded.Close, "Hapus dari riwayat") }
+                Text(
+                    title,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = if (on) FontWeight.Bold else FontWeight.SemiBold,
+                    color = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                )
             }
         }
     }

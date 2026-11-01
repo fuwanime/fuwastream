@@ -757,7 +757,7 @@ private fun VideoSurface(
         }
 
         val skip = if (!state.loading && playback.error == null && !playback.ended) {
-            skipActionAt(playback.position, playback.duration, opMark)
+            skipActionAt(playback.position, playback.duration, opMark, jumpAhead = settings.jumpAheadButton)
         } else null
         LaunchedEffect((skip as? SkipAction.SkipOp)?.targetMs, state.episode.id) {
             if (skip != null && shouldAutoSkip(settings.autoSkipOp, skip, state.episode.id, autoSkipHandledFor)) {
