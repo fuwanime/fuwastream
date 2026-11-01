@@ -68,6 +68,11 @@ tap "Pengaturan" && shot 07-settings 3; alive
 for _ in 1 2 3 4; do tap "Kebijakan Privasi" && break; adb shell input swipe 540 1600 540 800 300; sleep 1; done
 shot 07b-privacy 4; alive
 adb shell input keyevent KEYCODE_BACK; sleep 2
+# Delete-all-data: open the confirmation, confirm it, and capture the result snackbar.
+for _ in 1 2 3 4 5; do tap "Hapus semua data" && break; adb shell input swipe 540 1600 540 800 300; sleep 1; done
+shot 07c-delete-dialog 2
+tap "Hapus" || true
+shot 07d-deleted 3; alive
 adb shell input keyevent KEYCODE_BACK; sleep 2
 
 # Open the first hero title and start playback.
