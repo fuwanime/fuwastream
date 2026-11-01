@@ -214,7 +214,8 @@ private fun ResultsHeader(filters: ExploreFilters, vm: ExploreViewModel) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            filters.genre ?: filters.type.takeIf { it != TypeFilter.ALL }?.label ?: "Semua anime",
+            filters.query.trim().takeIf { it.isNotEmpty() }?.let { "Hasil untuk “$it”" }
+                ?: filters.genre ?: filters.type.takeIf { it != TypeFilter.ALL }?.label ?: "Semua anime",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.weight(1f),

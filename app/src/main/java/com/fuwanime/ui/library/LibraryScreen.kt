@@ -77,7 +77,6 @@ import com.fuwanime.data.local.WatchHistoryEntity
 import com.fuwanime.ui.components.MessageState
 import com.fuwanime.ui.components.NetImage
 import com.fuwanime.ui.components.PosterCard
-import com.fuwanime.util.formatDuration
 import com.fuwanime.util.fuwaViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -240,8 +239,7 @@ private fun HistoryRow(
             Text(
                 when {
                     entry.isFinished -> "Selesai ditonton"
-                    else -> remainingLabel(entry.positionMs, entry.durationMs)
-                        ?: "${formatDuration(entry.positionMs)} / ${formatDuration(entry.durationMs)}"
+                    else -> remainingLabel(entry.positionMs, entry.durationMs) ?: entry.episodeTitle
                 },
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -265,7 +265,7 @@ private fun DetailScreen(
                                 fontWeight = FontWeight.ExtraBold,
                                 maxLines = 1,
                             )
-                            resume?.let { remainingLabel(it.positionMs, it.durationMs) }?.let {
+                            resume?.takeUnless { it.isFinished }?.let { remainingLabel(it.positionMs, it.durationMs) }?.let {
                                 Text(it, style = MaterialTheme.typography.labelSmall, modifier = Modifier.alpha(0.75f))
                             }
                         }
@@ -441,6 +441,8 @@ private fun Header(anime: Anime?, origin: String?, entryKey: String, linkBackdro
                         .width(116.dp)
                         .aspectRatio(2f / 3f)
                         .sharedKey(origin?.let { sharedPosterKey(anime.id, it) })
+                        // From the Beranda hero only the backdrop flies; keep the poster above it, not hidden under it.
+                        .then(if (origin == HERO_ORIGIN) Modifier.aboveSharedElements() else Modifier)
                         .shadow(24.dp, MaterialTheme.shapes.medium)
                         .clip(MaterialTheme.shapes.medium),
                     anime.title,
@@ -624,7 +626,7 @@ private fun EpisodeRow(
         Box(Modifier.width(124.dp).height(70.dp).clip(RoundedCornerShape(10.dp))) {
             NetImage(
                 ep.thumbnail,
-                Modifier.fillMaxSize().sharedKey(sharedEpisodeKey(ep.id, "detail")).clip(RoundedCornerShape(10.dp)).alpha(if (finished) 0.4f else 1f),
+                Modifier.fillMaxSize().alpha(if (finished) 0.4f else 1f).sharedKey(sharedEpisodeKey(ep.id, "detail")).clip(RoundedCornerShape(10.dp)),
             )
             if (finished) {
                 Icon(Icons.Rounded.Check, "Sudah ditonton", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.align(Alignment.Center).size(22.dp))

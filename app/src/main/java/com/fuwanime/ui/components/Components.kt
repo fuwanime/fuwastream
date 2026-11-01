@@ -191,7 +191,8 @@ fun PosterCard(
             NetImage(
                 anime.poster,
                 // Clip after the shared key so the flying copy keeps its rounded corners.
-                Modifier.fillMaxSize().sharedKey(poster).clip(MaterialTheme.shapes.medium).alpha(if (highlighted) 0.55f else 1f),
+                // Dim outside the shared element so the flying copy stays at full brightness.
+                Modifier.fillMaxSize().alpha(if (highlighted) 0.55f else 1f).sharedKey(poster).clip(MaterialTheme.shapes.medium),
                 anime.title,
             )
             val badge = Modifier.align(Alignment.TopStart).aboveSharedElements().revealWhenLanded(poster).padding(7.dp)
@@ -256,6 +257,7 @@ fun NewBadge(modifier: Modifier = Modifier) {
 fun TagChip(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, selected: Boolean = false) {
     val colors = MaterialTheme.colorScheme
     Surface(
+        selected = selected,
         onClick = onClick,
         modifier = modifier.defaultMinSize(minHeight = 36.dp),
         shape = RoundedCornerShape(50),
