@@ -49,7 +49,8 @@ alive() {
 
 adb shell pm grant "$PKG" android.permission.POST_NOTIFICATIONS || true
 adb shell am start -W -n "$PKG/com.fuwanime.MainActivity"
-# Fresh installs show the one-time 13+ gate; clear it before walking the app.
+# Fresh installs show the one-time 13+ gate; capture it, then clear it before walking the app.
+shot 01a-age-gate 6
 tap "Saya berusia 13 tahun atau lebih — Lanjutkan" || true
 shot 01-home 15; alive
 adb shell input swipe 540 1600 540 500 400
