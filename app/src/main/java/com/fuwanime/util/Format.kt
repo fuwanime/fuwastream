@@ -35,6 +35,29 @@ fun formatDuration(ms: Long): String {
     return if (h > 0) String.format(Locale.US, "%d:%02d:%02d", h, m, s) else String.format(Locale.US, "%02d:%02d", m, s)
 }
 
+/** "Sisa 14 menit", rounded up to whole minutes; null when the duration is unknown or nothing is left. */
+fun remainingLabel(positionMs: Long, durationMs: Long): String? {
+    if (durationMs <= 0) return null
+    val remaining = durationMs - positionMs.coerceAtLeast(0)
+    if (remaining <= 0) return null
+    return "Sisa ${(remaining + 59_999) / 60_000} menit"
+}
+
+private val MONTHS = listOf("JAN", "FEB", "MAR", "APR", "MEI", "JUN", "JUL", "AGU", "SEP", "OKT", "NOV", "DES")
+
+/** Day heading for watch history: "HARI INI", "KEMARIN", "28 OKT", or "28 DES 2025" for another year. */
+fun historyDayLabel(timestampMs: Long, nowMs: Long = System.currentTimeMillis(), zone: TimeZone = TimeZone.getDefault()): String {
+    val at = Calendar.getInstance(zone).apply { timeInMillis = timestampMs }
+    val day = Calendar.getInstance(zone).apply { timeInMillis = nowMs }
+    fun sameDay() = at.get(Calendar.YEAR) == day.get(Calendar.YEAR) && at.get(Calendar.DAY_OF_YEAR) == day.get(Calendar.DAY_OF_YEAR)
+    if (sameDay()) return "HARI INI"
+    day.add(Calendar.DAY_OF_YEAR, -1)
+    if (sameDay()) return "KEMARIN"
+    val label = "${at.get(Calendar.DAY_OF_MONTH)} ${MONTHS[at.get(Calendar.MONTH)]}"
+    return if (at.get(Calendar.YEAR) == Calendar.getInstance(zone).apply { timeInMillis = nowMs }.get(Calendar.YEAR)) label
+    else "$label ${at.get(Calendar.YEAR)}"
+}
+
 enum class Day(val apiValue: String, val label: String, val short: String) {
     MONDAY("senin", "Senin", "Sen"),
     TUESDAY("selasa", "Selasa", "Sel"),
