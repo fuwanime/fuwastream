@@ -174,6 +174,14 @@ FuwaStream menggunakan API dan layanan pihak ketiga untuk memperoleh informasi a
 
 Pengguna bertanggung jawab untuk mematuhi hukum, hak cipta, dan ketentuan layanan yang berlaku di wilayah masing-masing. Nama, logo, dan aset pihak ketiga tetap menjadi milik pemegang haknya.
 
+## 🔐 Privasi & Kepatuhan
+
+- [Kebijakan Privasi](./docs/legal/privacy.md)
+- [Ketentuan Layanan](./docs/legal/terms.md)
+- [Checklist Kepatuhan Play Store](./docs/compliance.md)
+- [Audit SDK Pihak Ketiga](./docs/third-party-sdk-audit.md)
+- [Jawaban Data Safety](./docs/play-data-safety.md)
+
 ## 📄 Lisensi
 
 Kode sumber proyek ini menggunakan lisensi **GNU General Public License v3.0 (GPL-3.0)**. Lihat file [LICENSE](./LICENSE) untuk informasi lengkap.
