@@ -55,9 +55,26 @@ class SettingsStore(private val context: Context) {
         val mobileDataQuality = intPreferencesKey("mobile_data_quality")
         val updateLastCheckMs = longPreferencesKey("update_last_check_ms")
         val updateDismissedTag = stringPreferencesKey("update_dismissed_tag")
+        /** Age confirmation is a consent record, kept when user data is wiped. */
+        val ageConfirmed = booleanPreferencesKey("age_confirmed")
     }
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { it.toSettings() }
+
+    /** False until the user confirms they are 13+ on the first launch. */
+    val ageConfirmed: Flow<Boolean> = context.dataStore.data.map { it[Keys.ageConfirmed] ?: false }
+
+    suspend fun confirmAge() = context.dataStore.edit { it[Keys.ageConfirmed] = true }
+
+    /**
+     * Deletes every user-created preference (theme, qualities, OP marks, update bookkeeping).
+     * The age confirmation is kept so the gate does not reappear after a data wipe.
+     */
+    suspend fun clearUserData() = context.dataStore.edit { prefs ->
+        val age = prefs[Keys.ageConfirmed]
+        prefs.clear()
+        if (age != null) prefs[Keys.ageConfirmed] = age
+    }
 
     private fun Preferences.toSettings(): AppSettings {
         val d = AppSettings()

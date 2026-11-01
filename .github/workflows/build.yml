@@ -23,7 +23,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      VERSION_CODE: ${{ github.run_number }}
+      # 30M offset keeps codes above installs made by older builds (epoch-minute codes ~29.7M)
+      # while staying deterministic per run: 30_000_000 + run_number.
+      VERSION_CODE: ${{ 30000000 + github.run_number }}
     steps:
       - uses: actions/checkout@v4
         with:

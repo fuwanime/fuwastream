@@ -1178,7 +1178,7 @@ private fun EpisodeInfo(
                             Modifier.width(150.dp).clip(MaterialTheme.shapes.small).clickable(enabled = !current) { onPlay(ep) },
                         ) {
                             Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(MaterialTheme.shapes.small)) {
-                                NetImage(ep.thumbnail, Modifier.fillMaxSize())
+                                NetImage(ep.thumbnail, Modifier.fillMaxSize(), "Episode ${ep.number}")
                                 if (current) {
                                     Box(
                                         Modifier.fillMaxSize().background(MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)),

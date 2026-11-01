@@ -393,6 +393,7 @@ private fun Header(anime: Anime?, origin: String?, entryKey: String, linkBackdro
                     .height(280.dp)
                     .sharedKey(sharedBackdropKey(anime.id, entryKey).takeIf { linkBackdrop })
                     .fadeToBackground(bg),
+                "Latar ${anime.title}",
             )
         }
         Row(
@@ -584,7 +585,11 @@ private fun EpisodeRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.width(132.dp).aspectRatio(16f / 9f).clip(MaterialTheme.shapes.small)) {
-            NetImage(ep.thumbnail, Modifier.fillMaxSize().sharedKey(sharedEpisodeKey(ep.id, "detail")).clip(MaterialTheme.shapes.small))
+            NetImage(
+                ep.thumbnail,
+                Modifier.fillMaxSize().sharedKey(sharedEpisodeKey(ep.id, "detail")).clip(MaterialTheme.shapes.small),
+                "Episode ${ep.number}",
+            )
             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.15f)))
             Icon(
                 Icons.Rounded.PlayArrow,

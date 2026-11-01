@@ -179,6 +179,7 @@ private fun HistoryList(
                     NetImage(
                         entry.episodeThumbnail.ifBlank { entry.animeCover },
                         Modifier.fillMaxSize().sharedKey(sharedEpisodeKey(entry.episodeId, "library")).clip(MaterialTheme.shapes.small),
+                        "${entry.animeTitle} — Episode ${entry.episodeNumber}",
                     )
                     LinearProgressIndicator(
                         progress = { entry.progress },
@@ -273,7 +274,11 @@ private fun DownloadList(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(Modifier.width(140.dp).aspectRatio(16f / 9f).clip(MaterialTheme.shapes.small)) {
-                    NetImage(e.episodeThumbnail.ifBlank { e.animePoster }, Modifier.fillMaxSize())
+                    NetImage(
+                        e.episodeThumbnail.ifBlank { e.animePoster },
+                        Modifier.fillMaxSize(),
+                        "${e.animeTitle} — Episode ${e.episodeNumber}",
+                    )
                     if (playable) {
                         Icon(
                             Icons.Rounded.PlayCircle, null, tint = Color.White,

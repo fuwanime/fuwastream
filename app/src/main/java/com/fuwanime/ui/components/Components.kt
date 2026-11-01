@@ -333,6 +333,7 @@ fun ContinueWatchingCard(
             NetImage(
                 entry.episodeThumbnail.ifBlank { entry.animeCover },
                 Modifier.fillMaxSize().sharedKey(thumb).clip(MaterialTheme.shapes.medium),
+                "${entry.animeTitle} — Episode ${entry.episodeNumber}",
             )
             Box(Modifier.fillMaxSize().aboveSharedElements().revealWhenLanded(thumb).background(Color.Black.copy(alpha = 0.25f)))
             Surface(

@@ -16,7 +16,11 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Contrast
 import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.DeleteSweep
+import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.PrivacyTip
 import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.HighQuality
@@ -63,6 +67,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.fuwanime.BuildConfig
+import com.fuwanime.data.DownloadRepository
 import com.fuwanime.data.LibraryRepository
 import com.fuwanime.data.local.AppSettings
 import com.fuwanime.data.local.SettingsStore
@@ -73,18 +78,32 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-class SettingsViewModel(val store: SettingsStore, private val library: LibraryRepository) : ViewModel() {
+class SettingsViewModel(
+    val store: SettingsStore,
+    private val library: LibraryRepository,
+    private val downloads: DownloadRepository,
+) : ViewModel() {
     val settings: StateFlow<AppSettings> = store.settings.stateIn(viewModelScope, SharingStarted.Eagerly, AppSettings())
 
     fun update(block: suspend SettingsStore.() -> Unit) = viewModelScope.launch { store.block() }
     fun clearHistory() = viewModelScope.launch { library.clearHistory() }
     fun clearSearches() = viewModelScope.launch { library.clearSearches() }
+
+    /** Deletes favourites, history, searches, downloads and preferences — everything local. */
+    fun deleteAllData(onDone: () -> Unit = {}) = viewModelScope.launch {
+        downloads.clearAll()
+        library.clearAll()
+        store.clearUserData()
+        onDone()
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsRoute(onBack: () -> Unit) {
-    val vm: SettingsViewModel = fuwaViewModel { c, _ -> SettingsViewModel(c.settingsStore, c.libraryRepository) }
+fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit) {
+    val vm: SettingsViewModel = fuwaViewModel { c, _ ->
+        SettingsViewModel(c.settingsStore, c.libraryRepository, c.downloadRepository)
+    }
     val s by vm.settings.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val snackbar = remember { SnackbarHostState() }
@@ -215,6 +234,36 @@ fun SettingsRoute(onBack: () -> Unit) {
                 ActionRow(Icons.Rounded.ManageSearch, "Hapus riwayat pencarian", null) {
                     vm.clearSearches()
                     scope.launch { snackbar.showSnackbar("Riwayat pencarian dihapus") }
+                }
+            }
+            item {
+                ActionRow(
+                    Icons.Rounded.DeleteForever,
+                    "Hapus semua data",
+                    "Favorit, riwayat, pencarian, pengaturan, dan file unduhan",
+                ) {
+                    confirm = "Hapus semua data di perangkat ini?" to {
+                        vm.deleteAllData {
+                            scope.launch { snackbar.showSnackbar("Semua data dihapus") }
+                        }
+                    }
+                }
+            }
+
+            item { Group("Privasi & Legal") }
+            item {
+                ActionRow(Icons.Rounded.PrivacyTip, "Kebijakan Privasi", "Data apa yang disimpan dan apa yang tidak") {
+                    onOpenLegal("privacy")
+                }
+            }
+            item {
+                ActionRow(Icons.Rounded.Description, "Ketentuan Layanan", "Aturan penggunaan dan lisensi aplikasi") {
+                    onOpenLegal("terms")
+                }
+            }
+            item {
+                ActionRow(Icons.Rounded.Person, "Info Pengembang", "Kontak, lisensi, dan kredit konten") {
+                    onOpenLegal("about")
                 }
             }
 
