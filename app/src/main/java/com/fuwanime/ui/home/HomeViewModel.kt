@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -48,7 +49,7 @@ data class HomeUiState(
 
 class HomeViewModel(
     private val anime: AnimeRepository,
-    library: LibraryRepository,
+    private val library: LibraryRepository,
     private val updateRepository: UpdateRepository,
     private val settingsStore: SettingsStore,
 ) : ViewModel() {
@@ -58,6 +59,14 @@ class HomeViewModel(
     /** Non-null when a newer GitHub release exists (checked at most once every 6 hours). */
     private val _update = MutableStateFlow<UpdateRepository.UpdateInfo?>(null)
     val update: StateFlow<UpdateRepository.UpdateInfo?> = _update.asStateFlow()
+
+    val favoriteIds: StateFlow<Set<String>> = library.favoriteList
+        .map { list -> list.mapTo(HashSet()) { it.animeId } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
+    fun toggleFavorite(anime: Anime) {
+        viewModelScope.launch { library.setFavorite(anime, anime.id !in favoriteIds.value) }
+    }
 
     /** Hides the update banner until the next release. */
     fun dismissUpdate() {
