@@ -2,7 +2,7 @@ name: Build APK
 
 on:
   push:
-    branches: [main]
+    branches: [main, qa-smoke]
     tags: ["v*"]
   pull_request:
   workflow_dispatch:
@@ -85,7 +85,7 @@ jobs:
 
   smoke:
     needs: build
-    if: github.event_name == 'workflow_dispatch' && (inputs.smoke || inputs.qa)
+    if: (github.event_name == 'workflow_dispatch' && (inputs.smoke || inputs.qa)) || (github.event_name == 'push' && github.ref == 'refs/heads/qa-smoke')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
