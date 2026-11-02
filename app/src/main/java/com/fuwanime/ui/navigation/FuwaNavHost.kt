@@ -75,6 +75,7 @@ import com.fuwanime.ui.detail.DetailRoute
 import com.fuwanime.ui.explore.ExploreRoute
 import com.fuwanime.ui.home.HomeRoute
 import com.fuwanime.ui.library.LibraryRoute
+import com.fuwanime.ui.legal.LegalRoute
 import com.fuwanime.ui.player.PlayerRoute
 import com.fuwanime.ui.schedule.ScheduleRoute
 import com.fuwanime.ui.settings.SettingsRoute
@@ -87,6 +88,9 @@ private object Routes {
     const val DETAIL = "detail/{animeId}?from={from}"
     const val PLAYER = "player/{animeId}/{episodeId}?number={number}&thumb={thumb}&shared={shared}"
     const val SETTINGS = "settings"
+    const val LEGAL = "legal/{type}"
+
+    fun legal(type: String) = "legal/${Uri.encode(type)}"
 
     fun explore(genre: String? = null, focus: Boolean = false) =
         "explore?genre=${Uri.encode(genre.orEmpty())}&focus=$focus"
@@ -325,7 +329,25 @@ fun FuwaNavHost(initialAnimeId: String? = null, onInitialAnimeConsumed: () -> Un
                                 )
                             }
                         }
-                        composable(Routes.SETTINGS) { Scoped { SettingsRoute(onBack = { nav.popBackStack() }) } }
+                        composable(Routes.SETTINGS) {
+                            Scoped {
+                                SettingsRoute(
+                                    onBack = { nav.popBackStack() },
+                                    onOpenLegal = { type -> nav.navigate(Routes.legal(type)) },
+                                )
+                            }
+                        }
+                        composable(
+                            Routes.LEGAL,
+                            arguments = listOf(navArgument("type") { type = NavType.StringType; defaultValue = "privacy" }),
+                        ) { entry ->
+                            Scoped {
+                                LegalRoute(
+                                    type = entry.arguments?.getString("type") ?: "privacy",
+                                    onBack = { nav.popBackStack() },
+                                )
+                            }
+                        }
                     }
                 }
             }

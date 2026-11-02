@@ -81,4 +81,11 @@ class LibraryRepository(db: FuwaDatabase) {
 
     suspend fun removeSearch(query: String) = searches.delete(query)
     suspend fun clearSearches() = searches.clear()
+
+    /** Deletes every locally stored personal row; used by "Hapus semua data". */
+    suspend fun clearAll() {
+        favorites.clear()
+        history.clear()
+        searches.clear()
+    }
 }
