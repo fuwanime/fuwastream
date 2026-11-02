@@ -59,7 +59,6 @@ import androidx.compose.ui.Modifier
 import com.fuwanime.ui.theme.PlusJakarta
 import com.fuwanime.ui.components.ImageScrim
 import com.fuwanime.ui.components.TagChip
-import com.fuwanime.ui.motion.sharedBackdropKey
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.unit.em
@@ -77,6 +76,15 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -417,7 +425,20 @@ fun Wordmark(onDark: Boolean = false) {
     }
 }
 
-private val HeroHeight = 470.dp
+private val HeroHeight = 540.dp
+
+/** The API's images are small: decode one tiny and blur it, so the stretched backdrop never shows its pixels. */
+@Composable
+private fun AmbientBackdrop(url: String, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    AsyncImage(
+        // Own cache key, so this tiny bitmap never stands in for the sharp poster. Below Android 12 blur is a no-op; the upscale still softens it.
+        model = remember(url) { ImageRequest.Builder(context).data(url).size(64).memoryCacheKey("$url#ambient").crossfade(250).build() },
+        contentDescription = null,
+        contentScale = ContentScale.Crop,
+        modifier = modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh).blur(36.dp, BlurredEdgeTreatment.Rectangle),
+    )
+}
 
 @Composable
 private fun HeroPager(items: List<Anime>, favoriteIds: Set<String>, onToggleFavorite: (Anime) -> Unit, onOpen: (Anime) -> Unit) {
@@ -434,28 +455,34 @@ private fun HeroPager(items: List<Anime>, favoriteIds: Set<String>, onToggleFavo
             val anime = items[page]
             Box(Modifier.fillMaxSize()) {
                 val press = remember { MutableInteractionSource() }
-                NetImage(
-                    anime.backdrop,
-                    Modifier
-                        .fillMaxSize()
-                        .sharedKey(sharedBackdropKey(anime.id, "home-hero"))
-                        .clickable(interactionSource = press, indication = null) { onOpen(anime) },
-                    anime.title,
-                )
+                AmbientBackdrop(anime.poster, Modifier.fillMaxSize())
                 Box(
                     Modifier.fillMaxSize().background(
                         Brush.verticalGradient(
-                            0f to ImageScrim.copy(alpha = 0.7f),
-                            0.24f to ImageScrim.copy(alpha = 0f),
-                            0.46f to ImageScrim.copy(alpha = 0.1f),
-                            0.78f to background.copy(alpha = 0.85f),
+                            0f to ImageScrim.copy(alpha = 0.6f),
+                            0.3f to ImageScrim.copy(alpha = 0.3f),
+                            0.62f to background.copy(alpha = 0.8f),
                             1f to background,
                         ),
                     ),
                 )
                 Column(
-                    Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 36.dp),
+                    Modifier.fillMaxSize().statusBarsPadding().padding(top = 64.dp, start = 20.dp, end = 20.dp, bottom = 36.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
+                    NetImage(
+                        anime.poster,
+                        Modifier
+                            .width(128.dp)
+                            .aspectRatio(2f / 3f)
+                            .pressScale(press)
+                            .sharedKey(sharedPosterKey(anime.id, "home-hero"))
+                            .shadow(24.dp, MaterialTheme.shapes.medium)
+                            .clip(MaterialTheme.shapes.medium)
+                            .clickable(interactionSource = press, indication = null) { onOpen(anime) },
+                        anime.title,
+                    )
+                    Spacer(Modifier.weight(1f))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             "#${page + 1} MUSIM INI",
@@ -483,6 +510,7 @@ private fun HeroPager(items: List<Anime>, favoriteIds: Set<String>, onToggleFavo
                         anime.title,
                         style = MaterialTheme.typography.headlineMedium,
                         color = MaterialTheme.colorScheme.onBackground,
+                        textAlign = TextAlign.Center,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -491,6 +519,7 @@ private fun HeroPager(items: List<Anime>, favoriteIds: Set<String>, onToggleFavo
                         listOf("${compactNumber(anime.views)} ditonton").plus(anime.genres.take(2)).joinToString(" · "),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
