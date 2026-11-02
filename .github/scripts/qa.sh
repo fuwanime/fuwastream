@@ -51,7 +51,7 @@ stop_record() { sleep 1; kill -INT $REC 2>/dev/null; wait $REC 2>/dev/null; slee
 dismiss_dialogs() { adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS >/dev/null 2>&1; tap "Wait" >/dev/null 2>&1 || true; }
 fresh() { adb shell am force-stop "$PKG"; sleep 1; adb shell am start -W -n "$PKG/com.fuwanime.MainActivity" >/dev/null; sleep 12; tap "Saya berusia 13 tahun atau lebih — Lanjutkan" >/dev/null 2>&1; sleep 2; dismiss_dialogs; alive; }
 open_search_result() {  # $1 = query, $2 = title prefix to tap
-  tap "Jelajah"; sleep 3; tap "Cari judul anime*" || adb shell input tap 540 330; sleep 1
+  tap "Jelajah"; sleep 3; tap "Judul, genre, atau studio*" || adb shell input tap 540 330; sleep 1
   adb shell input text "$1"; sleep 5; adb shell input keyevent KEYCODE_BACK; sleep 1
   tap "$2"
 }
@@ -88,15 +88,18 @@ stop_record qa3-season; alive
 
 # 4. Detail -> episode row -> player -> back; "Tonton/Lanjutkan" -> player -> back (header must be intact) -> back.
 fresh
-tap "Tonton Sekarang"; sleep 5; shot qa4a-detail 0
 record qa4-player
+tap "Tonton"; shot qa4a0-hero-poster-flying 0.15; sleep 5; shot qa4a-detail 0
 scroll_to "Episode 1" && tap "Episode 1"; shot qa4b-player 6
 adb shell input keyevent KEYCODE_BACK; shot qa4c-detail-after-player 2.5
+stop_record qa4-player
+# Second clip: screenrecord stops at 60 s, and the hero landing on Home is the part users report.
+record qa4x-button-player-home
 adb shell input swipe 540 900 540 1700 300; adb shell input swipe 540 900 540 1700 300; sleep 1
-tap "Tonton Ep*" || tap "Lanjutkan Ep*"; shot qa4d-player-from-button 6
+tap "Tonton EP*" || tap "Lanjut EP*"; shot qa4d-player-from-button 6
 adb shell input keyevent KEYCODE_BACK; shot qa4e-detail-header 2.5
-adb shell input keyevent KEYCODE_BACK; shot qa4f-home 2.5
-stop_record qa4-player; alive
+adb shell input keyevent KEYCODE_BACK; shot qa4f0-hero-landing 0.15; shot qa4f-home 2.5
+stop_record qa4x-button-player-home; alive
 
 # 5. Tabs.
 fresh

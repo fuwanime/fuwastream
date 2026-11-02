@@ -38,6 +38,12 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -108,6 +114,9 @@ private enum class Tab(val route: String, val label: String, val icon: ImageVect
 
 /** Detail and player sit on top of the tabs; moving to or from them is a fade under a shared element. */
 private fun NavBackStackEntry.isOverlay() = destination.route == Routes.DETAIL || destination.route == Routes.PLAYER
+
+private val NavInactive = Color(0xFF8A8494)
+private val NavHairline = Color(0xFF1F1C27)
 
 private val FadeThroughIn = fadeIn(tween(Motion.Medium, 90, Motion.EmphasizedDecelerate)) +
     scaleIn(tween(Motion.Medium, 90, Motion.EmphasizedDecelerate), initialScale = 0.94f)
@@ -195,7 +204,19 @@ fun FuwaNavHost(initialAnimeId: String? = null, onInitialAnimeConsumed: () -> Un
                 enter = slideInVertically { it },
                 exit = slideOutVertically { it },
             ) {
-                NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
+                val colors = MaterialTheme.colorScheme
+                NavigationBar(
+                    // Hairline on top separates the bar from posters scrolling under it.
+                    modifier = Modifier.drawBehind { drawLine(NavHairline, Offset.Zero, Offset(size.width, 0f), 1.dp.toPx()) },
+                    containerColor = colors.background.copy(alpha = 0.94f),
+                ) {
+                    val itemColors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = colors.primary,
+                        selectedTextColor = colors.onSurface,
+                        indicatorColor = colors.secondaryContainer,
+                        unselectedIconColor = NavInactive,
+                        unselectedTextColor = NavInactive,
+                    )
                     Tab.entries.forEach { tab ->
                         val selected = tab == currentTab
                         NavigationBarItem(
@@ -204,7 +225,8 @@ fun FuwaNavHost(initialAnimeId: String? = null, onInitialAnimeConsumed: () -> Un
                                 if (tab == Tab.EXPLORE) nav.navigateTab(Routes.explore()) else nav.navigateTab(tab.route)
                             },
                             icon = { Icon(if (selected) tab.selectedIcon else tab.icon, null) },
-                            label = { Text(tab.label) },
+                            label = { Text(tab.label, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium) },
+                            colors = itemColors,
                         )
                     }
                 }

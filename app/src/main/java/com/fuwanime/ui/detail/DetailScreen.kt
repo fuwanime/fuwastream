@@ -29,26 +29,19 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.SwapVert
-import androidx.compose.material.icons.rounded.VideoLibrary
-import androidx.compose.material.icons.rounded.Visibility
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalIconToggleButton
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -68,6 +61,18 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.fuwanime.util.statusLabel
+import com.fuwanime.util.remainingLabel
+import com.fuwanime.ui.components.NewBadge
+import com.fuwanime.ui.components.TagChip
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.draw.alpha
+import androidx.compose.foundation.border
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
@@ -110,11 +115,9 @@ import com.fuwanime.data.Episode
 import com.fuwanime.data.local.WatchHistoryEntity
 import com.fuwanime.ui.components.ErrorState
 import com.fuwanime.ui.components.NetImage
-import com.fuwanime.ui.components.Pill
 import com.fuwanime.ui.components.PosterRow
 import com.fuwanime.ui.components.SectionHeader
 import com.fuwanime.ui.components.SkeletonBox
-import com.fuwanime.ui.components.StatusPill
 import com.fuwanime.ui.components.fadeToBackground
 import com.fuwanime.util.compactNumber
 import com.fuwanime.util.fuwaViewModel
@@ -205,11 +208,29 @@ private fun DetailScreen(
             modifier = Modifier.fillMaxSize(),
         ) {
             // Once the header is scrolled away, closing just fades instead of flying a poster in from off-screen.
-            item(key = "header") { Header(anime, origin.takeIf { linkHeader && !exiting }, entryKey, linkBackdrop = linkHeader) }
+            item(key = "header") {
+                Header(anime, origin.takeIf { linkHeader && !exiting }, entryKey, linkBackdrop = linkHeader, episodeCount = state.latestEpisode)
+            }
 
             if (anime == null && state.infoError != null) {
                 item { ErrorState(state.infoError, vm::loadInfo) }
                 return@LazyColumn
+            }
+
+            if (anime != null) {
+                item(key = "stats") {
+                    Text(
+                        buildAnnotatedString {
+                            withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)) { append(compactNumber(anime.views)) }
+                            append(" ditonton      ")
+                            withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)) { append(compactNumber(anime.favorites)) }
+                            append(" favorit")
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.navEnter().padding(start = 20.dp, end = 20.dp, top = 16.dp),
+                    )
+                }
             }
 
             item(key = "actions") {
@@ -227,19 +248,27 @@ private fun DetailScreen(
                             }
                         },
                         enabled = anime != null && target != null,
-                        contentPadding = PaddingValues(vertical = 14.dp),
-                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(14.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        modifier = Modifier.weight(1f).height(52.dp),
                     ) {
                         Icon(Icons.Rounded.PlayArrow, null)
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            when {
-                                resume != null -> "Lanjutkan Ep ${resume.episodeNumber}"
-                                target != null -> "Tonton Ep ${target.number}"
-                                else -> "Memuat episode…"
-                            },
-                            maxLines = 1,
-                        )
+                        Spacer(Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                when {
+                                    resume != null -> "Lanjut EP ${resume.episodeNumber}"
+                                    target != null -> "Tonton EP ${target.number}"
+                                    else -> "Memuat episode…"
+                                },
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.ExtraBold,
+                                maxLines = 1,
+                            )
+                            resume?.takeUnless { it.isFinished }?.let { remainingLabel(it.positionMs, it.durationMs) }?.let {
+                                Text(it, style = MaterialTheme.typography.labelSmall, modifier = Modifier.alpha(0.75f))
+                            }
+                        }
                     }
                     Spacer(Modifier.width(12.dp))
                     FilledTonalIconToggleButton(
@@ -248,10 +277,14 @@ private fun DetailScreen(
                             if (adding) favoritePop++
                             vm.toggleFavorite()
                         },
-                        modifier = Modifier.size(52.dp),
+                        modifier = Modifier
+                            .size(52.dp)
+                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp)),
+                        shape = RoundedCornerShape(14.dp),
                         colors = IconButtonDefaults.filledTonalIconToggleButtonColors(
-                            checkedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            checkedContentColor = MaterialTheme.colorScheme.secondary,
+                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                            checkedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                            checkedContentColor = MaterialTheme.colorScheme.primary,
                         ),
                     ) {
                         FavoriteIcon(favorite, favoritePop, favoritePopShown) { favoritePopShown = it }
@@ -260,22 +293,14 @@ private fun DetailScreen(
             }
 
             if (anime != null) {
-                if (resume != null) {
-                    item(key = "resumeBar") {
-                        Column(Modifier.navEnter(140).padding(horizontal = 20.dp)) {
-                            LinearProgressIndicator(
-                                progress = { resume.progress },
-                                modifier = Modifier.fillMaxWidth().height(4.dp).clip(CircleShape),
-                                drawStopIndicator = {},
-                            )
-                            Spacer(Modifier.height(16.dp))
-                        }
-                    }
-                }
                 if (anime.genres.isNotEmpty()) {
                     item(key = "genres") {
-                        FlowRow(Modifier.navEnter(160).padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            anime.genres.forEach { g -> AssistChip(onClick = { onGenre(g) }, label = { Text(g) }) }
+                        FlowRow(
+                            Modifier.navEnter(160).padding(horizontal = 20.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            anime.genres.forEach { g -> TagChip(g, onClick = { onGenre(g) }) }
                         }
                     }
                 }
@@ -291,8 +316,11 @@ private fun DetailScreen(
                                 state.seasons.map { it.anime },
                                 loading = false,
                                 onClick = { onAnimeClick(it, "season-$entryKey") },
-                                caption = { a -> labels[a.id]?.takeIf { it.isNotBlank() } },
+                                caption = { a ->
+                                    labels[a.id]?.takeIf { it.isNotBlank() }?.let { if (a.id == anime.id) "$it · Ini" else it }
+                                },
                                 origin = "season-$entryKey",
+                                highlightId = anime.id,
                             )
                         }
                     }
@@ -330,11 +358,7 @@ private fun DetailScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         items(state.ranges, key = { it.page }) { r ->
-                            FilterChip(
-                                selected = r.page == state.selectedPage,
-                                onClick = { vm.selectPage(r.page) },
-                                label = { Text(r.label) },
-                            )
+                            TagChip(r.label, onClick = { vm.selectPage(r.page) }, selected = r.page == state.selectedPage)
                         }
                     }
                 }
@@ -379,7 +403,7 @@ private fun DetailScreen(
 private const val HEADER_LINK_MAX_OFFSET_PX = 600
 
 @Composable
-private fun Header(anime: Anime?, origin: String?, entryKey: String, linkBackdrop: Boolean) {
+private fun Header(anime: Anime?, origin: String?, entryKey: String, linkBackdrop: Boolean, episodeCount: Double?) {
     val bg = MaterialTheme.colorScheme.background
     Box {
         if (anime == null) {
@@ -409,7 +433,7 @@ private fun Header(anime: Anime?, origin: String?, entryKey: String, linkBackdro
                         .width(116.dp)
                         .aspectRatio(2f / 3f)
                         .sharedKey(origin?.let { sharedPosterKey(anime.id, it) })
-                        .shadow(16.dp, MaterialTheme.shapes.medium)
+                        .shadow(24.dp, MaterialTheme.shapes.medium)
                         .clip(MaterialTheme.shapes.medium),
                     anime.title,
                 )
@@ -422,31 +446,33 @@ private fun Header(anime: Anime?, origin: String?, entryKey: String, linkBackdro
                     Spacer(Modifier.height(8.dp))
                     SkeletonBox(Modifier.fillMaxWidth(0.6f).height(14.dp))
                 } else {
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        StatusPill(anime.status)
-                        if (anime.type.isNotBlank()) Pill(anime.type)
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    Text(anime.title, style = MaterialTheme.typography.headlineSmall, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                    if (anime.alternativeTitles.isNotBlank()) {
+                    Text(
+                        anime.title,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    val altTitle = anime.alternativeTitles.split(',', ';').firstOrNull()?.trim().orEmpty()
+                    if (altTitle.isNotBlank()) {
                         Text(
-                            anime.alternativeTitles,
-                            style = MaterialTheme.typography.bodySmall,
+                            altTitle,
+                            style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
+                            maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(top = 4.dp),
                         )
                     }
-                    Spacer(Modifier.height(8.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.Visibility, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(Modifier.width(4.dp))
-                        Text(compactNumber(anime.views), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(Modifier.width(12.dp))
-                        Icon(Icons.Rounded.Favorite, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.secondary)
-                        Spacer(Modifier.width(4.dp))
-                        Text(compactNumber(anime.favorites), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+                    val count = episodeCount?.let { "${if (it % 1.0 == 0.0) it.toLong() else it} EP" }.orEmpty()
+                    Text(
+                        listOf(anime.displayYear, anime.type, statusLabel(anime.status), count).filter { it.isNotBlank() }.joinToString(" · "),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
                 }
             }
         }
@@ -460,24 +486,23 @@ private fun Synopsis(text: String) {
     Column(
         Modifier
             .padding(horizontal = 20.dp, vertical = 16.dp)
-            .animateContentSize()
-            .clickable { expanded = !expanded },
+            .animateContentSize(),
     ) {
-        Text("Sinopsis", style = MaterialTheme.typography.titleMedium)
-        Spacer(Modifier.height(6.dp))
         Text(
             text,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = if (expanded) Int.MAX_VALUE else 4,
+            maxLines = if (expanded) Int.MAX_VALUE else 3,
             overflow = TextOverflow.Ellipsis,
         )
-        Text(
-            if (expanded) "Tutup" else "Selengkapnya",
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(top = 4.dp),
-        )
+        TextButton(onClick = { expanded = !expanded }, contentPadding = PaddingValues(0.dp)) {
+            Text(
+                if (expanded) "Tutup" else "Selengkapnya",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
     }
 }
 
@@ -512,16 +537,19 @@ private fun EpisodeHeader(state: DetailUiState, vm: DetailViewModel) {
     var confirmDownloadAll by rememberSaveable { mutableStateOf(false) }
     Column(Modifier.padding(top = 24.dp)) {
         Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("Episode", style = MaterialTheme.typography.titleLarge)
-                state.latestEpisode?.let {
-                    Text(
-                        "Terbaru: Episode ${if (it % 1.0 == 0.0) it.toLong() else it}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
+            Text(
+                buildAnnotatedString {
+                    append("Episode")
+                    state.latestEpisode?.let {
+                        withStyle(SpanStyle(fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)) {
+                            append(" · ${if (it % 1.0 == 0.0) it.toLong() else it}")
+                        }
+                    }
+                },
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f),
+            )
             IconButton(onClick = { confirmDownloadAll = true }) {
                 Icon(Icons.Rounded.Download, "Unduh massal episode")
             }
@@ -580,23 +608,20 @@ private fun EpisodeRow(
         Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .background(if (isResume) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f) else Color.Transparent)
+            .background(if (isResume) MaterialTheme.colorScheme.surfaceContainerLow else Color.Transparent)
             .padding(horizontal = 20.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.width(132.dp).aspectRatio(16f / 9f).clip(MaterialTheme.shapes.small)) {
+        val finished = progress?.isFinished == true
+        Box(Modifier.width(124.dp).height(70.dp).clip(RoundedCornerShape(10.dp))) {
             NetImage(
                 ep.thumbnail,
-                Modifier.fillMaxSize().sharedKey(sharedEpisodeKey(ep.id, "detail")).clip(MaterialTheme.shapes.small),
+                Modifier.fillMaxSize().alpha(if (finished) 0.4f else 1f).sharedKey(sharedEpisodeKey(ep.id, "detail")).clip(RoundedCornerShape(10.dp)),
                 "Episode ${ep.number}",
             )
-            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.15f)))
-            Icon(
-                Icons.Rounded.PlayArrow,
-                null,
-                tint = Color.White,
-                modifier = Modifier.align(Alignment.Center).size(30.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.45f)).padding(4.dp),
-            )
+            if (finished) {
+                Icon(Icons.Rounded.Check, "Sudah ditonton", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.align(Alignment.Center).size(22.dp))
+            }
             if (progress != null) {
                 LinearProgressIndicator(
                     progress = { if (progress.isFinished) 1f else progress.progress },
@@ -617,14 +642,7 @@ private fun EpisodeRow(
                 )
                 if (ep.isNew) {
                     Spacer(Modifier.width(6.dp))
-                    Text(
-                        "BARU",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier
-                            .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp))
-                            .padding(horizontal = 6.dp, vertical = 1.dp),
-                    )
+                    NewBadge()
                 }
             }
             if (ep.title.isNotBlank() && ep.title != "Episode ${ep.number}") {
@@ -635,9 +653,6 @@ private fun EpisodeRow(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-        }
-        if (progress?.isFinished == true) {
-            Icon(Icons.Rounded.CheckCircle, "Sudah ditonton", tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(20.dp))
         }
         EpisodeDownloadButton(download, onDownload, onDeleteDownload)
     }

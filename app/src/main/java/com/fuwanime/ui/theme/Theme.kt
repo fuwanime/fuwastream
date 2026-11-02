@@ -15,13 +15,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import com.fuwanime.R
 import com.fuwanime.data.local.AppSettings
 import com.fuwanime.data.local.ThemeMode
 
-// "Yozakura" palette: lavender primary, sakura secondary, sky tertiary on a deep ink night.
+// "Yozakura" palette: lavender primary, sakura secondary, sky tertiary on a near-black cinematic night.
 private val DarkScheme = darkColorScheme(
     primary = Color(0xFFD4BBFF),
     onPrimary = Color(0xFF3A1B76),
@@ -30,33 +34,33 @@ private val DarkScheme = darkColorScheme(
     inversePrimary = Color(0xFF6A4BC4),
     secondary = Color(0xFFFFB0C9),
     onSecondary = Color(0xFF5E1133),
-    secondaryContainer = Color(0xFF7B2949),
+    secondaryContainer = Color(0xFF2A2238),
     onSecondaryContainer = Color(0xFFFFD9E3),
     tertiary = Color(0xFF8FD3F2),
     onTertiary = Color(0xFF003548),
     tertiaryContainer = Color(0xFF004D67),
     onTertiaryContainer = Color(0xFFC1E8FF),
-    background = Color(0xFF0F0D15),
+    background = Color(0xFF0B0A0F),
     onBackground = Color(0xFFE8E0EE),
-    surface = Color(0xFF0F0D15),
+    surface = Color(0xFF0B0A0F),
     onSurface = Color(0xFFE8E0EE),
     surfaceVariant = Color(0xFF2B2734),
-    onSurfaceVariant = Color(0xFFCBC3D7),
+    onSurfaceVariant = Color(0xFFA39DAE),
     surfaceTint = Color(0xFFD4BBFF),
     inverseSurface = Color(0xFFE8E0EE),
     inverseOnSurface = Color(0xFF322F38),
     outline = Color(0xFF958EA1),
-    outlineVariant = Color(0xFF4A4555),
+    outlineVariant = Color(0xFF2A2633),
     error = Color(0xFFFFB4AB),
     onError = Color(0xFF690005),
     errorContainer = Color(0xFF93000A),
     onErrorContainer = Color(0xFFFFDAD6),
     surfaceBright = Color(0xFF36323D),
-    surfaceDim = Color(0xFF0F0D15),
-    surfaceContainerLowest = Color(0xFF0A0910),
-    surfaceContainerLow = Color(0xFF17141E),
-    surfaceContainer = Color(0xFF1C1923),
-    surfaceContainerHigh = Color(0xFF26232E),
+    surfaceDim = Color(0xFF0B0A0F),
+    surfaceContainerLowest = Color(0xFF08070B),
+    surfaceContainerLow = Color(0xFF16141C),
+    surfaceContainer = Color(0xFF1A1721),
+    surfaceContainerHigh = Color(0xFF1F1C27),
     surfaceContainerHighest = Color(0xFF312D39),
 )
 
@@ -105,17 +109,30 @@ private fun ColorScheme.toAmoled() = copy(
     surfaceContainerHighest = Color(0xFF25212C),
 )
 
+val PlusJakarta = FontFamily(
+    Font(R.font.plus_jakarta_sans_regular, FontWeight.Normal),
+    Font(R.font.plus_jakarta_sans_semibold, FontWeight.SemiBold),
+    Font(R.font.plus_jakarta_sans_bold, FontWeight.Bold),
+    Font(R.font.plus_jakarta_sans_extrabold, FontWeight.ExtraBold),
+)
+
 private val AppTypography = Typography().run {
     copy(
-        displaySmall = displaySmall.copy(fontWeight = FontWeight.Black, letterSpacing = (-0.5).sp),
-        headlineLarge = headlineLarge.copy(fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp),
-        headlineMedium = headlineMedium.copy(fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.25).sp),
-        headlineSmall = headlineSmall.copy(fontWeight = FontWeight.Bold),
-        titleLarge = titleLarge.copy(fontWeight = FontWeight.Bold),
-        titleMedium = titleMedium.copy(fontWeight = FontWeight.SemiBold),
-        titleSmall = titleSmall.copy(fontWeight = FontWeight.SemiBold),
-        labelLarge = labelLarge.copy(fontWeight = FontWeight.SemiBold),
-        labelSmall = TextStyle(fontSize = 11.sp, lineHeight = 14.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.4.sp),
+        displayLarge = displayLarge.copy(fontFamily = PlusJakarta),
+        displayMedium = displayMedium.copy(fontFamily = PlusJakarta),
+        displaySmall = displaySmall.copy(fontFamily = PlusJakarta, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.03).em),
+        headlineLarge = headlineLarge.copy(fontFamily = PlusJakarta, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.02).em),
+        headlineMedium = headlineMedium.copy(fontFamily = PlusJakarta, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.02).em),
+        headlineSmall = headlineSmall.copy(fontFamily = PlusJakarta, fontWeight = FontWeight.Bold, letterSpacing = (-0.02).em),
+        titleLarge = titleLarge.copy(fontFamily = PlusJakarta, fontWeight = FontWeight.Bold),
+        titleMedium = titleMedium.copy(fontFamily = PlusJakarta, fontWeight = FontWeight.SemiBold),
+        titleSmall = titleSmall.copy(fontFamily = PlusJakarta, fontWeight = FontWeight.SemiBold),
+        bodyLarge = bodyLarge.copy(fontFamily = PlusJakarta),
+        bodyMedium = bodyMedium.copy(fontFamily = PlusJakarta),
+        bodySmall = bodySmall.copy(fontFamily = PlusJakarta),
+        labelLarge = labelLarge.copy(fontFamily = PlusJakarta, fontWeight = FontWeight.SemiBold),
+        labelMedium = labelMedium.copy(fontFamily = PlusJakarta),
+        labelSmall = TextStyle(fontFamily = PlusJakarta, fontSize = 11.sp, lineHeight = 14.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.4.sp),
     )
 }
 
