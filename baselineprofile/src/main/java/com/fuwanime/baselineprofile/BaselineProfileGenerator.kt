@@ -3,7 +3,6 @@ package com.fuwanime.baselineprofile
 import androidx.benchmark.macro.junit4.BaselineProfileRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.uiautomator.By
-import androidx.test.uiautomator.Direction
 import androidx.test.uiautomator.Until
 import org.junit.Rule
 import org.junit.Test
@@ -25,22 +24,20 @@ class BaselineProfileGenerator {
 
         val width = device.displayWidth
         val height = device.displayHeight
-        // Hero pager, then the feed.
+        // Coordinate gestures only: the auto-sliding hero recomposes the feed, so held UiObject2 references go stale.
         device.swipe(width * 4 / 5, height / 3, width / 5, height / 3, 20)
-        device.findObject(By.scrollable(true))?.let { list ->
-            repeat(2) { list.fling(Direction.DOWN) }
-            repeat(2) { list.fling(Direction.UP) }
-        }
+        repeat(2) { device.swipe(width / 2, height * 4 / 5, width / 2, height / 5, 15) }
+        repeat(2) { device.swipe(width / 2, height / 5, width / 2, height * 4 / 5, 15) }
+        device.waitForIdle()
 
-        device.findObject(By.text("Tonton"))?.let {
-            it.click()
+        if (runCatching { device.findObject(By.text("Tonton"))?.click() }.getOrNull() != null) {
             device.wait(Until.hasObject(By.textStartsWith("Tonton EP")), 10_000)
             device.pressBack()
             device.waitForIdle()
         }
 
         for (tab in listOf("Jelajah", "Jadwal", "Koleksi", "Beranda")) {
-            device.findObject(By.text(tab))?.click()
+            runCatching { device.findObject(By.text(tab))?.click() }
             device.waitForIdle()
             Thread.sleep(1_500)
         }
