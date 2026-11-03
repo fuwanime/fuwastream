@@ -110,6 +110,15 @@ tap "Koleksi"; shot qa5c-library 3
 tap "Beranda"; shot qa5d-home 3
 stop_record qa5-tabs; alive
 
+# 5b. README shots: two favourites from the hero, Koleksi → Favorit, Pengaturan.
+fresh
+tap "Tambah ke Koleksi"; sleep 1
+adb shell input swipe 900 700 180 700 250; sleep 2
+tap "Tambah ke Koleksi"; sleep 1
+tap "Koleksi"; sleep 2; tap "Favorit"; shot qa5e-favorites 3
+tap "Beranda"; sleep 2; tap "Pengaturan"; shot qa5f-settings 3
+adb shell input keyevent KEYCODE_BACK; sleep 1; alive
+
 # 6. Offline: Beranda from the saved data with the offline pill, then back online.
 adb shell svc wifi disable; adb shell svc data disable
 fresh; shot qa6a-offline-home 2
