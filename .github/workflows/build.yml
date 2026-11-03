@@ -2,7 +2,7 @@ name: Build APK
 
 on:
   push:
-    branches: [main]
+    branches: [main, qa-smoke]
     tags: ["v*"]
   pull_request:
   workflow_dispatch:
@@ -26,8 +26,6 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      VERSION_CODE: ${{ github.run_number }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -52,6 +50,8 @@ jobs:
 
       - name: Set version name
         run: |
+          # 30M offset keeps codes above installs made by older builds (epoch-minute codes ~29.7M).
+          echo "VERSION_CODE=$((30000000 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             echo "VERSION_NAME=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
           else
@@ -60,20 +60,21 @@ jobs:
             echo "VERSION_NAME=${BASE#v}-build.${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
           fi
 
-      - name: Build APK
+      - name: Build APK + AAB
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-        run: gradle testDebugUnitTest assembleRelease --stacktrace
+        run: gradle testDebugUnitTest assembleRelease bundleRelease --stacktrace
 
-      - name: Rename APK
+      - name: Rename artifacts
         run: |
           mkdir -p dist
           cp app/build/outputs/apk/release/*.apk "dist/FuwaStream-${VERSION_NAME}.apk"
+          cp app/build/outputs/bundle/release/*.aab "dist/FuwaStream-${VERSION_NAME}.aab"
 
       - uses: actions/upload-artifact@v4
         with:
           name: FuwaStream-${{ env.VERSION_NAME }}
-          path: dist/*.apk
+          path: dist/*
 
       - name: Publish release
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
@@ -83,13 +84,13 @@ jobs:
           tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('build-{0}', github.run_number) }}
           name: FuwaStream ${{ env.VERSION_NAME }}
           target_commitish: ${{ github.sha }}
-          files: dist/*.apk
+          files: dist/*
           generate_release_notes: true
           make_latest: true
 
   smoke:
     needs: build
-    if: github.event_name == 'workflow_dispatch' && (inputs.smoke || inputs.qa)
+    if: (github.event_name == 'workflow_dispatch' && (inputs.smoke || inputs.qa)) || (github.event_name == 'push' && github.ref == 'refs/heads/qa-smoke')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

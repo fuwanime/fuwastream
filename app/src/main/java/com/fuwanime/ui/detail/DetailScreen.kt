@@ -417,6 +417,7 @@ private fun Header(anime: Anime?, origin: String?, entryKey: String, linkBackdro
                     .height(280.dp)
                     .sharedKey(sharedBackdropKey(anime.id, entryKey).takeIf { linkBackdrop })
                     .fadeToBackground(bg),
+                "Latar ${anime.title}",
             )
         }
         Row(
@@ -616,6 +617,7 @@ private fun EpisodeRow(
             NetImage(
                 ep.thumbnail,
                 Modifier.fillMaxSize().alpha(if (finished) 0.4f else 1f).sharedKey(sharedEpisodeKey(ep.id, "detail")).clip(RoundedCornerShape(10.dp)),
+                "Episode ${ep.number}",
             )
             if (finished) {
                 Icon(Icons.Rounded.Check, "Sudah ditonton", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.align(Alignment.Center).size(22.dp))

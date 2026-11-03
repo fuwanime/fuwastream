@@ -133,6 +133,12 @@ class DownloadRepository(
         dao.delete(episodeId)
     }
 
+    /** Cancels every download, deletes its files, and clears the tracking table. */
+    suspend fun clearAll() = withContext(Dispatchers.IO) {
+        dao.all().forEach(::removeFiles)
+        dao.clear()
+    }
+
     private fun removeFiles(entity: DownloadEntity) {
         runCatching { manager.remove(entity.systemId) }
         File(entity.filePath).delete()

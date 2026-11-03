@@ -49,7 +49,7 @@ stop_record() { sleep 1; kill -INT $REC 2>/dev/null; wait $REC 2>/dev/null; slee
 
 # Every scenario starts from a fresh launch on Home, so one failed step never derails the next.
 dismiss_dialogs() { adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS >/dev/null 2>&1; tap "Wait" >/dev/null 2>&1 || true; }
-fresh() { adb shell am force-stop "$PKG"; sleep 1; adb shell am start -W -n "$PKG/com.fuwanime.MainActivity" >/dev/null; sleep 12; dismiss_dialogs; alive; }
+fresh() { adb shell am force-stop "$PKG"; sleep 1; adb shell am start -W -n "$PKG/com.fuwanime.MainActivity" >/dev/null; sleep 12; tap "Saya berusia 13 tahun atau lebih — Lanjutkan" >/dev/null 2>&1; sleep 2; dismiss_dialogs; alive; }
 open_search_result() {  # $1 = query, $2 = title prefix to tap
   tap "Jelajah"; sleep 3; tap "Judul, genre, atau studio*" || adb shell input tap 540 330; sleep 1
   adb shell input text "$1"; sleep 5; adb shell input keyevent KEYCODE_BACK; sleep 1
@@ -109,6 +109,15 @@ tap "Jadwal"; shot qa5b-schedule 3
 tap "Koleksi"; shot qa5c-library 3
 tap "Beranda"; shot qa5d-home 3
 stop_record qa5-tabs; alive
+
+# 5b. README shots: two favourites from the hero, Koleksi → Favorit, Pengaturan.
+fresh
+tap "Tambah ke Koleksi"; sleep 1
+adb shell input swipe 900 700 180 700 250; sleep 2
+tap "Tambah ke Koleksi"; sleep 1
+tap "Koleksi"; sleep 2; tap "Favorit*"; shot qa5e-favorites 3
+tap "Beranda"; sleep 2; tap "Pengaturan"; shot qa5f-settings 3
+adb shell input keyevent KEYCODE_BACK; sleep 1; alive
 
 # 6. Offline: Beranda from the saved data with the offline pill, then back online.
 adb shell svc wifi disable; adb shell svc data disable

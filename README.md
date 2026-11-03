@@ -1,143 +1,218 @@
 <div align="center">
-  <h1>FuwaStream</h1>
-  <p><strong>Jelajahi anime, ikuti episode, dan lanjutkan tontonan langsung dari Android.</strong></p>
-  <p>
-    FuwaStream adalah aplikasi Android open-source dengan antarmuka modern, pemutar fleksibel, jadwal anime, koleksi pribadi, dan dukungan download offline.
-  </p>
-  <p>
-    <a href="https://github.com/fuwanime/fuwastream/releases/latest">
-      <img src="https://img.shields.io/badge/Download-APK%20Terbaru-7C3AED?style=for-the-badge&logo=android&logoColor=white" alt="Download APK terbaru">
-    </a>
-    <a href="https://github.com/fuwanime/fuwastream">
-      <img src="https://img.shields.io/badge/Source-GitHub-24292F?style=for-the-badge&logo=github&logoColor=white" alt="Source code di GitHub">
-    </a>
-  </p>
-  <p>
-    <a href="https://github.com/fuwanime/fuwastream/stargazers"><img src="https://img.shields.io/github/stars/fuwanime/fuwastream?style=flat-square" alt="GitHub Stars"></a>
-    <a href="https://github.com/fuwanime/fuwastream/forks"><img src="https://img.shields.io/github/forks/fuwanime/fuwastream?style=flat-square" alt="GitHub Forks"></a>
-    <a href="https://github.com/fuwanime/fuwastream/releases"><img src="https://img.shields.io/github/v/release/fuwanime/fuwastream?include_prereleases&style=flat-square" alt="Latest release"></a>
-    <a href="./LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-blue?style=flat-square" alt="Lisensi GPL-3.0"></a>
-  </p>
+
+<img src="docs/brand/banner.webp" alt="FuwaStream — teman nonton anime di Android" width="100%">
+
+<br>
+
+**Jelajahi, tonton, dan simpan anime favoritmu — dalam satu aplikasi Android yang rapi, cepat, dan tanpa iklan.**
+
+<p>
+  <a href="https://github.com/fuwanime/fuwastream/releases/latest"><img src="https://img.shields.io/github/v/release/fuwanime/fuwastream?style=for-the-badge&label=Download&labelColor=0B0A0F&color=D4BBFF&logo=android&logoColor=D4BBFF" alt="Download rilis terbaru"></a>
+  <img src="https://img.shields.io/badge/Android-7.0%2B-0B0A0F?style=for-the-badge&labelColor=0B0A0F&color=1F1C27&logo=android&logoColor=FFB0C9" alt="Android 7.0 ke atas">
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-1F1C27?style=for-the-badge&labelColor=0B0A0F" alt="Lisensi GPL-3.0"></a>
+</p>
+
+<p>
+  <a href="https://github.com/fuwanime/fuwastream/stargazers"><img src="https://img.shields.io/github/stars/fuwanime/fuwastream?style=flat-square&labelColor=0B0A0F&color=FFB0C9" alt="GitHub Stars"></a>
+  <a href="https://github.com/fuwanime/fuwastream/network/members"><img src="https://img.shields.io/github/forks/fuwanime/fuwastream?style=flat-square&labelColor=0B0A0F&color=8FD3F2" alt="GitHub Forks"></a>
+  <a href="https://github.com/fuwanime/fuwastream/issues"><img src="https://img.shields.io/github/issues/fuwanime/fuwastream?style=flat-square&labelColor=0B0A0F&color=D4BBFF" alt="Issues terbuka"></a>
+</p>
+
+[**⬇️ Download APK**](https://github.com/fuwanime/fuwastream/releases/latest) &nbsp;·&nbsp; [**💬 Gabung Komunitas**](https://chat.whatsapp.com/BD9q9veoNaAIhkdneKD4us) &nbsp;·&nbsp; [**🐛 Laporkan Bug**](https://github.com/fuwanime/fuwastream/issues)
+
 </div>
+
+> [!TIP]
+> **Baru:** FuwaStream sekarang **tahan offline**. Beranda langsung tampil dari data terakhir, layar yang pernah dibuka tetap bisa dilihat tanpa internet, dan aplikasi memperbarui diri diam-diam begitu kamu kembali online.
 
 ---
 
+## 📱 Tampilan
+
+<table>
+  <tr>
+    <td align="center" width="25%"><img src="docs/screenshots/home.webp" width="190" alt="Beranda: banner anime musim ini dengan poster tajam di atas latar blur"><br><sub><b>Beranda</b><br>Sorotan musim ini</sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/explore.webp" width="190" alt="Jelajah: kolom pencarian, chip tipe dan genre, grid poster"><br><sub><b>Jelajah</b><br>Cari, filter, urutkan</sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/schedule.webp" width="190" alt="Jadwal tayang per hari dengan jam rilis"><br><sub><b>Jadwal</b><br>Rilis per hari</sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/detail.webp" width="190" alt="Detail anime: poster, statistik, tombol tonton, genre, sinopsis"><br><sub><b>Detail</b><br>Episode &amp; info lengkap</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/player.webp" width="190" alt="Pemutar video dengan pilihan kualitas dan daftar episode"><br><sub><b>Pemutar</b><br>Kualitas, PiP, gestur</sub></td>
+    <td align="center"><img src="docs/screenshots/collection.webp" width="190" alt="Koleksi: tab Riwayat, Favorit, dan Unduhan"><br><sub><b>Koleksi</b><br>Riwayat, favorit, unduhan</sub></td>
+    <td align="center"><img src="docs/screenshots/settings.webp" width="190" alt="Pengaturan tema, pemutar, unduhan, dan notifikasi"><br><sub><b>Pengaturan</b><br>Atur sesukamu</sub></td>
+    <td align="center"><img src="docs/screenshots/offline.webp" width="190" alt="Beranda saat offline dengan penanda Offline di atas tab bar"><br><sub><b>Mode offline</b><br>Data terakhir tetap ada</sub></td>
+  </tr>
+</table>
+
 ## ✨ Fitur
 
-### Temukan anime
-- **Beranda personal** — anime unggulan, lanjutkan menonton, anime yang tayang hari ini, musim berjalan, judul populer, dan pintasan genre.
-- **Jelajah dan pencarian** — riwayat pencarian, filter genre/status, urutan populer atau A–Z, serta pemuatan daftar berkelanjutan.
-- **Jadwal tayang** — lihat jadwal anime berdasarkan hari.
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>🔎 Temukan</h3>
+      <ul>
+        <li><b>Beranda sinematik</b> — sorotan musim ini, Lanjutkan Nonton, episode terbaru, Top 10 terpopuler, dan pintasan genre.</li>
+        <li><b>Jelajah</b> — cari judul, genre, atau studio; filter tipe &amp; genre; urutkan populer, terbaru, atau A–Z.</li>
+        <li><b>Jadwal tayang</b> — rilis per hari lengkap dengan jamnya.</li>
+        <li><b>Anime serupa &amp; season terkait</b> — langsung dari halaman detail.</li>
+      </ul>
+    </td>
+    <td width="50%" valign="top">
+      <h3>▶️ Tonton</h3>
+      <ul>
+        <li><b>Pemutar Media3</b> — pilih kualitas, kecepatan 0,5×–2×, mode pas/isi layar.</li>
+        <li><b>Gestur</b> — ketuk dua kali untuk maju/mundur, geser untuk kecerahan &amp; volume.</li>
+        <li><b>Lewati OP</b> — otomatis, atau tombol <b>+85 detik</b> yang bisa dimatikan.</li>
+        <li><b>Lanjut otomatis</b> ke episode berikutnya dan <b>Picture-in-Picture</b>.</li>
+      </ul>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>💾 Simpan</h3>
+      <ul>
+        <li><b>Koleksi</b> — riwayat per hari dengan sisa waktu tontonan, favorit, dan unduhan.</li>
+        <li><b>Download offline</b> — pilih kualitas, opsi hanya lewat Wi-Fi.</li>
+        <li><b>Notifikasi episode baru</b> untuk anime favoritmu.</li>
+      </ul>
+    </td>
+    <td width="50%" valign="top">
+      <h3>🎨 Personal</h3>
+      <ul>
+        <li><b>Tema</b> — sistem, terang, gelap, hitam AMOLED, dan Material You.</li>
+        <li><b>Kualitas default</b> terpisah untuk Wi-Fi dan data seluler.</li>
+        <li><b>Update di dalam aplikasi</b> — diberi tahu saat rilis baru tersedia.</li>
+      </ul>
+    </td>
+  </tr>
+</table>
 
-### Nikmati tontonan
-- **Pemutar fleksibel** — pilih kualitas yang tersedia, atur kecepatan dari 0,5× hingga 2×, dan pilih mode pas atau isi layar.
-- **Kontrol gestur** — ketuk dua kali untuk maju/mundur; saat layar penuh, geser sisi kiri untuk kecerahan dan sisi kanan untuk volume.
-- **Lanjutkan menonton** — progres dan posisi terakhir disimpan agar lebih mudah meneruskan episode.
-- **Episode berikutnya** — hitung mundur otomatis ke episode selanjutnya.
-- **Picture-in-Picture** — tetap menonton dalam jendela kecil saat membuka aplikasi lain.
+## ⚡ Cepat &amp; tahan offline
 
-### Koleksi dan offline
-- **Download offline** — simpan episode dengan pilihan kualitas dan opsi hanya menggunakan Wi-Fi.
-- **Riwayat tontonan** — lihat progres tontonan dan lanjutkan episode terakhir.
-- **Favorit** — simpan anime yang ingin ditonton lagi.
-- **Daftar episode** — jelajahi episode dalam beberapa rentang dan cari nomor episode tertentu.
+```mermaid
+flowchart LR
+    A["📱 Layar"] --> R["Repository"]
+    R -->|"buka instan"| C[("💾 Cache 50 MB")]
+    R -->|"perbarui diam-diam"| N["🌐 API"]
+    N -. "simpan" .-> C
+    N -- "gagal / offline" --> C
+```
 
-### Sesuaikan pengalaman
-- Tema sistem, terang, gelap, dan hitam AMOLED.
-- Tampilan Material 3 dengan dukungan Material You.
-- Pengaturan kualitas default dan opsi pemutar.
+- **Buka instan** — Beranda tampil dari data terakhir tanpa layar loading, lalu diperbarui di belakang layar.
+- **Tetap jalan tanpa internet** — layar yang pernah dibuka tetap bisa dilihat; penanda kecil *“Offline · data 5 mnt lalu”* muncul di atas tab bar.
+- **Startup lebih ringan** — jalur utama aplikasi dikompilasi lebih dulu lewat *baseline profile*.
 
-> Kualitas video, jadwal, dan ketersediaan episode bergantung pada data serta sumber pihak ketiga yang digunakan.
+## ⬇️ Download &amp; instalasi
 
-## 📥 Download dan instalasi
+1. Buka halaman [**Latest Release**](https://github.com/fuwanime/fuwastream/releases/latest).
+2. Unduh file **APK** dari bagian **Assets**.
+3. Buka APK di HP, lalu izinkan instalasi dari sumber tersebut jika diminta.
+4. Selesai — buka **FuwaStream** dan mulai menonton.
 
-**Cara paling mudah adalah mengunduh APK dari halaman Releases resmi.**
+> [!IMPORTANT]
+> Unduh APK **hanya** dari halaman rilis resmi repository ini. Butuh **Android 7.0 (API 24)** atau lebih baru.
 
-1. Buka **[FuwaStream Releases](https://github.com/fuwanime/fuwastream/releases/latest)**.
-2. Di bagian **Assets**, unduh file APK FuwaStream yang tersedia.
-3. Buka file APK di perangkat Android. Jika diminta, izinkan instalasi aplikasi dari browser atau file manager yang digunakan.
-4. Selesaikan instalasi, lalu buka FuwaStream.
+## 🧰 Teknologi
 
-**Kompatibilitas:** Android 7.0 (API 24) atau lebih baru. Koneksi internet diperlukan untuk memuat katalog dan streaming; episode yang sudah berhasil diunduh dapat ditonton secara offline melalui **Koleksi → Unduhan**.
+<p>
+  <img src="https://img.shields.io/badge/Kotlin-0B0A0F?style=for-the-badge&logo=kotlin&logoColor=D4BBFF" alt="Kotlin">
+  <img src="https://img.shields.io/badge/Jetpack%20Compose-0B0A0F?style=for-the-badge&logo=jetpackcompose&logoColor=8FD3F2" alt="Jetpack Compose">
+  <img src="https://img.shields.io/badge/Material%203-0B0A0F?style=for-the-badge&logo=materialdesign&logoColor=FFB0C9" alt="Material 3">
+  <img src="https://img.shields.io/badge/Media3%20ExoPlayer-0B0A0F?style=for-the-badge&logo=youtube&logoColor=D4BBFF" alt="Media3 ExoPlayer">
+  <img src="https://img.shields.io/badge/Room%20%2B%20DataStore-0B0A0F?style=for-the-badge&logo=sqlite&logoColor=8FD3F2" alt="Room dan DataStore">
+  <img src="https://img.shields.io/badge/Retrofit%20%C2%B7%20OkHttp%20%C2%B7%20Moshi-0B0A0F?style=for-the-badge&logo=square&logoColor=FFB0C9" alt="Retrofit, OkHttp, Moshi">
+  <img src="https://img.shields.io/badge/Coroutines-0B0A0F?style=for-the-badge&logo=kotlin&logoColor=8FD3F2" alt="Kotlin Coroutines">
+  <img src="https://img.shields.io/badge/GitHub%20Actions-0B0A0F?style=for-the-badge&logo=githubactions&logoColor=D4BBFF" alt="GitHub Actions">
+</p>
 
-> Unduh aplikasi hanya dari halaman rilis resmi proyek ini. Jika instalasi atau pemutaran bermasalah, laporkan lewat [GitHub Issues](https://github.com/fuwanime/fuwastream/issues) beserta versi aplikasi dan detail masalahnya.
+## 🛠️ Build dari source
 
-## 🧑‍💻 Teknologi
+<details>
+<summary><b>Persyaratan &amp; langkah build</b></summary>
 
-FuwaStream dibangun menggunakan:
+<br>
 
-- **Kotlin** dan **Jetpack Compose** untuk aplikasi Android.
-- **Material 3** untuk komponen dan tema antarmuka.
-- **AndroidX Media3 / ExoPlayer** untuk pemutaran media.
-- **Room** untuk data lokal seperti riwayat, favorit, dan pencarian.
-- **DataStore** untuk preferensi aplikasi.
-- **Retrofit, OkHttp, dan Moshi** untuk komunikasi serta pemrosesan data API.
-
-## 🛠️ Menjalankan proyek secara lokal
-
-### Persyaratan
-
-- JDK 17 atau lebih baru.
-- Android SDK dengan platform/build tools yang dibutuhkan proyek (compile SDK 36).
-- Gradle yang kompatibel dengan konfigurasi proyek.
-
-### Build APK debug
+**Persyaratan:** JDK 17+, Android SDK 36, dan Gradle yang kompatibel.
 
 ```bash
 git clone https://github.com/fuwanime/fuwastream.git
 cd fuwastream
-gradle assembleDebug
+gradle testDebugUnitTest assembleDebug
 ```
 
-APK debug dihasilkan di:
+APK debug ada di `app/build/outputs/apk/debug/app-debug.apk`.
 
-```text
-app/build/outputs/apk/debug/app-debug.apk
-```
+</details>
 
-Untuk menjalankan unit test:
+<details>
+<summary><b>Build otomatis (GitHub Actions)</b></summary>
 
-```bash
-gradle testDebugUnitTest
-```
+<br>
 
-### Build otomatis
+| Pemicu | Hasil |
+|---|---|
+| Push ke `main` | Test + APK release, terbit di [Releases](https://github.com/fuwanime/fuwastream/releases) sebagai `build-N` |
+| Tag `v*` | Rilis dengan nama versi tersebut |
+| Manual · `smoke` / `qa` | Uji di emulator + screenshot & rekaman layar |
+| Manual · `profile` | Membuat ulang *baseline profile* |
 
-GitHub Actions menjalankan build dan test pada workflow proyek. Push ke branch `main` atau tag versi `v*` akan memicu build release dan publikasi APK di halaman [Releases](https://github.com/fuwanime/fuwastream/releases). Build dari `main` diberi nama berdasarkan nomor build, sedangkan tag versi menggunakan nama versi tersebut.
+Gambar di README ini dibuat dari screenshot QA dengan `scripts/readme_images.sh`.
 
-## 📂 Struktur proyek
+</details>
+
+<details>
+<summary><b>Struktur proyek</b></summary>
+
+<br>
 
 ```text
 com.fuwanime
 ├── data/
-│   ├── remote/    # API, DTO, dan sumber data jarak jauh
-│   └── local/     # Room dan DataStore
-├── ui/            # Screen, ViewModel, theme, components, navigation
-└── util/          # Utilitas umum
+│   ├── remote/       # Retrofit API, DTO, cache & status jaringan
+│   └── local/        # Room dan DataStore
+├── ui/               # Paket per layar (Screen + ViewModel)
+│   ├── components/   # Komponen UI yang dipakai ulang
+│   ├── motion/       # Animasi & shared element
+│   ├── navigation/   # Navigasi aplikasi
+│   └── theme/        # Tema, warna, tipografi
+└── util/             # Helper dan utilitas
 ```
 
-## 🐛 Menemukan bug atau punya ide fitur?
+</details>
 
-Masukan sangat membantu perkembangan FuwaStream.
+## 🤝 Kontribusi
 
-- **Laporkan bug:** [Buka GitHub Issues](https://github.com/fuwanime/fuwastream/issues)
-- **Usulkan fitur:** jelaskan kebutuhan dan bagaimana fitur tersebut akan membantu pengguna.
-- **Kontribusi kode:** fork repository, buat branch untuk perubahanmu, lalu kirim Pull Request dengan penjelasan dan langkah pengujian.
+Kontribusi, ide, dan laporan masalah sangat berarti untuk FuwaStream!
 
-Sebelum membuat issue baru, periksa apakah masalah atau usulan yang sama sudah pernah dilaporkan.
+1. **Fork** repository ini dan buat branch untuk perubahanmu.
+2. Uji perubahanmu (`gradle testDebugUnitTest`).
+3. Kirim **Pull Request** dengan penjelasan singkat dan cara mengujinya.
 
-## ⚖️ Catatan konten
+Punya ide fitur atau menemukan bug? [Buat Issue](https://github.com/fuwanime/fuwastream/issues) — cek dulu apakah sudah pernah dilaporkan.
 
-FuwaStream merupakan aplikasi klien dan **tidak meng-host file video**. Informasi dan sumber pemutaran berasal dari API atau penyedia pihak ketiga. FuwaStream tidak menjamin ketersediaan maupun status hak atas konten yang disediakan oleh pihak tersebut. Pengguna bertanggung jawab memastikan penggunaan layanan dan konten sesuai dengan hukum yang berlaku serta ketentuan penyedia terkait.
+## ⚠️ Catatan konten
 
-FuwaStream tidak berafiliasi dengan pemilik hak cipta, studio, atau penyedia konten anime mana pun kecuali dinyatakan secara terpisah.
+> [!NOTE]
+> FuwaStream adalah aplikasi klien dan **tidak meng-host file video**. Informasi dan sumber pemutaran berasal dari API atau layanan pihak ketiga, sehingga ketersediaan konten bergantung pada layanan tersebut. Pengguna bertanggung jawab mematuhi hukum, hak cipta, dan ketentuan layanan yang berlaku di wilayahnya. Nama, logo, dan aset pihak ketiga tetap milik pemegang haknya.
+
+## 🔐 Privasi &amp; kepatuhan
+
+[Kebijakan Privasi](./docs/legal/privacy.md) · [Ketentuan Layanan](./docs/legal/terms.md) · [Checklist Kepatuhan Play Store](./docs/compliance.md) · [Audit SDK Pihak Ketiga](./docs/third-party-sdk-audit.md) · [Jawaban Data Safety](./docs/play-data-safety.md)
 
 ## 📄 Lisensi
 
-Kode sumber FuwaStream dilisensikan di bawah **[GNU General Public License v3.0](./LICENSE)**. Periksa berkas lisensi sebelum mendistribusikan atau memodifikasi proyek. Nama, logo, dan aset brand FuwaStream tidak termasuk dalam lisensi kode sumber.
+Kode sumber dilisensikan di bawah **[GNU General Public License v3.0](./LICENSE)**. Lisensi kode tidak memberikan hak atas nama, logo, merek, maupun aset FuwaStream.
 
 ---
 
 <div align="center">
-  <sub>Dibuat dengan ☕ oleh <a href="https://github.com/fuwanime">Fuwa Nime</a>. Kalau FuwaStream berguna buat kamu, pertimbangkan untuk memberi ⭐ pada repository ini.</sub>
+
+<img src="docs/brand/icon-512.png" width="56" alt="Ikon FuwaStream">
+
+**Dibuat dengan 💜 untuk para pecinta anime.**
+
+<sub>Kalau FuwaStream bermanfaat buatmu, beri ⭐ pada repository ini — itu sangat membantu!</sub>
+
+[GitHub](https://github.com/fuwanime/fuwastream) · [Komunitas WhatsApp](https://chat.whatsapp.com/BD9q9veoNaAIhkdneKD4us) · [Releases](https://github.com/fuwanime/fuwastream/releases)
+
 </div>

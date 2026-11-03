@@ -47,7 +47,13 @@ alive() {
   fi
 }
 
+adb shell pm grant "$PKG" android.permission.POST_NOTIFICATIONS || true
+# Home screen first, so the launcher icon is captured with the app installed.
+adb shell input keyevent KEYCODE_HOME; sleep 3; shot 00-launcher 1
 adb shell am start -W -n "$PKG/com.fuwanime.MainActivity"
+# Fresh installs show the one-time 13+ gate; capture it, then clear it before walking the app.
+shot 01a-age-gate 6
+tap "Saya berusia 13 tahun atau lebih — Lanjutkan" || true
 shot 01-home 15; alive
 adb shell input swipe 540 1600 540 500 400
 shot 02-home-scrolled 3; alive
@@ -60,6 +66,15 @@ tap "Jadwal" && shot 05-schedule 8; alive
 tap "Koleksi" && shot 06-library 3; alive
 tap "Beranda" && sleep 3
 tap "Pengaturan" && shot 07-settings 3; alive
+# Legal screens live below the fold; scroll until the row is on screen.
+for _ in 1 2 3 4; do tap "Kebijakan Privasi" && break; adb shell input swipe 540 1600 540 800 300; sleep 1; done
+shot 07b-privacy 4; alive
+adb shell input keyevent KEYCODE_BACK; sleep 2
+# Delete-all-data: open the confirmation, confirm it, and capture the result snackbar.
+for _ in 1 2 3 4 5; do tap "Hapus semua data" && break; adb shell input swipe 540 1600 540 800 300; sleep 1; done
+shot 07c-delete-dialog 2
+tap "Hapus" || true
+shot 07d-deleted 3; alive
 adb shell input keyevent KEYCODE_BACK; sleep 2
 
 # Open the first hero title and start playback.
