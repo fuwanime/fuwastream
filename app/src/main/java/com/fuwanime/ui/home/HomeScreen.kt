@@ -102,6 +102,7 @@ import com.fuwanime.data.local.WatchHistoryEntity
 import com.fuwanime.ui.components.ContinueWatchingCard
 import com.fuwanime.ui.components.ErrorState
 import com.fuwanime.ui.components.NetImage
+import com.fuwanime.ui.components.RefreshHairline
 import com.fuwanime.ui.components.PosterRow
 import com.fuwanime.ui.components.SectionHeader
 import com.fuwanime.ui.components.SkeletonBox
@@ -273,6 +274,7 @@ private fun HomeScreen(
 
         HomeTopBar(
             solid = remember { derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 600 } }.value,
+            syncing = feed.syncing,
             onSearch = onSearch,
             onSettings = onSettings,
         )
@@ -393,26 +395,29 @@ private fun Section(
 }
 
 @Composable
-private fun HomeTopBar(solid: Boolean, onSearch: () -> Unit, onSettings: () -> Unit) {
+private fun HomeTopBar(solid: Boolean, syncing: Boolean, onSearch: () -> Unit, onSettings: () -> Unit) {
     val bg by animateColorAsState(
         if (solid) MaterialTheme.colorScheme.surface.copy(alpha = 0.96f) else Color.Transparent,
         label = "topbarBg",
     )
     val scrim = Brush.verticalGradient(listOf(Color.Black.copy(alpha = if (solid) 0f else 0.55f), Color.Transparent))
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .background(bg)
-            .background(scrim)
-            .statusBarsPadding()
-            .padding(start = 20.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Wordmark(onDark = !solid)
-        Spacer(Modifier.weight(1f))
-        val tint = if (solid) MaterialTheme.colorScheme.onSurface else Color.White
-        IconButton(onClick = onSearch) { Icon(Icons.Rounded.Search, "Cari", tint = tint) }
-        IconButton(onClick = onSettings) { Icon(Icons.Rounded.Settings, "Pengaturan", tint = tint) }
+    Column {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .background(bg)
+                .background(scrim)
+                .statusBarsPadding()
+                .padding(start = 20.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Wordmark(onDark = !solid)
+            Spacer(Modifier.weight(1f))
+            val tint = if (solid) MaterialTheme.colorScheme.onSurface else Color.White
+            IconButton(onClick = onSearch) { Icon(Icons.Rounded.Search, "Cari", tint = tint) }
+            IconButton(onClick = onSettings) { Icon(Icons.Rounded.Settings, "Pengaturan", tint = tint) }
+        }
+        RefreshHairline(syncing)
     }
 }
 
