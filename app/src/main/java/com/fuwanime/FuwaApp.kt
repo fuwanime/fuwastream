@@ -11,17 +11,34 @@ import com.fuwanime.data.LibraryRepository
 import com.fuwanime.data.local.FuwaDatabase
 import com.fuwanime.data.local.SettingsStore
 import com.fuwanime.data.remote.AnimeApiService
+import com.fuwanime.data.remote.ForceCache
+import com.fuwanime.data.remote.NetworkStatus
+import com.fuwanime.data.remote.apiCacheClient
 import com.fuwanime.data.UpdateRepository
 import com.fuwanime.data.notify.EpisodeNotifyWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import okhttp3.Cache
 import okhttp3.OkHttpClient
 
 /** Manual DI: one instance of each dependency for the whole process. */
 class AppContainer(app: Application) {
     val httpClient: OkHttpClient = AnimeApiService.createHttpClient()
-    val animeRepository = AnimeRepository(AnimeApiService.create(httpClient))
+
+    /** Connectivity plus "showing cached data since"; drives the offline indicators. */
+    val networkStatus = NetworkStatus().also { it.start(app) }
+
+    /** API-only client with the 50 MB disk cache; images keep [httpClient] and Coil's own cache. */
+    private val apiHttpClient = apiCacheClient(
+        httpClient,
+        runCatching { Cache(app.cacheDir.resolve("api_cache"), 50L * 1024 * 1024) }.getOrNull(),
+        networkStatus,
+    )
+    val animeRepository = AnimeRepository(
+        AnimeApiService.create(apiHttpClient),
+        AnimeApiService.create(apiHttpClient.newBuilder().addInterceptor(ForceCache).build()),
+    )
     private val database = FuwaDatabase.create(app)
     val libraryRepository = LibraryRepository(database)
     val settingsStore = SettingsStore(app)

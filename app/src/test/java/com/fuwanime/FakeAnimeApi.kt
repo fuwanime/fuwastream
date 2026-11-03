@@ -27,9 +27,15 @@ open class FakeAnimeApi : AnimeApiService {
     override suspend fun exploreByGenre(genreId: String, page: Int, sort: String): ApiResponse<MovieListData> =
         ApiResponse(data = MovieListData(emptyList()))
 
-    override suspend fun latestEpisodes(limit: Int): ApiResponse<MovieListData> = ApiResponse(data = MovieListData(emptyList()))
+    override suspend fun latestEpisodes(limit: Int): ApiResponse<MovieListData> {
+        calls += "latestEpisodes($limit)"
+        return ApiResponse(data = MovieListData(emptyList()))
+    }
 
-    override suspend fun schedule(day: String): ApiResponse<MovieListData> = ApiResponse(data = MovieListData(emptyList()))
+    override suspend fun schedule(day: String): ApiResponse<MovieListData> {
+        calls += "schedule($day)"
+        return ApiResponse(data = MovieListData(emptyList()))
+    }
 
     override suspend fun detail(animeId: String, idUser: String, keyClient: String): ApiResponse<DetailData> {
         calls += "detail($animeId)"
