@@ -90,6 +90,9 @@ interface FavoriteDao {
 
     @Query("DELETE FROM favorites WHERE animeId = :animeId")
     suspend fun delete(animeId: String)
+
+    @Query("DELETE FROM favorites")
+    suspend fun clear()
 }
 
 @Dao
@@ -148,6 +151,12 @@ interface DownloadDao {
 
     @Query("DELETE FROM downloads WHERE episodeId = :episodeId")
     suspend fun delete(episodeId: String)
+
+    @Query("SELECT * FROM downloads")
+    suspend fun all(): List<DownloadEntity>
+
+    @Query("DELETE FROM downloads")
+    suspend fun clear()
 }
 
 @Database(

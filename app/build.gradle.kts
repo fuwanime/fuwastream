@@ -14,17 +14,15 @@ android {
   compileSdk = 36
 
   defaultConfig {
-      applicationId = "com.fuwanime.app"
-      minSdk = 24
-      targetSdk = 36
-      // CI's run_number reset when the repo was recreated (some devices still hold code 14),
-      // so small values are ignored and the code falls back to minutes since epoch — always rising.
-      versionCode = System.getenv("VERSION_CODE")?.toIntOrNull()
-          ?.takeIf { it > 1_000_000 }
-          ?: (System.currentTimeMillis() / 60_000L).toInt()
-      versionName = System.getenv("VERSION_NAME") ?: "2.0.0"
-      // The in-app update checker looks at the repo this APK was built from (a fork checks its own releases).
-      buildConfigField("String", "UPDATE_REPO", "\"${System.getenv("GITHUB_REPOSITORY") ?: "fuwanime/fuwastream"}\"")
+    applicationId = "com.fuwanime.app"
+    minSdk = 24
+    targetSdk = 36
+    // F-Droid & CI pass VERSION_CODE/VERSION_NAME as env vars. Fallback to fixed
+    // values when not set (deterministic, not epoch minutes).
+    versionCode = System.getenv("VERSION_CODE")?.toIntOrNull() ?: 2
+    versionName = System.getenv("VERSION_NAME") ?: "2.0.0"
+    // The in-app update checker looks at the repo this APK was built from (a fork checks its own releases).
+    buildConfigField("String", "UPDATE_REPO", "\"${System.getenv("GITHUB_REPOSITORY") ?: "fuwanime/fuwastream"}\"")
   }
 
   signingConfigs {
