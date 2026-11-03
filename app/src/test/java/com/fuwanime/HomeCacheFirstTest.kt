@@ -89,4 +89,18 @@ class HomeCacheFirstTest {
         assertTrue(net.calls.isEmpty())
         assertEquals(1 + Day.entries.size + 1, cache.calls.size)
     }
+
+    @Test fun reduce_networkLoadServedFromCacheStaysStale() {
+        val f = HomeFeed().reduce(result(listOf(a1)), fromCache = false, online = true, servedFromCache = true)!!
+        assertTrue(f.stale)
+        assertTrue(shouldAutoRefresh(f))
+    }
+
+    @Test fun networkStatus_countsCacheHits() {
+        val status = com.fuwanime.data.remote.NetworkStatus()
+        val before = status.cacheHits
+        status.markCacheServed(1L)
+        status.markCacheServed(2L)
+        assertEquals(before + 2, status.cacheHits)
+    }
 }
