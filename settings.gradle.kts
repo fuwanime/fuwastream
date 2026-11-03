@@ -25,3 +25,4 @@ dependencyResolutionManagement {
 rootProject.name = "FuwaStream"
 
 include(":app")
+include(":baselineprofile")
