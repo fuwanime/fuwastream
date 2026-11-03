@@ -115,7 +115,7 @@ fresh
 tap "Tambah ke Koleksi"; sleep 1
 adb shell input swipe 900 700 180 700 250; sleep 2
 tap "Tambah ke Koleksi"; sleep 1
-tap "Koleksi"; sleep 2; tap "Favorit"; shot qa5e-favorites 3
+tap "Koleksi"; sleep 2; tap "Favorit*"; shot qa5e-favorites 3
 tap "Beranda"; sleep 2; tap "Pengaturan"; shot qa5f-settings 3
 adb shell input keyevent KEYCODE_BACK; sleep 1; alive
 
