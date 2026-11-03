@@ -94,14 +94,22 @@ fun relativeTime(raw: String, nowMs: Long = System.currentTimeMillis()): String 
         isLenient = false
     }
     val at = runCatching { format.parse(raw.trim()) }.getOrNull()?.time ?: return ""
-    val diff = nowMs - at
-    return when {
-        diff < -60_000 -> ""
-        diff < 60_000 -> "baru saja"
-        diff < 3_600_000 -> "${diff / 60_000} mnt lalu"
-        diff < 86_400_000 -> "${diff / 3_600_000} jam lalu"
-        else -> "${diff / 86_400_000} hari lalu"
-    }
+    return relativeAge(nowMs - at)
+}
+
+/** Age in ms -> "3 jam lalu"; more than a minute in the future (clock skew) -> "". */
+fun relativeAge(diffMs: Long): String = when {
+    diffMs < -60_000 -> ""
+    diffMs < 60_000 -> "baru saja"
+    diffMs < 3_600_000 -> "${diffMs / 60_000} mnt lalu"
+    diffMs < 86_400_000 -> "${diffMs / 3_600_000} jam lalu"
+    else -> "${diffMs / 86_400_000} hari lalu"
+}
+
+/** Text of the offline pill: how old the cached data on screen is, when known. */
+fun offlineLabel(cacheServedAt: Long?, nowMs: Long): String {
+    val age = cacheServedAt?.let { relativeAge(nowMs - it) }.orEmpty()
+    return if (age.isEmpty()) "Offline" else "Offline · data $age"
 }
 
 fun Throwable.friendlyMessage(): String = when (this) {

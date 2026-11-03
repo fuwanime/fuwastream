@@ -2,6 +2,7 @@ plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
   alias(libs.plugins.ksp)
+  alias(libs.plugins.androidx.baselineprofile)
 }
 
 // CI injects the release keystore through these env vars (see .github/workflows/build.yml).
@@ -88,11 +89,14 @@ dependencies {
   implementation(libs.androidx.work.runtime.ktx)
   implementation(libs.moshi.kotlin)
   implementation(libs.okhttp)
+  implementation(libs.androidx.profileinstaller)
+  baselineProfile(project(":baselineprofile"))
   implementation(libs.okhttp.logging)
   implementation(libs.retrofit)
   implementation(libs.retrofit.converter.moshi)
   ksp(libs.androidx.room.compiler)
   ksp(libs.moshi.kotlin.codegen)
   testImplementation(libs.junit)
+  testImplementation(libs.okhttp.mockwebserver)
   debugImplementation(libs.androidx.compose.ui.tooling)
 }

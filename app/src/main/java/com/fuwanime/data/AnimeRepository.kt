@@ -20,7 +20,8 @@ enum class SortOrder(val apiValue: String, val label: String) {
  * Remote data with a small in-memory cache so screens can show what they already know
  * (e.g. a poster tapped on Home) while the full payload loads.
  */
-class AnimeRepository(private val api: AnimeApiService) {
+/** [cachedApi] answers from the disk cache only (see ForceCache); it backs the cache-first read on Beranda. */
+class AnimeRepository(private val api: AnimeApiService, private val cachedApi: AnimeApiService = api) {
 
     private val animeCache = ConcurrentHashMap<String, Anime>()
 
@@ -58,13 +59,15 @@ class AnimeRepository(private val api: AnimeApiService) {
         sort: SortOrder = SortOrder.POPULAR,
         keyword: String = "",
         type: String? = null,
+        cacheOnly: Boolean = false,
     ): Result<List<Anime>> =
         io {
+            val source = if (cacheOnly) cachedApi else api
             // The type endpoint ignores keywords, so searches use the keyword endpoint and callers filter by type.
             val response = if (type != null && keyword.isBlank()) {
-                api.exploreByType(type = type, page = page, sort = sort.apiValue)
+                source.exploreByType(type = type, page = page, sort = sort.apiValue)
             } else {
-                api.explore(page = page, sort = sort.apiValue, keyword = keyword.trim())
+                source.explore(page = page, sort = sort.apiValue, keyword = keyword.trim())
             }
             val items = response.data?.movie.orEmpty()
             remember(items.map { it.toAnime() }.distinctBy { it.id })
@@ -98,8 +101,8 @@ class AnimeRepository(private val api: AnimeApiService) {
         remember(items.map { it.toAnime() }.distinctBy { it.id })
     }
 
-    suspend fun latestReleases(limit: Int = 20): Result<List<LatestRelease>> = io {
-        val releases = api.latestEpisodes(limit).data?.movie.orEmpty()
+    suspend fun latestReleases(limit: Int = 20, cacheOnly: Boolean = false): Result<List<LatestRelease>> = io {
+        val releases = (if (cacheOnly) cachedApi else api).latestEpisodes(limit).data?.movie.orEmpty()
             .filter { it.id.isNotBlank() }
             .map { it.toLatestRelease() }
             .distinctBy { it.anime.id }
@@ -107,8 +110,8 @@ class AnimeRepository(private val api: AnimeApiService) {
         releases.map { r -> r.copy(anime = animeCache[r.anime.id] ?: r.anime) }
     }
 
-    suspend fun schedule(day: String): Result<List<Anime>> = io {
-        remember(api.schedule(day.lowercase()).data?.movie.orEmpty().map { it.toAnime() })
+    suspend fun schedule(day: String, cacheOnly: Boolean = false): Result<List<Anime>> = io {
+        remember((if (cacheOnly) cachedApi else api).schedule(day.lowercase()).data?.movie.orEmpty().map { it.toAnime() })
     }
 
     /** Detail plus the franchise list ("S1", "Movie", …) that only the detail response carries. */

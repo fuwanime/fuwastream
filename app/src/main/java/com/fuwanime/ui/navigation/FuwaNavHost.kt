@@ -38,6 +38,9 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import com.fuwanime.ui.components.OfflinePill
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.Alignment
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.font.FontWeight
@@ -174,7 +177,9 @@ fun FuwaNavHost(initialAnimeId: String? = null, onInitialAnimeConsumed: () -> Un
         }
     }
 
-    val animeRepository = (LocalContext.current.applicationContext as FuwaApp).container.animeRepository
+    val container = (LocalContext.current.applicationContext as FuwaApp).container
+    val animeRepository = container.animeRepository
+    val netState by container.networkStatus.state.collectAsStateWithLifecycle()
     val openAnime: (Anime, String) -> Unit = { anime, from ->
         // The detail header needs the poster on its first frame to be the shared poster's landing spot.
         animeRepository.prime(anime)
@@ -328,6 +333,10 @@ fun FuwaNavHost(initialAnimeId: String? = null, onInitialAnimeConsumed: () -> Un
                         composable(Routes.SETTINGS) { Scoped { SettingsRoute(onBack = { nav.popBackStack() }) } }
                     }
                 }
+            }
+            // Floats over the tab content just above the bar, so showing it never shifts the layout.
+            if (currentTab != null) {
+                OfflinePill(netState, reduceMotion, Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp))
             }
         }
     }
