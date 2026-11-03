@@ -10,6 +10,8 @@ import com.fuwanime.util.airTime
 import com.fuwanime.util.compactNumber
 import com.fuwanime.util.formatDuration
 import com.fuwanime.util.historyDayLabel
+import com.fuwanime.util.offlineLabel
+import com.fuwanime.util.relativeAge
 import com.fuwanime.util.remainingLabel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -106,5 +108,26 @@ class FormatTest {
         assertEquals("KEMARIN", historyDayLabel(now - 120_000, now, jkt)) // 2026-10-31 23:59
         assertEquals("30 OKT", historyDayLabel(now - 30 * 3_600_000L, now, jkt))
         assertEquals("28 DES 2025", historyDayLabel(1_766_880_000_000L, now, jkt))
+    }
+
+    @Test
+    fun relativeAge_buckets() {
+        assertEquals("baru saja", relativeAge(30_000))
+        assertEquals("5 mnt lalu", relativeAge(5 * 60_000L))
+        assertEquals("3 jam lalu", relativeAge(3 * 3_600_000L))
+        assertEquals("2 hari lalu", relativeAge(2 * 86_400_000L))
+    }
+
+    @Test
+    fun offlineLabel_withAndWithoutCache() {
+        val now = 1_793_466_060_000L
+        assertEquals("Offline", offlineLabel(null, now))
+        assertEquals("Offline · data 3 jam lalu", offlineLabel(now - 3 * 3_600_000L, now))
+    }
+
+    @Test
+    fun offlineLabel_futureTimestampShowsPlainOffline() {
+        val now = 1_793_466_060_000L
+        assertEquals("Offline", offlineLabel(now + 5 * 60_000L, now))
     }
 }

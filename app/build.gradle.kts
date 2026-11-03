@@ -94,5 +94,6 @@ dependencies {
   ksp(libs.androidx.room.compiler)
   ksp(libs.moshi.kotlin.codegen)
   testImplementation(libs.junit)
+  testImplementation(libs.okhttp.mockwebserver)
   debugImplementation(libs.androidx.compose.ui.tooling)
 }
