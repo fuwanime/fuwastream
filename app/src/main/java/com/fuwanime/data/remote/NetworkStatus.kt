@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import java.util.concurrent.atomic.AtomicLong
 
 /** [cacheServedAt]: when the API data on screen was originally fetched, while it is being served from cache. */
 data class NetState(val online: Boolean = true, val cacheServedAt: Long? = null)
@@ -17,9 +18,17 @@ class NetworkStatus {
     private val _state = MutableStateFlow(NetState())
     val state: StateFlow<NetState> = _state.asStateFlow()
 
+    private val hits = AtomicLong()
+
+    /** Rises every time the cache stands in for the API; compare before/after a load to know it was served stale. */
+    val cacheHits: Long get() = hits.get()
+
     fun setOnline(online: Boolean) = _state.update { it.copy(online = online) }
 
-    fun markCacheServed(atMillis: Long) = _state.update { it.copy(cacheServedAt = atMillis) }
+    fun markCacheServed(atMillis: Long) {
+        hits.incrementAndGet()
+        _state.update { it.copy(cacheServedAt = atMillis) }
+    }
 
     fun markNetworkOk() {
         if (_state.value.cacheServedAt != null) _state.update { it.copy(cacheServedAt = null) }

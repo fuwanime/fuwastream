@@ -116,19 +116,33 @@ fresh; shot qa6a-offline-home 2
 adb shell svc wifi enable; adb shell svc data enable
 shot qa6b-back-online 3; alive
 
-# 7. Cold start time: 5 launches after compiling with the app's profile, median TotalTime into startup.txt.
-startup() {
+# 7. Cold start, same APK both ways (median of 5 TotalTime, written to startup.txt):
+#    none    = compiled state reset, JIT only (a fresh sideload before profileinstaller runs)
+#    profile = the APK's baseline profile installed by profileinstaller, then compiled speed-profile
+measure() {
   local times=() t
-  adb shell am force-stop "$PKG"
-  adb shell cmd package compile -f -m speed-profile "$PKG" >/dev/null || true
   for _ in 1 2 3 4 5; do
     adb shell am force-stop "$PKG"; sleep 2
     t=$(adb shell am start -W -n "$PKG/com.fuwanime.MainActivity" | tr -d '\r' | awk -F': ' '/TotalTime/{print $2}')
     times+=("${t:-0}"); sleep 3
   done
-  local median; median=$(printf '%s\n' "${times[@]}" | sort -n | sed -n 3p)
-  echo "startup TotalTime ms: ${times[*]} -> median $median"
-  echo "median_total_time_ms=$median" > "$OUT/startup.txt"
+  echo "startup $1 TotalTime ms: ${times[*]}" >&2
+  printf '%s\n' "${times[@]}" | sort -n | sed -n 3p
+}
+startup() {
+  adb shell am force-stop "$PKG"
+  adb shell cmd package compile --reset "$PKG" >/dev/null || true
+  adb shell cmd package art clear-app-profiles "$PKG" >/dev/null 2>&1 || true
+  local none; none=$(measure none)
+  adb shell cmd package compile --reset "$PKG" >/dev/null || true
+  # Profiles gathered by the runs above must not count as the baseline profile.
+  adb shell cmd package art clear-app-profiles "$PKG" >/dev/null 2>&1 || true
+  adb shell am broadcast -a androidx.profileinstaller.action.INSTALL_PROFILE "$PKG/androidx.profileinstaller.ProfileInstallReceiver" >/dev/null
+  sleep 2
+  adb shell cmd package compile -f -m speed-profile "$PKG" >/dev/null || true
+  local profile; profile=$(measure profile)
+  echo "startup median ms: none=$none profile=$profile"
+  printf 'median_none_ms=%s\nmedian_profile_ms=%s\n' "$none" "$profile" > "$OUT/startup.txt"
 }
 startup
 

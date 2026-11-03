@@ -336,7 +336,7 @@ fun FuwaNavHost(initialAnimeId: String? = null, onInitialAnimeConsumed: () -> Un
             }
             // Floats over the tab content just above the bar, so showing it never shifts the layout.
             if (currentTab != null) {
-                OfflinePill(netState, Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp))
+                OfflinePill(netState, reduceMotion, Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp))
             }
         }
     }

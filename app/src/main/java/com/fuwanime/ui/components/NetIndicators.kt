@@ -1,6 +1,8 @@
 package com.fuwanime.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -36,6 +38,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.fuwanime.data.remote.NetState
 import com.fuwanime.ui.motion.LocalReduceMotion
@@ -62,7 +67,7 @@ fun RefreshHairline(visible: Boolean, modifier: Modifier = Modifier) {
 
 /** Floating pill above the tab bar: "Offline · data 2 jam lalu", then "Kembali online" for a moment when it returns. */
 @Composable
-fun OfflinePill(state: NetState, modifier: Modifier = Modifier) {
+fun OfflinePill(state: NetState, reduceMotion: Boolean, modifier: Modifier = Modifier) {
     var wasOffline by remember { mutableStateOf(!state.online) }
     var backOnline by remember { mutableStateOf(false) }
     LaunchedEffect(state.online) {
@@ -86,9 +91,10 @@ fun OfflinePill(state: NetState, modifier: Modifier = Modifier) {
 
     AnimatedVisibility(
         visible = !state.online || backOnline,
-        enter = slideInVertically(tween(Motion.Short)) { it / 2 } + fadeIn(tween(Motion.Short)),
-        exit = slideOutVertically(tween(Motion.Short)) { it / 2 } + fadeOut(tween(Motion.Short)),
-        modifier = modifier,
+        enter = if (reduceMotion) EnterTransition.None else slideInVertically(tween(Motion.Short)) { it / 2 } + fadeIn(tween(Motion.Short)),
+        exit = if (reduceMotion) ExitTransition.None else slideOutVertically(tween(Motion.Short)) { it / 2 } + fadeOut(tween(Motion.Short)),
+        // TalkBack announces going offline and coming back.
+        modifier = modifier.semantics { liveRegion = LiveRegionMode.Polite },
     ) {
         val colors = MaterialTheme.colorScheme
         Surface(

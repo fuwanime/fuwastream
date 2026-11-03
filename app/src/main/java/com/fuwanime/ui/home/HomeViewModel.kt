@@ -118,10 +118,14 @@ class HomeViewModel(
         viewModelScope.launch {
             // The network is often not ready at cold start; retry quietly before showing an error.
             repeat(AUTO_RETRIES) { attempt ->
+                val hitsBefore = networkStatus.cacheHits
                 val result = loader.fetch(cacheOnly = false)
-                if (result.error == null || attempt == AUTO_RETRIES - 1) {
-                    feed.value.reduce(result, fromCache = false, online = online())?.let { feed.value = it }
-                    return@launch
+                val servedFromCache = networkStatus.cacheHits != hitsBefore
+                val last = attempt == AUTO_RETRIES - 1
+                if (result.error == null || last) {
+                    feed.value.reduce(result, fromCache = false, online = online(), servedFromCache)?.let { feed.value = it }
+                    // Cached answer while the network looks up (not ready yet at cold start): keep retrying for fresh data.
+                    if (!servedFromCache || last || !online()) return@launch
                 }
                 delay(2_000L * (attempt + 1))
             }

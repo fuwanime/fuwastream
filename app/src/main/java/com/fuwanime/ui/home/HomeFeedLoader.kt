@@ -53,7 +53,13 @@ class HomeFeedLoader(private val anime: AnimeRepository, private val today: Day)
  * Applies a load to the feed; null means "ignore it" (an empty or late cache read). Cached data shows at once and keeps
  * [HomeFeed.stale] until the network answers; a failed network load never replaces data already on screen.
  */
-fun HomeFeed.reduce(result: FeedResult, fromCache: Boolean, online: Boolean): HomeFeed? = when {
+fun HomeFeed.reduce(
+    result: FeedResult,
+    fromCache: Boolean,
+    online: Boolean,
+    /** A network load the offline fallback answered from cache: show it, but keep it marked stale. */
+    servedFromCache: Boolean = false,
+): HomeFeed? = when {
     fromCache && (!stale && hasData) -> null
     fromCache && (result.error != null || !result.hasData) -> null
     fromCache -> HomeFeed(
@@ -71,6 +77,7 @@ fun HomeFeed.reduce(result: FeedResult, fromCache: Boolean, online: Boolean): Ho
         thisSeason = result.season,
         latest = result.latest ?: latest,
         loading = false,
+        stale = servedFromCache,
     )
     hasData -> copy(loading = false, refreshing = false, syncing = false, error = null)
     else -> copy(
