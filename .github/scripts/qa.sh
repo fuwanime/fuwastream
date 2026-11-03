@@ -110,5 +110,27 @@ tap "Koleksi"; shot qa5c-library 3
 tap "Beranda"; shot qa5d-home 3
 stop_record qa5-tabs; alive
 
+# 6. Offline: Beranda from the saved data with the offline pill, then back online.
+adb shell svc wifi disable; adb shell svc data disable
+fresh; shot qa6a-offline-home 2
+adb shell svc wifi enable; adb shell svc data enable
+shot qa6b-back-online 3; alive
+
+# 7. Cold start time: 5 launches after compiling with the app's profile, median TotalTime into startup.txt.
+startup() {
+  local times=() t
+  adb shell am force-stop "$PKG"
+  adb shell cmd package compile -f -m speed-profile "$PKG" >/dev/null || true
+  for _ in 1 2 3 4 5; do
+    adb shell am force-stop "$PKG"; sleep 2
+    t=$(adb shell am start -W -n "$PKG/com.fuwanime.MainActivity" | tr -d '\r' | awk -F': ' '/TotalTime/{print $2}')
+    times+=("${t:-0}"); sleep 3
+  done
+  local median; median=$(printf '%s\n' "${times[@]}" | sort -n | sed -n 3p)
+  echo "startup TotalTime ms: ${times[*]} -> median $median"
+  echo "median_total_time_ms=$median" > "$OUT/startup.txt"
+}
+startup
+
 adb logcat -d -b crash | tail -40
 echo "QA run passed"
