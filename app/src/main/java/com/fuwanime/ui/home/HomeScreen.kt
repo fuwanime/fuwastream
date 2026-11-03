@@ -126,7 +126,7 @@ fun HomeRoute(
     onExplore: (genre: String?) -> Unit,
 ) {
     val vm: HomeViewModel = fuwaViewModel { c, _ ->
-        HomeViewModel(c.animeRepository, c.libraryRepository, c.updateRepository, c.settingsStore)
+        HomeViewModel(c.animeRepository, c.libraryRepository, c.updateRepository, c.settingsStore, c.networkStatus)
     }
     val state by vm.state.collectAsStateWithLifecycle()
     val update by vm.update.collectAsStateWithLifecycle()

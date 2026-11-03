@@ -6,20 +6,20 @@ import com.fuwanime.data.Anime
 import com.fuwanime.data.AnimeRepository
 import com.fuwanime.data.LatestRelease
 import com.fuwanime.data.LibraryRepository
-import com.fuwanime.data.SortOrder
 import com.fuwanime.data.UpdateRepository
 import com.fuwanime.data.local.SettingsStore
+import com.fuwanime.data.remote.NetworkStatus
 import com.fuwanime.data.local.WatchHistoryEntity
 import com.fuwanime.util.Day
-import com.fuwanime.util.friendlyMessage
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -32,9 +32,16 @@ data class HomeFeed(
     /** Titles with a freshly released episode, newest first. */
     val latest: List<LatestRelease> = emptyList(),
     val loading: Boolean = true,
+    /** Pull-to-refresh in progress (its own indicator). */
     val refreshing: Boolean = false,
+    /** Quiet background refresh while data is already on screen (the top-bar hairline). */
+    val syncing: Boolean = false,
+    /** What is on screen came from the disk cache, not yet confirmed by the network. */
+    val stale: Boolean = false,
     val error: String? = null,
-)
+) {
+    val hasData: Boolean get() = popular.isNotEmpty() || thisSeason.isNotEmpty() || latest.isNotEmpty()
+}
 
 data class HomeUiState(
     val feed: HomeFeed = HomeFeed(),
@@ -52,6 +59,7 @@ class HomeViewModel(
     private val library: LibraryRepository,
     private val updateRepository: UpdateRepository,
     private val settingsStore: SettingsStore,
+    private val networkStatus: NetworkStatus,
 ) : ViewModel() {
 
     private val feed = MutableStateFlow(HomeFeed())
@@ -82,55 +90,45 @@ class HomeViewModel(
 
     val today: Day = Day.today()
 
+    private val loader = HomeFeedLoader(anime, today)
+
     init {
+        viewModelScope.launch {
+            // Last saved feed first, so Beranda draws at once; the network load below replaces it.
+            val cached = loader.fetch(cacheOnly = true)
+            feed.value.reduce(cached, fromCache = true, online = online())?.let { feed.value = it }
+        }
         load(refreshing = false)
         viewModelScope.launch { _update.value = updateRepository.check() }
+        viewModelScope.launch {
+            networkStatus.state.map { it.online }.distinctUntilChanged().drop(1).filter { it }.collect {
+                if (shouldAutoRefresh(feed.value)) load(refreshing = false)
+            }
+        }
     }
 
     fun refresh() = load(refreshing = true)
 
+    private fun online() = networkStatus.state.value.online
+
     private fun load(refreshing: Boolean) {
-        feed.update { it.copy(loading = !refreshing, refreshing = refreshing, error = null) }
+        feed.update {
+            it.copy(loading = !refreshing && !it.hasData, refreshing = refreshing, syncing = !refreshing && it.hasData, error = null)
+        }
         viewModelScope.launch {
             // The network is often not ready at cold start; retry quietly before showing an error.
             repeat(AUTO_RETRIES) { attempt ->
-                if (fetch(showError = attempt == AUTO_RETRIES - 1)) return@launch
+                val result = loader.fetch(cacheOnly = false)
+                if (result.error == null || attempt == AUTO_RETRIES - 1) {
+                    feed.value.reduce(result, fromCache = false, online = online())?.let { feed.value = it }
+                    return@launch
+                }
                 delay(2_000L * (attempt + 1))
             }
         }
     }
 
-    /** Returns true when something useful was loaded. */
-    private suspend fun fetch(showError: Boolean): Boolean = coroutineScope {
-        val popularJob = async { anime.explore(page = 0, sort = SortOrder.POPULAR) }
-        val latestJob = async { anime.latestReleases(LATEST_LIMIT) }
-        // Every day's schedule together approximates "currently airing this season".
-        val dayJobs = Day.entries.map { day -> day to async { anime.schedule(day.apiValue) } }
-
-        val popular = popularJob.await()
-        val days = dayJobs.map { (day, job) -> day to job.await() }
-
-        val todayList = days.first { it.first == today }.second.getOrDefault(emptyList())
-        val season = days.flatMap { it.second.getOrDefault(emptyList()) }
-            .distinctBy { it.id }
-            .sortedByDescending { it.views }
-
-        val error = popular.exceptionOrNull()?.takeIf { season.isEmpty() }?.friendlyMessage()
-        if (error != null && !showError) return@coroutineScope false
-        feed.value = HomeFeed(
-            popular = popular.getOrDefault(feed.value.popular),
-            today = todayList,
-            thisSeason = season,
-            latest = latestJob.await().getOrDefault(feed.value.latest),
-            loading = false,
-            refreshing = false,
-            error = error,
-        )
-        error == null
-    }
-
     private companion object {
         const val AUTO_RETRIES = 3
-        const val LATEST_LIMIT = 20
     }
 }
