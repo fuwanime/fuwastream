@@ -5,6 +5,7 @@ import android.content.ComponentName
 import android.content.Intent
 import android.util.Log
 import androidx.annotation.OptIn
+import androidx.core.content.ContextCompat
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
@@ -37,7 +38,7 @@ class PlaybackHolder(private val app: Application, private val videoHttpClient: 
         // A connected controller is what starts the service and lets Media3 manage the foreground notification.
         controller = MediaController.Builder(app, SessionToken(app, ComponentName(app, PlaybackService::class.java)))
             .buildAsync()
-            .also { f -> f.addListener({ runCatching { f.get() }.onFailure { Log.w(TAG, "controller failed", it) } }, app.mainExecutor) }
+            .also { f -> f.addListener({ runCatching { f.get() }.onFailure { Log.w(TAG, "controller failed", it) } }, ContextCompat.getMainExecutor(app)) }
         return p
     }
 
