@@ -83,4 +83,9 @@ class WatchStatsTest {
         assertEquals(2, s.episodesFinished)
         assertEquals(2, s.animeWatched)
     }
+
+    @Test fun hasData_dailyOnlyAfterHistoryCleared() =
+        assertTrue(computeStats(emptyList(), listOf(WatchDailyEntity(today, 60_000)), emptyList(), today).hasData)
+
+    @Test fun hasData_nothingRecorded() = assertFalse(computeStats(emptyList(), emptyList(), emptyList(), today).hasData)
 }

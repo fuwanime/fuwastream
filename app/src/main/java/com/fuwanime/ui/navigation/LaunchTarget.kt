@@ -34,3 +34,6 @@ fun playerRouteFor(e: WatchHistoryEntity, origin: String?): String = Routes.play
 
 /** Null when the episode is no longer in history, so the app simply opens on Beranda. */
 fun resumeRoute(entry: WatchHistoryEntity?): String? = entry?.let { playerRouteFor(it, null) }
+
+/** Stub: replaced in the fix pass. */
+fun isFreshLaunch(restored: Boolean, flags: Int): Boolean = true

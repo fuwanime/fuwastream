@@ -17,6 +17,8 @@ data class WatchStats(
     val topGenres: List<String>,
     val monthly: List<MonthBar>,
     val activeWeeks: Int,
+    /** False until anything has been watched; drives the empty state. */
+    val hasData: Boolean,
 )
 
 private val MONTHS = listOf("Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des")
@@ -75,5 +77,6 @@ fun computeStats(
         topGenres = topGenres,
         monthly = monthly,
         activeWeeks = activeWeeks,
+        hasData = history.isNotEmpty(),
     )
 }
