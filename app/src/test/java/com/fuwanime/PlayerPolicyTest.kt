@@ -19,9 +19,14 @@ import org.junit.Test
 class PlayerPolicyTest {
     private fun anime(title: String, poster: String) = Anime(id = "a", title = title, poster = poster)
 
-    @Test fun closingPipPauses() = assertEquals(StopAction.PAUSE, stopAction(inPip = true, backgroundAudio = true))
-    @Test fun leavingWithSettingOffPauses() = assertEquals(StopAction.PAUSE, stopAction(inPip = false, backgroundAudio = false))
-    @Test fun leavingWithSettingOnKeepsPlaying() = assertEquals(StopAction.KEEP_PLAYING, stopAction(inPip = false, backgroundAudio = true))
+    @Test fun closingPipPauses() = assertEquals(StopAction.PAUSE, stopAction(inPip = true, screenOn = true, backgroundAudio = true))
+    // Locking the phone during PiP also stops the activity; that is "screen off", not "window closed".
+    @Test fun screenOffInPipKeepsPlayingWithSetting() =
+        assertEquals(StopAction.KEEP_PLAYING, stopAction(inPip = true, screenOn = false, backgroundAudio = true))
+    @Test fun screenOffInPipPausesWithoutSetting() =
+        assertEquals(StopAction.PAUSE, stopAction(inPip = true, screenOn = false, backgroundAudio = false))
+    @Test fun leavingWithSettingOffPauses() = assertEquals(StopAction.PAUSE, stopAction(inPip = false, screenOn = true, backgroundAudio = false))
+    @Test fun leavingWithSettingOnKeepsPlaying() = assertEquals(StopAction.KEEP_PLAYING, stopAction(inPip = false, screenOn = true, backgroundAudio = true))
 
     @Test fun normalAspectUnchanged() = assertEquals(1920 to 1080, clampPipAspect(1920, 1080))
     @Test fun ultrawideClampedToMax() = assertEquals(239 to 100, clampPipAspect(2400, 1000))

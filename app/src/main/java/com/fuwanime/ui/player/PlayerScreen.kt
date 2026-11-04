@@ -9,6 +9,7 @@ import android.media.AudioManager
 import android.net.ConnectivityManager
 import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
 import android.util.Log
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -389,8 +390,9 @@ fun PlayerRoute(
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
         vm.onPlayerExit(player.currentPosition, player.duration)
         // Closing the PiP window stops the activity while it still reports PiP mode.
-        val closingPip = inPip || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && activity?.isInPictureInPictureMode == true)
-        if (stopAction(closingPip, settings.backgroundAudio) == StopAction.PAUSE) player.pause()
+        val wasInPip = inPip || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && activity?.isInPictureInPictureMode == true)
+        val screenOn = (context.getSystemService(Context.POWER_SERVICE) as PowerManager).isInteractive
+        if (stopAction(wasInPip, screenOn, settings.backgroundAudio) == StopAction.PAUSE) player.pause()
     }
 
     // --- PiP + fullscreen -----------------------------------------------------------------

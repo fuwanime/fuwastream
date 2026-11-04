@@ -12,6 +12,8 @@ val releaseKeystore = System.getenv("KEYSTORE_PATH")?.let { file(it) }?.takeIf {
 android {
   namespace = "com.fuwanime"
   compileSdk = 37
+  // A call above minSdk crashes old phones at runtime; fail the release build instead (lintVital runs fatal checks).
+  lint { fatal += "NewApi" }
 
   defaultConfig {
     applicationId = "com.fuwanime.app"
