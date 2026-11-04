@@ -15,7 +15,9 @@ class PlaybackService : MediaSessionService() {
     override fun onCreate() {
         super.onCreate()
         // Restarted by the system with no player screen open: nothing to control.
-        val player = (application as FuwaApp).container.playbackHolder.player ?: return stopSelf()
+        val holder = (application as FuwaApp).container.playbackHolder
+        val player = holder.player ?: return stopSelf()
+        holder.service = this
         val open = PendingIntent.getActivity(
             this, 0, Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
@@ -31,10 +33,17 @@ class PlaybackService : MediaSessionService() {
         stopSelf()
     }
 
-    override fun onDestroy() {
-        // The holder owns the player; only the session is released here.
+    /** Detaches the session from the player; the holder calls this before it stops and releases the player. */
+    fun releaseSession() {
         session?.release()
         session = null
+    }
+
+    override fun onDestroy() {
+        // The holder owns the player; only the session is released here.
+        releaseSession()
+        val holder = (application as FuwaApp).container.playbackHolder
+        if (holder.service === this) holder.service = null
         super.onDestroy()
     }
 }

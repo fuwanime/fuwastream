@@ -41,7 +41,7 @@ tap() { local xy; xy=$(find_xy "$@"); [ -z "$xy" ] && { echo "not found: $1"; re
 scroll_to() { for _ in $(seq 1 8); do [ -n "$(find_xy "$1")" ] && return 0; adb shell input swipe 540 1700 540 900 300; sleep 1; done; echo "not found while scrolling: $1"; return 1; }
 # Like scroll_to, then bring $1 up to the top third so the row below it is fully on screen (not under the nav bar).
 scroll_row() { scroll_to "$1" || return 1; local y; y=$(find_xy "$1" | cut -d' ' -f2); [ "${y:-0}" -gt 900 ] && adb shell input swipe 540 "$y" 540 500 600; sleep 1.5; }
-alive() { adb shell pidof "$PKG" >/dev/null || { echo "::error::App process died"; adb logcat -d -b crash | tail -80; exit 1; }; }
+alive() { adb shell pidof "$PKG" >/dev/null || { echo "::error::App process died"; adb logcat -d -b crash | tail -80; adb logcat -d | tail -3000 > "$OUT/death-logcat.txt"; exit 1; }; }
 back_gesture() { adb shell input swipe 2 1200 520 1200 250; }
 
 record() { adb shell screenrecord --bit-rate 6000000 --size 540x1200 --time-limit 60 "/sdcard/$1.mp4" & REC=$!; sleep 1; }
@@ -159,6 +159,7 @@ session_state() { adb shell dumpsys media_session | grep -A40 "package=$PKG" | g
 check() { echo "$1: $2" | tee -a "$OUT/qa-checks.txt"; }
 open_player_settings() { tap "Pengaturan video" >/dev/null 2>&1 || { adb shell input tap 540 350; sleep 0.7; tap "Pengaturan video"; }; }
 play_ep1() { tap "Tonton"; sleep 5; scroll_to "Episode 1" && tap "Episode 1"; sleep 20; }
+adb logcat -c
 fresh
 play_ep1
 check "session playing" "$(session_state)"
@@ -172,14 +173,15 @@ adb shell input keyevent KEYCODE_WAKEUP; adb shell wm dismiss-keyguard; sleep 2
 # PiP (Auto-PiP is on by default): the window must carry the custom actions.
 adb shell input keyevent KEYCODE_MEDIA_PLAY; sleep 2
 adb shell input keyevent KEYCODE_HOME; sleep 4
-check "pip actions" "$(adb shell dumpsys activity activities | grep -o "hasSetActions=[a-z]*" | head -1)"
 shot qa9a-pip 0
+# Tapping the PiP window shows its controls: the three custom actions must be there.
+adb shell input tap 740 1660; shot qa9a2-pip-actions 1
 adb shell am start -n "$PKG/com.fuwanime.MainActivity" >/dev/null; sleep 3
 # Aspect mode is remembered across player sessions.
-open_player_settings; sleep 1; tap "Isi layar"; sleep 1; adb shell input keyevent KEYCODE_BACK; sleep 1
+open_player_settings; sleep 1; scroll_to "Isi layar" && tap "Isi layar"; sleep 1; adb shell input keyevent KEYCODE_BACK; sleep 1
 adb shell input keyevent KEYCODE_BACK; sleep 2
 scroll_to "Episode 1" && tap "Episode 1"; sleep 15
-open_player_settings; shot qa9b-resize-remembered 1
+open_player_settings; sleep 1; scroll_to "Isi layar"; shot qa9b-resize-remembered 1
 adb shell input keyevent KEYCODE_BACK; sleep 1
 adb shell input keyevent KEYCODE_BACK; sleep 2; adb shell input keyevent KEYCODE_BACK; sleep 2
 # Background audio on: screen off keeps playing; only one session for the app.
@@ -191,7 +193,9 @@ check "screen off, setting on" "$(session_state)"
 adb shell input keyevent KEYCODE_WAKEUP; adb shell wm dismiss-keyguard; sleep 2
 check "sessions for app" "$(adb shell dumpsys media_session | grep -c "package=$PKG")"
 shot qa9c-player-after-wake 1
-adb shell input keyevent KEYCODE_BACK; sleep 2; alive
+adb shell input keyevent KEYCODE_BACK; sleep 12
+adb logcat -d | grep -iE "fuwanime|media3|MediaSession|ForegroundService|PlaybackService" > "$OUT/qa9-logcat.txt" || true
+alive
 
 # 6. Offline: Beranda from the saved data with the offline pill, then back online.
 adb shell svc wifi disable; adb shell svc data disable

@@ -26,6 +26,8 @@ class PlaybackHolder(private val app: Application, private val videoHttpClient: 
 
     var player: ExoPlayer? = null
         private set
+    /** Set by [PlaybackService] while it runs, so the session can be released before the player. */
+    internal var service: PlaybackService? = null
     private var controller: ListenableFuture<MediaController>? = null
 
     fun acquire(): ExoPlayer {
@@ -47,6 +49,9 @@ class PlaybackHolder(private val app: Application, private val videoHttpClient: 
     private fun releaseCurrent() {
         controller?.let { MediaController.releaseFuture(it) }
         controller = null
+        // Release the session first: otherwise stopping the player makes Media3 re-post the notification with
+        // startForegroundService after stopService, recreating the service without a player (FGS-timeout crash).
+        service?.releaseSession()
         player?.let {
             it.stop()
             it.release()
