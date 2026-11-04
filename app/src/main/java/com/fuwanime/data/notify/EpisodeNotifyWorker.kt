@@ -115,3 +115,6 @@ class EpisodeNotifier(private val context: Context) {
         const val CHANNEL_ID = "new_episodes"
     }
 }
+
+/** Title of the grouped "new episode" summary. */
+fun groupSummaryTitle(count: Int): String = "stub"
