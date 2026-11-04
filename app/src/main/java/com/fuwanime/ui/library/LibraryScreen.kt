@@ -158,7 +158,6 @@ class LibraryViewModel(
     fun removeHistory(animeId: String) = viewModelScope.launch { library.removeFromHistory(animeId); refreshHomeSurfaces() }
     fun clearHistory() = viewModelScope.launch { library.clearHistory(); refreshHomeSurfaces() }
 }
-}
 
 fun FavoriteEntity.toAnime() = Anime(
     id = animeId,

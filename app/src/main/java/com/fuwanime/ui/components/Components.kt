@@ -210,11 +210,11 @@ fun PosterCard(
                 Modifier.fillMaxSize().alpha(if (marked) 0.55f else 1f).sharedKey(poster).clip(MaterialTheme.shapes.medium),
                 anime.title,
             )
-            val badge = Modifier.align(Alignment.TopStart).aboveSharedElements().revealWhenLanded(poster).padding(7.dp)
+            val cornerBadge = Modifier.align(Alignment.TopStart).aboveSharedElements().revealWhenLanded(poster).padding(7.dp)
             when {
-                isNew -> NewBadge(badge)
+                isNew -> NewBadge(cornerBadge)
                 anime.isOngoing -> Row(
-                    badge
+                    cornerBadge
                         .clip(RoundedCornerShape(50))
                         .background(ImageScrim.copy(alpha = 0.78f))
                         .padding(start = 6.dp, end = 7.dp, top = 3.dp, bottom = 3.dp),
