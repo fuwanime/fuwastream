@@ -84,6 +84,7 @@ dependencies {
   implementation(libs.media3.exoplayer)
   implementation(libs.media3.exoplayer.hls)
   implementation(libs.media3.ui)
+  implementation(libs.media3.session)
   implementation(libs.androidx.work.runtime.ktx)
   implementation(libs.androidx.glance.appwidget)
   implementation(libs.moshi.kotlin)
