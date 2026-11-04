@@ -3,6 +3,9 @@ package com.fuwanime.ui.stats
 import com.fuwanime.data.local.FavoriteEntity
 import com.fuwanime.data.local.WatchDailyEntity
 import com.fuwanime.data.local.WatchHistoryEntity
+import com.fuwanime.util.epochDay
+import java.util.Calendar
+import java.util.TimeZone
 
 data class MonthBar(val label: String, val minutes: Int)
 
@@ -16,11 +19,61 @@ data class WatchStats(
     val activeWeeks: Int,
 )
 
-fun weekIndex(epochDay: Int): Int = -1
+private val MONTHS = listOf("Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des")
 
+/** Monday-based week number; epoch day 4 (1970-01-05) is the first Monday. */
+fun weekIndex(epochDay: Int): Int = Math.floorDiv(epochDay + 3, 7)
+
+/** (year, month 0-11) of an epoch day. */
+private fun yearMonth(day: Int): Pair<Int, Int> {
+    val c = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply { timeInMillis = day * 86_400_000L }
+    return c.get(Calendar.YEAR) to c.get(Calendar.MONTH)
+}
+
+/**
+ * Watch time comes from [daily] (recorded since this version); history older than the first recorded day
+ * adds its saved positions as an estimate.
+ */
 fun computeStats(
     history: List<WatchHistoryEntity>,
     daily: List<WatchDailyEntity>,
     favorites: List<FavoriteEntity>,
     todayEpochDay: Int,
-): WatchStats = WatchStats(-1, false, -1, -1, emptyList(), emptyList(), -1)
+): WatchStats {
+    val firstDay = daily.minOfOrNull { it.day }
+    val estimate = history
+        .filter { firstDay == null || epochDay(it.updatedAt) < firstDay }
+        .sumOf { if (it.durationMs > 0) it.positionMs.coerceAtMost(it.durationMs) else it.positionMs }
+
+    val byMonth = daily.groupBy { yearMonth(it.day) }.mapValues { (_, days) -> days.sumOf { it.watchedMs } }
+    val (year, month) = yearMonth(todayEpochDay)
+    val monthly = (5 downTo 0).map { back ->
+        val total = year * 12 + month - back
+        val key = total / 12 to total % 12
+        MonthBar(MONTHS[key.second], ((byMonth[key] ?: 0L) / 60_000).toInt())
+    }
+
+    val activeSet = daily.filter { it.watchedMs > 0 }.map { weekIndex(it.day) }.toSet()
+    var week = weekIndex(todayEpochDay)
+    if (week !in activeSet) week--
+    var activeWeeks = 0
+    while (week in activeSet) { activeWeeks++; week-- }
+
+    val genreCounts = LinkedHashMap<String, Pair<String, Int>>()
+    favorites.flatMap { it.genres.split(',') }.map { it.trim() }.filter { it.isNotEmpty() }.forEach { g ->
+        val key = g.lowercase()
+        val (name, n) = genreCounts[key] ?: (g to 0)
+        genreCounts[key] = name to n + 1
+    }
+    val topGenres = genreCounts.values.sortedByDescending { it.second }.take(3).map { it.first }
+
+    return WatchStats(
+        totalWatchedMs = daily.sumOf { it.watchedMs } + estimate,
+        isEstimated = estimate > 0,
+        episodesFinished = history.count { it.isFinished },
+        animeWatched = history.map { it.animeId }.distinct().size,
+        topGenres = topGenres,
+        monthly = monthly,
+        activeWeeks = activeWeeks,
+    )
+}

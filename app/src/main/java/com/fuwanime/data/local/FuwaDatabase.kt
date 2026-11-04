@@ -107,6 +107,9 @@ interface WatchHistoryDao {
     )
     fun observeLatestPerAnime(limit: Int): Flow<List<WatchHistoryEntity>>
 
+    @Query("SELECT * FROM watch_history")
+    fun observeAll(): Flow<List<WatchHistoryEntity>>
+
     @Query("SELECT * FROM watch_history WHERE animeId = :animeId")
     fun observeForAnime(animeId: String): Flow<List<WatchHistoryEntity>>
 
@@ -160,8 +163,8 @@ interface DownloadDao {
 }
 
 @Database(
-    entities = [FavoriteEntity::class, WatchHistoryEntity::class, SearchHistoryEntity::class, DownloadEntity::class],
-    version = 2,
+    entities = [FavoriteEntity::class, WatchHistoryEntity::class, SearchHistoryEntity::class, DownloadEntity::class, WatchDailyEntity::class],
+    version = 3,
     exportSchema = false,
 )
 abstract class FuwaDatabase : RoomDatabase() {
@@ -169,11 +172,12 @@ abstract class FuwaDatabase : RoomDatabase() {
     abstract fun watchHistoryDao(): WatchHistoryDao
     abstract fun searchHistoryDao(): SearchHistoryDao
     abstract fun downloadDao(): DownloadDao
+    abstract fun watchDailyDao(): WatchDailyDao
 
     companion object {
         fun create(context: Context): FuwaDatabase =
             Room.databaseBuilder(context, FuwaDatabase::class.java, "fuwanime.db")
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build()
 
         /** v2 adds offline downloads; existing favourites and history are kept. */
@@ -187,6 +191,15 @@ abstract class FuwaDatabase : RoomDatabase() {
                         "PRIMARY KEY(`episodeId`))",
                 )
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_downloads_animeId` ON `downloads` (`animeId`)")
+            }
+        }
+
+        /** v3 adds daily watch time for statistics; nothing existing changes. */
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `watch_daily` (`day` INTEGER NOT NULL, `watchedMs` INTEGER NOT NULL, PRIMARY KEY(`day`))",
+                )
             }
         }
     }
