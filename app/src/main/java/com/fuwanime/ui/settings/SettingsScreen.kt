@@ -27,6 +27,7 @@ import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.ManageSearch
 import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.PictureInPictureAlt
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.FastForward
@@ -181,6 +182,11 @@ fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit) {
             item {
                 SwitchRow(Icons.Rounded.PictureInPictureAlt, "Picture-in-Picture otomatis", "Video mengecil saat kamu keluar aplikasi", s.autoPip) {
                     vm.update { setAutoPip(it) }
+                }
+            }
+            item {
+                SwitchRow(Icons.Rounded.Headphones, "Putar audio di latar", "Suara tetap jalan saat layar mati atau aplikasi ditinggal", s.backgroundAudio) {
+                    vm.update { setBackgroundAudio(it) }
                 }
             }
             item {

@@ -103,6 +103,8 @@ class SettingsStore(private val context: Context) {
     suspend fun setAutoSkipOp(enabled: Boolean) = context.dataStore.edit { it[Keys.autoSkipOp] = enabled }
     suspend fun setJumpAheadButton(enabled: Boolean) = context.dataStore.edit { it[Keys.jumpAheadButton] = enabled }
     suspend fun setMobileDataQuality(height: Int) = context.dataStore.edit { it[Keys.mobileDataQuality] = height }
+    suspend fun setBackgroundAudio(enabled: Boolean) = context.dataStore.edit { it[Keys.backgroundAudio] = enabled }
+    suspend fun setVideoResize(mode: VideoResize) = context.dataStore.edit { it[Keys.videoResize] = mode.name }
 
     /** Opening marked by the user for an anime; the same range applies to all its episodes. */
     fun opMark(animeId: String): Flow<OpMark?> = context.dataStore.data.map { prefs ->
@@ -176,7 +178,7 @@ internal fun Preferences.toSettings(): AppSettings {
         autoSkipOp = this[Keys.autoSkipOp] ?: d.autoSkipOp,
         jumpAheadButton = this[Keys.jumpAheadButton] ?: d.jumpAheadButton,
         mobileDataQuality = this[Keys.mobileDataQuality] ?: d.mobileDataQuality,
-        backgroundAudio = true, // RED stub
-        videoResize = VideoResize.ZOOM, // RED stub
+        backgroundAudio = this[Keys.backgroundAudio] ?: d.backgroundAudio,
+        videoResize = this[Keys.videoResize]?.let { runCatching { VideoResize.valueOf(it) }.getOrNull() } ?: d.videoResize,
     )
 }
