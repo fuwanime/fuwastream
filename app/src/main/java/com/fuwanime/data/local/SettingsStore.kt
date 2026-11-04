@@ -17,6 +17,9 @@ import kotlinx.coroutines.flow.map
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
+/** How the video fills its area: whole picture (letterboxed) or cropped to fill. */
+enum class VideoResize { FIT, ZOOM }
+
 data class AppSettings(
     val themeMode: ThemeMode = ThemeMode.DARK,
     val dynamicColor: Boolean = false,
@@ -37,31 +40,37 @@ data class AppSettings(
     val jumpAheadButton: Boolean = true,
     /** Stream height on metered networks; 0 follows [preferredQuality]. */
     val mobileDataQuality: Int = 0,
+    /** Keep the sound playing when the screen is off or the app is left without PiP. */
+    val backgroundAudio: Boolean = false,
+    val videoResize: VideoResize = VideoResize.FIT,
 )
 
 private val Context.dataStore by preferencesDataStore(name = "settings")
 
+internal object Keys {
+    val themeMode = stringPreferencesKey("theme_mode")
+    val dynamicColor = booleanPreferencesKey("dynamic_color")
+    val amoledBlack = booleanPreferencesKey("amoled_black")
+    val preferredQuality = intPreferencesKey("preferred_quality")
+    val autoPlayNext = booleanPreferencesKey("auto_play_next")
+    val autoPip = booleanPreferencesKey("auto_pip")
+    val doubleTapSeekSeconds = intPreferencesKey("double_tap_seek_seconds")
+    val downloadQuality = intPreferencesKey("download_quality")
+    val downloadWifiOnly = booleanPreferencesKey("download_wifi_only")
+    val notifyNewEpisodes = booleanPreferencesKey("notify_new_episodes")
+    val autoSkipOp = booleanPreferencesKey("auto_skip_op")
+    val jumpAheadButton = booleanPreferencesKey("jump_ahead_button")
+    val mobileDataQuality = intPreferencesKey("mobile_data_quality")
+    val updateLastCheckMs = longPreferencesKey("update_last_check_ms")
+    val updateDismissedTag = stringPreferencesKey("update_dismissed_tag")
+    /** Age confirmation is a consent record, kept when user data is wiped. */
+    val ageConfirmed = booleanPreferencesKey("age_confirmed")
+    val backgroundAudio = booleanPreferencesKey("background_audio")
+    val videoResize = stringPreferencesKey("video_resize")
+}
+
 class SettingsStore(private val context: Context) {
 
-    private object Keys {
-        val themeMode = stringPreferencesKey("theme_mode")
-        val dynamicColor = booleanPreferencesKey("dynamic_color")
-        val amoledBlack = booleanPreferencesKey("amoled_black")
-        val preferredQuality = intPreferencesKey("preferred_quality")
-        val autoPlayNext = booleanPreferencesKey("auto_play_next")
-        val autoPip = booleanPreferencesKey("auto_pip")
-        val doubleTapSeekSeconds = intPreferencesKey("double_tap_seek_seconds")
-        val downloadQuality = intPreferencesKey("download_quality")
-        val downloadWifiOnly = booleanPreferencesKey("download_wifi_only")
-        val notifyNewEpisodes = booleanPreferencesKey("notify_new_episodes")
-        val autoSkipOp = booleanPreferencesKey("auto_skip_op")
-        val jumpAheadButton = booleanPreferencesKey("jump_ahead_button")
-        val mobileDataQuality = intPreferencesKey("mobile_data_quality")
-        val updateLastCheckMs = longPreferencesKey("update_last_check_ms")
-        val updateDismissedTag = stringPreferencesKey("update_dismissed_tag")
-        /** Age confirmation is a consent record, kept when user data is wiped. */
-        val ageConfirmed = booleanPreferencesKey("age_confirmed")
-    }
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { it.toSettings() }
 
@@ -80,24 +89,6 @@ class SettingsStore(private val context: Context) {
         if (age != null) prefs[Keys.ageConfirmed] = age
     }
 
-    private fun Preferences.toSettings(): AppSettings {
-        val d = AppSettings()
-        return AppSettings(
-            themeMode = this[Keys.themeMode]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: d.themeMode,
-            dynamicColor = this[Keys.dynamicColor] ?: d.dynamicColor,
-            amoledBlack = this[Keys.amoledBlack] ?: d.amoledBlack,
-            preferredQuality = this[Keys.preferredQuality] ?: d.preferredQuality,
-            autoPlayNext = this[Keys.autoPlayNext] ?: d.autoPlayNext,
-            autoPip = this[Keys.autoPip] ?: d.autoPip,
-            doubleTapSeekSeconds = this[Keys.doubleTapSeekSeconds] ?: d.doubleTapSeekSeconds,
-            downloadQuality = this[Keys.downloadQuality] ?: d.downloadQuality,
-            downloadWifiOnly = this[Keys.downloadWifiOnly] ?: d.downloadWifiOnly,
-            notifyNewEpisodes = this[Keys.notifyNewEpisodes] ?: d.notifyNewEpisodes,
-            autoSkipOp = this[Keys.autoSkipOp] ?: d.autoSkipOp,
-            jumpAheadButton = this[Keys.jumpAheadButton] ?: d.jumpAheadButton,
-            mobileDataQuality = this[Keys.mobileDataQuality] ?: d.mobileDataQuality,
-        )
-    }
 
     suspend fun setThemeMode(mode: ThemeMode) = context.dataStore.edit { it[Keys.themeMode] = mode.name }
     suspend fun setDynamicColor(enabled: Boolean) = context.dataStore.edit { it[Keys.dynamicColor] = enabled }
@@ -167,4 +158,25 @@ class SettingsStore(private val context: Context) {
         context.dataStore.data.map { it[Keys.updateDismissedTag] }.firstOrNull()
 
     suspend fun dismissUpdate(tag: String) = context.dataStore.edit { it[Keys.updateDismissedTag] = tag }
+}
+
+internal fun Preferences.toSettings(): AppSettings {
+    val d = AppSettings()
+    return AppSettings(
+        themeMode = this[Keys.themeMode]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: d.themeMode,
+        dynamicColor = this[Keys.dynamicColor] ?: d.dynamicColor,
+        amoledBlack = this[Keys.amoledBlack] ?: d.amoledBlack,
+        preferredQuality = this[Keys.preferredQuality] ?: d.preferredQuality,
+        autoPlayNext = this[Keys.autoPlayNext] ?: d.autoPlayNext,
+        autoPip = this[Keys.autoPip] ?: d.autoPip,
+        doubleTapSeekSeconds = this[Keys.doubleTapSeekSeconds] ?: d.doubleTapSeekSeconds,
+        downloadQuality = this[Keys.downloadQuality] ?: d.downloadQuality,
+        downloadWifiOnly = this[Keys.downloadWifiOnly] ?: d.downloadWifiOnly,
+        notifyNewEpisodes = this[Keys.notifyNewEpisodes] ?: d.notifyNewEpisodes,
+        autoSkipOp = this[Keys.autoSkipOp] ?: d.autoSkipOp,
+        jumpAheadButton = this[Keys.jumpAheadButton] ?: d.jumpAheadButton,
+        mobileDataQuality = this[Keys.mobileDataQuality] ?: d.mobileDataQuality,
+        backgroundAudio = true, // RED stub
+        videoResize = VideoResize.ZOOM, // RED stub
+    )
 }
