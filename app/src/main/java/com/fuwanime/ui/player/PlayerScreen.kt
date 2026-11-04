@@ -7,6 +7,8 @@ import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.media.AudioManager
 import android.net.ConnectivityManager
+import android.net.Uri
+import android.os.Build
 import android.util.Log
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -116,15 +118,14 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import androidx.compose.animation.core.tween
@@ -145,12 +146,10 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarHost
-import androidx.media3.datasource.DefaultDataSource
 import com.fuwanime.data.Episode
 import com.fuwanime.data.OpMark
 import com.fuwanime.data.StreamSource
 import com.fuwanime.data.local.AppSettings
-import com.fuwanime.data.remote.AnimeApiService
 import com.fuwanime.ui.components.NetImage
 import com.fuwanime.util.formatDuration
 import com.fuwanime.util.fuwaViewModel
@@ -162,27 +161,17 @@ private const val TAG = "FuwaPlayer"
 
 private val Speeds = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f)
 
-@OptIn(UnstableApi::class)
-private fun buildPlayer(context: Context): ExoPlayer {
-    val client = (context.applicationContext as FuwaApp).container.videoHttpClient
-    val http = OkHttpDataSource.Factory(client).setUserAgent(AnimeApiService.USER_AGENT)
-    // DefaultDataSource routes file:// (offline downloads) locally and everything else through OkHttp.
-    val dataSource = DefaultDataSource.Factory(context, http)
-    return ExoPlayer.Builder(context)
-        .setMediaSourceFactory(DefaultMediaSourceFactory(dataSource))
-        // Request audio focus: music/podcast from another app pauses instead of overlapping.
-        .setAudioAttributes(
-            androidx.media3.common.AudioAttributes.Builder()
-                .setUsage(C.USAGE_MEDIA)
-                .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
-                .build(),
-            /* handleAudioFocus = */ true,
-        )
-        .setSeekBackIncrementMs(10_000)
-        .setSeekForwardIncrementMs(10_000)
-        .setHandleAudioBecomingNoisy(true)
-        .build()
-}
+private fun mediaItem(url: String, np: NowPlaying): MediaItem = MediaItem.Builder()
+    .setUri(url)
+    .setMediaMetadata(
+        MediaMetadata.Builder()
+            .setTitle(np.title)
+            .setArtist(np.artist)
+            .setSubtitle(np.subtitle.ifBlank { null })
+            .setArtworkUri(np.artworkUrl.takeIf { it.isNotBlank() }?.let(Uri::parse))
+            .build(),
+    )
+    .build()
 
 private fun Context.isMeteredNetwork(): Boolean =
     (getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager)?.isActiveNetworkMetered == true
@@ -264,7 +253,8 @@ fun PlayerRoute(
     val inPip = pip?.isInPip?.value == true
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
-    val player = remember { buildPlayer(context) }
+    val holder = remember(context) { (context.applicationContext as FuwaApp).container.playbackHolder }
+    val player = remember { holder.acquire() }
     val initialEpisodeId = remember { state.episode.id }
     // The nav-arg thumbnail, which is what flew in; the stream may report a different URL for the same image.
     val initialThumbnail = remember { state.episode.thumbnail }
@@ -338,7 +328,7 @@ fun PlayerRoute(
         onDispose {
             vm.saveProgress(player.currentPosition, player.duration)
             player.removeListener(listener)
-            player.release()
+            holder.release(player)
             view.keepScreenOn = false
         }
     }
@@ -352,7 +342,7 @@ fun PlayerRoute(
             player.stop()
             return@LaunchedEffect
         }
-        player.setMediaItem(MediaItem.fromUri(source.url), state.startPositionMs.coerceAtLeast(0))
+        player.setMediaItem(mediaItem(source.url, nowPlaying(state.episode, state.anime)), state.startPositionMs.coerceAtLeast(0))
         player.prepare()
         player.playWhenReady = !sleepExpired
     }
@@ -394,7 +384,9 @@ fun PlayerRoute(
 
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
         vm.onPlayerExit(player.currentPosition, player.duration)
-        player.pause()
+        // Closing the PiP window stops the activity while it still reports PiP mode.
+        val closingPip = inPip || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && activity?.isInPictureInPictureMode == true)
+        if (stopAction(closingPip, settings.backgroundAudio) == StopAction.PAUSE) player.pause()
     }
 
     // --- PiP + fullscreen -----------------------------------------------------------------
