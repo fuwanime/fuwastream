@@ -11,21 +11,40 @@ import com.fuwanime.MainActivity
 class PlaybackService : MediaSessionService() {
 
     private var session: MediaSession? = null
+    private val holder get() = (application as FuwaApp).container.playbackHolder
 
     override fun onCreate() {
         super.onCreate()
-        // Restarted by the system with no player screen open: nothing to control.
-        val holder = (application as FuwaApp).container.playbackHolder
-        val player = holder.player ?: return stopSelf()
         holder.service = this
+        ensureSession()
+    }
+
+    /**
+     * Wraps the holder's current player. Null when no player screen is open (system restart, a stale media-button
+     * intent): Media3's onStartCommand then stops the service safely, posting a foreground notification first if it
+     * was started as a foreground service. A plain stopSelf() here would crash with the FGS timeout.
+     */
+    private fun ensureSession(): MediaSession? {
+        session?.let { return it }
+        val player = holder.player ?: return null
         val open = PendingIntent.getActivity(
             this, 0, Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        session = MediaSession.Builder(this, player).setSessionActivity(open).build()
+        return MediaSession.Builder(this, player).setSessionActivity(open).build().also { session = it }
     }
 
-    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
+    // A service instance can outlive one player screen (a late unbind); the next screen's controller gets a fresh session.
+    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = ensureSession()
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // A sticky restart after the process was killed has nothing to play.
+        if (intent == null && ensureSession() == null) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        return super.onStartCommand(intent, flags, startId)
+    }
 
     // Swiping the app away from Recents ends playback, even with background audio on.
     override fun onTaskRemoved(rootIntent: Intent?) {
@@ -42,7 +61,6 @@ class PlaybackService : MediaSessionService() {
     override fun onDestroy() {
         // The holder owns the player; only the session is released here.
         releaseSession()
-        val holder = (application as FuwaApp).container.playbackHolder
         if (holder.service === this) holder.service = null
         super.onDestroy()
     }
