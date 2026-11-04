@@ -391,7 +391,7 @@ fun PlayerRoute(
 
     // --- PiP + fullscreen -----------------------------------------------------------------
     DisposableEffect(pip, playback.isPlaying, settings.autoPip, playback.videoWidth, playback.videoHeight) {
-        pip?.setAutoEnter(playback.isPlaying && settings.autoPip, playback.videoWidth, playback.videoHeight)
+        pip?.setAutoEnter(playback.isPlaying && settings.autoPip, playback.videoWidth, playback.videoHeight, playback.isPlaying)
         onDispose { pip?.setAutoEnter(false) }
     }
 
@@ -442,7 +442,8 @@ fun PlayerRoute(
             autoSkipHandledFor = autoSkipHandledFor,
             onAutoSkipped = { autoSkipHandledFor = it },
             fullscreen = fullscreen,
-            inPip = inPip,
+            // Hide the controls as soon as the shrink starts, not after it lands.
+            inPip = inPip || pip?.isEnteringPip?.value == true,
             onBack = { if (fullscreen) setFullscreen(false) else onBack() },
             onToggleFullscreen = { setFullscreen(!fullscreen) },
             onOpenSettings = { showSettings = true },
