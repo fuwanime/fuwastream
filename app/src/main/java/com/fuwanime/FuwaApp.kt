@@ -19,11 +19,13 @@ import com.fuwanime.data.notify.EpisodeNotifyWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import com.fuwanime.widget.HomeSurfaces
 import okhttp3.Cache
 import okhttp3.OkHttpClient
 
 /** Manual DI: one instance of each dependency for the whole process. */
-class AppContainer(app: Application) {
+class AppContainer(private val app: Application) {
     val httpClient: OkHttpClient = AnimeApiService.createHttpClient()
 
     /** Connectivity plus "showing cached data since"; drives the offline indicators. */
@@ -47,6 +49,11 @@ class AppContainer(app: Application) {
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     val downloadRepository = DownloadRepository(app, database.downloadDao(), animeRepository, appScope)
+
+    /** Re-renders the "Lanjutkan" shortcut and widget after history changes. */
+    fun refreshHomeSurfaces() {
+        appScope.launch { HomeSurfaces.refresh(app, libraryRepository) }
+    }
 
     /** In-app update checker against GitHub Releases. */
     val updateRepository = UpdateRepository(settingsStore)

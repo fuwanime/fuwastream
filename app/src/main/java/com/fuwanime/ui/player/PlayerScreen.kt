@@ -243,6 +243,7 @@ fun PlayerRoute(
             c.animeRepository, c.libraryRepository, c.downloadRepository, c.settingsStore, c.appScope,
             isMetered = { appContext.isMeteredNetwork() },
             saved = h,
+            refreshHomeSurfaces = c::refreshHomeSurfaces,
         )
     }
     val state by vm.state.collectAsStateWithLifecycle()
@@ -290,7 +291,7 @@ fun PlayerRoute(
                 playback.buffering = s == Player.STATE_BUFFERING
                 playback.ended = s == Player.STATE_ENDED
                 if (s == Player.STATE_READY) playback.error = null
-                if (s == Player.STATE_ENDED) vm.saveProgress(player.duration, player.duration)
+                if (s == Player.STATE_ENDED) vm.onPlayerExit(player.duration, player.duration)
             }
 
             override fun onTimelineChanged(timeline: Timeline, reason: Int) {
@@ -369,7 +370,10 @@ fun PlayerRoute(
     LaunchedEffect(player, state.episode.id) {
         while (true) {
             delay(5_000)
-            if (player.isPlaying) vm.saveProgress(player.currentPosition, player.duration)
+            if (player.isPlaying) {
+                vm.saveProgress(player.currentPosition, player.duration)
+                vm.addWatchTime(5_000)
+            }
         }
     }
 
@@ -389,7 +393,7 @@ fun PlayerRoute(
     }
 
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
-        vm.saveProgress(player.currentPosition, player.duration)
+        vm.onPlayerExit(player.currentPosition, player.duration)
         player.pause()
     }
 
