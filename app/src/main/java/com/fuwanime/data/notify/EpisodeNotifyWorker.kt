@@ -5,6 +5,8 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
+import android.graphics.Bitmap
+import com.fuwanime.util.loadBitmap
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -39,6 +41,7 @@ class EpisodeNotifyWorker(context: Context, params: WorkerParameters) : Coroutin
             .filter { it.status.equals("ONGOING", true) }
             .take(25)
         val notifier = EpisodeNotifier(applicationContext)
+        val notified = mutableListOf<String>()
         for (fav in favorites) {
             runCatching {
                 val newest = container.animeRepository
@@ -50,9 +53,11 @@ class EpisodeNotifyWorker(context: Context, params: WorkerParameters) : Coroutin
                 settings.setNotifyBaseline(fav.animeId, newest.sortKey)
                 if (baseline != null && newest.sortKey > baseline + 0.001) {
                     notifier.notifyNewEpisode(fav, newest)
+                    notified += fav.title
                 }
             }
         }
+        if (notified.size >= 2) notifier.postSummary(notified)
         return Result.success()
     }
 
@@ -74,13 +79,14 @@ class EpisodeNotifyWorker(context: Context, params: WorkerParameters) : Coroutin
 /** Posts "new episode" notifications on a dedicated channel; silent no-op without permission. */
 class EpisodeNotifier(private val context: Context) {
 
-    fun notifyNewEpisode(favorite: FavoriteEntity, episode: Episode) {
+    private val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+    /** False without notification permission; otherwise makes sure the channel exists. */
+    private fun ready(): Boolean {
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
             PackageManager.PERMISSION_GRANTED
-        ) return
-
-        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        ) return false
         if (Build.VERSION.SDK_INT >= 26) {
             manager.createNotificationChannel(
                 NotificationChannel(
@@ -90,6 +96,11 @@ class EpisodeNotifier(private val context: Context) {
                 ).apply { description = "Notifikasi episode baru untuk anime favorit" },
             )
         }
+        return true
+    }
+
+    suspend fun notifyNewEpisode(favorite: FavoriteEntity, episode: Episode) {
+        if (!ready()) return
 
         val contentIntent = PendingIntent.getActivity(
             context,
@@ -101,20 +112,50 @@ class EpisodeNotifier(private val context: Context) {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
+        // Artwork is a bonus: when it can't load the notification stays text-only.
+        val poster = loadBitmap(context, favorite.poster, 256)
+        val cover = loadBitmap(context, favorite.cover.ifBlank { favorite.poster }, 1024)
+        val text = "Episode ${episode.number} sudah tayang!"
+
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(favorite.title)
-            .setContentText("Episode ${episode.number} sudah tayang!")
+            .setContentText(text)
             .setAutoCancel(true)
             .setContentIntent(contentIntent)
+            .setGroup(GROUP_KEY)
+            .apply {
+                if (poster != null) setLargeIcon(poster)
+                if (cover != null) {
+                    setStyle(NotificationCompat.BigPictureStyle().bigPicture(cover).bigLargeIcon(null as Bitmap?).setSummaryText(text))
+                }
+            }
             .build()
         manager.notify(favorite.animeId.hashCode(), notification)
     }
 
+    /** Collapses several "new episode" notifications under one "N episode baru" header. */
+    fun postSummary(titles: List<String>) {
+        if (!ready()) return
+        val style = NotificationCompat.InboxStyle().also { inbox -> titles.forEach { inbox.addLine(it) } }
+        val summary = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle(groupSummaryTitle(titles.size))
+            .setContentText(titles.joinToString(", "))
+            .setStyle(style)
+            .setGroup(GROUP_KEY)
+            .setGroupSummary(true)
+            .setAutoCancel(true)
+            .build()
+        manager.notify(SUMMARY_ID, summary)
+    }
+
     companion object {
         const val CHANNEL_ID = "new_episodes"
+        const val GROUP_KEY = "new_episodes"
+        const val SUMMARY_ID = 0x5EED
     }
 }
 
 /** Title of the grouped "new episode" summary. */
-fun groupSummaryTitle(count: Int): String = "stub"
+fun groupSummaryTitle(count: Int): String = "$count episode baru"
