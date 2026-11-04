@@ -7,9 +7,12 @@ import com.fuwanime.data.local.VideoResize
 /** What the player does when the activity stops (screen off, home, PiP window closed). */
 enum class StopAction { PAUSE, KEEP_PLAYING }
 
-// Closing the PiP window is an explicit stop, so it pauses even with background audio on.
-fun stopAction(inPip: Boolean, screenOn: Boolean, backgroundAudio: Boolean): StopAction =
-    if (!inPip && backgroundAudio) StopAction.KEEP_PLAYING else StopAction.PAUSE
+// Closing the PiP window (screen on) is an explicit stop, so it pauses even with background audio on.
+fun stopAction(inPip: Boolean, screenOn: Boolean, backgroundAudio: Boolean): StopAction = when {
+    inPip && screenOn -> StopAction.PAUSE
+    backgroundAudio -> StopAction.KEEP_PLAYING
+    else -> StopAction.PAUSE
+}
 
 /** PiP aspect ratio as (width, height); Android rejects ratios outside 1:2.39 .. 2.39:1. */
 fun clampPipAspect(width: Int, height: Int): Pair<Int, Int> {
