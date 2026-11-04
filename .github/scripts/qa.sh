@@ -183,8 +183,9 @@ adb shell input keyevent KEYCODE_BACK; sleep 2
 scroll_to "Episode 1" && tap "Episode 1"; sleep 15
 open_player_settings; sleep 1; scroll_to "Isi layar"; shot qa9b-resize-remembered 1
 adb shell input keyevent KEYCODE_BACK; sleep 1
-adb shell input keyevent KEYCODE_BACK; sleep 2; adb shell input keyevent KEYCODE_BACK; sleep 2
-# Background audio on: screen off keeps playing; only one session for the app.
+adb shell input keyevent KEYCODE_BACK; sleep 2; alive
+# Background audio on (relaunch lands on Home, where the settings icon is)
+fresh: screen off keeps playing; only one session for the app.
 tap "Pengaturan"; sleep 2; scroll_to "Putar audio di latar" && tap "Putar audio di latar"; sleep 1
 adb shell input keyevent KEYCODE_BACK; sleep 1
 play_ep1
