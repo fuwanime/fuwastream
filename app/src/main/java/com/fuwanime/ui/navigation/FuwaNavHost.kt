@@ -82,8 +82,9 @@ import com.fuwanime.ui.legal.LegalRoute
 import com.fuwanime.ui.player.PlayerRoute
 import com.fuwanime.ui.schedule.ScheduleRoute
 import com.fuwanime.ui.settings.SettingsRoute
+import com.fuwanime.ui.stats.StatsRoute
 
-private object Routes {
+internal object Routes {
     const val HOME = "home"
     const val EXPLORE = "explore?genre={genre}&focus={focus}"
     const val SCHEDULE = "schedule"
@@ -91,6 +92,7 @@ private object Routes {
     const val DETAIL = "detail/{animeId}?from={from}"
     const val PLAYER = "player/{animeId}/{episodeId}?number={number}&thumb={thumb}&shared={shared}"
     const val SETTINGS = "settings"
+    const val STATS = "stats"
     const val LEGAL = "legal/{type}"
 
     fun legal(type: String) = "legal/${Uri.encode(type)}"
@@ -167,19 +169,11 @@ private fun NavHostController.navigateTab(route: String) = navigate(route) {
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-fun FuwaNavHost(initialAnimeId: String? = null, onInitialAnimeConsumed: () -> Unit = {}) {
+fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: () -> Unit = {}) {
     val nav = rememberNavController()
     val backStack by nav.currentBackStackEntryAsState()
     val destination = backStack?.destination
     val currentTab = Tab.entries.firstOrNull { tab -> destination?.hierarchy?.any { it.route == tab.route } == true }
-
-    // Deep link from a "new episode" notification: jump straight to the detail screen.
-    LaunchedEffect(initialAnimeId) {
-        if (initialAnimeId != null) {
-            nav.navigate(Routes.detail(initialAnimeId))
-            onInitialAnimeConsumed()
-        }
-    }
 
     val container = (LocalContext.current.applicationContext as FuwaApp).container
     val animeRepository = container.animeRepository
@@ -199,6 +193,17 @@ fun FuwaNavHost(initialAnimeId: String? = null, onInitialAnimeConsumed: () -> Un
             popUpTo(nav.graph.findStartDestination().id) { saveState = true }
             launchSingleTop = true
         }
+    }
+
+    // Deep links from a notification, shortcut or widget.
+    LaunchedEffect(initialTarget) {
+        when (val target = initialTarget ?: return@LaunchedEffect) {
+            is LaunchTarget.Anime -> nav.navigate(Routes.detail(target.id))
+            LaunchTarget.Search -> openExplore(null, true)
+            LaunchTarget.Schedule -> nav.navigateTab(Routes.SCHEDULE)
+            is LaunchTarget.Resume -> resumeRoute(container.libraryRepository.historyEntry(target.episodeId))?.let { nav.navigate(it) }
+        }
+        onInitialTargetConsumed()
     }
 
     Scaffold(
@@ -286,16 +291,9 @@ fun FuwaNavHost(initialAnimeId: String? = null, onInitialAnimeConsumed: () -> Un
                             Scoped {
                                 LibraryRoute(
                                     onAnimeClick = openAnime,
-                                    onResume = { e ->
-                                        nav.navigate(
-                                            Routes.player(
-                                                e.animeId, e.episodeId, e.episodeNumber,
-                                                e.episodeThumbnail.ifBlank { e.animeCover },
-                                                shared = sharedEpisodeKey(e.episodeId, "library"),
-                                            ),
-                                        )
-                                    },
+                                    onResume = { e -> nav.navigate(playerRouteFor(e, "library")) },
                                     onPlayDownload = { d -> nav.navigate(Routes.player(d.animeId, d.episodeId, d.episodeNumber)) },
+                                    onStats = { nav.navigate(Routes.STATS) },
                                 )
                             }
                         }
@@ -334,6 +332,7 @@ fun FuwaNavHost(initialAnimeId: String? = null, onInitialAnimeConsumed: () -> Un
                                 )
                             }
                         }
+                        composable(Routes.STATS) { Scoped { StatsRoute(onBack = { nav.popBackStack() }) } }
                         composable(Routes.SETTINGS) {
                             Scoped {
                                 SettingsRoute(
