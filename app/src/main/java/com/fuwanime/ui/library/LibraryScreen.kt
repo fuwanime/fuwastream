@@ -1,6 +1,17 @@
 package com.fuwanime.ui.library
 
 import androidx.compose.foundation.clickable
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Insights
+import androidx.compose.material.icons.rounded.RadioButtonUnchecked
+import androidx.compose.runtime.LaunchedEffect
+import com.fuwanime.ui.components.TagChip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -79,11 +90,20 @@ import com.fuwanime.ui.components.NetImage
 import com.fuwanime.ui.components.PosterCard
 import com.fuwanime.util.fuwaViewModel
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.update
+import com.fuwanime.data.local.SettingsStore
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-class LibraryViewModel(private val library: LibraryRepository, private val downloadRepo: DownloadRepository) : ViewModel() {
+class LibraryViewModel(
+    private val library: LibraryRepository,
+    private val downloadRepo: DownloadRepository,
+    private val settings: SettingsStore,
+    private val refreshHomeSurfaces: () -> Unit = {},
+) : ViewModel() {
     val downloads: StateFlow<List<DownloadItem>?> =
         downloadRepo.downloads.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
@@ -94,8 +114,50 @@ class LibraryViewModel(private val library: LibraryRepository, private val downl
     val favorites: StateFlow<List<FavoriteEntity>?> =
         library.favoriteList.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    fun removeHistory(animeId: String) = viewModelScope.launch { library.removeFromHistory(animeId) }
-    fun clearHistory() = viewModelScope.launch { library.clearHistory() }
+    val favoriteSort: StateFlow<FavoriteSort> =
+        settings.favoriteSort.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), FavoriteSort.ADDED)
+
+    fun setFavoriteSort(sort: FavoriteSort) = viewModelScope.launch { settings.setFavoriteSort(sort) }
+
+    /** Favourites in the chosen order, each with its "N baru" label (null when nothing new). */
+    val favoriteCards: StateFlow<List<Pair<FavoriteEntity, String?>>?> =
+        combine(library.favoriteList, library.allHistory, settings.notifyBaselines, settings.favoriteSort) { favs, all, baselines, sort ->
+            val byAnime = all.groupBy { it.animeId }
+            val lastWatched = byAnime.mapValues { (_, rows) -> rows.maxOf { it.updatedAt } }
+            sortFavorites(favs, lastWatched, sort).map { fav ->
+                val watched = byAnime[fav.animeId].orEmpty().map { it.episodeNumber }
+                fav to newBadgeLabel(newEpisodeCount(baselines[fav.animeId], watched))
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Finished downloads of episodes already watched to the end. */
+    val watched: StateFlow<List<DownloadItem>> =
+        combine(downloadRepo.downloads, library.allHistory) { dls, all -> watchedDownloads(dls, all.associateBy { it.episodeId }) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    fun deleteWatched() = viewModelScope.launch { watched.value.forEach { downloadRepo.delete(it.entity.episodeId) } }
+
+    private val _selection = MutableStateFlow<Set<String>>(emptySet())
+    /** animeIds picked in multi-select mode (Riwayat or Favorit); empty means not selecting. */
+    val selection: StateFlow<Set<String>> = _selection
+
+    fun toggleSelect(animeId: String) = _selection.update { if (animeId in it) it - animeId else it + animeId }
+    fun clearSelection() { _selection.value = emptySet() }
+
+    /** [page] 0 = Riwayat, 1 = Favorit. */
+    fun deleteSelected(page: Int) = viewModelScope.launch {
+        val ids = _selection.value
+        when (page) {
+            0 -> ids.forEach { library.removeFromHistory(it) }
+            1 -> favorites.value.orEmpty().filter { it.animeId in ids }.forEach { library.setFavorite(it.toAnime(), false) }
+        }
+        clearSelection()
+        if (page == 0) refreshHomeSurfaces()
+    }
+
+    fun removeHistory(animeId: String) = viewModelScope.launch { library.removeFromHistory(animeId); refreshHomeSurfaces() }
+    fun clearHistory() = viewModelScope.launch { library.clearHistory(); refreshHomeSurfaces() }
+}
 }
 
 fun FavoriteEntity.toAnime() = Anime(
@@ -115,20 +177,40 @@ fun LibraryRoute(
     onAnimeClick: OpenAnime,
     onResume: (WatchHistoryEntity) -> Unit,
     onPlayDownload: (DownloadEntity) -> Unit,
+    onStats: () -> Unit,
 ) {
-    val vm: LibraryViewModel = fuwaViewModel { c, _ -> LibraryViewModel(c.libraryRepository, c.downloadRepository) }
+    val vm: LibraryViewModel = fuwaViewModel { c, _ -> LibraryViewModel(c.libraryRepository, c.downloadRepository, c.settingsStore, c::refreshHomeSurfaces) }
     val downloads by vm.downloads.collectAsStateWithLifecycle()
     val history by vm.history.collectAsStateWithLifecycle()
     val favorites by vm.favorites.collectAsStateWithLifecycle()
+    val favoriteCards by vm.favoriteCards.collectAsStateWithLifecycle()
+    val favoriteSort by vm.favoriteSort.collectAsStateWithLifecycle()
+    val watched by vm.watched.collectAsStateWithLifecycle()
+    val selection by vm.selection.collectAsStateWithLifecycle()
     val pager = rememberPagerState { 3 }
     val scope = rememberCoroutineScope()
     var confirmClear by remember { mutableStateOf(false) }
+    var confirmDeleteSelected by remember { mutableStateOf(false) }
+    val selecting = selection.isNotEmpty()
+
+    // Selection belongs to one tab; leaving it (or pressing back) ends multi-select without deleting anything.
+    LaunchedEffect(pager.currentPage) { vm.clearSelection() }
+    BackHandler(enabled = selecting) { vm.clearSelection() }
 
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 12.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Koleksi", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
-            if (pager.currentPage == 0 && !history.isNullOrEmpty()) {
-                IconButton(onClick = { confirmClear = true }) { Icon(Icons.Rounded.DeleteSweep, "Hapus riwayat") }
+            if (selecting) {
+                IconButton(onClick = { vm.clearSelection() }, modifier = Modifier.padding(end = 4.dp)) { Icon(Icons.Rounded.Close, "Batal pilih") }
+                Text("${selection.size} dipilih", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                IconButton(onClick = {
+                    if (selection.size >= 2) confirmDeleteSelected = true else vm.deleteSelected(pager.currentPage)
+                }) { Icon(Icons.Rounded.Delete, "Hapus yang dipilih") }
+            } else {
+                Text("Koleksi", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
+                IconButton(onClick = onStats) { Icon(Icons.Rounded.Insights, "Statistik") }
+                if (pager.currentPage == 0 && !history.isNullOrEmpty()) {
+                    IconButton(onClick = { confirmClear = true }) { Icon(Icons.Rounded.DeleteSweep, "Hapus riwayat") }
+                }
             }
         }
         SegmentedTabs(
@@ -139,11 +221,24 @@ fun LibraryRoute(
         )
         HorizontalPager(pager, Modifier.fillMaxSize(), verticalAlignment = Alignment.Top) { page ->
             when (page) {
-                0 -> HistoryList(history, onResume, onAnimeClick, onRemove = { vm.removeHistory(it) })
-                1 -> FavoriteGrid(favorites, onAnimeClick)
-                else -> DownloadList(downloads, onPlayDownload, onDelete = { vm.deleteDownload(it) })
+                0 -> HistoryList(history, onResume, onAnimeClick, onRemove = { vm.removeHistory(it) }, selection, vm::toggleSelect)
+                1 -> FavoriteGrid(favoriteCards, favoriteSort, vm::setFavoriteSort, onAnimeClick, selection, vm::toggleSelect)
+                else -> DownloadList(downloads, watched, onPlayDownload, onDelete = { vm.deleteDownload(it) }, onDeleteWatched = { vm.deleteWatched() })
             }
         }
+    }
+
+    if (confirmDeleteSelected) {
+        AlertDialog(
+            onDismissRequest = { confirmDeleteSelected = false },
+            icon = { Icon(Icons.Rounded.Delete, null) },
+            title = { Text("Hapus ${selection.size} item?") },
+            text = {
+                Text(if (pager.currentPage == 0) "Progres tontonan anime yang dipilih akan dihapus." else "Anime yang dipilih akan dihapus dari Favorit.")
+            },
+            confirmButton = { TextButton(onClick = { vm.deleteSelected(pager.currentPage); confirmDeleteSelected = false }) { Text("Hapus") } },
+            dismissButton = { TextButton(onClick = { confirmDeleteSelected = false }) { Text("Batal") } },
+        )
     }
 
     if (confirmClear) {
@@ -164,6 +259,8 @@ private fun HistoryList(
     onResume: (WatchHistoryEntity) -> Unit,
     onAnimeClick: OpenAnime,
     onRemove: (String) -> Unit,
+    selection: Set<String>,
+    onToggleSelect: (String) -> Unit,
 ) {
     if (items == null) return
     if (items.isEmpty()) {
@@ -183,20 +280,32 @@ private fun HistoryList(
                     modifier = Modifier.padding(start = 4.dp, top = 14.dp, bottom = 6.dp),
                 )
             }
-            items(entries, key = { it.episodeId }) { entry -> HistoryRow(entry, onResume, onAnimeClick, onRemove) }
+            items(entries, key = { it.episodeId }) { entry ->
+                HistoryRow(entry, onResume, onAnimeClick, onRemove, selected = entry.animeId in selection, selecting = selection.isNotEmpty(), onToggleSelect)
+            }
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun HistoryRow(
     entry: WatchHistoryEntity,
     onResume: (WatchHistoryEntity) -> Unit,
     onAnimeClick: OpenAnime,
     onRemove: (String) -> Unit,
+    selected: Boolean,
+    selecting: Boolean,
+    onToggleSelect: (String) -> Unit,
 ) {
     Row(
-        Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium).clickable { onResume(entry) }.padding(vertical = 8.dp, horizontal = 4.dp),
+        Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium)
+            .then(if (selected) Modifier.background(MaterialTheme.colorScheme.secondaryContainer) else Modifier)
+            .combinedClickable(
+                onLongClick = { onToggleSelect(entry.animeId) },
+                onClick = { if (selecting) onToggleSelect(entry.animeId) else onResume(entry) },
+            )
+            .padding(vertical = 8.dp, horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.width(132.dp).height(74.dp).clip(RoundedCornerShape(12.dp))) {
@@ -233,7 +342,7 @@ private fun HistoryRow(
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.clickable {
+                modifier = Modifier.clickable(enabled = !selecting) {
                     onAnimeClick(Anime(entry.animeId, entry.animeTitle, poster = entry.animePoster, cover = entry.animeCover), "library-history")
                 },
             )
@@ -246,7 +355,16 @@ private fun HistoryRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        IconButton(onClick = { onRemove(entry.animeId) }) { Icon(Icons.Rounded.Close, "Hapus dari riwayat") }
+        if (selecting) {
+            Icon(
+                if (selected) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
+                if (selected) "Dipilih" else "Tidak dipilih",
+                tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(12.dp),
+            )
+        } else {
+            IconButton(onClick = { onRemove(entry.animeId) }) { Icon(Icons.Rounded.Close, "Hapus dari riwayat") }
+        }
     }
 }
 
@@ -286,21 +404,43 @@ private fun SegmentedTabs(titles: List<String>, selected: Int, onSelect: (Int) -
 }
 
 @Composable
-private fun FavoriteGrid(items: List<FavoriteEntity>?, onAnimeClick: OpenAnime) {
+private fun FavoriteGrid(
+    items: List<Pair<FavoriteEntity, String?>>?,
+    sort: FavoriteSort,
+    onSort: (FavoriteSort) -> Unit,
+    onAnimeClick: OpenAnime,
+    selection: Set<String>,
+    onToggleSelect: (String) -> Unit,
+) {
     if (items == null) return
     if (items.isEmpty()) {
         MessageState(Icons.Rounded.FavoriteBorder, "Belum ada favorit", message = "Ketuk ikon hati di halaman anime untuk menyimpannya di sini.")
         return
     }
+    val selecting = selection.isNotEmpty()
     LazyVerticalGrid(
         columns = GridCells.Adaptive(108.dp),
         contentPadding = PaddingValues(16.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        items(items, key = { it.animeId }) { fav ->
+        item(key = "sort", span = { GridItemSpan(maxLineSpan) }) {
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FavoriteSort.entries.forEach { option ->
+                    TagChip(option.label, onClick = { onSort(option) }, selected = option == sort)
+                }
+            }
+        }
+        items(items, key = { it.first.animeId }) { (fav, badge) ->
             val anime = fav.toAnime()
-            PosterCard(anime, onClick = { onAnimeClick(anime, "library-fav") }, sharedOrigin = "library-fav")
+            PosterCard(
+                anime,
+                onClick = { if (selecting) onToggleSelect(fav.animeId) else onAnimeClick(anime, "library-fav") },
+                sharedOrigin = "library-fav",
+                badge = badge,
+                onLongClick = { onToggleSelect(fav.animeId) },
+                selected = fav.animeId in selection,
+            )
         }
     }
 }
@@ -308,8 +448,10 @@ private fun FavoriteGrid(items: List<FavoriteEntity>?, onAnimeClick: OpenAnime) 
 @Composable
 private fun DownloadList(
     items: List<DownloadItem>?,
+    watched: List<DownloadItem>,
     onPlay: (DownloadEntity) -> Unit,
     onDelete: (String) -> Unit,
+    onDeleteWatched: () -> Unit,
 ) {
     if (items == null) return
     if (items.isEmpty()) {
@@ -321,6 +463,8 @@ private fun DownloadList(
         return
     }
     var pendingDelete by remember { mutableStateOf<DownloadItem?>(null) }
+    var confirmWatched by remember { mutableStateOf(false) }
+    val watchedBytes = watched.sumOf { it.totalBytes }
     val stored = items.filter { it.state == DownloadState.DONE }.sumOf { it.totalBytes }
 
     LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -331,6 +475,15 @@ private fun DownloadList(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 4.dp),
             )
+        }
+        if (watched.isNotEmpty()) {
+            item(key = "watched") {
+                TextButton(onClick = { confirmWatched = true }) {
+                    Icon(Icons.Rounded.DeleteSweep, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Hapus yang sudah ditonton (${watched.size} • ${formatBytes(watchedBytes)})")
+                }
+            }
         }
         items(items, key = { it.entity.episodeId }) { d ->
             val e = d.entity
@@ -384,6 +537,17 @@ private fun DownloadList(
                 }
             }
         }
+    }
+
+    if (confirmWatched) {
+        AlertDialog(
+            onDismissRequest = { confirmWatched = false },
+            icon = { Icon(Icons.Rounded.DeleteSweep, null) },
+            title = { Text("Hapus ${watched.size} unduhan?") },
+            text = { Text("Episode yang sudah selesai ditonton akan dihapus dan ${formatBytes(watchedBytes)} dikosongkan.") },
+            confirmButton = { TextButton(onClick = { onDeleteWatched(); confirmWatched = false }) { Text("Hapus") } },
+            dismissButton = { TextButton(onClick = { confirmWatched = false }) { Text("Batal") } },
+        )
     }
 
     pendingDelete?.let { d ->
