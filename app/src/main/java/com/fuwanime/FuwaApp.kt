@@ -1,10 +1,14 @@
 package com.fuwanime
 
 import android.app.Application
-import coil.ImageLoader
-import coil.ImageLoaderFactory
-import coil.disk.DiskCache
-import coil.memory.MemoryCache
+import coil3.ImageLoader
+import coil3.PlatformContext
+import coil3.SingletonImageLoader
+import coil3.disk.DiskCache
+import coil3.memory.MemoryCache
+import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+import coil3.request.crossfade
+import okio.Path.Companion.toOkioPath
 import com.fuwanime.data.AnimeRepository
 import com.fuwanime.data.DownloadRepository
 import com.fuwanime.data.LibraryRepository
@@ -62,7 +66,7 @@ class AppContainer(private val app: Application) {
     val videoHttpClient: OkHttpClient = httpClient.newBuilder().apply { interceptors().clear() }.build()
 }
 
-class FuwaApp : Application(), ImageLoaderFactory {
+class FuwaApp : Application(), SingletonImageLoader.Factory {
     lateinit var container: AppContainer
         private set
 
@@ -72,16 +76,16 @@ class FuwaApp : Application(), ImageLoaderFactory {
         EpisodeNotifyWorker.schedule(this)
     }
 
-    override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this)
-        .okHttpClient { container.httpClient }
-        .memoryCache { MemoryCache.Builder(this).maxSizePercent(0.25).build() }
+    // Coil 3 ignores HTTP cache headers by default, matching the old respectCacheHeaders(false).
+    override fun newImageLoader(context: PlatformContext): ImageLoader = ImageLoader.Builder(context)
+        .components { add(OkHttpNetworkFetcherFactory(callFactory = { container.httpClient })) }
+        .memoryCache { MemoryCache.Builder().maxSizePercent(context, 0.25).build() }
         .diskCache {
             DiskCache.Builder()
-                .directory(cacheDir.resolve("image_cache"))
+                .directory(cacheDir.resolve("image_cache").toOkioPath())
                 .maxSizeBytes(256L * 1024 * 1024)
                 .build()
         }
         .crossfade(true)
-        .respectCacheHeaders(false)
         .build()
 }
