@@ -33,7 +33,7 @@ fun pinchResize(current: VideoResize, scale: Float): VideoResize? = when {
  * [manual] is the user's last fullscreen choice since the last rotation (null: follow orientation). It keeps the
  * choice on devices that ignore orientation requests (Android 16, sw >= 600dp).
  */
-fun isFullscreen(landscape: Boolean, manual: Boolean?, inPip: Boolean): Boolean = (landscape || manual == true) && !inPip
+fun isFullscreen(landscape: Boolean, manual: Boolean?, inPip: Boolean): Boolean = (manual ?: landscape) && !inPip
 
 /** What the media notification, lock screen and Bluetooth devices show. */
 data class NowPlaying(val title: String, val artist: String, val subtitle: String, val artworkUrl: String)

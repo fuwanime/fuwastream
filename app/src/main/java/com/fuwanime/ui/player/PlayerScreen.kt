@@ -20,6 +20,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -95,6 +97,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -102,6 +105,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -150,6 +154,7 @@ import com.fuwanime.data.Episode
 import com.fuwanime.data.OpMark
 import com.fuwanime.data.StreamSource
 import com.fuwanime.data.local.AppSettings
+import com.fuwanime.data.local.VideoResize
 import com.fuwanime.ui.components.NetImage
 import com.fuwanime.util.formatDuration
 import com.fuwanime.util.fuwaViewModel
@@ -260,7 +265,6 @@ fun PlayerRoute(
     val initialThumbnail = remember { state.episode.thumbnail }
     val playback = remember { PlaybackState() }
     var speed by remember { mutableFloatStateOf(1f) }
-    var resizeMode by remember { mutableIntStateOf(AspectRatioFrameLayout.RESIZE_MODE_FIT) }
     var sleep by remember { mutableStateOf(SleepOption.OFF) }
     var sleepAtMs by remember { mutableStateOf<Long?>(null) }
     /** Set when a timed sleep fired; blocks autoplay until the user presses play again. */
@@ -395,7 +399,10 @@ fun PlayerRoute(
         onDispose { pip?.setAutoEnter(false) }
     }
 
-    val fullscreen = landscape && !inPip
+    /** The user's fullscreen choice since the last rotation; null follows the orientation. */
+    var manualFullscreen by rememberSaveable { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(landscape) { manualFullscreen = null }
+    val fullscreen = isFullscreen(landscape, manualFullscreen, inPip)
     DisposableEffect(fullscreen) {
         val window = activity?.window
         if (window != null) {
@@ -417,6 +424,7 @@ fun PlayerRoute(
         }
     }
     fun setFullscreen(enable: Boolean) {
+        manualFullscreen = enable
         activity?.requestedOrientation =
             if (enable) ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
     }
@@ -431,7 +439,8 @@ fun PlayerRoute(
             playback = playback,
             state = state,
             settings = settings,
-            resizeMode = resizeMode,
+            resize = settings.videoResize,
+            onResize = vm::setVideoResize,
             speed = speed,
             opMark = opMark,
             sleep = sleep,
@@ -495,7 +504,7 @@ fun PlayerRoute(
             sources = state.sources,
             current = state.source,
             speed = speed,
-            resizeMode = resizeMode,
+            resize = settings.videoResize,
             positionMs = playback.position,
             opMark = opMark,
             sleep = sleep,
@@ -508,7 +517,7 @@ fun PlayerRoute(
                 speed = it
                 player.setPlaybackSpeed(it)
             },
-            onResize = { resizeMode = it },
+            onResize = vm::setVideoResize,
             onMarkOpStart = {
                 autoSkipHandledFor = state.episode.id
                 vm.markOpStart(player.effectivePosition(playback))
@@ -534,7 +543,8 @@ private fun VideoSurface(
     playback: PlaybackState,
     state: PlayerUiState,
     settings: AppSettings,
-    resizeMode: Int,
+    resize: VideoResize,
+    onResize: (VideoResize) -> Unit,
     speed: Float,
     opMark: OpMark?,
     sleep: SleepOption,
@@ -565,6 +575,14 @@ private fun VideoSurface(
     var boosting by remember { mutableStateOf(false) }
     val baseSpeed by rememberUpdatedState(speed)
     var locked by remember { mutableStateOf(false) }
+    /** Mode just picked by a pinch, shown briefly in the middle of the video. */
+    var resizeHint by remember { mutableStateOf<VideoResize?>(null) }
+    LaunchedEffect(resizeHint) {
+        if (resizeHint != null) {
+            delay(1_000)
+            resizeHint = null
+        }
+    }
     var showUnlock by remember { mutableStateOf(false) }
     LaunchedEffect(fullscreen) { if (!fullscreen) locked = false }
     BackHandler(enabled = locked) { showUnlock = true }
@@ -599,7 +617,9 @@ private fun VideoSurface(
                     this.player = player
                 }
             },
-            update = { it.resizeMode = resizeMode },
+            update = {
+                it.resizeMode = if (resize == VideoResize.ZOOM) AspectRatioFrameLayout.RESIZE_MODE_ZOOM else AspectRatioFrameLayout.RESIZE_MODE_FIT
+            },
             modifier = Modifier.fillMaxSize(),
         )
 
@@ -627,6 +647,32 @@ private fun VideoSurface(
         Box(
             Modifier
                 .fillMaxSize()
+                // Two-finger pinch switches Pas/Isi layar. It runs first (Initial pass) and consumes the gesture once
+                // a second finger lands, so tap, double-tap seek, hold-2x and the level drags never fire with it.
+                .pointerInput(resize, locked) {
+                    if (locked) return@pointerInput
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                        var startDistance = 0f
+                        do {
+                            val event = awaitPointerEvent(PointerEventPass.Initial)
+                            val pressed = event.changes.filter { it.pressed }
+                            if (pressed.size >= 2) {
+                                val distance = (pressed[0].position - pressed[1].position).getDistance()
+                                if (startDistance == 0f) {
+                                    startDistance = distance
+                                } else if (distance > 0f) {
+                                    pinchResize(resize, distance / startDistance)?.let {
+                                        onResize(it)
+                                        resizeHint = it
+                                        startDistance = distance
+                                    }
+                                }
+                                event.changes.forEach { it.consume() }
+                            }
+                        } while (event.changes.any { it.pressed })
+                    }
+                }
                 .pointerInput(seekStepMs) {
                     detectTapGestures(
                         onPress = {
@@ -701,6 +747,7 @@ private fun VideoSurface(
             SeekBubble(forward, secs, Modifier.align(if (forward) Alignment.CenterEnd else Alignment.CenterStart))
         }
         gestureLevel?.let { (icon, level) -> LevelIndicator(icon, level, Modifier.align(Alignment.Center)) }
+        resizeHint?.let { ResizeHint(it, Modifier.align(Alignment.Center)) }
         if (boosting) {
             Surface(
                 color = Color.Black.copy(alpha = 0.6f),
@@ -1018,6 +1065,18 @@ private fun SeekBubble(forward: Boolean, seconds: Int, modifier: Modifier) {
 }
 
 @Composable
+private fun ResizeHint(resize: VideoResize, modifier: Modifier) {
+    Surface(color = Color.Black.copy(alpha = 0.6f), shape = RoundedCornerShape(16.dp), modifier = modifier) {
+        Text(
+            if (resize == VideoResize.ZOOM) "Isi layar" else "Pas layar",
+            color = Color.White,
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+        )
+    }
+}
+
+@Composable
 private fun LevelIndicator(icon: ImageVector, level: Float, modifier: Modifier) {
     Surface(color = Color.Black.copy(alpha = 0.6f), shape = RoundedCornerShape(16.dp), modifier = modifier) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1204,14 +1263,14 @@ private fun PlayerSettingsSheet(
     sources: List<StreamSource>,
     current: StreamSource?,
     speed: Float,
-    resizeMode: Int,
+    resize: VideoResize,
     positionMs: Long,
     opMark: OpMark?,
     sleep: SleepOption,
     onDismiss: () -> Unit,
     onSource: (StreamSource) -> Unit,
     onSpeed: (Float) -> Unit,
-    onResize: (Int) -> Unit,
+    onResize: (VideoResize) -> Unit,
     onMarkOpStart: () -> Unit,
     onMarkOpEnd: () -> Unit,
     onClearOpMark: () -> Unit,
@@ -1245,13 +1304,13 @@ private fun PlayerSettingsSheet(
                 SheetTitle("Tampilan")
                 Row(Modifier.padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(
-                        selected = resizeMode == AspectRatioFrameLayout.RESIZE_MODE_FIT,
-                        onClick = { onResize(AspectRatioFrameLayout.RESIZE_MODE_FIT) },
+                        selected = resize == VideoResize.FIT,
+                        onClick = { onResize(VideoResize.FIT) },
                         label = { Text("Pas layar") },
                     )
                     FilterChip(
-                        selected = resizeMode == AspectRatioFrameLayout.RESIZE_MODE_ZOOM,
-                        onClick = { onResize(AspectRatioFrameLayout.RESIZE_MODE_ZOOM) },
+                        selected = resize == VideoResize.ZOOM,
+                        onClick = { onResize(VideoResize.ZOOM) },
                         label = { Text("Isi layar") },
                         leadingIcon = { Icon(Icons.Rounded.AspectRatio, null, Modifier.size(16.dp)) },
                     )
