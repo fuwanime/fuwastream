@@ -22,7 +22,7 @@ Keadaan sekarang:
 - Dengan setelan "Putar audio di latar" aktif, audio tetap jalan saat layar dimatikan atau aplikasi ditinggalkan tanpa PiP. Dengan setelan mati (default), perilaku sama seperti sekarang: dijeda.
 - Jendela PiP punya tombol mundur 10 dtk / putar-jeda / maju 10 dtk.
 - Video ultrawide tidak pernah membuat PiP crash.
-- Mode aspek (Pas/Penuhi) diingat antar-sesi dan bisa diganti dengan pinch dua jari.
+- Mode aspek (Pas/Isi) diingat antar-sesi dan bisa diganti dengan pinch dua jari.
 - Tombol fullscreen bekerja di tablet dan foldable.
 - Tidak ada regresi di player, gambar, atau build setelah upgrade dependensi.
 
@@ -105,14 +105,14 @@ Fungsi murni `clampPipAspect(width: Int, height: Int): Pair<Int, Int>` di `Playe
 
 ### Mode aspek yang diingat + pinch
 
-- `AppSettings.videoResize: VideoResize` (`enum class VideoResize { FIT, ZOOM }`, default `FIT`), key `video_resize`, `SettingsStore.setVideoResize`. `PlayerRoute` membaca dari settings; pilihan di sheet pengaturan player ("Pas layar"/"Penuhi layar") menulis ke settings. Pemetaan ke `AspectRatioFrameLayout.RESIZE_MODE_FIT/ZOOM` hanya di UI.
+- `AppSettings.videoResize: VideoResize` (`enum class VideoResize { FIT, ZOOM }`, default `FIT`), key `video_resize`, `SettingsStore.setVideoResize`. `PlayerRoute` membaca dari settings; pilihan di sheet pengaturan player ("Pas layar"/"Isi layar") menulis ke settings. Pemetaan ke `AspectRatioFrameLayout.RESIZE_MODE_FIT/ZOOM` hanya di UI.
 - **Pinch:** dua jari di area video. Fungsi murni `pinchResize(current: VideoResize, scale: Float): VideoResize?`:
   - `scale ≥ 1.15` → `ZOOM` (null jika sudah `ZOOM`)
   - `scale ≤ 0.87` → `FIT` (null jika sudah `FIT`)
   - selain itu → null
   - `scale` adalah rasio jarak antar-jari kumulatif sejak gesture mulai.
 - Gesture dimulai hanya saat pointer kedua turun. Selama pinch, double-tap seek, drag kecerahan/volume, dan hold-2x tidak terpicu untuk gesture itu. Pinch tidak bekerja saat kontrol terkunci atau di PiP.
-- Saat mode berganti lewat pinch, indikator pill singkat ("Pas layar" / "Penuhi layar") tampil di tengah ±1 detik, memakai gaya `LevelIndicator`/`SeekBubble` yang ada.
+- Saat mode berganti lewat pinch, indikator pill singkat ("Pas layar" / "Isi layar") tampil di tengah ±1 detik, memakai gaya `LevelIndicator`/`SeekBubble` yang ada.
 
 ### Fullscreen di layar besar
 
@@ -144,7 +144,7 @@ Fungsi murni `clampPipAspect(width: Int, height: Int): Pair<Int, Int>` di `Playe
   - Setelan audio latar ON → tekan Home (Auto-PiP OFF) → setelah 5 detik state masih PLAYING.
   - Setelan OFF → Home → PAUSED.
   - Notifikasi media ada di `dumpsys notification`.
-  - Pilih "Penuhi layar", tutup player, buka lagi → screenshot menunjukkan mode zoom.
+  - Pilih "Isi layar", tutup player, buka lagi → screenshot menunjukkan mode zoom.
   - Skenario lama (smoke, upgrade-from-release, Koleksi) tetap lolos sebagai pengecekan regresi upgrade.
 
 ## Di luar cakupan
