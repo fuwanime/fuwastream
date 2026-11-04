@@ -154,6 +154,45 @@ tap "Statistik"; shot qa8d-stats 3
 scroll_to "Bagikan rekap"; shot qa8e-recap 2
 adb shell input keyevent KEYCODE_BACK; sleep 1; alive
 
+# 9. Media session: media keys, notification, background audio setting, PiP actions, remembered aspect mode.
+session_state() { adb shell dumpsys media_session | grep -A40 "package=$PKG" | grep -o "PlaybackState {state=[^,]*" | head -1 | sed 's/.*state=//'; }
+check() { echo "$1: $2" | tee -a "$OUT/qa-checks.txt"; }
+open_player_settings() { tap "Pengaturan video" >/dev/null 2>&1 || { adb shell input tap 540 350; sleep 0.7; tap "Pengaturan video"; }; }
+play_ep1() { tap "Tonton"; sleep 5; scroll_to "Episode 1" && tap "Episode 1"; sleep 20; }
+fresh
+play_ep1
+check "session playing" "$(session_state)"
+adb shell input keyevent KEYCODE_MEDIA_PAUSE; sleep 2
+check "session after media pause" "$(session_state)"
+adb shell input keyevent KEYCODE_MEDIA_PLAY; sleep 3
+check "media notification" "$(adb shell dumpsys notification --noredact | grep -A60 "pkg=$PKG" | grep -c "mediaSession\|MediaStyle")"
+adb shell input keyevent KEYCODE_SLEEP; sleep 6
+check "screen off, setting off" "$(session_state)"
+adb shell input keyevent KEYCODE_WAKEUP; adb shell wm dismiss-keyguard; sleep 2
+# PiP (Auto-PiP is on by default): the window must carry the custom actions.
+adb shell input keyevent KEYCODE_MEDIA_PLAY; sleep 2
+adb shell input keyevent KEYCODE_HOME; sleep 4
+check "pip actions" "$(adb shell dumpsys activity activities | grep -o "hasSetActions=[a-z]*" | head -1)"
+shot qa9a-pip 0
+adb shell am start -n "$PKG/com.fuwanime.MainActivity" >/dev/null; sleep 3
+# Aspect mode is remembered across player sessions.
+open_player_settings; sleep 1; tap "Isi layar"; sleep 1; adb shell input keyevent KEYCODE_BACK; sleep 1
+adb shell input keyevent KEYCODE_BACK; sleep 2
+scroll_to "Episode 1" && tap "Episode 1"; sleep 15
+open_player_settings; shot qa9b-resize-remembered 1
+adb shell input keyevent KEYCODE_BACK; sleep 1
+adb shell input keyevent KEYCODE_BACK; sleep 2; adb shell input keyevent KEYCODE_BACK; sleep 2
+# Background audio on: screen off keeps playing; only one session for the app.
+tap "Pengaturan"; sleep 2; scroll_to "Putar audio di latar" && tap "Putar audio di latar"; sleep 1
+adb shell input keyevent KEYCODE_BACK; sleep 1
+play_ep1
+adb shell input keyevent KEYCODE_SLEEP; sleep 6
+check "screen off, setting on" "$(session_state)"
+adb shell input keyevent KEYCODE_WAKEUP; adb shell wm dismiss-keyguard; sleep 2
+check "sessions for app" "$(adb shell dumpsys media_session | grep -c "package=$PKG")"
+shot qa9c-player-after-wake 1
+adb shell input keyevent KEYCODE_BACK; sleep 2; alive
+
 # 6. Offline: Beranda from the saved data with the offline pill, then back online.
 adb shell svc wifi disable; adb shell svc data disable
 fresh; shot qa6a-offline-home 2
