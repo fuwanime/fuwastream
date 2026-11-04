@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.fuwanime.data.OpMark
+import com.fuwanime.ui.library.FavoriteSort
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
@@ -135,6 +136,21 @@ class SettingsStore(private val context: Context) {
 
     suspend fun setNotifyBaseline(animeId: String, episode: Double) {
         context.dataStore.edit { it[doublePreferencesKey("notify_baseline_$animeId")] = episode }
+    }
+
+    /** Koleksi → Favorit order; unknown stored names fall back to [FavoriteSort.ADDED]. */
+    val favoriteSort: Flow<FavoriteSort> = context.dataStore.data.map { prefs ->
+        FavoriteSort.entries.firstOrNull { it.name == prefs[stringPreferencesKey("favorite_sort")] } ?: FavoriteSort.ADDED
+    }
+
+    suspend fun setFavoriteSort(sort: FavoriteSort) = context.dataStore.edit { it[stringPreferencesKey("favorite_sort")] = sort.name }
+
+    /** Every notify baseline, keyed by animeId. */
+    val notifyBaselines: Flow<Map<String, Double>> = context.dataStore.data.map { prefs ->
+        prefs.asMap().mapNotNull { (key, value) ->
+            val id = key.name.removePrefix("notify_baseline_")
+            if (id != key.name && value is Double) id to value else null
+        }.toMap()
     }
 
     /** Update check runs at most once every 6 hours (unless the installed tag changed). */

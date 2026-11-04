@@ -56,6 +56,25 @@ open_search_result() {  # $1 = query, $2 = title prefix to tap
   tap "$2"
 }
 
+# 0. Upgrade from the latest release: the Room v2 -> v3 migration must keep watch history.
+upgrade_from_release() {
+  rm -rf /tmp/old && mkdir -p /tmp/old
+  gh release download --repo "${GITHUB_REPOSITORY:-SakamotoMrX/fuwanime}" --pattern '*.apk' -D /tmp/old >/dev/null 2>&1 \
+    || { echo "upgrade: skipped (no release apk)" | tee -a "$OUT/qa-checks.txt"; return; }
+  adb uninstall "$PKG" >/dev/null 2>&1
+  adb install "$(ls /tmp/old/*.apk | head -1)" >/dev/null || { echo "upgrade: skipped (old apk install failed)" | tee -a "$OUT/qa-checks.txt"; adb install -r "$APK"; return; }
+  adb shell pm grant "$PKG" android.permission.POST_NOTIFICATIONS || true
+  fresh
+  tap "Tonton"; sleep 5; scroll_to "Episode 1" && tap "Episode 1"; sleep 20
+  adb shell input keyevent KEYCODE_BACK; sleep 2; adb shell input keyevent KEYCODE_BACK; sleep 2
+  # A different signing key can't upgrade in place; that says nothing about the migration, so skip.
+  adb install -r "$APK" >/dev/null || { echo "upgrade: skipped (signature mismatch)" | tee -a "$OUT/qa-checks.txt"; adb uninstall "$PKG" >/dev/null; adb install "$APK"; adb shell pm grant "$PKG" android.permission.POST_NOTIFICATIONS || true; return; }
+  fresh; tap "Koleksi"; shot qa0-upgraded 3
+  [ -n "$(find_xy "EP 1")" ] && echo "upgrade: history kept" | tee -a "$OUT/qa-checks.txt" || echo "upgrade: history missing" | tee -a "$OUT/qa-checks.txt"
+  alive
+}
+upgrade_from_release
+
 # 1. Home row poster -> detail -> key back -> scroll Home right away (must respond).
 fresh
 scroll_row "Sedang Tayang"
@@ -117,6 +136,22 @@ adb shell input swipe 900 700 180 700 250; sleep 2
 tap "Tambah ke Koleksi"; sleep 1
 tap "Koleksi"; sleep 2; tap "Favorit*"; shot qa5e-favorites 3
 tap "Beranda"; sleep 2; tap "Pengaturan"; shot qa5f-settings 3
+adb shell input keyevent KEYCODE_BACK; sleep 1; alive
+
+# Launcher surfaces after an episode was played (scenario 4) and favourites exist (5b).
+echo "shortcut continue: $(adb shell dumpsys shortcut | grep -c 'id=continue')" | tee -a "$OUT/qa-checks.txt"
+echo "widget provider: $(adb shell dumpsys appwidget | grep -c ContinueWidgetReceiver)" | tee -a "$OUT/qa-checks.txt"
+
+# 8. Koleksi: Favorit sort + badge, long-press multi-select, back clears it, Statistik + recap card.
+fresh
+tap "Koleksi"; sleep 2; tap "Favorit*"; sleep 2
+tap "Terakhir ditonton"; shot qa8a-fav-sort 2
+chip_y=$(find_xy "Terakhir ditonton" | cut -d' ' -f2)
+adb shell input swipe 190 $(( ${chip_y:-600} + 300 )) 190 $(( ${chip_y:-600} + 300 )) 900; shot qa8b-select 1.5
+adb shell input keyevent KEYCODE_BACK; shot qa8c-select-cleared 1.5
+[ -n "$(find_xy "Koleksi")" ] && echo "select: back stays on Koleksi" | tee -a "$OUT/qa-checks.txt" || echo "select: back left Koleksi" | tee -a "$OUT/qa-checks.txt"
+tap "Statistik"; shot qa8d-stats 3
+scroll_to "Bagikan rekap"; shot qa8e-recap 2
 adb shell input keyevent KEYCODE_BACK; sleep 1; alive
 
 # 6. Offline: Beranda from the saved data with the offline pill, then back online.

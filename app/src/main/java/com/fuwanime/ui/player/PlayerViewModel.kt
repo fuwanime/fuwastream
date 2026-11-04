@@ -62,6 +62,8 @@ class PlayerViewModel(
     /** Whether the active network is metered (mobile data), for the mobile-data quality setting. */
     private val isMetered: () -> Boolean,
     saved: SavedStateHandle,
+    /** Updates the "Lanjutkan" shortcut and widget once the user leaves an episode. */
+    private val refreshHomeSurfaces: () -> Unit = {},
 ) : ViewModel() {
 
     private val animeId: String = checkNotNull(saved["animeId"])
@@ -255,11 +257,25 @@ class PlayerViewModel(
 
     fun retry() = play(_state.value.episode)
 
-    fun saveProgress(positionMs: Long, durationMs: Long) {
+    fun saveProgress(positionMs: Long, durationMs: Long): Job? {
         val s = _state.value
-        val anime = s.anime ?: return
+        val anime = s.anime ?: return null
         // Ignore the first few seconds so merely opening an episode doesn't clutter history.
-        if (durationMs <= 0 || positionMs < 5_000) return
-        appScope.launch { library.saveProgress(anime, s.episode, positionMs, durationMs) }
+        if (durationMs <= 0 || positionMs < 5_000) return null
+        return appScope.launch { library.saveProgress(anime, s.episode, positionMs, durationMs) }
+    }
+
+    /** Leaving the episode (stopped, ended): save, then let launcher surfaces show it. */
+    fun onPlayerExit(positionMs: Long, durationMs: Long) {
+        val save = saveProgress(positionMs, durationMs)
+        appScope.launch {
+            save?.join() // so the widget reads this episode, not the previous one
+            refreshHomeSurfaces()
+        }
+    }
+
+    /** Real playing time for statistics, independent of playback speed. */
+    fun addWatchTime(ms: Long) {
+        appScope.launch { library.addWatchTime(ms) }
     }
 }

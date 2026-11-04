@@ -82,6 +82,7 @@ class SettingsViewModel(
     val store: SettingsStore,
     private val library: LibraryRepository,
     private val downloads: DownloadRepository,
+    private val refreshHomeSurfaces: () -> Unit = {},
 ) : ViewModel() {
     val settings: StateFlow<AppSettings> = store.settings.stateIn(viewModelScope, SharingStarted.Eagerly, AppSettings())
 
@@ -94,6 +95,7 @@ class SettingsViewModel(
         downloads.clearAll()
         library.clearAll()
         store.clearUserData()
+        refreshHomeSurfaces()
         onDone()
     }
 }
@@ -102,7 +104,7 @@ class SettingsViewModel(
 @Composable
 fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit) {
     val vm: SettingsViewModel = fuwaViewModel { c, _ ->
-        SettingsViewModel(c.settingsStore, c.libraryRepository, c.downloadRepository)
+        SettingsViewModel(c.settingsStore, c.libraryRepository, c.downloadRepository, c::refreshHomeSurfaces)
     }
     val s by vm.settings.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()

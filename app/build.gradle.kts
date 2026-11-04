@@ -85,6 +85,7 @@ dependencies {
   implementation(libs.media3.exoplayer.hls)
   implementation(libs.media3.ui)
   implementation(libs.androidx.work.runtime.ktx)
+  implementation(libs.androidx.glance.appwidget)
   implementation(libs.moshi.kotlin)
   implementation(libs.okhttp)
   implementation(libs.androidx.profileinstaller)

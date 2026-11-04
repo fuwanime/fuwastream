@@ -4,6 +4,8 @@ import com.fuwanime.data.local.FavoriteEntity
 import com.fuwanime.data.local.FuwaDatabase
 import com.fuwanime.data.local.SearchHistoryEntity
 import com.fuwanime.data.local.WatchHistoryEntity
+import com.fuwanime.data.local.WatchDailyEntity
+import com.fuwanime.util.epochDay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -12,6 +14,7 @@ class LibraryRepository(db: FuwaDatabase) {
     private val favorites = db.favoriteDao()
     private val history = db.watchHistoryDao()
     private val searches = db.searchHistoryDao()
+    private val daily = db.watchDailyDao()
 
     val favoriteList: Flow<List<FavoriteEntity>> = favorites.observeAll()
 
@@ -38,6 +41,10 @@ class LibraryRepository(db: FuwaDatabase) {
             favorites.delete(anime.id)
         }
     }
+
+    val allHistory: Flow<List<WatchHistoryEntity>> = history.observeAll()
+
+    suspend fun historyEntry(episodeId: String): WatchHistoryEntity? = history.get(episodeId)
 
     fun continueWatching(limit: Int = 20): Flow<List<WatchHistoryEntity>> = history.observeLatestPerAnime(limit)
 
@@ -69,6 +76,11 @@ class LibraryRepository(db: FuwaDatabase) {
         )
     }
 
+    val watchDaily: Flow<List<WatchDailyEntity>> = daily.observeAll()
+
+    /** Adds [ms] of real playing time to today's total. */
+    suspend fun addWatchTime(ms: Long) = daily.addWatchTime(epochDay(System.currentTimeMillis()), ms)
+
     suspend fun removeFromHistory(animeId: String) = history.deleteAnime(animeId)
     suspend fun clearHistory() = history.clear()
 
@@ -87,5 +99,6 @@ class LibraryRepository(db: FuwaDatabase) {
         favorites.clear()
         history.clear()
         searches.clear()
+        daily.clear()
     }
 }

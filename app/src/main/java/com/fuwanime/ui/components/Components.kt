@@ -31,6 +31,9 @@ import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.FilledTonalButton
@@ -156,7 +159,7 @@ fun LiveDot(modifier: Modifier = Modifier) {
     Box(modifier.size(6.dp).clip(CircleShape).background(Color(0xFFFF7A93)))
 }
 
-@OptIn(ExperimentalSharedTransitionApi::class)
+@OptIn(ExperimentalSharedTransitionApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun PosterCard(
     anime: Anime,
@@ -170,13 +173,25 @@ fun PosterCard(
     isNew: Boolean = false,
     /** Marks the title the user is on, e.g. the open season in "Season & Terkait". */
     highlighted: Boolean = false,
+    /** Short count pill in the top-right corner, e.g. "3 baru". */
+    badge: String? = null,
+    /** Enables long-press, e.g. to start multi-select. */
+    onLongClick: (() -> Unit)? = null,
+    /** Multi-select state: outlined, dimmed and checked. */
+    selected: Boolean = false,
 ) {
     val interaction = remember { MutableInteractionSource() }
+    val marked = highlighted || selected
     Column(
         (if (width != null) modifier.width(width) else modifier)
             .pressScale(interaction)
             .clip(MaterialTheme.shapes.medium)
-            .clickable(interactionSource = interaction, indication = LocalIndication.current, onClick = onClick),
+            .combinedClickable(
+                interactionSource = interaction,
+                indication = LocalIndication.current,
+                onLongClick = onLongClick,
+                onClick = onClick,
+            ),
     ) {
         val poster = rememberSharedKey(sharedOrigin?.let { sharedPosterKey(anime.id, it) })
         Box(
@@ -184,7 +199,7 @@ fun PosterCard(
                 .fillMaxWidth()
                 .aspectRatio(2f / 3f)
                 .clip(MaterialTheme.shapes.medium)
-                .then(if (highlighted) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.medium) else Modifier),
+                .then(if (marked) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.medium) else Modifier),
         ) {
             // Only the image is shared. Badges render above shared elements, so while a transition is active the
             // image (drawn in the transition overlay) never covers them.
@@ -192,14 +207,14 @@ fun PosterCard(
                 anime.poster,
                 // Clip after the shared key so the flying copy keeps its rounded corners.
                 // Dim outside the shared element so the flying copy stays at full brightness.
-                Modifier.fillMaxSize().alpha(if (highlighted) 0.55f else 1f).sharedKey(poster).clip(MaterialTheme.shapes.medium),
+                Modifier.fillMaxSize().alpha(if (marked) 0.55f else 1f).sharedKey(poster).clip(MaterialTheme.shapes.medium),
                 anime.title,
             )
-            val badge = Modifier.align(Alignment.TopStart).aboveSharedElements().revealWhenLanded(poster).padding(7.dp)
+            val cornerBadge = Modifier.align(Alignment.TopStart).aboveSharedElements().revealWhenLanded(poster).padding(7.dp)
             when {
-                isNew -> NewBadge(badge)
+                isNew -> NewBadge(cornerBadge)
                 anime.isOngoing -> Row(
-                    badge
+                    cornerBadge
                         .clip(RoundedCornerShape(50))
                         .background(ImageScrim.copy(alpha = 0.78f))
                         .padding(start = 6.dp, end = 7.dp, top = 3.dp, bottom = 3.dp),
@@ -209,6 +224,30 @@ fun PosterCard(
                     Spacer(Modifier.width(4.dp))
                     Text("Tayang", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color.White)
                 }
+            }
+            if (badge != null && !selected) {
+                Text(
+                    badge,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .aboveSharedElements()
+                        .revealWhenLanded(poster)
+                        .padding(7.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(MaterialTheme.colorScheme.primary)
+                        .padding(horizontal = 7.dp, vertical = 2.dp),
+                )
+            }
+            if (selected) {
+                Icon(
+                    Icons.Rounded.CheckCircle,
+                    contentDescription = "Dipilih",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.align(Alignment.Center).size(36.dp),
+                )
             }
         }
         Text(
