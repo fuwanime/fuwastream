@@ -40,10 +40,12 @@ class PlayerPolicyTest {
         assertNull(pinchResize(VideoResize.FIT, 0.5f))
     }
 
-    @Test fun landscapeIsFullscreen() = assertTrue(isFullscreen(landscape = true, manual = false, inPip = false))
+    @Test fun landscapeIsFullscreen() = assertTrue(isFullscreen(landscape = true, manual = null, inPip = false))
+    // A tablet that ignores the portrait request stays landscape; the user's exit must still win.
+    @Test fun manualExitInLandscapeIsNotFullscreen() = assertFalse(isFullscreen(landscape = true, manual = false, inPip = false))
     @Test fun manualPortraitIsFullscreen() = assertTrue(isFullscreen(landscape = false, manual = true, inPip = false))
     @Test fun pipIsNeverFullscreen() = assertFalse(isFullscreen(landscape = true, manual = true, inPip = true))
-    @Test fun portraitNotManualIsNotFullscreen() = assertFalse(isFullscreen(landscape = false, manual = false, inPip = false))
+    @Test fun portraitNotManualIsNotFullscreen() = assertFalse(isFullscreen(landscape = false, manual = null, inPip = false))
 
     @Test fun nowPlayingUsesEpisodeAndAnime() = assertEquals(
         NowPlaying("Pertemuan", "Frieren", "Episode 3", "https://t/3.jpg"),
