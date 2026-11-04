@@ -64,8 +64,8 @@ Di `EpisodeNotifier.notifyNewEpisode`:
 ## Bagian 4 — Statistik & kartu rekap
 
 **Pencatatan waktu tonton.**
-- Room v2 → v3, tabel baru `watch_daily(day TEXT PRIMARY KEY /* yyyy-MM-dd, zona perangkat */, watchedMs INTEGER NOT NULL)`. Migrasi `MIGRATION_2_3` hanya `CREATE TABLE`.
-- DAO `addWatchTime(day, ms)`: upsert yang menambahkan (`INSERT ... ON CONFLICT(day) DO UPDATE SET watchedMs = watchedMs + :ms`).
+- Room v2 → v3, tabel baru `watch_daily(day INTEGER PRIMARY KEY /* epoch day di zona perangkat */, watchedMs INTEGER NOT NULL)` (minSdk 24 tanpa `java.time`, jadi hari = `(millis + offset zona) / 86_400_000`). Migrasi `MIGRATION_2_3` hanya `CREATE TABLE`.
+- DAO `addWatchTime(day, ms)`: menambahkan dalam satu `@Transaction`: `INSERT OR IGNORE (day, 0)` lalu `UPDATE ... SET watchedMs = watchedMs + :ms`. Sintaks `ON CONFLICT DO UPDATE` tidak dipakai karena SQLite bawaan API < 30 tidak mendukungnya.
 - Loop 5 detik di `PlayerScreen` yang sudah ada: bila `player.isPlaying`, panggil juga `vm.addWatchTime(5_000)`. Waktu dinding, bukan dikali kecepatan putar.
 
 **Agregasi** — fungsi murni `computeStats(history, daily, favorites, today): WatchStats`:
@@ -77,7 +77,7 @@ Di `EpisodeNotifier.notifyNewEpisode`:
 
 **Layar Statistik** — rute baru `stats`, dibuka dari ikon `Insights` di header Koleksi. Isi: 4 kartu angka (Jam tonton, Episode selesai, Anime, Minggu aktif), bar chart 6 bulan (Canvas, batang `primary`, label bulan singkat Indonesia), chip 3 genre teratas, tombol "Bagikan rekap". Kosong (tanpa riwayat) → `MessageState` "Belum ada statistik".
 
-**Kartu rekap** — composable 1080×1350 (4:5): gradien latar banner (`#0B0A0F`→`#1A1721` + glow lavender/pink), wordmark "fuwa" lavender + "stream", angka jam tonton besar, episode/anime/genre teratas, bulan-tahun. Dirender ke bitmap via `rememberGraphicsLayer()` + `toImageBitmap()`, disimpan ke `cacheDir/share/rekap.png`, dibagikan lewat `FileProvider` (authority `${applicationId}.share`, `res/xml/share_paths.xml` hanya `cache-path share/`) dengan `ACTION_SEND` `image/png`. Gagal render/simpan → snackbar "Gagal membuat gambar rekap".
+**Kartu rekap** — composable rasio 4:5, ditampilkan sebagai pratinjau di layar Statistik dan direkam dari pratinjau itu (resolusi layar, ≈ 1000 px lebar): gradien latar banner (`#0B0A0F`→`#1A1721` + glow lavender/pink), wordmark "fuwa" lavender + "stream", angka jam tonton besar, episode/anime/genre teratas, bulan-tahun. Dirender ke bitmap via `rememberGraphicsLayer()` + `toImageBitmap()`, disimpan ke `cacheDir/share/rekap.png`, dibagikan lewat `FileProvider` (authority `${applicationId}.share`, `res/xml/share_paths.xml` hanya `cache-path share/`) dengan `ACTION_SEND` `image/png`. Gagal render/simpan → snackbar "Gagal membuat gambar rekap".
 
 ## Error handling
 
