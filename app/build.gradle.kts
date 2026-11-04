@@ -11,12 +11,12 @@ val releaseKeystore = System.getenv("KEYSTORE_PATH")?.let { file(it) }?.takeIf {
 
 android {
   namespace = "com.fuwanime"
-  compileSdk = 36
+  compileSdk = 37
 
   defaultConfig {
     applicationId = "com.fuwanime.app"
     minSdk = 24
-    targetSdk = 36
+    targetSdk = 37
     // F-Droid & CI pass VERSION_CODE/VERSION_NAME as env vars. Fallback to fixed
     // values when not set (deterministic, not epoch minutes).
     versionCode = System.getenv("VERSION_CODE")?.toIntOrNull() ?: 2
