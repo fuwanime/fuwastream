@@ -83,10 +83,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class StatsViewModel(library: LibraryRepository) : ViewModel() {
-    /** Null while loading; [WatchStats] with zero episodes means there is no history yet. */
-    val stats: StateFlow<Pair<WatchStats, Boolean>?> =
+    /** Null while loading. */
+    val stats: StateFlow<WatchStats?> =
         combine(library.allHistory, library.watchDaily, library.favoriteList) { history, daily, favorites ->
-            computeStats(history, daily, favorites, epochDay(System.currentTimeMillis())) to history.isNotEmpty()
+            computeStats(history, daily, favorites, epochDay(System.currentTimeMillis()))
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 }
 
@@ -125,8 +125,8 @@ fun StatsRoute(onBack: () -> Unit) {
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
-        val (stats, hasHistory) = loaded ?: return@Scaffold
-        if (!hasHistory) {
+        val stats = loaded ?: return@Scaffold
+        if (!stats.hasData) {
             Box(Modifier.fillMaxSize().padding(padding)) {
                 MessageState(Icons.Rounded.Insights, "Belum ada statistik", message = "Tonton satu episode dulu, nanti angkanya muncul di sini.")
             }

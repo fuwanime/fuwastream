@@ -5,6 +5,9 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -63,10 +66,22 @@ class ContinueWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val library = (context.applicationContext as FuwaApp).container.libraryRepository
-        val entries = library.continueWatching(3).first()
-        val posters = entries.associate { it.episodeId to loadBitmap(context, it.animePoster.ifBlank { it.animeCover }, 160) }
-        provideContent { WidgetBody(context, entries, posters) }
+        val history = library.continueWatching(3)
+        val initial = history.first()
+        val initialPosters = loadPosters(context, initial)
+        provideContent {
+            // Collected inside the session: updates that arrive while it is alive only recompose, they don't re-run
+            // provideGlance, so a list captured outside would go stale.
+            val entries by history.collectAsState(initial)
+            val posters by produceState(if (entries == initial) initialPosters else emptyMap(), entries) {
+                value = loadPosters(context, entries)
+            }
+            WidgetBody(context, entries, posters)
+        }
     }
+
+    private suspend fun loadPosters(context: Context, entries: List<WatchHistoryEntity>): Map<String, Bitmap?> =
+        entries.associate { it.episodeId to loadBitmap(context, it.animePoster.ifBlank { it.animeCover }, 160) }
 }
 
 class ContinueWidgetReceiver : GlanceAppWidgetReceiver() {
@@ -89,13 +104,14 @@ private fun WidgetBody(context: Context, entries: List<WatchHistoryEntity>, post
         height >= MEDIUM.height -> 2
         else -> 1
     }
+    // The whole widget opens the app; item rows and "Jelajahi" override it with their own targets.
     Column(
-        GlanceModifier.fillMaxSize().cornerRadius(24.dp).background(Surface).padding(12.dp),
+        GlanceModifier.fillMaxSize().cornerRadius(24.dp).background(Surface).padding(12.dp)
+            .clickable(actionStartActivity(openApp(context))),
     ) {
         Text(
             "Lanjutkan",
             style = TextStyle(color = ColorProvider(Primary), fontSize = 12.sp, fontWeight = FontWeight.Bold),
-            modifier = GlanceModifier.clickable(actionStartActivity(openApp(context))),
         )
         Spacer(GlanceModifier.height(8.dp))
         if (entries.isEmpty()) {

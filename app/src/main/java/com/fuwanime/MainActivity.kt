@@ -24,6 +24,7 @@ import com.fuwanime.ui.navigation.LaunchTarget
 import com.fuwanime.ui.navigation.Shortcuts
 import com.fuwanime.ui.navigation.TAB_EXPLORE_SEARCH
 import com.fuwanime.ui.navigation.TAB_SCHEDULE
+import com.fuwanime.ui.navigation.isFreshLaunch
 import com.fuwanime.ui.navigation.parseLaunchTarget
 import com.fuwanime.ui.player.LocalPipController
 import com.fuwanime.ui.player.PipController
@@ -45,7 +46,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         pip = PipController(this)
-        pendingTarget.value = intent?.launchTarget()
+        if (intent != null && isFreshLaunch(savedInstanceState != null, intent.flags)) pendingTarget.value = intent.launchTarget()
         val store = (application as FuwaApp).container.settingsStore
         val settingsFlow = store.settings
         val ageFlow = store.ageConfirmed

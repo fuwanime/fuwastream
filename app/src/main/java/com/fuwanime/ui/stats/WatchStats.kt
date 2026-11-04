@@ -77,6 +77,6 @@ fun computeStats(
         topGenres = topGenres,
         monthly = monthly,
         activeWeeks = activeWeeks,
-        hasData = history.isNotEmpty(),
+        hasData = history.isNotEmpty() || daily.any { it.watchedMs > 0 },
     )
 }

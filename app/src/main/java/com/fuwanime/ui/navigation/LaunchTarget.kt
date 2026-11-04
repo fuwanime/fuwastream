@@ -1,5 +1,6 @@
 package com.fuwanime.ui.navigation
 
+import android.content.Intent
 import com.fuwanime.data.local.WatchHistoryEntity
 import com.fuwanime.ui.motion.sharedEpisodeKey
 
@@ -35,5 +36,9 @@ fun playerRouteFor(e: WatchHistoryEntity, origin: String?): String = Routes.play
 /** Null when the episode is no longer in history, so the app simply opens on Beranda. */
 fun resumeRoute(entry: WatchHistoryEntity?): String? = entry?.let { playerRouteFor(it, null) }
 
-/** Stub: replaced in the fix pass. */
-fun isFreshLaunch(restored: Boolean, flags: Int): Boolean = true
+/**
+ * Whether the launching intent's target should be applied: not after process death ([restored]) and not when
+ * Recents relaunches the task with its original intent, or the user would be pulled back to that screen.
+ */
+fun isFreshLaunch(restored: Boolean, flags: Int): Boolean =
+    !restored && (flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) == 0
