@@ -12,3 +12,6 @@ fun navContentPadding(rail: Boolean, tabVisible: Boolean, barHeightDp: Float, sy
     rail -> systemNavInsetDp
     else -> barHeightDp
 }
+
+/** Font scale for bar/rail labels: they sit in a fixed slot under an icon, and past 1.3× "Beranda" wraps mid-word. */
+fun navLabelFontScale(fontScale: Float): Float = TODO()
