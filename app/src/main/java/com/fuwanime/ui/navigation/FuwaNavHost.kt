@@ -390,7 +390,8 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
             }
           }
             if (!rail) {
-                AnimatedVisibility(
+                // Unscoped overload: inside the Row, the RowScope one would be picked otherwise.
+                androidx.compose.animation.AnimatedVisibility(
                     visible = currentTab != null,
                     enter = slideInVertically { it },
                     exit = slideOutVertically { it },
