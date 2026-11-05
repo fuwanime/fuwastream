@@ -1,5 +1,6 @@
 package com.fuwanime.ui.home
 
+import com.fuwanime.ui.components.LocalNavBarPadding
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
@@ -172,7 +173,7 @@ private fun HomeScreen(
     var showUpdateSheet by remember { mutableStateOf(false) }
 
     PullToRefreshBox(isRefreshing = feed.refreshing, onRefresh = onRefresh, modifier = Modifier.fillMaxSize()) {
-        LazyColumn(state = listState, contentPadding = PaddingValues(bottom = 24.dp), modifier = Modifier.fillMaxSize()) {
+        LazyColumn(state = listState, contentPadding = PaddingValues(bottom = 24.dp + LocalNavBarPadding.current), modifier = Modifier.fillMaxSize()) {
             item(key = "hero") {
                 val heroLoading = feed.loading && state.hero.isEmpty()
                 Crossfade(heroLoading, animationSpec = tween(Motion.Medium), label = "hero") { loading ->

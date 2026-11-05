@@ -1,5 +1,21 @@
 package com.fuwanime.ui.navigation
 
+import com.fuwanime.ui.components.frostedStyle
+import com.fuwanime.ui.components.LocalNavBarPadding
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.HazeState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.material3.NavigationRailItemDefaults
+import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.NavigationRail
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.Row
 import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedContentScope
@@ -14,8 +30,6 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -31,7 +45,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -206,44 +219,55 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
         onInitialTargetConsumed()
     }
 
-    Scaffold(
-        contentWindowInsets = WindowInsets(0),
-        bottomBar = {
+    // Wide screens get a rail beside the content; phones get a bar floating over it, frosted, with lists padded by
+    // LocalNavBarPadding so their last items scroll clear of it.
+    val rail = useNavRail(LocalConfiguration.current.screenWidthDp)
+    val hazeState = remember { HazeState() }
+    val density = LocalDensity.current
+    var barHeight by remember { mutableStateOf(0.dp) }
+    val colors = MaterialTheme.colorScheme
+    val itemColors = NavigationBarItemDefaults.colors(
+        selectedIconColor = colors.primary,
+        selectedTextColor = colors.onSurface,
+        indicatorColor = colors.secondaryContainer,
+        unselectedIconColor = NavInactive,
+        unselectedTextColor = NavInactive,
+    )
+    val railColors = NavigationRailItemDefaults.colors(
+        selectedIconColor = colors.primary,
+        selectedTextColor = colors.onSurface,
+        indicatorColor = colors.secondaryContainer,
+        unselectedIconColor = NavInactive,
+        unselectedTextColor = NavInactive,
+    )
+    fun onTab(tab: Tab) {
+        if (tab == Tab.EXPLORE) nav.navigateTab(Routes.explore()) else nav.navigateTab(tab.route)
+    }
+    Row(Modifier.fillMaxSize().background(colors.background)) {
+        if (rail) {
             AnimatedVisibility(
                 visible = currentTab != null,
-                enter = slideInVertically { it },
-                exit = slideOutVertically { it },
+                enter = slideInHorizontally { -it },
+                exit = slideOutHorizontally { -it },
             ) {
-                val colors = MaterialTheme.colorScheme
-                NavigationBar(
-                    // Hairline on top separates the bar from posters scrolling under it.
-                    modifier = Modifier.drawBehind { drawLine(NavHairline, Offset.Zero, Offset(size.width, 0f), 1.dp.toPx()) },
-                    containerColor = colors.background.copy(alpha = 0.94f),
-                ) {
-                    val itemColors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = colors.primary,
-                        selectedTextColor = colors.onSurface,
-                        indicatorColor = colors.secondaryContainer,
-                        unselectedIconColor = NavInactive,
-                        unselectedTextColor = NavInactive,
-                    )
+                NavigationRail(containerColor = colors.surfaceContainerLow) {
                     Tab.entries.forEach { tab ->
                         val selected = tab == currentTab
-                        NavigationBarItem(
+                        NavigationRailItem(
                             selected = selected,
-                            onClick = {
-                                if (tab == Tab.EXPLORE) nav.navigateTab(Routes.explore()) else nav.navigateTab(tab.route)
-                            },
+                            onClick = { onTab(tab) },
                             icon = { Icon(if (selected) tab.selectedIcon else tab.icon, null) },
                             label = { Text(tab.label, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium) },
-                            colors = itemColors,
+                            colors = railColors,
                         )
                     }
                 }
             }
-        },
-    ) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) {
+        }
+        val navPad = if (!rail && currentTab != null) barHeight else 0.dp
+        Box(Modifier.weight(1f).fillMaxHeight()) {
+          CompositionLocalProvider(LocalNavBarPadding provides navPad) {
+            Box(Modifier.fillMaxSize().hazeSource(hazeState)) {
             SharedTransitionLayout {
                 CompositionLocalProvider(LocalSharedScope provides this, LocalReduceMotion provides reduceMotion) {
                     NavHost(
@@ -359,9 +383,39 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
                     }
                 }
             }
+            }
             // Floats over the tab content just above the bar, so showing it never shifts the layout.
             if (currentTab != null) {
-                OfflinePill(netState, reduceMotion, Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp))
+                OfflinePill(netState, reduceMotion, Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp + navPad))
+            }
+          }
+            if (!rail) {
+                AnimatedVisibility(
+                    visible = currentTab != null,
+                    enter = slideInVertically { it },
+                    exit = slideOutVertically { it },
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                ) {
+                    NavigationBar(
+                        modifier = Modifier
+                            .onSizeChanged { barHeight = with(density) { it.height.toDp() } }
+                            .hazeEffect(hazeState, frostedStyle())
+                            // Hairline on top separates the bar from posters scrolling under it.
+                            .drawBehind { drawLine(NavHairline, Offset.Zero, Offset(size.width, 0f), 1.dp.toPx()) },
+                        containerColor = Color.Transparent,
+                    ) {
+                        Tab.entries.forEach { tab ->
+                            val selected = tab == currentTab
+                            NavigationBarItem(
+                                selected = selected,
+                                onClick = { onTab(tab) },
+                                icon = { Icon(if (selected) tab.selectedIcon else tab.icon, null) },
+                                label = { Text(tab.label, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium) },
+                                colors = itemColors,
+                            )
+                        }
+                    }
+                }
             }
         }
     }

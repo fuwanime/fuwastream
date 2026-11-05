@@ -1,5 +1,6 @@
 package com.fuwanime.ui.library
 
+import com.fuwanime.ui.components.LocalNavBarPadding
 import androidx.compose.foundation.clickable
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.combinedClickable
@@ -267,7 +268,7 @@ private fun HistoryList(
         return
     }
     val groups = remember(items) { items.groupBy { historyDayLabel(it.updatedAt) } }
-    LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 8.dp, bottom = 16.dp)) {
+    LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 8.dp, bottom = 16.dp + LocalNavBarPadding.current)) {
         groups.forEach { (day, entries) ->
             item(key = "day-$day") {
                 Text(
@@ -419,7 +420,7 @@ private fun FavoriteGrid(
     val selecting = selection.isNotEmpty()
     LazyVerticalGrid(
         columns = GridCells.Adaptive(108.dp),
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp + LocalNavBarPadding.current),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
@@ -466,7 +467,10 @@ private fun DownloadList(
     val watchedBytes = watched.sumOf { it.totalBytes }
     val stored = items.filter { it.state == DownloadState.DONE }.sumOf { it.totalBytes }
 
-    LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyColumn(
+        contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp + LocalNavBarPadding.current),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
         item {
             Text(
                 "${items.count { it.state == DownloadState.DONE }} episode tersimpan • ${formatBytes(stored)}",
