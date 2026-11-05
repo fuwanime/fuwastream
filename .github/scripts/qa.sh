@@ -198,6 +198,21 @@ adb shell input keyevent KEYCODE_BACK; sleep 12
 adb logcat -d | grep -iE "fuwanime|media3|MediaSession|ForegroundService|PlaybackService" > "$OUT/qa9-logcat.txt" || true
 alive
 
+# 10. Sub-project C: AniList meta on Detail, AniSkip button, multi-genre + random, Musim ini.
+scroll_tab() { for _ in 1 2 3; do tap "$1" && return 0; adb shell input swipe 900 330 200 330 300; sleep 1; done; return 1; }
+fresh
+tap "Tonton"; sleep 10; scroll_to "Info dari AniList*"; shot qa10a-detail-meta 1
+check "anilist footer" "$(find_xy "Info dari AniList*" | wc -l)"
+scroll_to "Episode 1" && tap "Episode 1"; sleep 25
+check "aniskip button" "$( [ -n "$(find_xy "Lewati OP")" ] && echo 1 || echo 0 )"; shot qa10b-player-skip 0
+adb shell input keyevent KEYCODE_BACK; sleep 2; adb shell input keyevent KEYCODE_BACK; sleep 2; alive
+fresh
+tap "Jelajah"; sleep 4; tap "Action"; sleep 2; tap "Adventure"; sleep 5; shot qa10c-two-genres 1
+tap "Anime acak"; sleep 5; shot qa10d-random-detail 1; adb shell input keyevent KEYCODE_BACK; sleep 2
+tap "Jadwal"; sleep 3; scroll_tab "Musim ini"; sleep 10; shot qa10e-musim-ini 1
+check "musim ini" "$( [ -n "$(find_xy "Baru musim ini*")$(find_xy "Lanjutan*")" ] && echo 1 || echo 0 )"
+alive
+
 # 6. Offline: Beranda from the saved data with the offline pill, then back online.
 adb shell svc wifi disable; adb shell svc data disable
 fresh; shot qa6a-offline-home 2

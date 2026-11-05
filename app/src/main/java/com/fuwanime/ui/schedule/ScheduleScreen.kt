@@ -29,6 +29,9 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.text.font.FontWeight
+import java.util.Calendar
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
@@ -97,11 +100,12 @@ fun ScheduleRoute(onAnimeClick: OpenAnime) {
     val vm: ScheduleViewModel = fuwaViewModel { c, _ -> ScheduleViewModel(c.animeRepository) }
     val days by vm.days.collectAsStateWithLifecycle()
     val today = Day.today()
-    val pager = rememberPagerState(initialPage = today.ordinal) { Day.entries.size }
+    // Pages 0–6 are the days; the last page is "Musim ini".
+    val pager = rememberPagerState(initialPage = today.ordinal) { Day.entries.size + 1 }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(pager.currentPage) {
-        vm.ensureLoaded(Day.entries[pager.currentPage])
+        Day.entries.getOrNull(pager.currentPage)?.let(vm::ensureLoaded) ?: Day.entries.forEach { vm.ensureLoaded(it) }
     }
 
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
@@ -132,9 +136,21 @@ fun ScheduleRoute(onAnimeClick: OpenAnime) {
                     },
                 )
             }
+            Tab(
+                selected = pager.currentPage == Day.entries.size,
+                onClick = { scope.launch { pager.animateScrollToPage(Day.entries.size) } },
+                text = { Text("Musim ini") },
+            )
         }
         HorizontalPager(pager, Modifier.fillMaxSize()) { page ->
-            val day = Day.entries[page]
+            val day = Day.entries.getOrNull(page) ?: run {
+                SeasonPage(
+                    state = seasonTabState(days.values),
+                    onRetry = { Day.entries.forEach { vm.ensureLoaded(it, force = true) } },
+                    onAnimeClick = onAnimeClick,
+                )
+                return@HorizontalPager
+            }
             val schedule = days.getValue(day)
             PullToRefreshBox(
                 isRefreshing = schedule.loading && schedule.loaded,
@@ -157,6 +173,46 @@ fun ScheduleRoute(onAnimeClick: OpenAnime) {
                     ) {
                         items(schedule.items, key = { it.id }) { anime ->
                             ScheduleRow(anime, origin = "schedule-${day.apiValue}", onClick = { onAnimeClick(anime, "schedule-${day.apiValue}") })
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Everything airing this week, split into what premiered this season and what continues from before. */
+@Composable
+private fun SeasonPage(state: SeasonTab, onRetry: () -> Unit, onAnimeClick: OpenAnime) {
+    when (state) {
+        SeasonTab.Loading -> ScheduleSkeleton()
+        is SeasonTab.Error -> ErrorState(state.message, onRetry)
+        is SeasonTab.Ready -> {
+            val season = remember {
+                val c = Calendar.getInstance()
+                seasonOf(c.get(Calendar.YEAR), c.get(Calendar.MONTH) + 1)
+            }
+            val (fresh, continuing) = remember(state.all, season) { splitBySeason(state.all, season) }
+            LazyColumn(
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                item(key = "season-title") {
+                    Text("${season.name} ${season.year}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                }
+                listOf("Baru musim ini" to fresh, "Lanjutan" to continuing).forEach { (title, list) ->
+                    if (list.isNotEmpty()) {
+                        item(key = "h-$title") {
+                            Text(
+                                "$title (${list.size})",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(top = 8.dp),
+                            )
+                        }
+                        items(list, key = { "$title-${it.id}" }) { anime ->
+                            ScheduleRow(anime, origin = "schedule-season", onClick = { onAnimeClick(anime, "schedule-season") })
                         }
                     }
                 }
