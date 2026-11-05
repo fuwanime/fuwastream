@@ -1,7 +1,10 @@
 package com.fuwanime.data.meta
 
 import com.squareup.moshi.JsonClass
+import com.squareup.moshi.Moshi
 import okhttp3.OkHttpClient
+import retrofit2.Retrofit
+import retrofit2.converter.moshi.MoshiConverterFactory
 import retrofit2.http.GET
 import retrofit2.http.Path
 import retrofit2.http.Query
@@ -17,7 +20,12 @@ interface AniSkipApi {
     ): AniSkipResponse
 
     companion object {
-        fun create(client: OkHttpClient, baseUrl: String = "https://api.aniskip.com/"): AniSkipApi = TODO()
+        fun create(client: OkHttpClient, baseUrl: String = "https://api.aniskip.com/"): AniSkipApi = Retrofit.Builder()
+            .baseUrl(baseUrl)
+            .client(client)
+            .addConverterFactory(MoshiConverterFactory.create(Moshi.Builder().build()))
+            .build()
+            .create(AniSkipApi::class.java)
     }
 }
 

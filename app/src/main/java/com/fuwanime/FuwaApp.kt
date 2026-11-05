@@ -14,7 +14,12 @@ import com.fuwanime.data.DownloadRepository
 import com.fuwanime.data.LibraryRepository
 import com.fuwanime.data.local.FuwaDatabase
 import com.fuwanime.data.local.SettingsStore
+import com.fuwanime.data.meta.AniListApi
+import com.fuwanime.data.meta.AniSkipApi
+import com.fuwanime.data.meta.AnimeLinkRepository
+import com.fuwanime.data.meta.SkipRepository
 import com.fuwanime.playback.PlaybackHolder
+import java.util.concurrent.TimeUnit
 import com.fuwanime.data.remote.AnimeApiService
 import com.fuwanime.data.remote.ForceCache
 import com.fuwanime.data.remote.NetworkStatus
@@ -67,6 +72,16 @@ class AppContainer(private val app: Application) {
     val videoHttpClient: OkHttpClient = httpClient.newBuilder().apply { interceptors().clear() }.build()
 
     val playbackHolder by lazy { PlaybackHolder(app, videoHttpClient) }
+
+    /** AniList and AniSkip: no catalog User-Agent or JSON headers, and short timeouts so enrichment gives up fast. */
+    val metaHttpClient: OkHttpClient by lazy {
+        httpClient.newBuilder().apply { interceptors().clear() }
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(10, TimeUnit.SECONDS)
+            .build()
+    }
+    val animeLinkRepository by lazy { AnimeLinkRepository(database.animeLinkDao(), AniListApi.create(metaHttpClient)) }
+    val skipRepository by lazy { SkipRepository(AniSkipApi.create(metaHttpClient)) }
 }
 
 class FuwaApp : Application(), SingletonImageLoader.Factory {

@@ -2,7 +2,10 @@ package com.fuwanime.data.meta
 
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
+import com.squareup.moshi.Moshi
 import okhttp3.OkHttpClient
+import retrofit2.Retrofit
+import retrofit2.converter.moshi.MoshiConverterFactory
 import retrofit2.http.Body
 import retrofit2.http.POST
 
@@ -12,7 +15,12 @@ interface AniListApi {
     suspend fun query(@Body body: GraphQlRequest): GraphQlResponse
 
     companion object {
-        fun create(client: OkHttpClient, baseUrl: String = "https://graphql.anilist.co/"): AniListApi = TODO()
+        fun create(client: OkHttpClient, baseUrl: String = "https://graphql.anilist.co/"): AniListApi = Retrofit.Builder()
+            .baseUrl(baseUrl)
+            .client(client)
+            .addConverterFactory(MoshiConverterFactory.create(Moshi.Builder().build()))
+            .build()
+            .create(AniListApi::class.java)
     }
 }
 
