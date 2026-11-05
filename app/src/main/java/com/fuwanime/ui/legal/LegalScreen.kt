@@ -1,5 +1,7 @@
 package com.fuwanime.ui.legal
 
+import androidx.compose.foundation.layout.fillMaxHeight
+import com.fuwanime.ui.components.readableWidth
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -198,7 +200,7 @@ fun LegalRoute(type: String, onBack: () -> Unit) {
         },
     ) { padding ->
         LazyColumn(
-            Modifier.fillMaxSize(),
+            Modifier.fillMaxHeight().readableWidth(),
             contentPadding = PaddingValues(
                 top = padding.calculateTopPadding(),
                 start = 24.dp,

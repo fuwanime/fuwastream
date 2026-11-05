@@ -1,5 +1,11 @@
 package com.fuwanime.ui.settings
 
+import androidx.compose.foundation.layout.fillMaxHeight
+import com.fuwanime.ui.components.readableWidth
+import com.fuwanime.ui.components.frostedStyle
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.HazeState
 import android.os.Build
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -113,6 +119,7 @@ fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit) {
     val scope = rememberCoroutineScope()
     var confirm by remember { mutableStateOf<Pair<String, () -> Unit>?>(null) }
 
+    val hazeState = remember { HazeState() }
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
@@ -120,11 +127,17 @@ fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit) {
                 title = { Text("Pengaturan") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Kembali") } },
                 scrollBehavior = scrollBehavior,
+                // Transparent so the frosted layer shows the list scrolling underneath.
+                colors = TopAppBarDefaults.largeTopAppBarColors(containerColor = Color.Transparent, scrolledContainerColor = Color.Transparent),
+                modifier = Modifier.hazeEffect(hazeState, frostedStyle()),
             )
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = 32.dp)) {
+        LazyColumn(
+            Modifier.fillMaxHeight().readableWidth().hazeSource(hazeState),
+            contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = 32.dp),
+        ) {
             item { Group("Tampilan") }
             item {
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {

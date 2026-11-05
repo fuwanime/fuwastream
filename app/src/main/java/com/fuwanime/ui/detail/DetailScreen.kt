@@ -1,5 +1,20 @@
 package com.fuwanime.ui.detail
 
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import com.fuwanime.util.loadBitmap
+import com.fuwanime.ui.components.readableWidth
+import com.fuwanime.ui.components.frostedStyle
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.HazeState
+import androidx.palette.graphics.Palette
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
@@ -192,6 +207,18 @@ private fun DetailScreen(
     // Outlives the lazy "actions" item, so scrolling it back never replays the pop.
     var favoritePopShown by rememberSaveable { mutableIntStateOf(0) }
     val resume = remember(progress) { progress.values.maxByOrNull { it.updatedAt } }
+    val hazeState = remember { HazeState() }
+    // A dark colour from the poster for the header wash and the play button; null keeps the app's own colours.
+    val context = LocalContext.current
+    val tint by produceState<Color?>(null, anime?.poster) {
+        val poster = anime?.poster.orEmpty()
+        value = if (poster.isBlank()) null else loadBitmap(context, poster, 64)?.let { bitmap ->
+            val palette = withContext(Dispatchers.Default) { Palette.from(bitmap).generate() }
+            posterTint(palette.darkVibrantSwatch?.rgb, palette.vibrantSwatch?.rgb, palette.dominantSwatch?.rgb)?.let { Color(it) }
+        }
+    }
+    // Arrives after the first frame: fade it in rather than pop.
+    val headerTint by animateColorAsState(tint ?: Color.Transparent, label = "posterTint")
 
     Box(Modifier.fillMaxSize()) {
         // Scrolling while the poster flies used to make it chase the header. Instead of locking the list, the link
@@ -208,11 +235,11 @@ private fun DetailScreen(
         LazyColumn(
             state = listState,
             contentPadding = PaddingValues(bottom = 32.dp),
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxHeight().readableWidth().hazeSource(hazeState),
         ) {
             // Once the header is scrolled away, closing just fades instead of flying a poster in from off-screen.
             item(key = "header") {
-                Header(anime, origin.takeIf { linkHeader && !exiting }, entryKey, linkBackdrop = linkHeader, episodeCount = state.latestEpisode)
+                Header(anime, origin.takeIf { linkHeader && !exiting }, entryKey, linkBackdrop = linkHeader, episodeCount = state.latestEpisode, tint = headerTint)
             }
 
             if (anime == null && state.infoError != null) {
@@ -253,7 +280,12 @@ private fun DetailScreen(
                         enabled = anime != null && target != null,
                         shape = RoundedCornerShape(14.dp),
                         contentPadding = PaddingValues(horizontal = 16.dp),
-                        modifier = Modifier.weight(1f).height(52.dp),
+                        colors = tint?.let { t ->
+                            val container = lighten(t.toArgb())
+                            ButtonDefaults.buttonColors(containerColor = Color(container), contentColor = Color(onColorFor(container)))
+                        } ?: ButtonDefaults.buttonColors(),
+                        // min, not fixed: two lines of text at 200% font must not be clipped.
+                        modifier = Modifier.weight(1f).heightIn(min = 52.dp),
                     ) {
                         Icon(Icons.Rounded.PlayArrow, null)
                         Spacer(Modifier.width(10.dp))
@@ -405,7 +437,7 @@ private fun DetailScreen(
         val solid by remember {
             derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 520 }
         }
-        DetailTopBar(solid, anime?.title.orEmpty(), onBack)
+        DetailTopBar(solid, anime?.title.orEmpty(), onBack, hazeState)
     }
 }
 
@@ -413,7 +445,7 @@ private fun DetailScreen(
 private const val HEADER_LINK_MAX_OFFSET_PX = 600
 
 @Composable
-private fun Header(anime: Anime?, origin: String?, entryKey: String, linkBackdrop: Boolean, episodeCount: Double?) {
+private fun Header(anime: Anime?, origin: String?, entryKey: String, linkBackdrop: Boolean, episodeCount: Double?, tint: Color) {
     val bg = MaterialTheme.colorScheme.background
     Box {
         if (anime == null) {
@@ -430,6 +462,12 @@ private fun Header(anime: Anime?, origin: String?, entryKey: String, linkBackdro
                 "Latar ${anime.title}",
             )
         }
+        // The poster's colour washes over the lower backdrop, behind the poster and title.
+        Box(
+            Modifier.matchParentSize().background(
+                Brush.verticalGradient(0f to Color.Transparent, 0.6f to tint.copy(alpha = tint.alpha * 0.55f), 1f to Color.Transparent),
+            ),
+        )
         Row(
             Modifier.padding(top = 190.dp, start = 20.dp, end = 20.dp),
             verticalAlignment = Alignment.Bottom,
@@ -755,10 +793,14 @@ private fun EpisodeSkeleton() {
 }
 
 @Composable
-private fun DetailTopBar(solid: Boolean, title: String, onBack: () -> Unit) {
-    val bg by animateColorAsState(if (solid) MaterialTheme.colorScheme.surfaceContainer else Color.Transparent, label = "detailBar")
+private fun DetailTopBar(solid: Boolean, title: String, onBack: () -> Unit, hazeState: HazeState) {
     Row(
-        Modifier.fillMaxWidth().background(bg).statusBarsPadding().padding(horizontal = 4.dp, vertical = 4.dp),
+        Modifier
+            .fillMaxWidth()
+            // Frosted once the header has scrolled away; the content stays faintly visible behind it.
+            .then(if (solid) Modifier.hazeEffect(hazeState, frostedStyle()) else Modifier)
+            .statusBarsPadding()
+            .padding(horizontal = 4.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconButton(
