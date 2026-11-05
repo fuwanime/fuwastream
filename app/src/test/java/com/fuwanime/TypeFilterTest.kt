@@ -33,6 +33,6 @@ class TypeFilterTest {
     fun activeCount_includesType() {
         assertEquals(0, ExploreFilters().activeCount)
         assertEquals(1, ExploreFilters(type = TypeFilter.MOVIE).activeCount)
-        assertEquals(2, ExploreFilters(genre = "Action", type = TypeFilter.LIVE_ACTION).activeCount)
+        assertEquals(2, ExploreFilters(genres = setOf("Action"), type = TypeFilter.LIVE_ACTION).activeCount)
     }
 }

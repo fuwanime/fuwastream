@@ -37,13 +37,13 @@ enum class TypeFilter(val label: String, val apiType: String?) {
 
 data class ExploreFilters(
     val query: String = "",
-    val genre: String? = null,
+    /** Every selected genre must match (AND). */
+    val genres: Set<String> = emptySet(),
     val status: StatusFilter = StatusFilter.ALL,
     val type: TypeFilter = TypeFilter.ALL,
     val sort: SortOrder = SortOrder.POPULAR,
 ) {
-    val activeCount: Int get() = listOfNotNull(
-        genre,
+    val activeCount: Int get() = genres.size + listOfNotNull(
         status.takeIf { it != StatusFilter.ALL },
         type.takeIf { it != TypeFilter.ALL },
     ).size
@@ -65,7 +65,7 @@ class ExploreViewModel(
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(
-        ExploreUiState(filters = ExploreFilters(genre = savedState.get<String>("genre")?.takeIf { it.isNotBlank() })),
+        ExploreUiState(filters = ExploreFilters(genres = setOfNotNull(savedState.get<String>("genre")?.takeIf { it.isNotBlank() }))),
     )
     val state: StateFlow<ExploreUiState> = _state.asStateFlow()
 
@@ -101,11 +101,11 @@ class ExploreViewModel(
     fun removeRecent(query: String) = viewModelScope.launch { library.removeSearch(query) }
     fun clearRecent() = viewModelScope.launch { library.clearSearches() }
 
-    fun setGenre(genre: String?) = updateFilters { it.copy(genre = genre) }
+    fun toggleGenre(genre: String) = updateFilters { it.copy(genres = if (genre in it.genres) it.genres - genre else it.genres + genre) }
     fun setStatus(status: StatusFilter) = updateFilters { it.copy(status = status) }
     fun setType(type: TypeFilter) = updateFilters { it.copy(type = type) }
     fun setSort(sort: SortOrder) = updateFilters { it.copy(sort = sort) }
-    fun clearFilters() = updateFilters { it.copy(genre = null, status = StatusFilter.ALL, type = TypeFilter.ALL) }
+    fun clearFilters() = updateFilters { it.copy(genres = emptySet(), status = StatusFilter.ALL, type = TypeFilter.ALL) }
 
     private fun updateFilters(change: (ExploreFilters) -> ExploreFilters) {
         val before = _state.value.filters
@@ -156,8 +156,7 @@ class ExploreViewModel(
     private fun refilter(fillPage: Boolean): Int {
         val f = _state.value.filters
         val filtered = raw.filter { a ->
-            (f.genre == null || a.genres.any { it.equals(f.genre, ignoreCase = true) } ||
-                (f.genre.equals("Isekai", true) && a.synopsis.contains("isekai", true))) &&
+            matchesGenres(a, f.genres) &&
                 when (f.status) {
                     StatusFilter.ALL -> true
                     StatusFilter.ONGOING -> a.isOngoing

@@ -27,6 +27,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowDropDown
+import androidx.compose.material.icons.rounded.Casino
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.NorthWest
@@ -158,7 +159,7 @@ private fun ExploreScreen(
 
         Spacer(Modifier.height(14.dp))
         FilterBar(state.filters, vm)
-        ResultsHeader(state.filters, vm)
+        ResultsHeader(state.filters, vm, onRandom = state.results.takeIf { it.isNotEmpty() }?.let { r -> { pickRandom(r)?.let { onAnimeClick(it, "explore") } } })
         ResultsGrid(state, vm, onAnimeClick)
     }
 }
@@ -198,8 +199,7 @@ private fun FilterBar(filters: ExploreFilters, vm: ExploreViewModel) {
         }
         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(AllGenres, key = { it }) { g ->
-                val selected = filters.genre == g
-                TagChip(g, onClick = { vm.setGenre(if (selected) null else g) }, selected = selected)
+                TagChip(g, onClick = { vm.toggleGenre(g) }, selected = g in filters.genres)
             }
         }
     }
@@ -207,7 +207,8 @@ private fun FilterBar(filters: ExploreFilters, vm: ExploreViewModel) {
 
 /** Title of what is shown, plus one menu for sort order and airing status. */
 @Composable
-private fun ResultsHeader(filters: ExploreFilters, vm: ExploreViewModel) {
+/** [onRandom] is null while there is nothing to pick from. */
+private fun ResultsHeader(filters: ExploreFilters, vm: ExploreViewModel, onRandom: (() -> Unit)?) {
     var menuOpen by remember { mutableStateOf(false) }
     Row(
         Modifier.fillMaxWidth().padding(start = 20.dp, end = 16.dp, top = 14.dp, bottom = 2.dp),
@@ -215,11 +216,12 @@ private fun ResultsHeader(filters: ExploreFilters, vm: ExploreViewModel) {
     ) {
         Text(
             filters.query.trim().takeIf { it.isNotEmpty() }?.let { "Hasil untuk “$it”" }
-                ?: filters.genre ?: filters.type.takeIf { it != TypeFilter.ALL }?.label ?: "Semua anime",
+                ?: filters.genres.takeIf { it.isNotEmpty() }?.joinToString(" + ") ?: filters.type.takeIf { it != TypeFilter.ALL }?.label ?: "Semua anime",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.weight(1f),
         )
+        IconButton(onClick = { onRandom?.invoke() }, enabled = onRandom != null) { Icon(Icons.Rounded.Casino, "Anime acak") }
         Box {
             FilledTonalButton(
                 onClick = { menuOpen = true },
