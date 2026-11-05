@@ -5,6 +5,7 @@ import com.fuwanime.ui.detail.lighten
 import com.fuwanime.ui.detail.onColorFor
 import com.fuwanime.ui.detail.posterTint
 import com.fuwanime.ui.detail.relativeLuminance
+import com.fuwanime.ui.navigation.navLabelFontScale
 import com.fuwanime.ui.navigation.useNavRail
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -58,6 +59,11 @@ class VisualA11yTest {
         assertEquals("Frieren, Sedang tayang", posterDescription("Frieren", null, null, isNew = false, airing = true, selected = false))
 
     @Test fun descriptionSkipsBlankCaption() = assertEquals("Frieren", posterDescription("Frieren", " ", null, false, false, false))
+
+    @Test fun navLabelScaleCapsAt130Percent() {
+        assertEquals(1.0f, navLabelFontScale(1.0f), 0f)
+        assertEquals(1.3f, navLabelFontScale(2.0f), 0f)
+    }
 
     @Test fun railThreshold() {
         assertFalse(useNavRail(599))

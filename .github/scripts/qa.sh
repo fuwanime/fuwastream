@@ -215,6 +215,44 @@ tap "Jadwal"; sleep 3; scroll_tab "Musim ini"; sleep 10; shot qa10e-musim-ini 1
 check "musim ini" "$( [ -n "$(find_xy "Baru musim ini*")$(find_xy "Lanjutan*")" ] && echo 1 || echo 0 )"
 alive
 
+# 11. Sub-project D: frosted bars, poster-tinted Detail (dark), TalkBack nodes, font 200%, rail on a wide screen.
+dump_ui() { adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1; adb pull /sdcard/ui.xml "$OUT/$1.xml" >/dev/null 2>&1; }
+fresh
+adb shell input swipe 540 1700 540 1100 400; shot qa11a-frosted-bottom-bar 1.5
+dump_ui qa11-home-ui
+check "merged poster descriptions on Home" "$(grep -o 'content-desc="[^"]*, [^"]*"' "$OUT/qa11-home-ui.xml" | wc -l)"
+tap "Koleksi"; sleep 3; dump_ui qa11-library-ui
+check "Pilih action nodes in Koleksi" "$(grep -c 'long-clickable="true"' "$OUT/qa11-library-ui.xml")"
+adb shell cmd uimode night yes; sleep 2
+fresh
+tap "Tonton"; shot qa11b-detail-tint-dark 6
+adb shell input swipe 540 1600 540 600 400; shot qa11c-detail-frosted-topbar 1.5
+adb shell input keyevent KEYCODE_BACK; sleep 2
+tap "Statistik" >/dev/null 2>&1 || { tap "Koleksi"; sleep 2; tap "Statistik"; }; sleep 3
+adb shell input swipe 540 1600 540 800 400; shot qa11d-stats-frosted-header-dark 1.5
+adb shell cmd uimode night no; sleep 2; alive
+# Font 200%.
+adb shell settings put system font_scale 2.0
+fresh; shot qa11e-font200-home 1
+tap "Tonton"; sleep 3; [ -n "$(find_xy "Tonton")" ] && tap "Tonton"; shot qa11f-font200-detail 5
+scroll_to "Episode 1"; shot qa11f2-font200-detail-episodes 1; adb shell input keyevent KEYCODE_BACK; sleep 2
+tap "Jelajah"; shot qa11g-font200-explore 3
+tap "Koleksi"; shot qa11h-font200-library 3
+tap "Jadwal"; shot qa11i-font200-schedule 3
+adb shell settings put system font_scale 1.0; alive
+# Wide screen (800dp): navigation rail and readable width.
+adb shell wm size 1600x2560; adb shell wm density 320; sleep 3
+fresh; shot qa11j-wide-home 1
+check "rail on wide screen" "$( [ -n "$(find_xy "Jelajah")" ] && echo 1 || echo 0 )"
+tap "Jelajah"; shot qa11k-wide-explore 3
+tap "Beranda"; sleep 2; tap "Tonton"; shot qa11l-wide-detail 6; adb shell input keyevent KEYCODE_BACK; sleep 2
+tap "Pengaturan"; shot qa11m-wide-settings 3; adb shell input keyevent KEYCODE_BACK; sleep 1
+adb shell wm size reset; adb shell wm density reset; sleep 3
+# Phone in landscape gets the rail too.
+adb shell wm user-rotation lock 1; sleep 3
+fresh; shot qa11n-landscape-home 1
+adb shell wm user-rotation free; sleep 3; alive
+
 # 6. Offline: Beranda from the saved data with the offline pill, then back online.
 adb shell svc wifi disable; adb shell svc data disable
 fresh; shot qa6a-offline-home 2
