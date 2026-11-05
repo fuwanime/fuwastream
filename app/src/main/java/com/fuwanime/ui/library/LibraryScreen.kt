@@ -318,8 +318,8 @@ private fun HistoryRow(
             NetImage(
                 entry.episodeThumbnail.ifBlank { entry.animeCover },
                 Modifier.fillMaxSize().sharedKey(sharedEpisodeKey(entry.episodeId, "library")).clip(RoundedCornerShape(12.dp)),
-                // The row's own texts are read; a description here would replace them in TalkBack.
-                null,
+                // The only place the anime's name is inside the row's TalkBack node (the title text is its own button).
+                "${entry.animeTitle} — Episode ${entry.episodeNumber}",
             )
             Text(
                 "EP ${entry.episodeNumber}",

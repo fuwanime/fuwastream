@@ -1,5 +1,10 @@
 package com.fuwanime.ui.navigation
 
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.expandHorizontally
 import com.fuwanime.ui.components.frostedStyle
 import com.fuwanime.ui.components.LocalNavBarPadding
 import dev.chrisbanes.haze.hazeSource
@@ -247,8 +252,9 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
         if (rail) {
             AnimatedVisibility(
                 visible = currentTab != null,
-                enter = slideInHorizontally { -it },
-                exit = slideOutHorizontally { -it },
+                // Animate the width too, so the content beside the rail moves smoothly instead of jumping 80dp.
+                enter = expandHorizontally(expandFrom = Alignment.Start) + slideInHorizontally { -it },
+                exit = shrinkHorizontally(shrinkTowards = Alignment.Start) + slideOutHorizontally { -it },
             ) {
                 NavigationRail(containerColor = colors.surfaceContainerLow) {
                     Tab.entries.forEach { tab ->
@@ -264,7 +270,8 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
                 }
             }
         }
-        val navPad = if (!rail && currentTab != null) barHeight else 0.dp
+        val systemNav = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+        val navPad = navContentPadding(rail, currentTab != null, barHeight.value, systemNav.value).dp
         Box(Modifier.weight(1f).fillMaxHeight()) {
           CompositionLocalProvider(LocalNavBarPadding provides navPad) {
             Box(Modifier.fillMaxSize().hazeSource(hazeState)) {

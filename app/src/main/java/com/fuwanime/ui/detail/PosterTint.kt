@@ -57,4 +57,4 @@ fun onColorFor(color: Int): Int {
 }
 
 /** The dark poster wash only suits the dark theme; on a light background it would grey out the header text. */
-fun washAlpha(backgroundLuminance: Double): Float = TODO()
+fun washAlpha(backgroundLuminance: Double): Float = if (backgroundLuminance < 0.5) 0.55f else 0f

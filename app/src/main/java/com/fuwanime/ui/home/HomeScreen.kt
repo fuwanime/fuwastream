@@ -179,7 +179,7 @@ private fun HomeScreen(
                 val heroLoading = feed.loading && state.hero.isEmpty()
                 Crossfade(heroLoading, animationSpec = tween(Motion.Medium), label = "hero") { loading ->
                     if (loading) {
-                        SkeletonBox(Modifier.fillMaxWidth().height(HeroHeight), shape = MaterialTheme.shapes.extraSmall)
+                        SkeletonBox(Modifier.fillMaxWidth().height(heroHeightDp(LocalDensity.current.fontScale).dp), shape = MaterialTheme.shapes.extraSmall)
                     } else if (state.hero.isNotEmpty()) {
                         HeroPager(state.hero, favoriteIds, onToggleFavorite) { onAnimeClick(it, "home-hero") }
                     } else {
@@ -433,7 +433,6 @@ fun Wordmark(onDark: Boolean = false) {
     }
 }
 
-private val HeroHeight = 540.dp
 
 /** The API's images are small: decode one tiny and blur it, so the stretched backdrop never shows its pixels. */
 @Composable
@@ -459,7 +458,8 @@ private fun HeroPager(items: List<Anime>, favoriteIds: Set<String>, onToggleFavo
     }
     val background = MaterialTheme.colorScheme.background
     Box {
-        HorizontalPager(pager, Modifier.fillMaxWidth().height(HeroHeight)) { page ->
+        // Grows with large font scales so the title and the Tonton button are never squeezed out.
+        HorizontalPager(pager, Modifier.fillMaxWidth().height(heroHeightDp(LocalDensity.current.fontScale).dp)) { page ->
             val anime = items[page]
             Box(Modifier.fillMaxSize()) {
                 val press = remember { MutableInteractionSource() }

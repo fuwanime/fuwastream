@@ -1,5 +1,6 @@
 package com.fuwanime.ui.detail
 
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.heightIn
@@ -465,7 +466,7 @@ private fun Header(anime: Anime?, origin: String?, entryKey: String, linkBackdro
         // The poster's colour washes over the lower backdrop, behind the poster and title.
         Box(
             Modifier.matchParentSize().background(
-                Brush.verticalGradient(0f to Color.Transparent, 0.6f to tint.copy(alpha = tint.alpha * 0.55f), 1f to Color.Transparent),
+                Brush.verticalGradient(0f to Color.Transparent, 0.6f to tint.copy(alpha = tint.alpha * washAlpha(MaterialTheme.colorScheme.background.luminance().toDouble())), 1f to Color.Transparent),
             ),
         )
         Row(
