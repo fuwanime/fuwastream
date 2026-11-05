@@ -16,6 +16,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.NavigationRail
@@ -60,6 +61,7 @@ import com.fuwanime.ui.components.OfflinePill
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.graphics.Color
@@ -248,6 +250,8 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
     fun onTab(tab: Tab) {
         if (tab == Tab.EXPLORE) nav.navigateTab(Routes.explore()) else nav.navigateTab(tab.route)
     }
+    // The Scaffold this replaced set the content colour; without it, plain Text falls back to black.
+    CompositionLocalProvider(LocalContentColor provides colors.onBackground) {
     Row(Modifier.fillMaxSize().background(colors.background)) {
         if (rail) {
             AnimatedVisibility(
@@ -263,7 +267,7 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
                             selected = selected,
                             onClick = { onTab(tab) },
                             icon = { Icon(if (selected) tab.selectedIcon else tab.icon, null) },
-                            label = { Text(tab.label, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium) },
+                            label = { NavLabel(tab.label, selected) },
                             colors = railColors,
                         )
                     }
@@ -418,7 +422,7 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
                                 selected = selected,
                                 onClick = { onTab(tab) },
                                 icon = { Icon(if (selected) tab.selectedIcon else tab.icon, null) },
-                                label = { Text(tab.label, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium) },
+                                label = { NavLabel(tab.label, selected) },
                                 colors = itemColors,
                             )
                         }
@@ -426,5 +430,14 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
                 }
             }
         }
+    }
+    }
+}
+
+@Composable
+private fun NavLabel(text: String, selected: Boolean) {
+    val d = LocalDensity.current
+    CompositionLocalProvider(LocalDensity provides Density(d.density, navLabelFontScale(d.fontScale))) {
+        Text(text, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, maxLines = 1)
     }
 }
