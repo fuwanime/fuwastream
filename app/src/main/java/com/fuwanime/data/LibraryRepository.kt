@@ -15,6 +15,7 @@ class LibraryRepository(db: FuwaDatabase) {
     private val history = db.watchHistoryDao()
     private val searches = db.searchHistoryDao()
     private val daily = db.watchDailyDao()
+    private val links = db.animeLinkDao()
 
     val favoriteList: Flow<List<FavoriteEntity>> = favorites.observeAll()
 
@@ -100,5 +101,6 @@ class LibraryRepository(db: FuwaDatabase) {
         history.clear()
         searches.clear()
         daily.clear()
+        links.clear()
     }
 }

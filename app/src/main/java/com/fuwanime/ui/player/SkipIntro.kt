@@ -1,6 +1,8 @@
 package com.fuwanime.ui.player
 
 import com.fuwanime.data.OpMark
+import com.fuwanime.data.meta.SegmentKind
+import com.fuwanime.data.meta.SkipSegment
 
 sealed interface SkipAction {
     val targetMs: Long
@@ -12,13 +14,23 @@ sealed interface SkipAction {
     data class JumpAhead(override val targetMs: Long) : SkipAction
 }
 
+/** Inside a community (AniSkip) segment: jump to its end. */
+data class SkipSegmentAction(val kind: SegmentKind, override val targetMs: Long) : SkipAction
+
 private const val JUMP_MS = 85_000L
 private const val JUMP_FROM_MS = 5_000L
 private const val JUMP_UNTIL_MS = 180_000L
 private const val GUESSED_OP_MS = 90_000L
 
 /** [jumpAhead] off hides the generic +85s jump; a marked opening still offers "Lewati OP". */
-fun skipActionAt(positionMs: Long, durationMs: Long, mark: OpMark?, jumpAhead: Boolean = true): SkipAction? {
+fun skipActionAt(
+    positionMs: Long,
+    durationMs: Long,
+    mark: OpMark?,
+    jumpAhead: Boolean = true,
+    segments: List<SkipSegment> = emptyList(),
+): SkipAction? {
+    if (segments.isNotEmpty()) TODO()
     if (mark != null && mark.isValid) {
         // Leave the last second alone: skipping it is pointless and the button would flash.
         return if (positionMs >= mark.startMs && positionMs < mark.endMs - 1_000) SkipAction.SkipOp(mark.endMs) else null
@@ -46,3 +58,11 @@ fun markOp(current: OpMark?, positionMs: Long, isStart: Boolean): OpMark = if (i
 } else {
     OpMark(current?.startMs?.takeIf { it < positionMs } ?: (positionMs - GUESSED_OP_MS).coerceAtLeast(0), positionMs)
 }
+
+fun skipLabel(action: SkipAction): String = TODO()
+
+/** AniSkip numbers episodes 1, 2, …; fractional or named episodes ("12.5", "OVA") have no entry. */
+fun episodeNumberForSkip(number: String): Int? = TODO()
+
+/** Segments only for the episode they were fetched for, so a switch never shows the previous episode's. */
+fun segmentsFor(current: Pair<String, List<SkipSegment>>, episodeId: String): List<SkipSegment> = TODO()
