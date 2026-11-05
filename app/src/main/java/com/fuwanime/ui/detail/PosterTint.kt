@@ -55,3 +55,6 @@ fun onColorFor(color: Int): Int {
     val l = relativeLuminance(color)
     return if (contrast(l, 1.0) >= contrast(l, 0.0)) 0xFFFFFFFF.toInt() else 0xFF000000.toInt()
 }
+
+/** The dark poster wash only suits the dark theme; on a light background it would grey out the header text. */
+fun washAlpha(backgroundLuminance: Double): Float = TODO()
