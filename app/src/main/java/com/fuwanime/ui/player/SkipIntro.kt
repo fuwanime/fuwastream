@@ -30,7 +30,11 @@ fun skipActionAt(
     jumpAhead: Boolean = true,
     segments: List<SkipSegment> = emptyList(),
 ): SkipAction? {
-    if (segments.isNotEmpty()) TODO()
+    val validMark = mark?.takeIf { it.isValid }
+    segments.firstOrNull { (validMark == null || it.kind != SegmentKind.OP) && positionMs >= it.startMs && positionMs < it.endMs - 1_000 }
+        ?.let { return SkipSegmentAction(it.kind, it.endMs) }
+    // A known AniSkip opening replaces the generic jump (the button appears once the opening starts).
+    if (validMark == null && segments.any { it.kind == SegmentKind.OP }) return null
     if (mark != null && mark.isValid) {
         // Leave the last second alone: skipping it is pointless and the button would flash.
         return if (positionMs >= mark.startMs && positionMs < mark.endMs - 1_000) SkipAction.SkipOp(mark.endMs) else null
@@ -50,7 +54,8 @@ fun skipButtonVisible(controlsVisible: Boolean, fullscreen: Boolean, locked: Boo
  * edited the mark (so marking the start never jumps to a guessed end behind the sheet).
  */
 fun shouldAutoSkip(enabled: Boolean, action: SkipAction?, episodeId: String, handledEpisodeId: String?): Boolean =
-    enabled && action is SkipAction.SkipOp && handledEpisodeId != episodeId
+    enabled && (action is SkipAction.SkipOp || (action is SkipSegmentAction && action.kind == SegmentKind.OP)) &&
+        handledEpisodeId != episodeId
 
 /** Sets one edge of the mark at [positionMs], keeping the other edge when it still makes sense. */
 fun markOp(current: OpMark?, positionMs: Long, isStart: Boolean): OpMark = if (isStart) {
@@ -59,10 +64,19 @@ fun markOp(current: OpMark?, positionMs: Long, isStart: Boolean): OpMark = if (i
     OpMark(current?.startMs?.takeIf { it < positionMs } ?: (positionMs - GUESSED_OP_MS).coerceAtLeast(0), positionMs)
 }
 
-fun skipLabel(action: SkipAction): String = TODO()
+fun skipLabel(action: SkipAction): String = when (action) {
+    is SkipAction.SkipOp -> "Lewati OP"
+    is SkipAction.JumpAhead -> "+85 dtk"
+    is SkipSegmentAction -> when (action.kind) {
+        SegmentKind.OP -> "Lewati OP"
+        SegmentKind.ED -> "Lewati ED"
+        SegmentKind.RECAP -> "Lewati recap"
+    }
+}
 
 /** AniSkip numbers episodes 1, 2, …; fractional or named episodes ("12.5", "OVA") have no entry. */
-fun episodeNumberForSkip(number: String): Int? = TODO()
+fun episodeNumberForSkip(number: String): Int? = number.trim().toIntOrNull()?.takeIf { it > 0 }
 
 /** Segments only for the episode they were fetched for, so a switch never shows the previous episode's. */
-fun segmentsFor(current: Pair<String, List<SkipSegment>>, episodeId: String): List<SkipSegment> = TODO()
+fun segmentsFor(current: Pair<String, List<SkipSegment>>, episodeId: String): List<SkipSegment> =
+    if (current.first == episodeId) current.second else emptyList()
