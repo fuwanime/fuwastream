@@ -116,7 +116,9 @@ class PlayerViewModel(
     /** AniSkip segments paired with the episode they belong to; read through [segmentsFor]. */
     private val _segments = MutableStateFlow("" to emptyList<SkipSegment>())
     val segments: StateFlow<Pair<String, List<SkipSegment>>> = _segments.asStateFlow()
-    private var segmentsRequestedFor: String? = null
+    private var segmentsDoneFor: String? = null
+    private var segmentsTriedAt: Long? = null
+    private var segmentsJob: Job? = null
 
     init {
         // The franchise list (for "Tonton selanjutnya") comes with the detail; it also fills in a missing anime.
@@ -133,16 +135,20 @@ class PlayerViewModel(
     /** Fetches AniSkip segments once per episode, once the real duration is known (AniSkip matches on it). */
     fun onDurationKnown(episodeId: String, durationMs: Long) {
         val episode = _state.value.episode
-        if (durationMs <= 0 || episode.id != episodeId || segmentsRequestedFor == episodeId) return
+        val now = System.currentTimeMillis()
+        if (!shouldTrySegments(episodeId, episode.id, durationMs, segmentsDoneFor, segmentsJob?.isActive == true, segmentsTriedAt, now)) return
         val number = episodeNumberForSkip(episode.number) ?: return
         val links = links ?: return
         val skips = skips ?: return
-        segmentsRequestedFor = episodeId
-        viewModelScope.launch {
-            val mal = links.malIdFor(animeId) ?: return@launch
+        segmentsTriedAt = now
+        segmentsJob = viewModelScope.launch {
+            // Opened straight from Lanjutkan/widget, the anime may never have been linked on a Detail screen.
+            val mal = links.malIdFor(animeId) ?: _state.value.anime?.let { links.link(it); links.malIdFor(animeId) } ?: return@launch
+            segmentsDoneFor = episodeId
             val segs = skips.segments(mal, number, durationMs)
             if (_state.value.episode.id == episodeId) _segments.value = episodeId to segs
         }
+    }
     }
 
     fun play(episode: Episode) {

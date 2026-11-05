@@ -85,7 +85,8 @@ fun segmentsFor(current: Pair<String, List<SkipSegment>>, episodeId: String): Li
     if (current.first == episodeId) current.second else emptyList()
 
 /** The player's loaded item is the current source and has rendered, so its duration is this episode's. */
-fun segmentSourceReady(firstFrame: Boolean, loadedUri: String?, sourceUrl: String?): Boolean = TODO()
+fun segmentSourceReady(firstFrame: Boolean, loadedUri: String?, sourceUrl: String?): Boolean =
+    firstFrame && sourceUrl != null && loadedUri == sourceUrl
 
 /**
  * Whether to look up AniSkip now: once per episode after a MAL id was found, one attempt at a time, and at most
@@ -99,7 +100,9 @@ fun shouldTrySegments(
     inFlight: Boolean,
     lastTryMs: Long?,
     nowMs: Long,
-): Boolean = TODO()
+): Boolean = durationMs > 0 && episodeId == currentEpisodeId && doneFor != episodeId && !inFlight &&
+    (lastTryMs == null || nowMs - lastTryMs >= 5_000)
 
 /** The next-season card belongs to the end of a finished season, not to the latest episode of one still airing. */
-fun offerNextSeason(anime: Anime?, next: Episode?, nextSeason: SeasonEntry?): SeasonEntry? = TODO()
+fun offerNextSeason(anime: Anime?, next: Episode?, nextSeason: SeasonEntry?): SeasonEntry? =
+    nextSeason?.takeIf { next == null && anime?.isOngoing != true }

@@ -109,8 +109,9 @@ class DetailViewModel(
                     _state.update {
                         it.copy(anime = d.anime, loadingInfo = false, seasons = watchOrder(d.anime, d.seasons))
                     }
-                    loadSimilar(d.anime)
+                    // Before loadSimilar (a suspend network call), so a quick "Tonton" finds the link.
                     loadMeta(d.anime)
+                    loadSimilar(d.anime)
                 }
                 .onFailure { e ->
                     _state.update { it.copy(loadingInfo = false, infoError = e.friendlyMessage()) }

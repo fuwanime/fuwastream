@@ -372,8 +372,10 @@ fun PlayerRoute(
             playback.position = player.effectivePosition(playback).coerceAtLeast(0)
             playback.buffered = player.bufferedPosition.coerceAtLeast(0)
             playback.duration = player.duration.takeIf { it != C.TIME_UNSET } ?: 0L
-            // After the first frame the duration belongs to the current episode, not the previous one.
-            if (playback.firstFrame) vm.onDurationKnown(state.episode.id, playback.duration)
+            // Only once the loaded item is this episode's source does the duration belong to it.
+            if (segmentSourceReady(playback.firstFrame, player.currentMediaItem?.localConfiguration?.uri?.toString(), state.source?.url)) {
+                vm.onDurationKnown(state.episode.id, playback.duration)
+            }
             delay(250)
         }
     }
@@ -900,7 +902,7 @@ private fun VideoSurface(
         if (playback.ended && !state.loading) {
             EndOverlay(
                 next = state.next,
-                nextSeason = state.nextSeason,
+                nextSeason = offerNextSeason(state.anime, state.next, state.nextSeason),
                 onOpenSeason = onOpenAnime,
                 autoPlay = autoPlayAllowed(settings.autoPlayNext, sleep, sleepExpired),
                 onNext = onNext,
