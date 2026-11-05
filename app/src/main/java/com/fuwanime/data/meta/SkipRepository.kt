@@ -16,7 +16,10 @@ class SkipRepository(private val api: AniSkipApi) {
         return withContext(Dispatchers.IO) {
             try {
                 val r = api.skipTimes(malId, episode, SKIP_TYPES, durationMs / 1000.0)
-                (if (r.found) skipSegments(r.results, durationMs) else emptyList()).also { cache[key] = it }
+                val segs = if (r.found) skipSegments(r.results, durationMs) else emptyList()
+                // Everything dropped by the length check may be a stale duration: don't remember that.
+                if (segs.isNotEmpty() || r.results.isEmpty()) cache[key] = segs
+                segs
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
