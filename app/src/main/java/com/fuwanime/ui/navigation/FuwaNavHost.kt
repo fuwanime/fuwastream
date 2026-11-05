@@ -329,6 +329,10 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
                                 PlayerRoute(
                                     sharedKey = entry.arguments?.getString("shared")?.takeIf { it.isNotBlank() },
                                     onBack = { nav.popBackStack() },
+                                    onOpenAnime = { a ->
+                                        nav.popBackStack()
+                                        openAnime(a, "player")
+                                    },
                                 )
                             }
                         }
