@@ -149,7 +149,6 @@ class PlayerViewModel(
             if (_state.value.episode.id == episodeId) _segments.value = episodeId to segs
         }
     }
-    }
 
     fun play(episode: Episode) {
         loadJob?.cancel()
