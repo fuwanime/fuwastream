@@ -237,6 +237,8 @@ fresh; shot qa11e-font200-home 1
 tap "Tonton"; sleep 3; [ -n "$(find_xy "Tonton")" ] && tap "Tonton"; shot qa11f-font200-detail 5
 scroll_to "Episode 1"; shot qa11f2-font200-detail-episodes 1; adb shell input keyevent KEYCODE_BACK; sleep 2
 tap "Jelajah"; shot qa11g-font200-explore 3
+adb shell input swipe 540 1700 540 900 400; shot qa11g2-font200-explore-header-hidden 1.5
+adb shell input swipe 540 1000 540 1250 300; shot qa11g3-font200-explore-header-back 1.5
 tap "Koleksi"; shot qa11h-font200-library 3
 tap "Jadwal"; shot qa11i-font200-schedule 3
 adb shell settings put system font_scale 1.0; alive
