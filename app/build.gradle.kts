@@ -11,12 +11,14 @@ val releaseKeystore = System.getenv("KEYSTORE_PATH")?.let { file(it) }?.takeIf {
 
 android {
   namespace = "com.fuwanime"
-  compileSdk = 36
+  compileSdk = 37
+  // A call above minSdk crashes old phones at runtime; fail the release build instead (lintVital runs fatal checks).
+  lint { fatal += "NewApi" }
 
   defaultConfig {
     applicationId = "com.fuwanime.app"
     minSdk = 24
-    targetSdk = 36
+    targetSdk = 37
     // F-Droid & CI pass VERSION_CODE/VERSION_NAME as env vars. Fallback to fixed
     // values when not set (deterministic, not epoch minutes).
     versionCode = System.getenv("VERSION_CODE")?.toIntOrNull() ?: 2
@@ -79,11 +81,13 @@ dependencies {
   implementation(libs.androidx.room.ktx)
   implementation(libs.androidx.room.runtime)
   implementation(libs.coil.compose)
+  implementation(libs.coil.network.okhttp)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.media3.datasource.okhttp)
   implementation(libs.media3.exoplayer)
   implementation(libs.media3.exoplayer.hls)
   implementation(libs.media3.ui)
+  implementation(libs.media3.session)
   implementation(libs.androidx.work.runtime.ktx)
   implementation(libs.androidx.glance.appwidget)
   implementation(libs.moshi.kotlin)

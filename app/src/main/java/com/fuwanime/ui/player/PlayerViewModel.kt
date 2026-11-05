@@ -16,6 +16,7 @@ import com.fuwanime.data.nextLowerThan
 import com.fuwanime.data.StreamSource
 import com.fuwanime.data.local.AppSettings
 import com.fuwanime.data.local.SettingsStore
+import com.fuwanime.data.local.VideoResize
 import com.fuwanime.util.friendlyMessage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -239,6 +240,10 @@ class PlayerViewModel(
 
     fun markOpStart(positionMs: Long) = saveOpMark(markOp(opMark.value, positionMs, isStart = true))
     fun markOpEnd(positionMs: Long) = saveOpMark(markOp(opMark.value, positionMs, isStart = false))
+    fun setVideoResize(mode: VideoResize) {
+        viewModelScope.launch { settingsStore.setVideoResize(mode) }
+    }
+
     fun clearOpMark() {
         viewModelScope.launch { settingsStore.clearOpMark(animeId) }
     }

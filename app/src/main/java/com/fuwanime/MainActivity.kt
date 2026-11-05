@@ -1,6 +1,7 @@
 package com.fuwanime
 
 import android.Manifest
+import android.app.PictureInPictureUiState
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -109,6 +110,11 @@ class MainActivity : ComponentActivity() {
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
         pip.onUserLeaveHint()
+    }
+
+    override fun onPictureInPictureUiStateChanged(pipState: PictureInPictureUiState) {
+        super.onPictureInPictureUiStateChanged(pipState)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) pip.onPipUiState(pipState.isTransitioningToPip)
     }
 
     private fun requestNotificationPermissionIfNeeded() {
