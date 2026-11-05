@@ -38,6 +38,16 @@ class SkipRepositoryTest {
         assertEquals(1, server.requestCount)
     }
 
+    // A length mismatch (say a stale duration) must not stick for the whole process.
+    @Test fun allFilteredOutIsNotCached() = runBlocking {
+        val body = """{"found":true,"results":[{"interval":{"startTime":84.5,"endTime":174.5},"skipType":"op","episodeLength":1420.0}]}"""
+        server.enqueue(MockResponse().setBody(body))
+        server.enqueue(MockResponse().setBody(body))
+        assertTrue(repo.segments(5, 1, 1_300_000).isEmpty())
+        assertEquals(1, repo.segments(5, 1, 1_420_000).size)
+        assertEquals(2, server.requestCount)
+    }
+
     @Test fun failureIsEmpty() = runBlocking {
         server.enqueue(MockResponse().setResponseCode(500))
         assertTrue(repo.segments(1, 1, 1_420_000).isEmpty())

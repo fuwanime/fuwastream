@@ -1,6 +1,9 @@
 package com.fuwanime.ui.player
 
+import com.fuwanime.data.Anime
+import com.fuwanime.data.Episode
 import com.fuwanime.data.OpMark
+import com.fuwanime.data.SeasonEntry
 import com.fuwanime.data.meta.SegmentKind
 import com.fuwanime.data.meta.SkipSegment
 
@@ -80,3 +83,23 @@ fun episodeNumberForSkip(number: String): Int? = number.trim().toIntOrNull()?.ta
 /** Segments only for the episode they were fetched for, so a switch never shows the previous episode's. */
 fun segmentsFor(current: Pair<String, List<SkipSegment>>, episodeId: String): List<SkipSegment> =
     if (current.first == episodeId) current.second else emptyList()
+
+/** The player's loaded item is the current source and has rendered, so its duration is this episode's. */
+fun segmentSourceReady(firstFrame: Boolean, loadedUri: String?, sourceUrl: String?): Boolean = TODO()
+
+/**
+ * Whether to look up AniSkip now: once per episode after a MAL id was found, one attempt at a time, and at most
+ * every 5 s while the anime is not linked yet (the Detail screen may still be linking it).
+ */
+fun shouldTrySegments(
+    episodeId: String,
+    currentEpisodeId: String,
+    durationMs: Long,
+    doneFor: String?,
+    inFlight: Boolean,
+    lastTryMs: Long?,
+    nowMs: Long,
+): Boolean = TODO()
+
+/** The next-season card belongs to the end of a finished season, not to the latest episode of one still airing. */
+fun offerNextSeason(anime: Anime?, next: Episode?, nextSeason: SeasonEntry?): SeasonEntry? = TODO()
