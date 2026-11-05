@@ -204,6 +204,8 @@ fresh
 tap "Tonton"; sleep 10; scroll_to "Info dari AniList*"; shot qa10a-detail-meta 1
 check "anilist footer" "$(find_xy "Info dari AniList*" | wc -l)"
 scroll_to "Episode 1" && tap "Episode 1"; sleep 25
+# Episode 1 may resume past its opening: show the controls and tap the seekbar at ~1:40 (inside AniSkip's OP, 64–151 s of 23:40).
+adb shell input tap 540 350; sleep 1; adb shell input tap 106 705; sleep 6
 check "aniskip button" "$( [ -n "$(find_xy "Lewati OP")" ] && echo 1 || echo 0 )"; shot qa10b-player-skip 0
 adb shell input keyevent KEYCODE_BACK; sleep 2; adb shell input keyevent KEYCODE_BACK; sleep 2; alive
 fresh
