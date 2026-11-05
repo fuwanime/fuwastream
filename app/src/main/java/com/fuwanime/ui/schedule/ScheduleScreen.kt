@@ -235,7 +235,8 @@ private fun ScheduleRow(anime: Anime, origin: String, onClick: () -> Unit) {
         NetImage(
             anime.poster,
             Modifier.width(76.dp).aspectRatio(2f / 3f).sharedKey(sharedPosterKey(anime.id, origin)).clip(MaterialTheme.shapes.small),
-            anime.title,
+            // The clickable row merges its texts for TalkBack; an image description would replace them.
+            null,
         )
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {

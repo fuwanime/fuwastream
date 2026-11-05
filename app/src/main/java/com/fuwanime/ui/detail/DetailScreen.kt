@@ -714,7 +714,8 @@ private fun EpisodeRow(
             NetImage(
                 ep.thumbnail,
                 Modifier.fillMaxSize().alpha(if (finished) 0.4f else 1f).sharedKey(sharedEpisodeKey(ep.id, "detail")).clip(RoundedCornerShape(10.dp)),
-                "Episode ${ep.number}",
+                // The row's texts already say which episode; a description would replace them in TalkBack.
+                null,
             )
             if (finished) {
                 Icon(Icons.Rounded.Check, "Sudah ditonton", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.align(Alignment.Center).size(22.dp))

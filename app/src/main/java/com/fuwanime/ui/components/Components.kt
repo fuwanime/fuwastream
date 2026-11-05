@@ -1,5 +1,9 @@
 package com.fuwanime.ui.components
 
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -180,6 +184,8 @@ fun PosterCard(
     onLongClick: (() -> Unit)? = null,
     /** Multi-select state: outlined, dimmed and checked. */
     selected: Boolean = false,
+    /** What TalkBack's actions menu calls [onLongClick]. */
+    longClickLabel: String = "Pilih",
 ) {
     val interaction = remember { MutableInteractionSource() }
     val marked = highlighted || selected
@@ -192,7 +198,12 @@ fun PosterCard(
                 indication = LocalIndication.current,
                 onLongClick = onLongClick,
                 onClick = onClick,
-            ),
+            )
+            // One TalkBack item per card; long-press (TalkBack has no such gesture) becomes a named action.
+            .semantics(mergeDescendants = true) {
+                contentDescription = posterDescription(anime.title, caption, badge, isNew, anime.isOngoing, selected)
+                if (onLongClick != null) customActions = listOf(CustomAccessibilityAction(longClickLabel) { onLongClick(); true })
+            },
     ) {
         val poster = rememberSharedKey(sharedOrigin?.let { sharedPosterKey(anime.id, it) })
         Box(
@@ -209,7 +220,7 @@ fun PosterCard(
                 // Clip after the shared key so the flying copy keeps its rounded corners.
                 // Dim outside the shared element so the flying copy stays at full brightness.
                 Modifier.fillMaxSize().alpha(if (marked) 0.55f else 1f).sharedKey(poster).clip(MaterialTheme.shapes.medium),
-                anime.title,
+                null,
             )
             val cornerBadge = Modifier.align(Alignment.TopStart).aboveSharedElements().revealWhenLanded(poster).padding(7.dp)
             when {

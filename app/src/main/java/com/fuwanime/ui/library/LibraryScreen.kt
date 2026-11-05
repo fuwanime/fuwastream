@@ -1,5 +1,9 @@
 package com.fuwanime.ui.library
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.foundation.layout.heightIn
 import com.fuwanime.ui.components.LocalNavBarPadding
 import androidx.compose.foundation.clickable
 import androidx.activity.compose.BackHandler
@@ -305,6 +309,8 @@ private fun HistoryRow(
                 onLongClick = { onToggleSelect(entry.animeId) },
                 onClick = { if (selecting) onToggleSelect(entry.animeId) else onResume(entry) },
             )
+            // TalkBack has no long-press gesture: offer "Pilih" in its actions menu.
+            .semantics { customActions = listOf(CustomAccessibilityAction("Pilih") { onToggleSelect(entry.animeId); true }) }
             .padding(vertical = 8.dp, horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -312,7 +318,8 @@ private fun HistoryRow(
             NetImage(
                 entry.episodeThumbnail.ifBlank { entry.animeCover },
                 Modifier.fillMaxSize().sharedKey(sharedEpisodeKey(entry.episodeId, "library")).clip(RoundedCornerShape(12.dp)),
-                "${entry.animeTitle} — Episode ${entry.episodeNumber}",
+                // The row's own texts are read; a description here would replace them in TalkBack.
+                null,
             )
             Text(
                 "EP ${entry.episodeNumber}",
@@ -385,7 +392,7 @@ private fun SegmentedTabs(titles: List<String>, selected: Int, onSelect: (Int) -
             Box(
                 Modifier
                     .weight(1f)
-                    .height(40.dp)
+                    .heightIn(min = 40.dp)
                     .clip(RoundedCornerShape(10.dp))
                     .background(if (on) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
                     .selectable(selected = on, role = Role.Tab, onClick = { onSelect(i) }),

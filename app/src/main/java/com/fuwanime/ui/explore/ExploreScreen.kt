@@ -1,5 +1,6 @@
 package com.fuwanime.ui.explore
 
+import androidx.compose.foundation.layout.heightIn
 import com.fuwanime.ui.components.LocalNavBarPadding
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -229,7 +230,7 @@ private fun ResultsHeader(filters: ExploreFilters, vm: ExploreViewModel, onRando
                 shape = RoundedCornerShape(10.dp),
                 contentPadding = PaddingValues(start = 12.dp, end = 8.dp),
                 colors = ButtonDefaults.filledTonalButtonColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                modifier = Modifier.height(36.dp),
+                modifier = Modifier.heightIn(min = 36.dp),
             ) {
                 Icon(Icons.Rounded.Sort, null, Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
