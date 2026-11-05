@@ -68,7 +68,10 @@ enum class Day(val apiValue: String, val label: String, val short: String) {
     SUNDAY("minggu", "Minggu", "Min");
 
     companion object {
-        fun today(): Day = when (Calendar.getInstance().get(Calendar.DAY_OF_WEEK)) {
+        fun today(): Day = of(Calendar.getInstance().get(Calendar.DAY_OF_WEEK))
+
+        /** [dayOfWeek] is a [Calendar.DAY_OF_WEEK] value. */
+        fun of(dayOfWeek: Int): Day = when (dayOfWeek) {
             Calendar.MONDAY -> MONDAY
             Calendar.TUESDAY -> TUESDAY
             Calendar.WEDNESDAY -> WEDNESDAY

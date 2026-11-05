@@ -12,6 +12,8 @@ import com.fuwanime.data.local.SettingsStore
 import com.fuwanime.data.Episode
 import com.fuwanime.data.LibraryRepository
 import com.fuwanime.data.SeasonEntry
+import com.fuwanime.data.meta.AnimeLinkRepository
+import com.fuwanime.data.meta.AnimeMeta
 import com.fuwanime.data.rankSimilar
 import com.fuwanime.data.local.WatchHistoryEntity
 import com.fuwanime.data.remote.AnimeApiService.Companion.EPISODE_PAGE_SIZE
@@ -51,8 +53,10 @@ data class DetailUiState(
     val firstEpisode: Episode? = null,
     /** Titles with closely matching genres, shown as "Anime Serupa". */
     val similar: List<Anime> = emptyList(),
-    /** Other seasons, movies and spin-offs of the same franchise, shown as "Season & Terkait". */
+    /** The whole franchise in airing order (this anime included), shown as "Season & Terkait". */
     val seasons: List<SeasonEntry> = emptyList(),
+    /** AniList score, tags and next airing episode; null until (or unless) the anime is linked. */
+    val meta: AnimeMeta? = null,
 )
 
 class DetailViewModel(
@@ -60,6 +64,7 @@ class DetailViewModel(
     private val library: LibraryRepository,
     private val downloads: DownloadRepository,
     private val settings: SettingsStore,
+    private val links: AnimeLinkRepository,
     saved: SavedStateHandle,
 ) : ViewModel() {
 
@@ -82,14 +87,30 @@ class DetailViewModel(
         loadEpisodes()
     }
 
+    /** Enrichment runs on its own; the detail is already on screen and never waits for AniList. */
+    private fun loadMeta(anime: Anime) {
+        viewModelScope.launch {
+            val meta = links.link(anime)
+            _state.update { it.copy(meta = meta) }
+        }
+    }
+
+    /** "Bukan anime ini?": hide AniList info (and AniSkip) for this anime from now on. */
+    fun unlinkMeta() {
+        _state.update { it.copy(meta = null) }
+        viewModelScope.launch { links.unlink(animeId) }
+    }
+
     fun loadInfo() {
         _state.update { it.copy(loadingInfo = true, infoError = null) }
         viewModelScope.launch {
             repo.detailWithSeasons(animeId)
                 .onSuccess { d ->
                     _state.update {
-                        it.copy(anime = d.anime, loadingInfo = false, seasons = relatedSeasons(animeId, d.seasons))
+                        it.copy(anime = d.anime, loadingInfo = false, seasons = watchOrder(d.anime, d.seasons))
                     }
+                    // Before loadSimilar (a suspend network call), so a quick "Tonton" finds the link.
+                    loadMeta(d.anime)
                     loadSimilar(d.anime)
                 }
                 .onFailure { e ->

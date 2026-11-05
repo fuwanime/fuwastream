@@ -1,6 +1,12 @@
 package com.fuwanime.ui.player
 
 import androidx.lifecycle.SavedStateHandle
+import com.fuwanime.data.SeasonEntry
+import com.fuwanime.data.meta.AnimeLinkRepository
+import com.fuwanime.data.meta.SkipRepository
+import com.fuwanime.data.meta.SkipSegment
+import com.fuwanime.ui.detail.nextInFranchise
+import com.fuwanime.ui.detail.watchOrder
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import android.net.Uri
@@ -51,6 +57,8 @@ data class PlayerUiState(
     val offline: Boolean = false,
     /** One-shot message for the snackbar (download started/failed). */
     val message: String? = null,
+    /** The franchise entry after this one ("S2" after "S1"), offered when the last episode ends. */
+    val nextSeason: SeasonEntry? = null,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -65,6 +73,8 @@ class PlayerViewModel(
     saved: SavedStateHandle,
     /** Updates the "Lanjutkan" shortcut and widget once the user leaves an episode. */
     private val refreshHomeSurfaces: () -> Unit = {},
+    private val links: AnimeLinkRepository? = null,
+    private val skips: SkipRepository? = null,
 ) : ViewModel() {
 
     private val animeId: String = checkNotNull(saved["animeId"])
@@ -103,13 +113,41 @@ class PlayerViewModel(
     /** Sources of the current episode that already failed, so fallback never loops. */
     private val failedUrls = mutableSetOf<String>()
 
+    /** AniSkip segments paired with the episode they belong to; read through [segmentsFor]. */
+    private val _segments = MutableStateFlow("" to emptyList<SkipSegment>())
+    val segments: StateFlow<Pair<String, List<SkipSegment>>> = _segments.asStateFlow()
+    private var segmentsDoneFor: String? = null
+    private var segmentsTriedAt: Long? = null
+    private var segmentsJob: Job? = null
+
     init {
-        if (_state.value.anime == null) {
-            viewModelScope.launch {
-                repo.detail(animeId).onSuccess { a -> _state.update { it.copy(anime = a) } }
+        // The franchise list (for "Tonton selanjutnya") comes with the detail; it also fills in a missing anime.
+        viewModelScope.launch {
+            repo.detailWithSeasons(animeId).onSuccess { d ->
+                _state.update {
+                    it.copy(anime = it.anime ?: d.anime, nextSeason = nextInFranchise(animeId, watchOrder(d.anime, d.seasons)))
+                }
             }
         }
         play(_state.value.episode)
+    }
+
+    /** Fetches AniSkip segments once per episode, once the real duration is known (AniSkip matches on it). */
+    fun onDurationKnown(episodeId: String, durationMs: Long) {
+        val episode = _state.value.episode
+        val now = System.currentTimeMillis()
+        if (!shouldTrySegments(episodeId, episode.id, durationMs, segmentsDoneFor, segmentsJob?.isActive == true, segmentsTriedAt, now)) return
+        val number = episodeNumberForSkip(episode.number) ?: return
+        val links = links ?: return
+        val skips = skips ?: return
+        segmentsTriedAt = now
+        segmentsJob = viewModelScope.launch {
+            // Opened straight from Lanjutkan/widget, the anime may never have been linked on a Detail screen.
+            val mal = links.malIdFor(animeId) ?: _state.value.anime?.let { links.link(it); links.malIdFor(animeId) } ?: return@launch
+            segmentsDoneFor = episodeId
+            val segs = skips.segments(mal, number, durationMs)
+            if (_state.value.episode.id == episodeId) _segments.value = episodeId to segs
+        }
     }
 
     fun play(episode: Episode) {

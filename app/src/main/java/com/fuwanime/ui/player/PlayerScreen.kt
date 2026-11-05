@@ -88,6 +88,16 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.widthIn
+import com.fuwanime.data.Anime
+import com.fuwanime.data.SeasonEntry
+import androidx.compose.ui.layout.ContentScale
+import coil3.compose.AsyncImage
+import androidx.compose.ui.geometry.Offset
+import com.fuwanime.data.meta.SkipSegment
+import com.fuwanime.data.meta.SegmentKind
+import androidx.compose.ui.geometry.Size
+import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -231,6 +241,8 @@ fun PlayerRoute(
     /** Key of the image (episode thumbnail or detail backdrop) that flies into the video area. */
     sharedKey: String? = null,
     onBack: () -> Unit,
+    /** Opens another anime's Detail (the next season at the end of this one). */
+    onOpenAnime: (Anime) -> Unit = {},
 ) {
     val appContext = LocalContext.current.applicationContext
     val vm: PlayerViewModel = fuwaViewModel { c, h ->
@@ -239,6 +251,8 @@ fun PlayerRoute(
             isMetered = { appContext.isMeteredNetwork() },
             saved = h,
             refreshHomeSurfaces = c::refreshHomeSurfaces,
+            links = c.animeLinkRepository,
+            skips = c.skipRepository,
         )
     }
     val state by vm.state.collectAsStateWithLifecycle()
@@ -252,6 +266,7 @@ fun PlayerRoute(
     }
     val settings by vm.settings.collectAsStateWithLifecycle()
     val opMark by vm.opMark.collectAsStateWithLifecycle()
+    val segmentsState by vm.segments.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val activity = remember(context) { context.findActivity() }
     val view = LocalView.current
@@ -357,6 +372,10 @@ fun PlayerRoute(
             playback.position = player.effectivePosition(playback).coerceAtLeast(0)
             playback.buffered = player.bufferedPosition.coerceAtLeast(0)
             playback.duration = player.duration.takeIf { it != C.TIME_UNSET } ?: 0L
+            // Only once the loaded item is this episode's source does the duration belong to it.
+            if (segmentSourceReady(playback.firstFrame, player.currentMediaItem?.localConfiguration?.uri?.toString(), state.source?.url)) {
+                vm.onDurationKnown(state.episode.id, playback.duration)
+            }
             delay(250)
         }
     }
@@ -445,6 +464,7 @@ fun PlayerRoute(
             onResize = vm::setVideoResize,
             speed = speed,
             opMark = opMark,
+            segments = segmentsFor(segmentsState, state.episode.id),
             sleep = sleep,
             sleepExpired = sleepExpired,
             // Only the episode that was tapped has a thumbnail to fly in; later episodes just fade.
@@ -462,6 +482,7 @@ fun PlayerRoute(
             pipSupported = pip?.isSupported == true,
             onNext = vm::playNext,
             onPrevious = vm::playPrevious,
+            onOpenAnime = onOpenAnime,
             onRetry = {
                 if (state.error != null) vm.retry()
                 else {
@@ -549,6 +570,7 @@ private fun VideoSurface(
     onResize: (VideoResize) -> Unit,
     speed: Float,
     opMark: OpMark?,
+    segments: List<SkipSegment>,
     sleep: SleepOption,
     sleepExpired: Boolean,
     thumbnailKey: String?,
@@ -564,6 +586,7 @@ private fun VideoSurface(
     onEnterPip: () -> Unit,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
+    onOpenAnime: (Anime) -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier,
 ) {
@@ -577,6 +600,8 @@ private fun VideoSurface(
     var boosting by remember { mutableStateOf(false) }
     val baseSpeed by rememberUpdatedState(speed)
     var locked by remember { mutableStateOf(false) }
+    /** Where the last auto-skip jumped from, while its "Batalkan" chip shows. */
+    var undoSkipTo by remember { mutableStateOf<Long?>(null) }
     /** Mode just picked by a pinch, shown briefly in the middle of the video. */
     var resizeHint by remember { mutableStateOf<VideoResize?>(null) }
     LaunchedEffect(resizeHint) {
@@ -785,6 +810,7 @@ private fun VideoSurface(
                 player = player,
                 playback = playback,
                 state = state,
+                markers = segments.map { it.startMs to it.endMs } + listOfNotNull(opMark?.takeIf { it.isValid }?.let { it.startMs to it.endMs }),
                 fullscreen = fullscreen,
                 pipSupported = pipSupported,
                 onLock = {
@@ -803,12 +829,39 @@ private fun VideoSurface(
         }
 
         val skip = if (!state.loading && playback.error == null && !playback.ended) {
-            skipActionAt(playback.position, playback.duration, opMark, jumpAhead = settings.jumpAheadButton)
+            skipActionAt(playback.position, playback.duration, opMark, jumpAhead = settings.jumpAheadButton, segments = segments)
         } else null
-        LaunchedEffect((skip as? SkipAction.SkipOp)?.targetMs, state.episode.id) {
+        val autoTarget = (skip as? SkipAction.SkipOp)?.targetMs ?: (skip as? SkipSegmentAction)?.takeIf { it.kind == SegmentKind.OP }?.targetMs
+        LaunchedEffect(autoTarget, state.episode.id) {
             if (skip != null && shouldAutoSkip(settings.autoSkipOp, skip, state.episode.id, autoSkipHandledFor)) {
                 onAutoSkipped(state.episode.id)
+                undoSkipTo = player.effectivePosition(playback)
                 player.seekSafely(skip.targetMs, playback)
+            }
+        }
+        LaunchedEffect(undoSkipTo) {
+            if (undoSkipTo != null) {
+                delay(5_000)
+                undoSkipTo = null
+            }
+        }
+        undoSkipTo?.let { from ->
+            Surface(
+                color = Color.Black.copy(alpha = 0.7f),
+                contentColor = Color.White,
+                shape = RoundedCornerShape(50),
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = if (fullscreen) 32.dp else 12.dp, bottom = if (controlsVisible) 72.dp else 16.dp),
+            ) {
+                Row(Modifier.padding(start = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Intro dilewati", style = MaterialTheme.typography.labelLarge)
+                    TextButton(onClick = {
+                        // Back to where the opening started; autoSkipHandledFor already stops a second skip.
+                        player.seekSafely(from, playback)
+                        undoSkipTo = null
+                    }) { Text("Batalkan", color = MaterialTheme.colorScheme.primary) }
+                }
             }
         }
         if (skip != null && skipButtonVisible(controlsVisible, fullscreen, locked)) {
@@ -824,7 +877,7 @@ private fun VideoSurface(
             ) {
                 Icon(Icons.Rounded.FastForward, null, Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text(if (skip is SkipAction.SkipOp) "Lewati OP" else "+85 dtk")
+                Text(skipLabel(skip))
             }
         }
 
@@ -849,6 +902,8 @@ private fun VideoSurface(
         if (playback.ended && !state.loading) {
             EndOverlay(
                 next = state.next,
+                nextSeason = offerNextSeason(state.anime, state.next, state.nextSeason),
+                onOpenSeason = onOpenAnime,
                 autoPlay = autoPlayAllowed(settings.autoPlayNext, sleep, sleepExpired),
                 onNext = onNext,
                 onReplay = {
@@ -879,6 +934,8 @@ private fun Controls(
     player: ExoPlayer,
     playback: PlaybackState,
     state: PlayerUiState,
+    /** Skippable ranges (AniSkip segments, the user's OP mark) drawn on the seekbar. */
+    markers: List<Pair<Long, Long>>,
     fullscreen: Boolean,
     pipSupported: Boolean,
     onLock: () -> Unit,
@@ -996,6 +1053,16 @@ private fun Controls(
                     drawStopIndicator = {},
                     gapSize = 0.dp,
                 )
+                if (markers.isNotEmpty()) {
+                    val markerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                    Canvas(Modifier.fillMaxWidth().padding(horizontal = 10.dp).height(4.dp)) {
+                        markers.forEach { (start, end) ->
+                            val x0 = size.width * (start.toFloat() / duration).coerceIn(0f, 1f)
+                            val x1 = size.width * (end.toFloat() / duration).coerceIn(0f, 1f)
+                            drawRect(markerColor, topLeft = Offset(x0, 0f), size = Size(x1 - x0, size.height))
+                        }
+                    }
+                }
                 Slider(
                     value = scrubbing ?: (playback.position.toFloat() / duration).coerceIn(0f, 1f),
                     onValueChange = {
@@ -1096,7 +1163,14 @@ private fun LevelIndicator(icon: ImageVector, level: Float, modifier: Modifier) 
 }
 
 @Composable
-private fun EndOverlay(next: Episode?, autoPlay: Boolean, onNext: () -> Unit, onReplay: () -> Unit) {
+private fun EndOverlay(
+    next: Episode?,
+    nextSeason: SeasonEntry?,
+    onOpenSeason: (Anime) -> Unit,
+    autoPlay: Boolean,
+    onNext: () -> Unit,
+    onReplay: () -> Unit,
+) {
     var remaining by remember(next?.id) { mutableIntStateOf(if (autoPlay && next != null) 6 else -1) }
     LaunchedEffect(next?.id, autoPlay) {
         if (!autoPlay || next == null) {
@@ -1127,6 +1201,29 @@ private fun EndOverlay(next: Episode?, autoPlay: Boolean, onNext: () -> Unit, on
                     Icon(Icons.Rounded.PlayArrow, null)
                     Spacer(Modifier.width(4.dp))
                     Text(if (remaining > 0) "Putar ($remaining)" else "Putar sekarang")
+                }
+            }
+        } else if (nextSeason != null) {
+            Surface(
+                onClick = { onOpenSeason(nextSeason.anime) },
+                color = Color.White.copy(alpha = 0.08f),
+                contentColor = Color.White,
+                shape = RoundedCornerShape(16.dp),
+            ) {
+                Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    AsyncImage(
+                        model = nextSeason.anime.poster,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.size(width = 56.dp, height = 80.dp).clip(RoundedCornerShape(8.dp)),
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        "Lanjut ke ${nextSeason.label.ifBlank { "berikutnya" }}: ${nextSeason.anime.title}",
+                        style = MaterialTheme.typography.titleSmall,
+                        maxLines = 3,
+                        modifier = Modifier.widthIn(max = 260.dp),
+                    )
                 }
             }
         } else {
