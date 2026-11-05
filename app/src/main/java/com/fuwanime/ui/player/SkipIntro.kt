@@ -101,7 +101,8 @@ fun shouldTrySegments(
     lastTryMs: Long?,
     nowMs: Long,
 ): Boolean = durationMs > 0 && episodeId == currentEpisodeId && doneFor != episodeId && !inFlight &&
-    (lastTryMs == null || nowMs - lastTryMs >= 5_000)
+    // The throttle is only for waiting on a link; once an episode found its MAL id, the next one asks right away.
+    (lastTryMs == null || doneFor != null || nowMs - lastTryMs >= 5_000)
 
 /** The next-season card belongs to the end of a finished season, not to the latest episode of one still airing. */
 fun offerNextSeason(anime: Anime?, next: Episode?, nextSeason: SeasonEntry?): SeasonEntry? =
