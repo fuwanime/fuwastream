@@ -52,10 +52,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import kotlinx.coroutines.delay
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -64,6 +66,7 @@ import androidx.compose.ui.Modifier
 import com.fuwanime.util.statusLabel
 import com.fuwanime.util.remainingLabel
 import com.fuwanime.ui.components.NewBadge
+import com.fuwanime.data.meta.AnimeMeta
 import com.fuwanime.ui.components.TagChip
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.ui.unit.sp
@@ -134,7 +137,7 @@ fun DetailRoute(
     onAnimeClick: OpenAnime,
     onGenre: (String) -> Unit,
 ) {
-    val vm: DetailViewModel = fuwaViewModel(key = "detail") { c, h -> DetailViewModel(c.animeRepository, c.libraryRepository, c.downloadRepository, c.settingsStore, h) }
+    val vm: DetailViewModel = fuwaViewModel(key = "detail") { c, h -> DetailViewModel(c.animeRepository, c.libraryRepository, c.downloadRepository, c.settingsStore, c.animeLinkRepository, h) }
     val state by vm.state.collectAsStateWithLifecycle()
     val favorite by vm.isFavorite.collectAsStateWithLifecycle()
     val progress by vm.progress.collectAsStateWithLifecycle()
@@ -304,8 +307,14 @@ private fun DetailScreen(
                         }
                     }
                 }
+                state.meta?.let { meta ->
+                    item(key = "meta") { MetaRow(meta, Modifier.navEnter(170).padding(start = 20.dp, end = 20.dp, top = 12.dp)) }
+                }
                 item(key = "synopsis") { Box(Modifier.navEnter(180)) { Synopsis(anime.synopsis) } }
                 item(key = "info") { Box(Modifier.navEnter(200)) { InfoGrid(anime) } }
+                if (state.meta != null) {
+                    item(key = "anilist") { AniListFooter(onUnlink = vm::unlinkMeta) }
+                }
                 if (state.seasons.isNotEmpty()) {
                     item(key = "seasons") {
                         Column(Modifier.padding(top = 24.dp)) {
@@ -315,9 +324,10 @@ private fun DetailScreen(
                             PosterRow(
                                 state.seasons.map { it.anime },
                                 loading = false,
-                                onClick = { onAnimeClick(it, "season-$entryKey") },
+                                // The franchise includes this anime, in airing order; its own card is not a link.
+                                onClick = { if (it.id != anime.id) onAnimeClick(it, "season-$entryKey") },
                                 caption = { a ->
-                                    labels[a.id]?.takeIf { it.isNotBlank() }?.let { if (a.id == anime.id) "$it · Ini" else it }
+                                    if (a.id == anime.id) "Sedang dilihat" else labels[a.id]?.takeIf { it.isNotBlank() }
                                 },
                                 origin = "season-$entryKey",
                                 highlightId = anime.id,
@@ -476,6 +486,55 @@ private fun Header(anime: Anime?, origin: String?, entryKey: String, linkBackdro
                 }
             }
         }
+    }
+}
+
+/** Score, next-episode countdown and AniList tags; nothing here is interactive. */
+@Composable
+private fun MetaRow(meta: AnimeMeta, modifier: Modifier) {
+    val now by produceState(System.currentTimeMillis()) {
+        while (true) {
+            delay(60_000)
+            value = System.currentTimeMillis()
+        }
+    }
+    val chips = listOfNotNull(
+        scoreLabel(meta.score),
+        meta.nextAiringAt?.takeIf { it > now }?.let { at -> meta.nextEpisode?.let { airingLabel(it, at, now) } },
+    ) + meta.tags
+    if (chips.isEmpty()) return
+    FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        chips.forEach { text ->
+            Surface(
+                shape = RoundedCornerShape(50),
+                color = MaterialTheme.colorScheme.surfaceContainer,
+                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            ) {
+                Text(text, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun AniListFooter(onUnlink: () -> Unit) {
+    var confirm by remember { mutableStateOf(false) }
+    Row(Modifier.padding(horizontal = 20.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("Info dari AniList ·", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        TextButton(onClick = { confirm = true }) { Text("Bukan anime ini?", style = MaterialTheme.typography.labelSmall) }
+    }
+    if (confirm) {
+        AlertDialog(
+            onDismissRequest = { confirm = false },
+            text = { Text("Sembunyikan info AniList dan lewati otomatis dari AniSkip untuk anime ini?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirm = false
+                    onUnlink()
+                }) { Text("Sembunyikan") }
+            },
+            dismissButton = { TextButton(onClick = { confirm = false }) { Text("Batal") } },
+        )
     }
 }
 
