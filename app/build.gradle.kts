@@ -81,6 +81,8 @@ dependencies {
   implementation(libs.androidx.room.ktx)
   implementation(libs.androidx.room.runtime)
   implementation(libs.coil.compose)
+  implementation(libs.androidx.palette.ktx)
+  implementation(libs.haze)
   implementation(libs.coil.network.okhttp)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.media3.datasource.okhttp)

@@ -1,5 +1,7 @@
 package com.fuwanime.ui.home
 
+import androidx.compose.foundation.layout.heightIn
+import com.fuwanime.ui.components.LocalNavBarPadding
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
@@ -172,12 +174,12 @@ private fun HomeScreen(
     var showUpdateSheet by remember { mutableStateOf(false) }
 
     PullToRefreshBox(isRefreshing = feed.refreshing, onRefresh = onRefresh, modifier = Modifier.fillMaxSize()) {
-        LazyColumn(state = listState, contentPadding = PaddingValues(bottom = 24.dp), modifier = Modifier.fillMaxSize()) {
+        LazyColumn(state = listState, contentPadding = PaddingValues(bottom = 24.dp + LocalNavBarPadding.current), modifier = Modifier.fillMaxSize()) {
             item(key = "hero") {
                 val heroLoading = feed.loading && state.hero.isEmpty()
                 Crossfade(heroLoading, animationSpec = tween(Motion.Medium), label = "hero") { loading ->
                     if (loading) {
-                        SkeletonBox(Modifier.fillMaxWidth().height(HeroHeight), shape = MaterialTheme.shapes.extraSmall)
+                        SkeletonBox(Modifier.fillMaxWidth().height(heroHeightDp(LocalDensity.current.fontScale).dp), shape = MaterialTheme.shapes.extraSmall)
                     } else if (state.hero.isNotEmpty()) {
                         HeroPager(state.hero, favoriteIds, onToggleFavorite) { onAnimeClick(it, "home-hero") }
                     } else {
@@ -431,7 +433,6 @@ fun Wordmark(onDark: Boolean = false) {
     }
 }
 
-private val HeroHeight = 540.dp
 
 /** The API's images are small: decode one tiny and blur it, so the stretched backdrop never shows its pixels. */
 @Composable
@@ -457,7 +458,8 @@ private fun HeroPager(items: List<Anime>, favoriteIds: Set<String>, onToggleFavo
     }
     val background = MaterialTheme.colorScheme.background
     Box {
-        HorizontalPager(pager, Modifier.fillMaxWidth().height(HeroHeight)) { page ->
+        // Grows with large font scales so the title and the Tonton button are never squeezed out.
+        HorizontalPager(pager, Modifier.fillMaxWidth().height(heroHeightDp(LocalDensity.current.fontScale).dp)) { page ->
             val anime = items[page]
             Box(Modifier.fillMaxSize()) {
                 val press = remember { MutableInteractionSource() }
@@ -533,7 +535,7 @@ private fun HeroPager(items: List<Anime>, favoriteIds: Set<String>, onToggleFavo
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Button(
                             onClick = { onOpen(anime) },
-                            modifier = Modifier.weight(1f).height(50.dp),
+                            modifier = Modifier.weight(1f).heightIn(min = 50.dp),
                             shape = RoundedCornerShape(14.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.onSurface,

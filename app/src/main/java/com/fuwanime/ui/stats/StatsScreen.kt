@@ -1,5 +1,11 @@
 package com.fuwanime.ui.stats
 
+import androidx.compose.foundation.layout.fillMaxHeight
+import com.fuwanime.ui.components.readableWidth
+import com.fuwanime.ui.components.frostedStyle
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.HazeState
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -114,6 +120,7 @@ fun StatsRoute(onBack: () -> Unit) {
         Calendar.getInstance().let { "${MONTH_NAMES[it.get(Calendar.MONTH)]} ${it.get(Calendar.YEAR)}" }
     }
 
+    val hazeState = remember { HazeState() }
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
@@ -121,6 +128,9 @@ fun StatsRoute(onBack: () -> Unit) {
                 title = { Text("Statistik") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Kembali") } },
                 scrollBehavior = scrollBehavior,
+                // Transparent so the frosted layer shows the list scrolling underneath.
+                colors = TopAppBarDefaults.largeTopAppBarColors(containerColor = Color.Transparent, scrolledContainerColor = Color.Transparent),
+                modifier = Modifier.hazeEffect(hazeState, frostedStyle()),
             )
         },
         snackbarHost = { SnackbarHost(snackbar) },
@@ -133,7 +143,7 @@ fun StatsRoute(onBack: () -> Unit) {
             return@Scaffold
         }
         LazyColumn(
-            Modifier.fillMaxSize(),
+            Modifier.fillMaxHeight().readableWidth().hazeSource(hazeState),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = padding.calculateTopPadding(), bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {

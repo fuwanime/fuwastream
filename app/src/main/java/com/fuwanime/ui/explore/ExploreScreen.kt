@@ -1,5 +1,7 @@
 package com.fuwanime.ui.explore
 
+import androidx.compose.foundation.layout.heightIn
+import com.fuwanime.ui.components.LocalNavBarPadding
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -166,7 +168,7 @@ private fun ExploreScreen(
 
 @Composable
 private fun RecentSearches(items: List<String>, onPick: (String) -> Unit, onRemove: (String) -> Unit, onClear: () -> Unit) {
-    LazyColumn(contentPadding = PaddingValues(vertical = 12.dp)) {
+    LazyColumn(contentPadding = PaddingValues(top = 12.dp, bottom = 12.dp + LocalNavBarPadding.current)) {
         item {
             Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Pencarian terakhir", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
@@ -228,7 +230,7 @@ private fun ResultsHeader(filters: ExploreFilters, vm: ExploreViewModel, onRando
                 shape = RoundedCornerShape(10.dp),
                 contentPadding = PaddingValues(start = 12.dp, end = 8.dp),
                 colors = ButtonDefaults.filledTonalButtonColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                modifier = Modifier.height(36.dp),
+                modifier = Modifier.heightIn(min = 36.dp),
             ) {
                 Icon(Icons.Rounded.Sort, null, Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
@@ -295,7 +297,7 @@ private fun ResultsGrid(state: ExploreUiState, vm: ExploreViewModel, onAnimeClic
     when (shown) {
         ResultsBranch.LOADING -> LazyVerticalGrid(
             columns = GridCells.Adaptive(108.dp),
-            contentPadding = PaddingValues(16.dp),
+            contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp + LocalNavBarPadding.current),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
             userScrollEnabled = false,
@@ -314,7 +316,7 @@ private fun ResultsGrid(state: ExploreUiState, vm: ExploreViewModel, onAnimeClic
         ResultsBranch.RESULTS -> LazyVerticalGrid(
             state = gridState,
             columns = GridCells.Adaptive(108.dp),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 24.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 24.dp + LocalNavBarPadding.current),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {

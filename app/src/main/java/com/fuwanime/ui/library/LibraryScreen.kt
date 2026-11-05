@@ -1,5 +1,10 @@
 package com.fuwanime.ui.library
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.foundation.layout.heightIn
+import com.fuwanime.ui.components.LocalNavBarPadding
 import androidx.compose.foundation.clickable
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.combinedClickable
@@ -267,7 +272,7 @@ private fun HistoryList(
         return
     }
     val groups = remember(items) { items.groupBy { historyDayLabel(it.updatedAt) } }
-    LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 8.dp, bottom = 16.dp)) {
+    LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 8.dp, bottom = 16.dp + LocalNavBarPadding.current)) {
         groups.forEach { (day, entries) ->
             item(key = "day-$day") {
                 Text(
@@ -304,6 +309,8 @@ private fun HistoryRow(
                 onLongClick = { onToggleSelect(entry.animeId) },
                 onClick = { if (selecting) onToggleSelect(entry.animeId) else onResume(entry) },
             )
+            // TalkBack has no long-press gesture: offer "Pilih" in its actions menu.
+            .semantics { customActions = listOf(CustomAccessibilityAction("Pilih") { onToggleSelect(entry.animeId); true }) }
             .padding(vertical = 8.dp, horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -311,6 +318,7 @@ private fun HistoryRow(
             NetImage(
                 entry.episodeThumbnail.ifBlank { entry.animeCover },
                 Modifier.fillMaxSize().sharedKey(sharedEpisodeKey(entry.episodeId, "library")).clip(RoundedCornerShape(12.dp)),
+                // The only place the anime's name is inside the row's TalkBack node (the title text is its own button).
                 "${entry.animeTitle} — Episode ${entry.episodeNumber}",
             )
             Text(
@@ -384,7 +392,7 @@ private fun SegmentedTabs(titles: List<String>, selected: Int, onSelect: (Int) -
             Box(
                 Modifier
                     .weight(1f)
-                    .height(40.dp)
+                    .heightIn(min = 40.dp)
                     .clip(RoundedCornerShape(10.dp))
                     .background(if (on) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
                     .selectable(selected = on, role = Role.Tab, onClick = { onSelect(i) }),
@@ -419,7 +427,7 @@ private fun FavoriteGrid(
     val selecting = selection.isNotEmpty()
     LazyVerticalGrid(
         columns = GridCells.Adaptive(108.dp),
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp + LocalNavBarPadding.current),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
@@ -466,7 +474,10 @@ private fun DownloadList(
     val watchedBytes = watched.sumOf { it.totalBytes }
     val stored = items.filter { it.state == DownloadState.DONE }.sumOf { it.totalBytes }
 
-    LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyColumn(
+        contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp + LocalNavBarPadding.current),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
         item {
             Text(
                 "${items.count { it.state == DownloadState.DONE }} episode tersimpan • ${formatBytes(stored)}",

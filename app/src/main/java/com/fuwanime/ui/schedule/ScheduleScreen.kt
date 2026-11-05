@@ -1,5 +1,6 @@
 package com.fuwanime.ui.schedule
 
+import com.fuwanime.ui.components.LocalNavBarPadding
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -167,7 +168,7 @@ fun ScheduleRoute(onAnimeClick: OpenAnime) {
                         message = "Belum ada anime yang dijadwalkan hari ${day.label}.",
                     )
                     else -> LazyColumn(
-                        contentPadding = PaddingValues(16.dp),
+                        contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp + LocalNavBarPadding.current),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.fillMaxSize(),
                     ) {
@@ -194,7 +195,7 @@ private fun SeasonPage(state: SeasonTab, onRetry: () -> Unit, onAnimeClick: Open
             }
             val (fresh, continuing) = remember(state.all, season) { splitBySeason(state.all, season) }
             LazyColumn(
-                contentPadding = PaddingValues(16.dp),
+                contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp + LocalNavBarPadding.current),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxSize(),
             ) {
@@ -234,7 +235,8 @@ private fun ScheduleRow(anime: Anime, origin: String, onClick: () -> Unit) {
         NetImage(
             anime.poster,
             Modifier.width(76.dp).aspectRatio(2f / 3f).sharedKey(sharedPosterKey(anime.id, origin)).clip(MaterialTheme.shapes.small),
-            anime.title,
+            // The clickable row merges its texts for TalkBack; an image description would replace them.
+            null,
         )
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
