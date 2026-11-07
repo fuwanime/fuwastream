@@ -83,7 +83,7 @@ Logika murni `continueReading(history): List<MangaHistoryEntity>` — satu entri
 
 Backup (sub-proyek sebelumnya): `BackupFile` **format 2** menambah `mangaFavorites` dan `mangaHistory` (default list kosong). Decoder menerima format 1 dan 2; `FORMAT = 2`. Gabung: favorit = tambah yang belum ada; riwayat = `updatedAt` lebih baru menang.
 
-Pengaturan: kunci DataStore `manga_data_saver` (boolean, default false) dan `manga_language` tidak dibuat — bahasa chapter mengikuti bahasa app (Bagian 1.3).
+Pengaturan: kunci DataStore `manga_data_saver` (boolean, default false). Tidak ada pengaturan bahasa chapter terpisah — bahasa chapter mengikuti bahasa app (Bagian 1.3).
 
 ## Bagian 3 — UI
 
@@ -113,7 +113,7 @@ Pengaturan: kunci DataStore `manga_data_saver` (boolean, default false) dan `man
 ### 3.4 Koleksi & Pengaturan
 
 - Koleksi: tab baru **Manga** (setelah Favorit) berisi dua bagian: "Lanjut baca" (riwayat per manga, bisa dihapus per item) dan "Favorit".
-- Pengaturan → grup Pemutar? Tidak; grup baru **Manga**: "Hemat data saat membaca" (switch).
+- Pengaturan: grup baru **Manga** berisi "Hemat data saat membaca" (switch, kunci `manga_data_saver`).
 - "Hapus semua data" juga menghapus `manga_favorite` dan `manga_history`.
 
 ### 3.5 Teks
