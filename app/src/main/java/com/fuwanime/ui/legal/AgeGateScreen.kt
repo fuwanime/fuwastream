@@ -25,7 +25,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.fuwanime.R
 
 /**
  * One-time age confirmation, shown before the catalogue is reachable.
@@ -35,6 +37,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun AgeGateScreen(onConfirm: () -> Unit, onExit: () -> Unit) {
     var showPrivacy by remember { mutableStateOf(false) }
+    val legalRes = legalResources()
 
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(
@@ -52,32 +55,28 @@ fun AgeGateScreen(onConfirm: () -> Unit, onExit: () -> Unit) {
             )
             Spacer(Modifier.height(16.dp))
             Text(
-                "Sebelum mulai",
+                stringResource(R.string.mine_age_before),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Spacer(Modifier.height(12.dp))
             Text(
-                "Aplikasi ini menampilkan katalog anime dari layanan pihak ketiga. Sebagian judul " +
-                    "mungkin tidak cocok untuk anak-anak.\n\n" +
-                    "FuwaStream ditujukan untuk pengguna berusia 13 tahun ke atas. Aplikasi tidak " +
-                    "membuat akun dan tidak mengumpulkan data pribadimu — semua riwayat, favorit, " +
-                    "dan pengaturan hanya tersimpan di perangkat ini.",
+                stringResource(R.string.mine_age_body),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
             )
             Spacer(Modifier.height(28.dp))
             Button(onClick = onConfirm, modifier = Modifier.fillMaxWidth()) {
-                Text("Saya berusia 13 tahun atau lebih — Lanjutkan")
+                Text(stringResource(R.string.mine_age_confirm))
             }
             Spacer(Modifier.height(10.dp))
             OutlinedButton(onClick = onExit, modifier = Modifier.fillMaxWidth()) {
-                Text("Saya belum cukup umur — Keluar")
+                Text(stringResource(R.string.mine_age_exit))
             }
             Spacer(Modifier.height(10.dp))
             TextButton(onClick = { showPrivacy = true }) {
-                Text("Baca Kebijakan Privasi")
+                Text(stringResource(R.string.mine_age_read_privacy))
             }
         }
     }
@@ -85,11 +84,11 @@ fun AgeGateScreen(onConfirm: () -> Unit, onExit: () -> Unit) {
     if (showPrivacy) {
         AlertDialog(
             onDismissRequest = { showPrivacy = false },
-            confirmButton = { TextButton(onClick = { showPrivacy = false }) { Text("Tutup") } },
-            title = { Text("Kebijakan Privasi") },
+            confirmButton = { TextButton(onClick = { showPrivacy = false }) { Text(stringResource(R.string.mine_close)) } },
+            title = { Text(stringResource(R.string.mine_privacy_policy)) },
             text = {
                 LazyColumn(contentPadding = PaddingValues(vertical = 4.dp)) {
-                    items(LegalText.privacy.split("\n\n")) { paragraph ->
+                    items(LegalText.privacy(legalRes).split("\n\n")) { paragraph ->
                         Text(
                             paragraph,
                             style = MaterialTheme.typography.bodySmall,
