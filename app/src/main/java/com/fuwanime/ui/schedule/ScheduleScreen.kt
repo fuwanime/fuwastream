@@ -198,6 +198,7 @@ private fun SeasonPage(state: SeasonTab, onRetry: () -> Unit, onAnimeClick: Open
                 seasonOf(c.get(Calendar.YEAR), c.get(Calendar.MONTH) + 1)
             }
             val (fresh, continuing) = remember(state.all, season) { splitBySeason(state.all, season) }
+            val sections = listOf(stringResource(R.string.browse_schedule_new_season) to fresh, stringResource(R.string.browse_schedule_continuing) to continuing)
             LazyColumn(
                 contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp + LocalNavBarPadding.current),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -206,7 +207,7 @@ private fun SeasonPage(state: SeasonTab, onRetry: () -> Unit, onAnimeClick: Open
                 item(key = "season-title") {
                     Text("${stringResource(season.name)} ${season.year}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 }
-                listOf(stringResource(R.string.browse_schedule_new_season) to fresh, stringResource(R.string.browse_schedule_continuing) to continuing).forEach { (title, list) ->
+                sections.forEach { (title, list) ->
                     if (list.isNotEmpty()) {
                         item(key = "h-$title") {
                             Text(
