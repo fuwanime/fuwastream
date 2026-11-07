@@ -24,13 +24,14 @@ class RateLimitInterceptor(
         return chain.proceed(chain.request())
     }
 
+    // Each call reserves a start slot at least 1s after the slot perSecond reservations earlier, so no 1s window holds more than perSecond starts.
     private fun throttle() {
         val wait = synchronized(sent) {
             val now = clock()
-            while (sent.isNotEmpty() && now - sent.first() >= SECOND_NS) sent.removeFirst()
-            val w = if (sent.size >= perSecond) (SECOND_NS - (now - sent.first())) / 1_000_000 + 1 else 0L
-            sent.addLast(now + w * 1_000_000)
-            w
+            while (sent.isNotEmpty() && sent.first() + SECOND_NS <= now) sent.removeFirst()
+            val start = if (sent.size >= perSecond) maxOf(now, sent[sent.size - perSecond] + SECOND_NS) else now
+            sent.addLast(start)
+            (start - now + 999_999) / 1_000_000
         }
         if (wait > 0) sleep(wait)
     }
