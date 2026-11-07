@@ -2,6 +2,8 @@ package com.fuwanime
 
 import com.fuwanime.data.local.MangaHistoryEntity
 import com.fuwanime.data.manga.MangaChapter
+import com.fuwanime.data.manga.pickChapters
+import com.fuwanime.ui.manga.readerChapter
 import com.fuwanime.ui.manga.readerStartIndex
 import com.fuwanime.ui.manga.resumeTarget
 import org.junit.Assert.assertEquals
@@ -31,5 +33,22 @@ class MangaUiLogicTest {
         assertEquals(9, readerStartIndex(25, 10))
         assertEquals(0, readerStartIndex(-3, 10))
         assertEquals(0, readerStartIndex(5, 0))
+    }
+
+    @Test fun pickChaptersPrefersReadableOverNewerExternal() {
+        val scan = MangaChapter("scan", "5", null, "en", "G", 20, null, 10)
+        val official = MangaChapter("mp", "5", null, "en", null, 0, "https://mangaplus.example", 99)
+        assertEquals(listOf("scan"), pickChapters(listOf(scan, official), "en").map { it.id })
+    }
+
+    @Test fun readerChapterUsesListedChapter() =
+        assertEquals("c2", readerChapter(chapters, "c2", savedLabel = null).id)
+
+    @Test fun readerChapterSurvivesChapterMissingFromList() {
+        val c = readerChapter(chapters, "gone", savedLabel = "Ch. 7")
+        assertEquals("gone", c.id)
+        assertEquals("Ch. 7", c.title)
+        assertNull(c.number)
+        assertNull(c.externalUrl)
     }
 }
