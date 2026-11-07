@@ -182,8 +182,8 @@ interface DownloadDao {
 }
 
 @Database(
-    entities = [FavoriteEntity::class, WatchHistoryEntity::class, SearchHistoryEntity::class, DownloadEntity::class, WatchDailyEntity::class, AnimeLinkEntity::class],
-    version = 4,
+    entities = [FavoriteEntity::class, WatchHistoryEntity::class, SearchHistoryEntity::class, DownloadEntity::class, WatchDailyEntity::class, AnimeLinkEntity::class, MangaFavoriteEntity::class, MangaHistoryEntity::class],
+    version = 5,
     exportSchema = false,
 )
 abstract class FuwaDatabase : RoomDatabase() {
@@ -193,11 +193,13 @@ abstract class FuwaDatabase : RoomDatabase() {
     abstract fun downloadDao(): DownloadDao
     abstract fun watchDailyDao(): WatchDailyDao
     abstract fun animeLinkDao(): AnimeLinkDao
+    abstract fun mangaFavoriteDao(): MangaFavoriteDao
+    abstract fun mangaHistoryDao(): MangaHistoryDao
 
     companion object {
         fun create(context: Context): FuwaDatabase =
             Room.databaseBuilder(context, FuwaDatabase::class.java, "fuwanime.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .build()
 
         /** v2 adds offline downloads; existing favourites and history are kept. */
@@ -231,6 +233,19 @@ abstract class FuwaDatabase : RoomDatabase() {
                         "`malId` INTEGER, `score` INTEGER, `tags` TEXT NOT NULL, `nextEpisode` INTEGER, `nextAiringAt` INTEGER, " +
                         "`fetchedAt` INTEGER NOT NULL, PRIMARY KEY(`animeId`))",
                 )
+            }
+        }
+
+        /** v5 adds manga favourites and reading history; nothing existing changes. */
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `manga_favorite` (`mangaId` TEXT NOT NULL, `title` TEXT NOT NULL, `coverUrl` TEXT, `addedAt` INTEGER NOT NULL, PRIMARY KEY(`mangaId`))")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `manga_history` (`chapterId` TEXT NOT NULL, `mangaId` TEXT NOT NULL, `mangaTitle` TEXT NOT NULL, `coverUrl` TEXT, " +
+                        "`chapterLabel` TEXT NOT NULL, `page` INTEGER NOT NULL, `pageCount` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`chapterId`))",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_manga_history_mangaId` ON `manga_history` (`mangaId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_manga_history_updatedAt` ON `manga_history` (`updatedAt`)")
             }
         }
     }

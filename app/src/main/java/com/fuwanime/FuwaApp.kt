@@ -1,5 +1,8 @@
 package com.fuwanime
 
+import com.fuwanime.data.manga.ShinigamiApi
+import com.fuwanime.data.manga.ShinigamiSource
+import com.fuwanime.data.manga.MangaDexDns
 import kotlinx.coroutines.flow.first
 import com.fuwanime.data.backup.BackupWorker
 import com.fuwanime.data.backup.BackupRepository
@@ -15,8 +18,12 @@ import okio.Path.Companion.toOkioPath
 import com.fuwanime.data.AnimeRepository
 import com.fuwanime.data.DownloadRepository
 import com.fuwanime.data.LibraryRepository
+import com.fuwanime.data.manga.MangaLibrary
 import com.fuwanime.data.local.FuwaDatabase
 import com.fuwanime.data.local.SettingsStore
+import com.fuwanime.data.manga.MangaDexApi
+import com.fuwanime.data.manga.MangaRepository
+import com.fuwanime.data.manga.RateLimitInterceptor
 import com.fuwanime.data.meta.AniListApi
 import com.fuwanime.data.meta.AniSkipApi
 import com.fuwanime.data.meta.AnimeLinkRepository
@@ -40,7 +47,8 @@ import okhttp3.OkHttpClient
 // Code contributor: Andra
 /** Manual DI: one instance of each dependency for the whole process. */
 class AppContainer(private val app: Application) {
-    val httpClient: OkHttpClient = AnimeApiService.createHttpClient()
+    // MangaDexDns only changes MangaDex hosts (blocked by Indonesian ISP DNS); everything derived from this client inherits it.
+    val httpClient: OkHttpClient = AnimeApiService.createHttpClient().newBuilder().dns(MangaDexDns()).build()
 
     /** Connectivity plus "showing cached data since"; drives the offline indicators. */
     val networkStatus = NetworkStatus().also { it.start(app) }
@@ -57,6 +65,7 @@ class AppContainer(private val app: Application) {
     )
     private val database = FuwaDatabase.create(app)
     val libraryRepository = LibraryRepository(database)
+    val mangaLibrary = MangaLibrary(database)
     val settingsStore = SettingsStore(app)
 
     /** For writes that must outlive the screen that started them (e.g. saving progress on exit). */
@@ -86,6 +95,35 @@ class AppContainer(private val app: Application) {
     }
     val animeLinkRepository by lazy { AnimeLinkRepository(database.animeLinkDao(), AniListApi.create(metaHttpClient)) }
     val skipRepository by lazy { SkipRepository(AniSkipApi.create(metaHttpClient)) }
+
+    /** MangaDex asks for a descriptive User-Agent and caps requests per second. */
+    val mangaHttpClient: OkHttpClient by lazy {
+        metaHttpClient.newBuilder()
+            .addInterceptor { chain ->
+                val req = chain.request()
+                chain.proceed(
+                    when {
+                        req.url.host == "api.mangadex.org" ->
+                            req.newBuilder().header("User-Agent", "FuwaStream/${BuildConfig.VERSION_NAME} (github.com/SakamotoMrX/fuwanime)").build()
+                        // Shinigami's API answers browser-like clients.
+                        req.url.host == "api.shngm.io" -> req.newBuilder()
+                            .header("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36")
+                            .header("Accept", "application/json")
+                            .build()
+                        else -> req
+                    },
+                )
+            }
+            .addInterceptor(RateLimitInterceptor())
+            .build()
+    }
+    val mangaRepository by lazy {
+        MangaRepository(
+            MangaDexApi.create(mangaHttpClient),
+            appLanguage = { app.resources.configuration.locales[0].language },
+            shinigami = ShinigamiSource(ShinigamiApi.create(mangaHttpClient)),
+        )
+    }
 
     /** Daily backup file in a folder the user picked; survives an uninstall. */
     val backupRepository by lazy { BackupRepository(app, libraryRepository, settingsStore) }

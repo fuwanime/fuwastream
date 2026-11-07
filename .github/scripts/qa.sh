@@ -49,7 +49,8 @@ stop_record() { sleep 1; kill -INT $REC 2>/dev/null; wait $REC 2>/dev/null; slee
 
 # Every scenario starts from a fresh launch on Home, so one failed step never derails the next.
 dismiss_dialogs() { adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS >/dev/null 2>&1; tap "Wait" >/dev/null 2>&1 || true; }
-fresh() { adb shell am force-stop "$PKG"; sleep 1; adb shell am start -W -n "$PKG/com.fuwanime.MainActivity" >/dev/null; sleep 12; tap "Saya berusia 13 tahun atau lebih — Lanjutkan" >/dev/null 2>&1; sleep 2; dismiss_dialogs; alive; }
+# The app now follows the system language; the script taps Indonesian labels, so pin the app to Indonesian.
+fresh() { adb shell am force-stop "$PKG"; adb shell cmd locale set-app-locales "$PKG" --locales id >/dev/null 2>&1; sleep 1; adb shell am start -W -n "$PKG/com.fuwanime.MainActivity" >/dev/null; sleep 12; tap "Saya berusia 13 tahun atau lebih — Lanjutkan" >/dev/null 2>&1; sleep 2; dismiss_dialogs; alive; }
 open_search_result() {  # $1 = query, $2 = title prefix to tap
   tap "Jelajah"; sleep 3; tap "Judul, genre, atau studio*" || adb shell input tap 540 330; sleep 1
   adb shell input text "$1"; sleep 5; adb shell input keyevent KEYCODE_BACK; sleep 1
@@ -74,6 +75,25 @@ upgrade_from_release() {
   alive
 }
 upgrade_from_release
+
+# 12. Manga tab: shelves from MangaDex + Shinigami load, a Shinigami title opens, its first chapter renders in the reader.
+manga_check() { [ -n "$(find_xy "$1")" ] && echo "manga: $2 ok" | tee -a "$OUT/qa-checks.txt" || echo "manga: $2 MISSING" | tee -a "$OUT/qa-checks.txt"; }
+record qa12-manga
+fresh; tap "Manga"; shot qa12a-manga-tab 10
+manga_check "Populer Indonesia" "shinigami shelf"
+manga_check "Update terbaru" "mangadex latest shelf"
+[ -n "$(find_xy "Gagal memuat")" ] && echo "manga: load error shown" | tee -a "$OUT/qa-checks.txt"
+y=$(find_xy "Populer Indonesia" | cut -d' ' -f2)
+adb shell input tap 150 $(( ${y:-700} + 260 )); shot qa12b-manga-detail 8
+manga_check "Mulai baca" "detail start button"
+tap "Mulai baca"; shot qa12c-manga-reader 10
+manga_check "Sumber: Shinigami" "reader shinigami credit"
+adb shell input swipe 540 1700 540 500 300; shot qa12d-manga-reader-scrolled 3
+adb shell input keyevent KEYCODE_BACK; sleep 2; adb shell input keyevent KEYCODE_BACK; sleep 2
+tap "Manga"; sleep 2; tap "Cari manga"; adb shell input text "solo"; shot qa12e-manga-search 8
+manga_check "Solo Leveling*" "search hit"
+alive
+stop_record qa12-manga
 
 # 1. Home row poster -> detail -> key back -> scroll Home right away (must respond).
 fresh

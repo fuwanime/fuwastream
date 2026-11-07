@@ -1,5 +1,6 @@
 package com.fuwanime.ui.library
 
+import com.fuwanime.ui.manga.MangaLibraryTab
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.pluralStringResource
 import com.fuwanime.R
@@ -202,6 +203,8 @@ fun LibraryRoute(
     onPlayDownload: (DownloadEntity) -> Unit,
     onStats: () -> Unit,
     onSettings: () -> Unit,
+    onMangaClick: (String) -> Unit,
+    onMangaRead: (String, String) -> Unit,
 ) {
     val vm: LibraryViewModel = fuwaViewModel { c, _ -> LibraryViewModel(c.libraryRepository, c.downloadRepository, c.settingsStore, c::refreshHomeSurfaces) }
     val downloads by vm.downloads.collectAsStateWithLifecycle()
@@ -212,7 +215,7 @@ fun LibraryRoute(
     val watched by vm.watched.collectAsStateWithLifecycle()
     val selection by vm.selection.collectAsStateWithLifecycle()
     val week by vm.week.collectAsStateWithLifecycle()
-    val pager = rememberPagerState { 3 }
+    val pager = rememberPagerState { 4 }
     val scope = rememberCoroutineScope()
     var confirmClear by remember { mutableStateOf(false) }
     var confirmDeleteSelected by remember { mutableStateOf(false) }
@@ -240,7 +243,7 @@ fun LibraryRoute(
         }
         week?.takeIf { !selecting }?.let { WeekCard(it, onStats) }
         SegmentedTabs(
-            listOf(R.string.mine_tab_history to history?.size, R.string.mine_tab_favorites to favorites?.size, R.string.mine_tab_downloads to downloads?.size)
+            listOf(R.string.mine_tab_history to history?.size, R.string.mine_tab_favorites to favorites?.size, R.string.manga_tab to null, R.string.mine_tab_downloads to downloads?.size)
                 .map { (label, count) -> stringResource(label).let { if (count != null && count > 0) stringResource(R.string.mine_tab_with_count, it, count) else it } },
             selected = pager.currentPage,
             onSelect = { scope.launch { pager.animateScrollToPage(it) } },
@@ -249,6 +252,7 @@ fun LibraryRoute(
             when (page) {
                 0 -> HistoryList(history, onResume, onAnimeClick, onRemove = { vm.removeHistory(it) }, selection, vm::toggleSelect)
                 1 -> FavoriteGrid(favoriteCards, favoriteSort, vm::setFavoriteSort, onAnimeClick, selection, vm::toggleSelect)
+                2 -> MangaLibraryTab(onOpen = onMangaClick, onRead = onMangaRead)
                 else -> DownloadList(downloads, watched, onPlayDownload, onDelete = { vm.deleteDownload(it) }, onDeleteWatched = { vm.deleteWatched() })
             }
         }
