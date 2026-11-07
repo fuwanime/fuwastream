@@ -4,6 +4,9 @@ import com.fuwanime.data.local.FavoriteEntity
 import com.fuwanime.data.local.WatchDailyEntity
 import com.fuwanime.data.local.WatchHistoryEntity
 import com.fuwanime.ui.stats.computeStats
+import com.fuwanime.ui.stats.lastNDays
+import com.fuwanime.ui.stats.statColumns
+import com.fuwanime.ui.stats.weekSummary
 import com.fuwanime.ui.stats.weekIndex
 import com.fuwanime.util.epochDay
 import java.util.Calendar
@@ -88,4 +91,39 @@ class WatchStatsTest {
         assertTrue(computeStats(emptyList(), listOf(WatchDailyEntity(today, 60_000)), emptyList(), today).hasData)
 
     @Test fun hasData_nothingRecorded() = assertFalse(computeStats(emptyList(), emptyList(), emptyList(), today).hasData)
+
+    @Test fun lastNDaysFillsGapsOldestFirst() {
+        val daily = listOf(WatchDailyEntity(today, 600_000), WatchDailyEntity(today - 2, 1_200_000), WatchDailyEntity(today - 10, 999_000))
+        val bars = lastNDays(daily, today)
+        assertEquals((today - 6..today).toList(), bars.map { it.day })
+        assertEquals(listOf(0, 0, 0, 0, 20, 0, 10), bars.map { it.minutes })
+    }
+
+    @Test fun lastNDaysAllZeroWhenEmpty() = assertEquals(List(7) { 0 }, lastNDays(emptyList(), today).map { it.minutes })
+
+    @Test fun weekSummaryCountsOnlyFinishedEpisodesInWindow() {
+        val history = listOf(
+            hist("a", "1", 950, 1000, millisOf(today - 1)),
+            hist("a", "2", 950, 1000, millisOf(today - 8)),
+            hist("b", "1", 100, 1000, millisOf(today)),
+        )
+        val daily = listOf(WatchDailyEntity(today, 600_000), WatchDailyEntity(today - 2, 1_200_000), WatchDailyEntity(today - 10, 999_000))
+        val week = weekSummary(history, daily, today)
+        assertEquals(1, week.episodes)
+        assertEquals(1_800_000L, week.watchedMs)
+        assertEquals(7, week.days.size)
+    }
+
+    @Test fun weekSummaryUsesEpochDayOfUpdatedAt() {
+        val history = listOf(hist("a", "1", 950, 1000, millisOf(today - 6)), hist("a", "2", 950, 1000, millisOf(today - 7)))
+        assertEquals(1, weekSummary(history, emptyList(), today).episodes)
+    }
+
+    @Test fun statColumnsStackOnLargeFontOrNarrowScreen() {
+        assertEquals(2, statColumns(1.0f, 400))
+        assertEquals(2, statColumns(1.3f, 360))
+        assertEquals(1, statColumns(1.5f, 400))
+        assertEquals(1, statColumns(2.0f, 600))
+        assertEquals(1, statColumns(1.0f, 359))
+    }
 }
