@@ -1,5 +1,11 @@
 package com.fuwanime.data
 
+import androidx.room.withTransaction
+import com.fuwanime.data.backup.BackupFile
+import com.fuwanime.data.backup.mergeDaily
+import com.fuwanime.data.backup.mergeHistory
+import com.fuwanime.data.backup.mergeSearches
+import com.fuwanime.data.backup.newFavorites
 import com.fuwanime.data.local.FavoriteEntity
 import com.fuwanime.data.local.FuwaDatabase
 import com.fuwanime.data.local.SearchHistoryEntity
@@ -10,7 +16,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 /** Everything the user owns locally: favourites, watch progress and recent searches. */
-class LibraryRepository(db: FuwaDatabase) {
+class LibraryRepository(private val db: FuwaDatabase) {
     private val favorites = db.favoriteDao()
     private val history = db.watchHistoryDao()
     private val searches = db.searchHistoryDao()
@@ -102,5 +108,28 @@ class LibraryRepository(db: FuwaDatabase) {
         searches.clear()
         daily.clear()
         links.clear()
+    }
+
+    data class Snapshot(
+        val favorites: List<FavoriteEntity>,
+        val history: List<WatchHistoryEntity>,
+        val watchDaily: List<WatchDailyEntity>,
+        val searches: List<SearchHistoryEntity>,
+    )
+
+    /** Everything that goes into a backup file, read in one transaction so the parts agree. */
+    suspend fun snapshot(): Snapshot = db.withTransaction {
+        Snapshot(favorites.allFavorites(), history.all(), daily.all(), searches.all())
+    }
+
+    /** No favourites and no history: a fresh install (or a wiped one). */
+    suspend fun isEmpty(): Boolean = favorites.allFavorites().isEmpty() && history.all().isEmpty()
+
+    /** Merges a backup into the local data; see BackupMerge for which side wins. */
+    suspend fun restore(file: BackupFile) = db.withTransaction {
+        favorites.upsertAll(newFavorites(favorites.allFavorites(), file.favorites))
+        history.upsertAll(mergeHistory(history.all(), file.history))
+        daily.upsertAll(mergeDaily(daily.all(), file.watchDaily))
+        searches.upsertAll(mergeSearches(searches.all(), file.searches))
     }
 }
