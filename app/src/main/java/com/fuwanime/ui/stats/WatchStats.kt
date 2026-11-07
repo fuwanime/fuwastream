@@ -80,3 +80,25 @@ fun computeStats(
         hasData = history.isNotEmpty() || daily.any { it.watchedMs > 0 },
     )
 }
+
+data class DayBar(val day: Int, val minutes: Int)
+
+/** The last [n] days ending [today], oldest first; days with nothing recorded are 0. */
+fun lastNDays(daily: List<WatchDailyEntity>, today: Int, n: Int = 7): List<DayBar> {
+    val byDay = daily.associate { it.day to it.watchedMs }
+    return (today - n + 1..today).map { DayBar(it, ((byDay[it] ?: 0L) / 60_000).toInt()) }
+}
+
+data class WeekSummary(val watchedMs: Long, val episodes: Int, val days: List<DayBar>)
+
+fun weekSummary(history: List<WatchHistoryEntity>, daily: List<WatchDailyEntity>, today: Int): WeekSummary {
+    val window = today - 6..today
+    return WeekSummary(
+        watchedMs = daily.filter { it.day in window }.sumOf { it.watchedMs },
+        episodes = history.count { it.isFinished && epochDay(it.updatedAt) in window },
+        days = lastNDays(daily, today),
+    )
+}
+
+/** Stat cards stack into one column when large text or a narrow screen would squeeze two side by side. */
+fun statColumns(fontScale: Float, widthDp: Int): Int = if (fontScale >= 1.5f || widthDp < 360) 1 else 2
