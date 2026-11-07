@@ -1,5 +1,7 @@
 package com.fuwanime
 
+import com.fuwanime.data.manga.ShinigamiApi
+import com.fuwanime.data.manga.ShinigamiSource
 import com.fuwanime.data.manga.MangaDexDns
 import kotlinx.coroutines.flow.first
 import com.fuwanime.data.backup.BackupWorker
@@ -100,16 +102,27 @@ class AppContainer(private val app: Application) {
             .addInterceptor { chain ->
                 val req = chain.request()
                 chain.proceed(
-                    if (req.url.host == "api.mangadex.org") {
-                        req.newBuilder().header("User-Agent", "FuwaStream/${BuildConfig.VERSION_NAME} (github.com/SakamotoMrX/fuwanime)").build()
-                    } else req,
+                    when {
+                        req.url.host == "api.mangadex.org" ->
+                            req.newBuilder().header("User-Agent", "FuwaStream/${BuildConfig.VERSION_NAME} (github.com/SakamotoMrX/fuwanime)").build()
+                        // Shinigami's API answers browser-like clients.
+                        req.url.host == "api.shngm.io" -> req.newBuilder()
+                            .header("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36")
+                            .header("Accept", "application/json")
+                            .build()
+                        else -> req
+                    },
                 )
             }
             .addInterceptor(RateLimitInterceptor())
             .build()
     }
     val mangaRepository by lazy {
-        MangaRepository(MangaDexApi.create(mangaHttpClient), appLanguage = { app.resources.configuration.locales[0].language })
+        MangaRepository(
+            MangaDexApi.create(mangaHttpClient),
+            appLanguage = { app.resources.configuration.locales[0].language },
+            shinigami = ShinigamiSource(ShinigamiApi.create(mangaHttpClient)),
+        )
     }
 
     /** Daily backup file in a folder the user picked; survives an uninstall. */

@@ -15,6 +15,8 @@ class MangaRepository(
     private val api: MangaDexApi,
     private val appLanguage: () -> String,
     private val now: () -> Long = System::currentTimeMillis,
+    /** Second source (Indonesian); ids starting with "sh:" are routed there. */
+    private val shinigami: ShinigamiSource? = null,
 ) {
     private val atHomeCache = ConcurrentHashMap<String, Pair<Long, AtHomeDto>>()
     @Volatile private var tagCache: List<MangaTag>? = null
@@ -44,12 +46,24 @@ class MangaRepository(
         return MangaPage(dto.data.map { it.toManga(lang, 256) }, dto.total, offset)
     }
 
+    /** Popular Indonesian titles (Shinigami). */
+    suspend fun popularIndonesia(page: Int = 1): MangaPage = shinigami?.browse("popularity", null, page) ?: MangaPage(emptyList(), 0, 0)
+
+    /** Shinigami search results for [query]; empty when the source is off or fails. */
+    suspend fun searchIndonesia(query: String): List<Manga> =
+        runCatching { shinigami?.browse(null, query)?.items }.getOrNull().orEmpty()
+
+    /** The same title on Shinigami, for MangaDex titles with nothing readable in the app. */
+    suspend fun findOnShinigami(manga: Manga): Manga? = shinigami?.find(listOf(manga.title) + manga.altTitles)
+
     suspend fun detail(id: String): Manga {
+        if (isShinigamiId(id)) return shinigami?.detail(id) ?: throw notFound()
         val dto = call { api.manga(id, listOf("cover_art", "author")) }.data ?: throw notFound()
         return dto.toManga(appLanguage(), 512)
     }
 
     suspend fun chapters(id: String): List<MangaChapter> {
+        if (isShinigamiId(id)) return shinigami?.chapters(id).orEmpty()
         val all = ArrayList<MangaChapter>()
         var offset = 0
         while (true) {
@@ -62,6 +76,7 @@ class MangaRepository(
     }
 
     suspend fun pages(chapterId: String, dataSaver: Boolean, forceRefresh: Boolean = false): List<String> {
+        if (isShinigamiId(chapterId)) return shinigami?.pages(chapterId).orEmpty()
         val cached = atHomeCache[chapterId]?.takeIf { !forceRefresh && now() - it.first < BASE_URL_TTL_MS }
         val dto = cached?.second ?: call { api.atHome(chapterId) }.also { atHomeCache[chapterId] = now() to it }
         return pageUrls(dto.baseUrl, dto.chapter.hash, dto.chapter.data, dto.chapter.dataSaver, dataSaver)

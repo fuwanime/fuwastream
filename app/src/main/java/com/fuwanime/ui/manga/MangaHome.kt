@@ -37,6 +37,7 @@ import kotlinx.coroutines.launch
 data class MangaShelf(val items: List<Manga> = emptyList(), val loading: Boolean = true, val error: UiText? = null)
 
 data class MangaHomeState(
+    val indonesia: MangaShelf = MangaShelf(),
     val popular: MangaShelf = MangaShelf(),
     val latest: MangaShelf = MangaShelf(),
     val continueReading: List<MangaHistoryEntity> = emptyList(),
@@ -44,12 +45,13 @@ data class MangaHomeState(
 )
 
 class MangaHomeViewModel(private val repo: MangaRepository, library: MangaLibrary) : ViewModel() {
+    private val indonesia = MutableStateFlow(MangaShelf())
     private val popular = MutableStateFlow(MangaShelf())
     private val latest = MutableStateFlow(MangaShelf())
     private val refreshing = MutableStateFlow(false)
     private var started = false
 
-    val state: StateFlow<MangaHomeState> = combine(popular, latest, library.continueReading, refreshing) { p, l, c, r -> MangaHomeState(p, l, c, r) }
+    val state: StateFlow<MangaHomeState> = combine(indonesia, popular, latest, library.continueReading, refreshing) { i, p, l, c, r -> MangaHomeState(i, p, l, c, r) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MangaHomeState())
 
     /** Loads once, when manga mode is first shown. */
@@ -62,6 +64,7 @@ class MangaHomeViewModel(private val repo: MangaRepository, library: MangaLibrar
         refreshing.value = true
         viewModelScope.launch {
             coroutineScope {
+                launch { loadWith(indonesia) { repo.popularIndonesia().items } }
                 launch { load(popular, MangaOrder.POPULAR) }
                 launch { load(latest, MangaOrder.LATEST) }
             }
@@ -69,10 +72,12 @@ class MangaHomeViewModel(private val repo: MangaRepository, library: MangaLibrar
         }
     }
 
-    private suspend fun load(shelf: MutableStateFlow<MangaShelf>, order: MangaOrder) {
+    private suspend fun load(shelf: MutableStateFlow<MangaShelf>, order: MangaOrder) = loadWith(shelf) { repo.browse(order).items }
+
+    private suspend fun loadWith(shelf: MutableStateFlow<MangaShelf>, fetch: suspend () -> List<Manga>) {
         shelf.update { it.copy(loading = true, error = null) }
         try {
-            shelf.value = MangaShelf(repo.browse(order).items, loading = false)
+            shelf.value = MangaShelf(fetch(), loading = false)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -95,6 +100,7 @@ fun LazyListScope.mangaHomeItems(state: MangaHomeState, topPad: Dp, onRetry: () 
             }
         }
     }
+    shelf(R.string.manga_home_popular_id, "mIndonesia", state.indonesia, onRetry, onMangaClick)
     shelf(R.string.manga_home_popular, "mPopular", state.popular, onRetry, onMangaClick)
     shelf(R.string.manga_home_latest, "mLatest", state.latest, onRetry, onMangaClick)
 }

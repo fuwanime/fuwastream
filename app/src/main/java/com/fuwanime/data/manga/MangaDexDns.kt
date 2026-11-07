@@ -16,8 +16,10 @@ data class DohResponse(@Json(name = "Status") val status: Int = -1, @Json(name =
 @JsonClass(generateAdapter = true)
 data class DohAnswer(@Json(name = "type") val type: Int = 0, @Json(name = "TTL") val ttl: Int = 0, @Json(name = "data") val data: String = "")
 
-fun isMangaDexHost(host: String): Boolean =
-    host == "mangadex.org" || host.endsWith(".mangadex.org") || host.endsWith(".mangadex.network")
+private val DOH_DOMAINS = listOf("mangadex.org", "mangadex.network", "shngm.io", "shngm.id")
+
+/** Manga hosts that Indonesian ISP DNS may block; they are resolved over HTTPS. */
+fun needsDoh(host: String): Boolean = DOH_DOMAINS.any { host == it || host.endsWith(".$it") }
 
 /** IPv4/IPv6 addresses (A = 1, AAAA = 28) from a DNS-over-HTTPS JSON answer; CNAME hops are skipped. */
 fun dohAddresses(r: DohResponse): List<String> =
@@ -36,7 +38,7 @@ class MangaDexDns(
     private val cache = ConcurrentHashMap<String, Pair<Long, List<InetAddress>>>()
 
     override fun lookup(hostname: String): List<InetAddress> {
-        if (!isMangaDexHost(hostname)) return fallback.lookup(hostname)
+        if (!needsDoh(hostname)) return fallback.lookup(hostname)
         cache[hostname]?.takeIf { now() < it.first }?.let { return it.second }
         val response = runCatching { query(hostname) }.getOrNull()
         val ips = response?.let(::dohAddresses).orEmpty().mapNotNull { runCatching { InetAddress.getByName(it) }.getOrNull() }

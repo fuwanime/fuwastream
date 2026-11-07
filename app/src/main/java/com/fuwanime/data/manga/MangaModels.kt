@@ -15,6 +15,8 @@ data class Manga(
     val status: MangaStatus,
     val year: Int?,
     val author: String?,
+    /** Other names (romaji, English, …); used to find the same title on another source. */
+    val altTitles: List<String> = emptyList(),
 )
 
 data class MangaChapter(
@@ -61,6 +63,7 @@ fun MangaDto.toManga(appLanguage: String, coverSize: Int): Manga {
         },
         year = a.year,
         author = relationships.firstOrNull { it.type == "author" }?.attributes?.name,
+        altTitles = (t.values + a.altTitles.flatMap { loc(it).filterKeys { k -> k == "en" || k.endsWith("-ro") }.values }).filter { it != title }.distinct(),
     )
 }
 

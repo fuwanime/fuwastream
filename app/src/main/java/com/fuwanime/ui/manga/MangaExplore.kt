@@ -127,7 +127,9 @@ class MangaExploreViewModel(private val repo: MangaRepository) : ViewModel() {
         _state.update { it.copy(results = emptyList(), total = 0, loading = true, loadingMore = false, error = null, generation = it.generation + 1) }
         try {
             val page = repo.browse(orderFor(q), q, tags.toList(), status, 0)
-            _state.update { it.copy(results = page.items, total = page.total, loading = false) }
+            // Text search also asks the Indonesian source; its matches come first (tags/status are MangaDex-only filters).
+            val indonesian = if (q.isNotBlank() && tags.isEmpty() && status == null) repo.searchIndonesia(q) else emptyList()
+            _state.update { it.copy(results = (indonesian + page.items).distinctBy { m -> m.id }, total = page.total + indonesian.size, loading = false) }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

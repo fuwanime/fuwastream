@@ -44,4 +44,8 @@
     <string name="manga_settings_data_saver">Save data while reading</string>
     <string name="manga_settings_data_saver_desc">Smaller images from MangaDex</string>
     <string name="manga_restore_summary">Manga: %1$d favorites, %2$d reading history.</string>
+    <string name="manga_home_popular_id">Popular in Indonesian</string>
+    <string name="manga_credit_shinigami">Data &amp; images from Shinigami</string>
+    <string name="manga_credit_both">Info from MangaDex · chapters from Shinigami</string>
+    <string name="manga_reader_source_shinigami">Source: Shinigami</string>
 </resources>

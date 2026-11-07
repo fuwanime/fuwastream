@@ -43,4 +43,8 @@
     <string name="manga_settings_data_saver">Hemat data saat membaca</string>
     <string name="manga_settings_data_saver_desc">Gambar lebih kecil dari MangaDex</string>
     <string name="manga_restore_summary">Manga: %1$d favorit, %2$d riwayat baca.</string>
+    <string name="manga_home_popular_id">Populer Indonesia</string>
+    <string name="manga_credit_shinigami">Data &amp; gambar dari Shinigami</string>
+    <string name="manga_credit_both">Info dari MangaDex · chapter dari Shinigami</string>
+    <string name="manga_reader_source_shinigami">Sumber: Shinigami</string>
 </resources>

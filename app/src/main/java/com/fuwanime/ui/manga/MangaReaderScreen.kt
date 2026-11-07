@@ -1,5 +1,6 @@
 package com.fuwanime.ui.manga
 
+import com.fuwanime.data.manga.isShinigamiId
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
@@ -268,7 +269,11 @@ fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
 @Composable
 private fun Credit(chapter: MangaChapter, modifier: Modifier = Modifier) {
     Text(
-        chapter.group?.let { stringResource(R.string.manga_reader_scanlation, it) } ?: stringResource(R.string.manga_reader_scanlation_unknown),
+        when {
+            isShinigamiId(chapter.id) -> stringResource(R.string.manga_reader_source_shinigami)
+            chapter.group != null -> stringResource(R.string.manga_reader_scanlation, chapter.group)
+            else -> stringResource(R.string.manga_reader_scanlation_unknown)
+        },
         color = Color.White.copy(alpha = 0.6f),
         style = MaterialTheme.typography.labelMedium,
         textAlign = TextAlign.Center,

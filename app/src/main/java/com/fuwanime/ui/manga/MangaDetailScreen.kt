@@ -1,5 +1,6 @@
 package com.fuwanime.ui.manga
 
+import com.fuwanime.data.manga.isShinigamiId
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -85,16 +86,24 @@ data class MangaDetailState(
     val chaptersError: UiText? = null,
     val history: List<MangaHistoryEntity> = emptyList(),
     val favorite: Boolean = false,
+    /** Set when the chapters come from the same title on Shinigami (MangaDex had nothing readable here). */
+    val readFrom: Manga? = null,
 )
 
 class MangaDetailViewModel(private val id: String, private val repo: MangaRepository, private val library: MangaLibrary) : ViewModel() {
-    private data class Remote(val manga: Manga? = null, val chapters: List<MangaChapter>? = null, val error: UiText? = null, val chaptersError: UiText? = null)
+    private data class Remote(
+        val manga: Manga? = null,
+        val chapters: List<MangaChapter>? = null,
+        val error: UiText? = null,
+        val chaptersError: UiText? = null,
+        val readFrom: Manga? = null,
+    )
 
     private val remote = MutableStateFlow(Remote())
 
     val state: StateFlow<MangaDetailState> =
         combine(remote, library.historyFor(id), library.isFavorite(id)) { r, h, f ->
-            MangaDetailState(r.manga, r.chapters, r.error, r.chaptersError, h, f)
+            MangaDetailState(r.manga, r.chapters, r.error, r.chaptersError, h, f, r.readFrom)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MangaDetailState())
 
     init { load() }
@@ -107,7 +116,15 @@ class MangaDetailViewModel(private val id: String, private val repo: MangaReposi
             }
             remote.value = Remote(manga = manga)
             try {
-                remote.value = remote.value.copy(chapters = repo.chapters(id))
+                val chapters = repo.chapters(id)
+                val inApp = chapters.any { it.externalUrl == null && it.pages > 0 }
+                // Nothing readable here (licensed or not uploaded): read the same title from Shinigami, still in the app.
+                val alt = if (!inApp && !isShinigamiId(id)) runCatching { repo.findOnShinigami(manga) }.getOrNull() else null
+                remote.value = if (alt != null) {
+                    remote.value.copy(chapters = repo.chapters(alt.id), readFrom = alt)
+                } else {
+                    remote.value.copy(chapters = chapters)
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -134,6 +151,8 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
             state.error != null -> Box(Modifier.fillMaxSize().statusBarsPadding(), contentAlignment = Alignment.Center) { ErrorState(state.error!!, vm::load) }
             manga == null -> Unit
             else -> {
+                // Reading (and its history) belongs to the title the chapters came from.
+                val readId = state.readFrom?.id ?: mangaId
                 val readIds = state.history.mapTo(HashSet()) { it.chapterId }
                 val target = state.chapters?.let { resumeTarget(it, state.history) }
                 val resumed = target != null && target.id in readIds
@@ -144,7 +163,7 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
                     item(key = "header") { Header(manga, state.favorite, vm::toggleFavorite) }
                     item(key = "read") {
                         Button(
-                            onClick = { target?.let { onRead(mangaId, it.id) } },
+                            onClick = { target?.let { onRead(readId, it.id) } },
                             enabled = target != null,
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
                         ) {
@@ -184,12 +203,18 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
                             MessageState(Icons.AutoMirrored.Rounded.MenuBook, stringResource(R.string.manga_detail_no_chapters))
                         }
                         else -> items(chapters, key = { it.id }) { c ->
-                            ChapterRow(c, read = c.id in readIds) { onRead(mangaId, c.id) }
+                            ChapterRow(c, read = c.id in readIds) { onRead(readId, c.id) }
                         }
                     }
                     item(key = "credit") {
                         Text(
-                            stringResource(R.string.manga_credit_mangadex),
+                            stringResource(
+                                when {
+                                    isShinigamiId(mangaId) -> R.string.manga_credit_shinigami
+                                    state.readFrom != null -> R.string.manga_credit_both
+                                    else -> R.string.manga_credit_mangadex
+                                },
+                            ),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp).navigationBarsPadding(),
