@@ -1,0 +1,4 @@
+<resources>
+    <string name="widget_continue_name">Continue watching</string>
+    <string name="widget_continue_desc">Continue the anime you watched last</string>
+</resources>

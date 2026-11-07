@@ -22,6 +22,10 @@ import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.HazeState
 import android.os.Build
+import android.app.Activity
+import androidx.compose.material.icons.rounded.Language
+import com.fuwanime.util.currentLanguageTag
+import com.fuwanime.util.setAppLanguage
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -193,6 +197,15 @@ fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit) {
                             ) { Text(label) }
                         }
                     }
+                }
+            }
+            item {
+                var languageTag by remember { mutableStateOf(currentLanguageTag(context)) }
+                // Language names stay in their own language on purpose.
+                val languages = listOf(null to "Ikuti sistem", "id" to "Bahasa Indonesia", "ms" to "Bahasa Melayu", "en" to "English", "zh-CN" to "中文（简体）")
+                ChoiceRow(Icons.Rounded.Language, "Bahasa", languages.map { it.first }, languageTag, { tag -> languages.first { it.first == tag }.second }) { tag ->
+                    languageTag = tag
+                    (context as? Activity)?.let { setAppLanguage(it, tag) }
                 }
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {

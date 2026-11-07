@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">FuwaStream</string>
+    <string name="app_name" translatable="false">FuwaStream</string>
     <string name="widget_continue_name">Lanjutkan menonton</string>
     <string name="widget_continue_desc">Lanjutkan anime yang terakhir ditonton</string>
 </resources>
