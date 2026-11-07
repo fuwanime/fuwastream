@@ -58,6 +58,7 @@
         <li><b>Jelajah</b> — cari judul, genre, atau studio; filter tipe &amp; genre; urutkan populer, terbaru, atau A–Z.</li>
         <li><b>Jadwal tayang</b> — rilis per hari lengkap dengan jamnya.</li>
         <li><b>Anime serupa &amp; season terkait</b> — langsung dari halaman detail.</li>
+        <li><b>Manga</b> — saklar Anime | Manga di Beranda &amp; Jelajah; baca chapter Indonesia/Inggris dari <a href="https://mangadex.org">MangaDex</a> dengan reader scroll vertikal, lanjut baca, favorit, dan mode hemat data.</li>
       </ul>
     </td>
     <td width="50%" valign="top">
@@ -196,7 +197,7 @@ Punya ide fitur atau menemukan bug? [Buat Issue](https://github.com/fuwanime/fuw
 ## ⚠️ Catatan konten
 
 > [!NOTE]
-> FuwaStream adalah aplikasi klien dan **tidak meng-host file video**. Informasi dan sumber pemutaran berasal dari API atau layanan pihak ketiga, sehingga ketersediaan konten bergantung pada layanan tersebut. Pengguna bertanggung jawab mematuhi hukum, hak cipta, dan ketentuan layanan yang berlaku di wilayahnya. Nama, logo, dan aset pihak ketiga tetap milik pemegang haknya.
+> FuwaStream adalah aplikasi klien dan **tidak meng-host file video**. Informasi dan sumber pemutaran berasal dari API atau layanan pihak ketiga, sehingga ketersediaan konten bergantung pada layanan tersebut. Pengguna bertanggung jawab mematuhi hukum, hak cipta, dan ketentuan layanan yang berlaku di wilayahnya. Nama, logo, dan aset pihak ketiga tetap milik pemegang haknya. Data dan gambar manga berasal dari MangaDex beserta grup scanlation masing-masing; FuwaStream tidak menampilkan iklan.
 
 ## 🔐 Privasi &amp; kepatuhan
 
