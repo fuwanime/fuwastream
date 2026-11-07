@@ -13,7 +13,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MangaDexDnsTest {
-    private val blocked = Dns { listOf(InetAddress.getByName("36.86.63.185")) } // internetpositif.id
+    private val blocked = object : Dns { // internetpositif.id
+        override fun lookup(hostname: String) = listOf(InetAddress.getByName("36.86.63.185"))
+    }
     private val answer = DohResponse(0, listOf(DohAnswer(5, 300, "dxlb.mangadex.org."), DohAnswer(1, 2, "45.129.229.1"), DohAnswer(1, 2, "45.129.229.2")))
 
     @Test fun mangaDexHosts() {

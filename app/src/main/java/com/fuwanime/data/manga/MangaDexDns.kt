@@ -51,7 +51,9 @@ class MangaDexDns(
         val GOOGLE = listOf("8.8.8.8", "8.8.4.4").map { InetAddress.getByName(it) }
         val client: OkHttpClient by lazy {
             OkHttpClient.Builder()
-                .dns { host -> if (host == "dns.google") GOOGLE else Dns.SYSTEM.lookup(host) }
+                .dns(object : Dns {
+                    override fun lookup(hostname: String) = if (hostname == "dns.google") GOOGLE else Dns.SYSTEM.lookup(hostname)
+                })
                 .connectTimeout(5, TimeUnit.SECONDS)
                 .readTimeout(5, TimeUnit.SECONDS)
                 .build()
