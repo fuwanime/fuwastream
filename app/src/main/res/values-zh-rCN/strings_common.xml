@@ -57,6 +57,11 @@
     <string name="schedule_season_autumn">秋季</string>
     <string name="stats_hours_minutes">%1$d小时%2$d分钟</string>
     <string name="stats_minutes">%1$d分钟</string>
+    <string name="common_number_billion">%1$sB</string>
+    <string name="common_number_million">%1$sM</string>
+    <string name="common_number_thousand">%1$sK</string>
+    <string name="common_airing_minutes">%1$d分</string>
+    <string name="common_airing_hours_minutes">%1$d小时%2$d分</string>
     <plurals name="common_minutes_left">
         <item quantity="other">剩余%1$d分钟</item>
     </plurals>

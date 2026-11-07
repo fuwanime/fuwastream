@@ -1487,8 +1487,8 @@ private fun DownloadRow(
                     when (download.state) {
                         DownloadState.QUEUED -> "Menunggu antrean…"
                         DownloadState.PAUSED -> "Dijeda, menunggu jaringan…"
-                        else -> "Mengunduh ${(download.progress * 100).toInt()}% • ${formatBytes(download.downloadedBytes)}" +
-                            if (download.totalBytes > 0) " / ${formatBytes(download.totalBytes)}" else ""
+                        else -> "Mengunduh ${(download.progress * 100).toInt()}% • ${formatBytes(LocalContext.current.resources, download.downloadedBytes)}" +
+                            if (download.totalBytes > 0) " / ${formatBytes(LocalContext.current.resources, download.totalBytes)}" else ""
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.weight(1f),

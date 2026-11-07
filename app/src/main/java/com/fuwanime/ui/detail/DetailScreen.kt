@@ -257,11 +257,12 @@ private fun DetailScreen(
 
             if (anime != null) {
                 item(key = "stats") {
+                    val res = LocalContext.current.resources
                     Text(
                         buildAnnotatedString {
-                            withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)) { append(compactNumber(anime.views)) }
+                            withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)) { append(compactNumber(res, anime.views)) }
                             append(" ditonton      ")
-                            withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)) { append(compactNumber(anime.favorites)) }
+                            withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)) { append(compactNumber(res, anime.favorites)) }
                             append(" favorit")
                         },
                         style = MaterialTheme.typography.bodyMedium,
@@ -771,7 +772,7 @@ private fun EpisodeRow(
                 Text(ep.title, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Text(
-                listOf(ep.releaseDate, if (ep.views > 0) "${compactNumber(ep.views)} x" else "").filter { it.isNotBlank() }.joinToString(" • "),
+                listOf(ep.releaseDate, if (ep.views > 0) "${compactNumber(LocalContext.current.resources, ep.views)} x" else "").filter { it.isNotBlank() }.joinToString(" • "),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

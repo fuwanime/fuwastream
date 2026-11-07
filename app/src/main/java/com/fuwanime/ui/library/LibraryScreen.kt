@@ -502,7 +502,7 @@ private fun DownloadList(
     ) {
         item {
             Text(
-                "${items.count { it.state == DownloadState.DONE }} episode tersimpan • ${formatBytes(stored)}",
+                "${items.count { it.state == DownloadState.DONE }} episode tersimpan • ${formatBytes(LocalContext.current.resources, stored)}",
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 4.dp),
@@ -513,7 +513,7 @@ private fun DownloadList(
                 TextButton(onClick = { confirmWatched = true }) {
                     Icon(Icons.Rounded.DeleteSweep, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Hapus yang sudah ditonton (${watched.size} • ${formatBytes(watchedBytes)})")
+                    Text("Hapus yang sudah ditonton (${watched.size} • ${formatBytes(LocalContext.current.resources, watchedBytes)})")
                 }
             }
         }
@@ -545,10 +545,10 @@ private fun DownloadList(
                     Text("Episode ${e.episodeNumber} • ${e.quality}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                     Text(
                         when (d.state) {
-                            DownloadState.DONE -> formatBytes(d.totalBytes)
+                            DownloadState.DONE -> formatBytes(LocalContext.current.resources, d.totalBytes)
                             DownloadState.QUEUED -> "Menunggu antrean…"
                             DownloadState.PAUSED -> "Dijeda, menunggu jaringan…"
-                            DownloadState.RUNNING -> "${(d.progress * 100).toInt()}% • ${formatBytes(d.downloadedBytes)}"
+                            DownloadState.RUNNING -> "${(d.progress * 100).toInt()}% • ${formatBytes(LocalContext.current.resources, d.downloadedBytes)}"
                             DownloadState.FAILED -> "Gagal. Hapus lalu download ulang"
                         },
                         style = MaterialTheme.typography.labelSmall,
@@ -576,7 +576,7 @@ private fun DownloadList(
             onDismissRequest = { confirmWatched = false },
             icon = { Icon(Icons.Rounded.DeleteSweep, null) },
             title = { Text("Hapus ${watched.size} unduhan?") },
-            text = { Text("Episode yang sudah selesai ditonton akan dihapus dan ${formatBytes(watchedBytes)} dikosongkan.") },
+            text = { Text("Episode yang sudah selesai ditonton akan dihapus dan ${formatBytes(LocalContext.current.resources, watchedBytes)} dikosongkan.") },
             confirmButton = { TextButton(onClick = { onDeleteWatched(); confirmWatched = false }) { Text("Hapus") } },
             dismissButton = { TextButton(onClick = { confirmWatched = false }) { Text("Batal") } },
         )

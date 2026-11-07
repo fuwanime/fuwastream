@@ -1,6 +1,7 @@
 package com.fuwanime.ui.detail
 
 import android.content.res.Resources
+import com.fuwanime.R
 import com.fuwanime.data.Anime
 import com.fuwanime.data.SeasonEntry
 import com.fuwanime.util.Day
@@ -12,8 +13,8 @@ import java.util.TimeZone
 fun airingLabel(res: Resources, episode: Int, airingAtMs: Long, nowMs: Long, tz: TimeZone = TimeZone.getDefault()): String {
     val minutes = ((airingAtMs - nowMs).coerceAtLeast(0) / 60_000).toInt()
     val whenText = when {
-        minutes < 60 -> "${minutes}m"
-        minutes < 24 * 60 -> "${minutes / 60}j ${minutes % 60}m"
+        minutes < 60 -> res.getString(R.string.common_airing_minutes, minutes)
+        minutes < 24 * 60 -> res.getString(R.string.common_airing_hours_minutes, minutes / 60, minutes % 60)
         else -> {
             val c = Calendar.getInstance(tz).apply { timeInMillis = airingAtMs }
             val day = res.getString(Day.of(c.get(Calendar.DAY_OF_WEEK)).short)

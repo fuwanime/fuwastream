@@ -267,9 +267,10 @@ private fun HomeScreen(
             if (feed.loading || feed.thisSeason.isNotEmpty()) {
                 item(key = "season") {
                     Section("Sedang Tayang", subtitle = "Anime ongoing musim ini") {
+                        val seasonRes = LocalContext.current.resources
                         PosterRow(
                             feed.thisSeason, feed.loading, { onAnimeClick(it, "home-season") },
-                            origin = "home-season", caption = { "${compactNumber(it.views)} ditonton" },
+                            origin = "home-season", caption = { "${compactNumber(seasonRes, it.views)} ditonton" },
                         )
                     }
                 }
@@ -574,7 +575,7 @@ private fun HeroPager(items: List<Anime>, favoriteIds: Set<String>, onToggleFavo
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        listOf("${compactNumber(anime.views)} ditonton").plus(anime.genres.take(2)).joinToString(" · "),
+                        listOf("${compactNumber(LocalContext.current.resources, anime.views)} ditonton").plus(anime.genres.take(2)).joinToString(" · "),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,

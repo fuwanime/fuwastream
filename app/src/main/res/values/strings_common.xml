@@ -57,6 +57,11 @@
     <string name="schedule_season_autumn">Musim Gugur</string>
     <string name="stats_hours_minutes">%1$d jam %2$d mnt</string>
     <string name="stats_minutes">%1$d mnt</string>
+    <string name="common_number_billion">%1$s M</string>
+    <string name="common_number_million">%1$s jt</string>
+    <string name="common_number_thousand">%1$s rb</string>
+    <string name="common_airing_minutes">%1$dm</string>
+    <string name="common_airing_hours_minutes">%1$dj %2$dm</string>
     <plurals name="common_minutes_left">
         <item quantity="other">Sisa %1$d menit</item>
     </plurals>

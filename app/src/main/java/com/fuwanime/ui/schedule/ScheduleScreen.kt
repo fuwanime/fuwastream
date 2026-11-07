@@ -1,5 +1,6 @@
 package com.fuwanime.ui.schedule
 
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.fuwanime.ui.components.LocalNavBarPadding
 import androidx.compose.foundation.clickable
@@ -263,7 +264,7 @@ private fun ScheduleRow(anime: Anime, origin: String, onClick: () -> Unit) {
             )
             Spacer(Modifier.height(6.dp))
             Pill(
-                compactNumber(anime.views),
+                compactNumber(LocalContext.current.resources, anime.views),
                 leading = Icons.Rounded.Visibility,
                 container = MaterialTheme.colorScheme.surfaceContainerHigh,
                 content = MaterialTheme.colorScheme.onSurfaceVariant,

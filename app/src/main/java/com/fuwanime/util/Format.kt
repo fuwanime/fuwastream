@@ -4,6 +4,7 @@ import android.content.res.Resources
 import androidx.annotation.StringRes
 import com.fuwanime.R
 import java.text.DateFormatSymbols
+import java.text.DecimalFormatSymbols
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -11,16 +12,22 @@ import java.util.TimeZone
 
 private val ID = Locale.forLanguageTag("id-ID")
 
-/** 15894862 -> "15,9 jt", 38798 -> "38,8 rb". */
-fun compactNumber(value: Long): String = when {
-    value >= 1_000_000_000 -> String.format(ID, "%.1f M", value / 1_000_000_000.0)
-    value >= 1_000_000 -> String.format(ID, "%.1f jt", value / 1_000_000.0)
-    value >= 1_000 -> String.format(ID, "%.1f rb", value / 1_000.0)
-    else -> value.toString()
-}.replace(",0 ", " ")
+/** One decimal in the app language, without a trailing zero: 15.9 / 2. */
+private fun decimal1(res: Resources, value: Double): String {
+    val locale = res.configuration.locales[0]
+    return String.format(locale, "%.1f", value).removeSuffix("${DecimalFormatSymbols.getInstance(locale).decimalSeparator}0")
+}
 
-/** 1536 -> "1,5 KB", 734003200 -> "700 MB". */
-fun formatBytes(bytes: Long): String {
+/** 15894862 -> "15,9 jt" (id), "15.9M" (en); 38798 -> "38,8 rb". */
+fun compactNumber(res: Resources, value: Long): String = when {
+    value >= 1_000_000_000 -> res.getString(R.string.common_number_billion, decimal1(res, value / 1_000_000_000.0))
+    value >= 1_000_000 -> res.getString(R.string.common_number_million, decimal1(res, value / 1_000_000.0))
+    value >= 1_000 -> res.getString(R.string.common_number_thousand, decimal1(res, value / 1_000.0))
+    else -> value.toString()
+}
+
+/** 1536 -> "1,5 KB", 734003200 -> "700 MB"; the decimal separator follows the app language. */
+fun formatBytes(res: Resources, bytes: Long): String {
     val units = listOf("B", "KB", "MB", "GB")
     var value = bytes.coerceAtLeast(0).toDouble()
     var unit = 0
@@ -28,7 +35,7 @@ fun formatBytes(bytes: Long): String {
         value /= 1024
         unit++
     }
-    return if (unit <= 1) "${value.toLong()} ${units[unit]}" else String.format(ID, "%.1f %s", value, units[unit]).replace(",0 ", " ")
+    return if (unit <= 1) "${value.toLong()} ${units[unit]}" else "${decimal1(res, value)} ${units[unit]}"
 }
 
 fun formatDuration(ms: Long): String {

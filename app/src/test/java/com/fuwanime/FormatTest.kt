@@ -12,6 +12,7 @@ import com.fuwanime.util.airTime
 import com.fuwanime.util.friendlyMessage
 import com.fuwanime.util.statusLabel
 import com.fuwanime.util.compactNumber
+import com.fuwanime.util.formatBytes
 import com.fuwanime.util.formatDuration
 import com.fuwanime.util.historyDayLabel
 import com.fuwanime.util.offlineLabel
@@ -42,10 +43,25 @@ class FormatTest {
 
     @Test
     fun compactNumber_usesIndonesianUnits() {
-        assertEquals("15,9 jt", compactNumber(15_894_862))
-        assertEquals("38,8 rb", compactNumber(38_798))
-        assertEquals("2 rb", compactNumber(2_000))
-        assertEquals("999", compactNumber(999))
+        assertEquals("15,9 jt", compactNumber(res, 15_894_862))
+        assertEquals("38,8 rb", compactNumber(res, 38_798))
+        assertEquals("2 rb", compactNumber(res, 2_000))
+        assertEquals("999", compactNumber(res, 999))
+    }
+
+    @Test
+    fun formatBytes_usesAppDecimalSeparator() {
+        assertEquals("1 KB", formatBytes(res, 1536))
+        assertEquals("700 MB", formatBytes(res, 734_003_200))
+        assertEquals("1,5 GB", formatBytes(res, 1_610_612_736))
+    }
+
+    @Config(sdk = [35], application = android.app.Application::class, qualifiers = "en")
+    @Test
+    fun compactNumberAndBytes_english() {
+        assertEquals("15.9M", compactNumber(res, 15_894_862))
+        assertEquals("2K", compactNumber(res, 2_000))
+        assertEquals("1.5 GB", formatBytes(res, 1_610_612_736))
     }
 
     @Test
