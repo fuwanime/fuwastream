@@ -18,7 +18,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35], qualifiers = "id")
+@Config(sdk = [35], application = android.app.Application::class, qualifiers = "id")
 class LibraryLogicTest {
     private val res get() = testResources()
 
@@ -64,7 +64,7 @@ class LibraryLogicTest {
     @Test fun badge_nine() = assertEquals("9 baru", newBadgeLabel(res, 9))
     @Test fun badge_ten() = assertEquals("9+ baru", newBadgeLabel(res, 10))
 
-    @Config(sdk = [35], qualifiers = "en")
+    @Config(sdk = [35], application = android.app.Application::class, qualifiers = "en")
     @Test fun badge_english() {
         assertEquals("2 new", newBadgeLabel(res, 2))
         assertEquals("9+ new", newBadgeLabel(res, 10))

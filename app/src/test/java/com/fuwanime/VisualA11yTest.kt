@@ -17,7 +17,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35], qualifiers = "id")
+@Config(sdk = [35], application = android.app.Application::class, qualifiers = "id")
 class VisualA11yTest {
     private val res get() = testResources()
 
@@ -67,7 +67,7 @@ class VisualA11yTest {
 
     @Test fun descriptionSkipsBlankCaption() = assertEquals("Frieren", posterDescription(res, "Frieren", " ", null, false, false, false))
 
-    @Config(sdk = [35], qualifiers = "en")
+    @Config(sdk = [35], application = android.app.Application::class, qualifiers = "en")
     @Test fun descriptionEnglish() = assertEquals(
         "Frieren, Episode 5, New, 2 new, selected",
         posterDescription(res, "Frieren", "Episode 5", "2 new", isNew = true, airing = true, selected = true),

@@ -17,7 +17,7 @@ import java.util.Calendar
 import java.util.TimeZone
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35], qualifiers = "id")
+@Config(sdk = [35], application = android.app.Application::class, qualifiers = "id")
 class DetailMetaTest {
     private val res get() = testResources()
 

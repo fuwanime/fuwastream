@@ -28,7 +28,7 @@ import org.robolectric.annotation.Config
 import java.util.TimeZone
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35], qualifiers = "id")
+@Config(sdk = [35], application = android.app.Application::class, qualifiers = "id")
 class FormatTest {
     private val res get() = testResources()
 
@@ -144,7 +144,7 @@ class FormatTest {
         assertEquals("Offline", offlineLabel(res, now + 5 * 60_000L, now))
     }
 
-    @Config(sdk = [35], qualifiers = "en")
+    @Config(sdk = [35], application = android.app.Application::class, qualifiers = "en")
     @Test
     fun english_labels() {
         val jkt = TimeZone.getTimeZone("Asia/Jakarta")
@@ -173,7 +173,7 @@ class FormatTest {
         assertEquals("", relativeTime(res, "kemarin", at))
     }
 
-    @Config(sdk = [35], qualifiers = "en")
+    @Config(sdk = [35], application = android.app.Application::class, qualifiers = "en")
     @Test
     fun relativeTime_english() {
         val at = java.time.Instant.parse("2026-10-26T13:10:10Z").toEpochMilli()
@@ -196,7 +196,7 @@ class FormatTest {
         assertEquals("42 mnt", watchTimeLabel(res, 42 * 60_000L))
     }
 
-    @Config(sdk = [35], qualifiers = "en")
+    @Config(sdk = [35], application = android.app.Application::class, qualifiers = "en")
     @Test
     fun friendlyMessage_andStatusLabel_english() {
         assertEquals("No internet connection.", java.net.UnknownHostException().friendlyMessage(res))
