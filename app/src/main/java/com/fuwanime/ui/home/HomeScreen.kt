@@ -1,5 +1,6 @@
 package com.fuwanime.ui.home
 
+import com.fuwanime.R
 import androidx.compose.ui.res.stringResource
 import com.fuwanime.ui.settings.rememberRestoreFlow
 import androidx.compose.material3.TextButton
@@ -224,7 +225,7 @@ private fun HomeScreen(
 
             if (state.continueWatching.isNotEmpty()) {
                 item(key = "cw") {
-                    Section("Lanjutkan Nonton") {
+                    Section(stringResource(R.string.browse_home_continue)) {
                         LazyRow(
                             contentPadding = PaddingValues(horizontal = 20.dp),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -239,7 +240,7 @@ private fun HomeScreen(
 
             if (feed.loading || feed.latest.isNotEmpty()) {
                 item(key = "latest") {
-                    Section("Episode Terbaru") {
+                    Section(stringResource(R.string.browse_home_latest)) {
                         val releases = remember(feed.latest) { feed.latest.associateBy { it.anime.id } }
                         val res = LocalContext.current.resources
                         PosterRow(feed.latest.map { it.anime }, feed.loading, { onAnimeClick(it, "home-latest") }, origin = "home-latest", isNew = { true }, caption = { a ->
@@ -256,9 +257,10 @@ private fun HomeScreen(
 
             if (feed.loading || feed.today.isNotEmpty()) {
                 item(key = "today") {
-                    Section("Tayang Hari Ini", subtitle = todayLabel, onSeeAll = onSchedule) {
+                    Section(stringResource(R.string.browse_home_today), subtitle = todayLabel, onSeeAll = onSchedule) {
+                        val releaseFmt = stringResource(R.string.browse_release_at, "%1\$s")
                         PosterRow(feed.today, feed.loading, { onAnimeClick(it, "home-today") }, origin = "home-today", caption = { a ->
-                            a.nextAirTime.takeIf { it.isNotBlank() }?.let { "Rilis ${airTime(it)}" }
+                            a.nextAirTime.takeIf { it.isNotBlank() }?.let { releaseFmt.format(airTime(it)) }
                         })
                     }
                 }
@@ -266,18 +268,19 @@ private fun HomeScreen(
 
             if (feed.loading || feed.thisSeason.isNotEmpty()) {
                 item(key = "season") {
-                    Section("Sedang Tayang", subtitle = "Anime ongoing musim ini") {
+                    Section(stringResource(R.string.browse_home_airing), subtitle = stringResource(R.string.browse_home_airing_subtitle)) {
                         val seasonRes = LocalContext.current.resources
+                        val viewsFmt = stringResource(R.string.browse_views, "%1\$s")
                         PosterRow(
                             feed.thisSeason, feed.loading, { onAnimeClick(it, "home-season") },
-                            origin = "home-season", caption = { "${compactNumber(seasonRes, it.views)} ditonton" },
+                            origin = "home-season", caption = { viewsFmt.format(compactNumber(seasonRes, it.views)) },
                         )
                     }
                 }
             }
 
             item(key = "popular") {
-                Section("Terpopuler", subtitle = "Paling banyak ditonton", onSeeAll = { onExplore(null) }) {
+                Section(stringResource(R.string.common_sort_popular), subtitle = stringResource(R.string.browse_home_popular_subtitle), onSeeAll = { onExplore(null) }) {
                     val top = feed.popular.take(10)
                     if (top.isEmpty()) {
                         PosterRow(top, feed.loading, { onAnimeClick(it, "home-popular") })
@@ -288,7 +291,7 @@ private fun HomeScreen(
             }
 
             item(key = "genres") {
-                Section("Jelajahi Genre") {
+                Section(stringResource(R.string.browse_home_genres)) {
                     FlowRow(
                         Modifier.padding(horizontal = 20.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -332,7 +335,7 @@ private fun UpdateBanner(info: UpdateRepository.UpdateInfo, onClick: () -> Unit,
                 modifier = Modifier.size(20.dp),
             )
             Text(
-                "Update ${info.tag.removePrefix("v")} tersedia — ketuk untuk lihat perubahan",
+                stringResource(R.string.browse_update_banner, info.tag.removePrefix("v")),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.weight(1f).padding(horizontal = 10.dp).clickable(onClick = onClick),
@@ -342,7 +345,7 @@ private fun UpdateBanner(info: UpdateRepository.UpdateInfo, onClick: () -> Unit,
             IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
                 Icon(
                     Icons.Rounded.Close,
-                    "Tutup banner update",
+                    stringResource(R.string.browse_update_dismiss_cd),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(16.dp),
                 )
@@ -365,13 +368,13 @@ private fun RestoreBanner(onRestore: () -> Unit, onDismiss: () -> Unit) {
         ) {
             Icon(Icons.Rounded.Restore, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
             Text(
-                "Pernah pakai fuwanime? Pulihkan data dari file backup",
+                stringResource(R.string.browse_restore_prompt),
                 style = MaterialTheme.typography.labelMedium,
                 modifier = Modifier.weight(1f).padding(horizontal = 10.dp),
             )
-            TextButton(onClick = onRestore) { Text("Pulihkan") }
+            TextButton(onClick = onRestore) { Text(stringResource(R.string.browse_restore)) }
             IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Rounded.Close, "Tutup tawaran pulihkan", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                Icon(Icons.Rounded.Close, stringResource(R.string.browse_restore_dismiss_cd), tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
             }
         }
     }
@@ -399,7 +402,7 @@ private fun UpdateSheet(info: UpdateRepository.UpdateInfo, onDismiss: () -> Unit
             )
             Spacer(Modifier.height(12.dp))
             Text(
-                info.notes.ifBlank { "Tanpa catatan rilis." },
+                info.notes.ifBlank { stringResource(R.string.browse_update_no_notes) },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -418,7 +421,7 @@ private fun UpdateSheet(info: UpdateRepository.UpdateInfo, onDismiss: () -> Unit
                 ) {
                     Icon(Icons.Rounded.Info, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Unduh APK")
+                    Text(stringResource(R.string.browse_update_download))
                 }
                 OutlinedIconButton(
                     onClick = {
@@ -427,7 +430,7 @@ private fun UpdateSheet(info: UpdateRepository.UpdateInfo, onDismiss: () -> Unit
                         )
                     },
                 ) {
-                    Icon(Icons.Rounded.OpenInNew, "Buka di GitHub")
+                    Icon(Icons.Rounded.OpenInNew, stringResource(R.string.browse_update_github_cd))
                 }
             }
         }
@@ -468,8 +471,8 @@ private fun HomeTopBar(solid: Boolean, syncing: Boolean, onSearch: () -> Unit, o
             Wordmark(onDark = !solid)
             Spacer(Modifier.weight(1f))
             val tint = if (solid) MaterialTheme.colorScheme.onSurface else Color.White
-            IconWithTooltip("Cari", Icons.Rounded.Search, onSearch, tint = tint)
-            IconWithTooltip("Pengaturan", Icons.Rounded.Settings, onSettings, tint = tint)
+            IconWithTooltip(stringResource(R.string.browse_search), Icons.Rounded.Search, onSearch, tint = tint)
+            IconWithTooltip(stringResource(R.string.browse_settings), Icons.Rounded.Settings, onSettings, tint = tint)
         }
         RefreshHairline(syncing)
     }
@@ -544,7 +547,7 @@ private fun HeroPager(items: List<Anime>, favoriteIds: Set<String>, onToggleFavo
                     Spacer(Modifier.weight(1f))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            "#${page + 1} MUSIM INI",
+                            stringResource(R.string.browse_hero_rank, page + 1),
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.ExtraBold,
                             letterSpacing = 0.06.em,
@@ -575,7 +578,7 @@ private fun HeroPager(items: List<Anime>, favoriteIds: Set<String>, onToggleFavo
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        listOf("${compactNumber(LocalContext.current.resources, anime.views)} ditonton").plus(anime.genres.take(2)).joinToString(" · "),
+                        listOf(stringResource(R.string.browse_views, compactNumber(LocalContext.current.resources, anime.views))).plus(anime.genres.take(2)).joinToString(" · "),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
@@ -595,7 +598,7 @@ private fun HeroPager(items: List<Anime>, favoriteIds: Set<String>, onToggleFavo
                         ) {
                             Icon(Icons.Rounded.PlayArrow, null)
                             Spacer(Modifier.width(6.dp))
-                            Text("Tonton", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.browse_watch), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                         }
                         Spacer(Modifier.width(10.dp))
                         val favorite = anime.id in favoriteIds
@@ -607,7 +610,7 @@ private fun HeroPager(items: List<Anime>, favoriteIds: Set<String>, onToggleFavo
                         ) {
                             Icon(
                                 if (favorite) Icons.Rounded.Check else Icons.Rounded.Add,
-                                if (favorite) "Hapus dari Koleksi" else "Tambah ke Koleksi",
+                                if (favorite) stringResource(R.string.browse_remove_from_library) else stringResource(R.string.browse_add_to_library),
                             )
                         }
                     }
