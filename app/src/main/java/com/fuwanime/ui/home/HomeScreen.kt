@@ -218,6 +218,7 @@ private fun HomeScreen(
 
     val isManga = mode == ContentMode.MANGA
     var topBarPx by remember { mutableIntStateOf(0) }
+    val topBarDp = with(LocalDensity.current) { topBarPx.toDp() }
     PullToRefreshBox(
         isRefreshing = if (isManga) manga.refreshing else feed.refreshing,
         onRefresh = if (isManga) onMangaRefresh else onRefresh,
@@ -225,7 +226,7 @@ private fun HomeScreen(
     ) {
         LazyColumn(state = listState, contentPadding = PaddingValues(bottom = 24.dp + LocalNavBarPadding.current), modifier = Modifier.fillMaxSize()) {
             if (isManga) {
-                mangaHomeItems(manga, with(LocalDensity.current) { topBarPx.toDp() }, onMangaRefresh, onMangaClick)
+                mangaHomeItems(manga, topBarDp, onMangaRefresh, onMangaClick)
                 return@LazyColumn
             }
             item(key = "hero") {
