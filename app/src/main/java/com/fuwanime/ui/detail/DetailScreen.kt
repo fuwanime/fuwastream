@@ -4,7 +4,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalConfiguration
-import com.fuwanime.ui.stats.statColumns
+import com.fuwanime.ui.stats.episodeHeaderStacked
 import com.fuwanime.ui.components.IconWithTooltip
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.material3.ButtonDefaults
@@ -672,7 +672,7 @@ private fun EpisodeHeader(state: DetailUiState, vm: DetailViewModel) {
             }
         }
         // Large text can't fit the title and three labelled actions on one line; give the actions their own row.
-        if (statColumns(LocalDensity.current.fontScale, LocalConfiguration.current.screenWidthDp) == 2) {
+        if (!episodeHeaderStacked(LocalDensity.current.fontScale, LocalConfiguration.current.screenWidthDp)) {
             Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 title(Modifier.weight(1f))
                 actions()

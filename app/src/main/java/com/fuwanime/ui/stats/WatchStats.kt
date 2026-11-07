@@ -102,3 +102,9 @@ fun weekSummary(history: List<WatchHistoryEntity>, daily: List<WatchDailyEntity>
 
 /** Stat cards stack into one column when large text or a narrow screen would squeeze two side by side. */
 fun statColumns(fontScale: Float, widthDp: Int): Int = if (fontScale >= 1.5f || widthDp < 360) 1 else 2
+
+/**
+ * The Detail episode header needs ~440dp at 1x for its title plus "Unduh semua", search and "Terbaru";
+ * below that (in font-scaled dp) the actions get their own row so the title isn't squeezed.
+ */
+fun episodeHeaderStacked(fontScale: Float, widthDp: Int): Boolean = widthDp / fontScale < 440f
