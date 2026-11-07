@@ -1,7 +1,5 @@
 package com.fuwanime.ui.manga
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,7 +24,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
-import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
@@ -35,7 +32,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,7 +40,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -132,8 +127,6 @@ class MangaDetailViewModel(private val id: String, private val repo: MangaReposi
 fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: String, chapterId: String) -> Unit) {
     val vm: MangaDetailViewModel = fuwaViewModel(key = "manga-$mangaId") { c, _ -> MangaDetailViewModel(mangaId, c.mangaRepository, c.mangaLibrary) }
     val state by vm.state.collectAsStateWithLifecycle()
-    val context = LocalContext.current
-    val openUrl: (String) -> Unit = { url -> runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } }
 
     Box(Modifier.fillMaxSize()) {
         val manga = state.manga
@@ -176,13 +169,14 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
                     }
                     item(key = "chaptersTitle") {
                         Text(
-                            state.chapters?.let { pluralStringResource(R.plurals.manga_detail_chapters_count, it.size, it.size) } ?: stringResource(R.string.manga_detail_chapters),
+                            state.chapters?.count { it.externalUrl == null && it.pages > 0 }?.let { pluralStringResource(R.plurals.manga_detail_chapters_count, it, it) } ?: stringResource(R.string.manga_detail_chapters),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 4.dp),
                         )
                     }
-                    val chapters = state.chapters
+                    // Everything is read in the app: chapters that only exist on an external site (or have no pages) are left out.
+                    val chapters = state.chapters?.filter { it.externalUrl == null && it.pages > 0 }
                     when {
                         state.chaptersError != null -> item(key = "chErr") { ErrorState(state.chaptersError!!, vm::load) }
                         chapters == null -> Unit
@@ -190,16 +184,16 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
                             MessageState(Icons.AutoMirrored.Rounded.MenuBook, stringResource(R.string.manga_detail_no_chapters))
                         }
                         else -> items(chapters, key = { it.id }) { c ->
-                            ChapterRow(c, read = c.id in readIds) {
-                                if (c.externalUrl != null) openUrl(c.externalUrl) else if (c.pages > 0) onRead(mangaId, c.id)
-                            }
+                            ChapterRow(c, read = c.id in readIds) { onRead(mangaId, c.id) }
                         }
                     }
                     item(key = "credit") {
-                        TextButton(
-                            onClick = { openUrl("https://mangadex.org/title/$mangaId") },
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp).navigationBarsPadding(),
-                        ) { Text(stringResource(R.string.manga_credit_mangadex), style = MaterialTheme.typography.labelMedium) }
+                        Text(
+                            stringResource(R.string.manga_credit_mangadex),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp).navigationBarsPadding(),
+                        )
                     }
                 }
             }
@@ -262,9 +256,8 @@ private fun Synopsis(manga: Manga) {
 
 @Composable
 private fun ChapterRow(c: MangaChapter, read: Boolean, onClick: () -> Unit) {
-    val readable = c.externalUrl != null || c.pages > 0
     Row(
-        Modifier.fillMaxWidth().clickable(enabled = readable, onClick = onClick).padding(horizontal = 20.dp, vertical = 12.dp),
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 20.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
@@ -284,7 +277,6 @@ private fun ChapterRow(c: MangaChapter, read: Boolean, onClick: () -> Unit) {
             )
         }
         when {
-            c.externalUrl != null -> Icon(Icons.AutoMirrored.Rounded.OpenInNew, stringResource(R.string.manga_chapter_external), Modifier.size(20.dp))
             read -> Icon(Icons.Rounded.CheckCircle, stringResource(R.string.manga_chapter_read), Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
         }
     }

@@ -20,7 +20,6 @@
     <string name="manga_favorite_remove">Remove from favorites</string>
     <string name="manga_detail_more">More</string>
     <string name="manga_detail_less">Less</string>
-    <string name="manga_chapter_external">Open on the official site</string>
     <string name="manga_chapter_read">Read</string>
     <string name="manga_reader_page">%1$d / %2$d</string>
     <string name="manga_reader_prev">Previous chapter</string>

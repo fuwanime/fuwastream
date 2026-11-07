@@ -20,7 +20,6 @@
     <string name="manga_favorite_remove">Buang daripada kegemaran</string>
     <string name="manga_detail_more">Lagi</string>
     <string name="manga_detail_less">Ringkas</string>
-    <string name="manga_chapter_external">Buka di laman rasmi</string>
     <string name="manga_chapter_read">Sudah dibaca</string>
     <string name="manga_reader_page">%1$d / %2$d</string>
     <string name="manga_reader_prev">Bab sebelumnya</string>
