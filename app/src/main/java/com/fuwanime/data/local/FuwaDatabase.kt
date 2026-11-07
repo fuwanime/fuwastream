@@ -1,5 +1,6 @@
 package com.fuwanime.data.local
 
+import com.squareup.moshi.JsonClass
 import android.content.Context
 import androidx.room.Dao
 import androidx.room.Database
@@ -14,6 +15,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
+@JsonClass(generateAdapter = true)
 @Entity(tableName = "favorites")
 data class FavoriteEntity(
     @PrimaryKey val animeId: String,
@@ -28,6 +30,7 @@ data class FavoriteEntity(
 )
 
 /** One row per episode the user has started; the newest row per anime drives "Lanjutkan Nonton". */
+@JsonClass(generateAdapter = true)
 @Entity(tableName = "watch_history", indices = [Index("animeId"), Index("updatedAt")])
 data class WatchHistoryEntity(
     @PrimaryKey val episodeId: String,
@@ -52,6 +55,7 @@ data class WatchHistoryEntity(
     }
 }
 
+@JsonClass(generateAdapter = true)
 @Entity(tableName = "search_history")
 data class SearchHistoryEntity(
     @PrimaryKey val query: String,
@@ -88,6 +92,9 @@ interface FavoriteDao {
     @Upsert
     suspend fun upsert(entity: FavoriteEntity)
 
+    @Upsert
+    suspend fun upsertAll(entities: List<FavoriteEntity>)
+
     @Query("DELETE FROM favorites WHERE animeId = :animeId")
     suspend fun delete(animeId: String)
 
@@ -119,6 +126,12 @@ interface WatchHistoryDao {
     @Upsert
     suspend fun upsert(entity: WatchHistoryEntity)
 
+    @Upsert
+    suspend fun upsertAll(entities: List<WatchHistoryEntity>)
+
+    @Query("SELECT * FROM watch_history")
+    suspend fun all(): List<WatchHistoryEntity>
+
     @Query("DELETE FROM watch_history WHERE animeId = :animeId")
     suspend fun deleteAnime(animeId: String)
 
@@ -133,6 +146,12 @@ interface SearchHistoryDao {
 
     @Upsert
     suspend fun upsert(entity: SearchHistoryEntity)
+
+    @Upsert
+    suspend fun upsertAll(entities: List<SearchHistoryEntity>)
+
+    @Query("SELECT * FROM search_history")
+    suspend fun all(): List<SearchHistoryEntity>
 
     @Query("DELETE FROM search_history WHERE `query` = :query")
     suspend fun delete(query: String)
