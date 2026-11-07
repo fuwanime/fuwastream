@@ -57,7 +57,7 @@ class WatchStatsTest {
 
     @Test fun monthlySixMonthsWithZeros() {
         val s = computeStats(emptyList(), listOf(WatchDailyEntity(day(2026, 9, 10), 120_000)), emptyList(), today)
-        assertEquals(listOf("Jun", "Jul", "Agu", "Sep", "Okt", "Nov"), s.monthly.map { it.label })
+        assertEquals(listOf(5, 6, 7, 8, 9, 10), s.monthly.map { it.month })
         assertEquals(listOf(0, 0, 0, 2, 0, 0), s.monthly.map { it.minutes })
     }
 

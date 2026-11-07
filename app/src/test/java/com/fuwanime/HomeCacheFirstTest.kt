@@ -9,7 +9,7 @@ import com.fuwanime.ui.home.OFFLINE_EMPTY
 import com.fuwanime.ui.home.reduce
 import com.fuwanime.ui.home.shouldAutoRefresh
 import com.fuwanime.util.Day
-import com.fuwanime.util.friendlyMessage
+import com.fuwanime.util.friendlyText
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -63,7 +63,7 @@ class HomeCacheFirstTest {
     @Test fun reduce_noCacheOnlineShowsFriendlyMessage() {
         val e = SocketTimeoutException()
         val f = HomeFeed().reduce(failure(e), fromCache = false, online = true)!!
-        assertEquals(e.friendlyMessage(), f.error)
+        assertEquals(e.friendlyText(), f.error)
     }
 
     @Test fun reduce_lateCacheIgnoredAfterNetwork() {

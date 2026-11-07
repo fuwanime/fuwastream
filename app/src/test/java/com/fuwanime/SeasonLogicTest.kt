@@ -1,6 +1,8 @@
 package com.fuwanime
 
+import com.fuwanime.R
 import com.fuwanime.data.Anime
+import com.fuwanime.util.UiText
 import com.fuwanime.ui.schedule.AnimeSeason
 import com.fuwanime.ui.schedule.DaySchedule
 import com.fuwanime.ui.schedule.SeasonTab
@@ -13,16 +15,16 @@ import org.junit.Test
 
 class SeasonLogicTest {
     @Test fun seasons() {
-        assertEquals(AnimeSeason("Musim Dingin", 2026, 1), seasonOf(2026, 3))
-        assertEquals(AnimeSeason("Musim Semi", 2026, 4), seasonOf(2026, 4))
-        assertEquals(AnimeSeason("Musim Panas", 2026, 7), seasonOf(2026, 9))
-        assertEquals(AnimeSeason("Musim Gugur", 2026, 10), seasonOf(2026, 12))
+        assertEquals(AnimeSeason(R.string.schedule_season_winter, 2026, 1), seasonOf(2026, 3))
+        assertEquals(AnimeSeason(R.string.schedule_season_spring, 2026, 4), seasonOf(2026, 4))
+        assertEquals(AnimeSeason(R.string.schedule_season_summer, 2026, 7), seasonOf(2026, 9))
+        assertEquals(AnimeSeason(R.string.schedule_season_autumn, 2026, 10), seasonOf(2026, 12))
     }
 
     private fun a(id: String, title: String, aired: String) = Anime(id = id, title = title, airedStart = aired)
 
     @Test fun splitByAiredStart() {
-        val autumn = AnimeSeason("Musim Gugur", 2026, 10)
+        val autumn = AnimeSeason(R.string.schedule_season_autumn, 2026, 10)
         val (fresh, continuing) = splitBySeason(
             listOf(
                 a("1", "Zeta", "2026-10-04"), a("2", "Alpha", "2026-12-31"), a("3", "Mid", "2026-09-30"),
@@ -36,7 +38,7 @@ class SeasonLogicTest {
 
     private val ok = DaySchedule(items = listOf(a("1", "A", "")), loaded = true)
     private val ok2 = DaySchedule(items = listOf(a("1", "A", ""), a("2", "B", "")), loaded = true)
-    private val failed = DaySchedule(error = "x")
+    private val failed = DaySchedule(error = UiText.raw("x"))
 
     @Test fun tabReadyWithPartialFailure() {
         val s = seasonTabState(listOf(ok, ok2) + List(5) { failed })
