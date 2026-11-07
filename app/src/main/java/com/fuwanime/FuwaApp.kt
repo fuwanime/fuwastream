@@ -1,5 +1,6 @@
 package com.fuwanime
 
+import com.fuwanime.data.manga.MangaDexDns
 import kotlinx.coroutines.flow.first
 import com.fuwanime.data.backup.BackupWorker
 import com.fuwanime.data.backup.BackupRepository
@@ -44,7 +45,8 @@ import okhttp3.OkHttpClient
 // Code contributor: Andra
 /** Manual DI: one instance of each dependency for the whole process. */
 class AppContainer(private val app: Application) {
-    val httpClient: OkHttpClient = AnimeApiService.createHttpClient()
+    // MangaDexDns only changes MangaDex hosts (blocked by Indonesian ISP DNS); everything derived from this client inherits it.
+    val httpClient: OkHttpClient = AnimeApiService.createHttpClient().newBuilder().dns(MangaDexDns()).build()
 
     /** Connectivity plus "showing cached data since"; drives the offline indicators. */
     val networkStatus = NetworkStatus().also { it.start(app) }
