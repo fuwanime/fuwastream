@@ -131,10 +131,10 @@ fun StatsRoute(onBack: () -> Unit, onExplore: () -> Unit) {
     val loaded by vm.stats.collectAsStateWithLifecycle()
     val week by vm.week.collectAsStateWithLifecycle()
     val columns = statColumns(LocalDensity.current.fontScale, LocalConfiguration.current.screenWidthDp)
-    val explain: (String) -> Unit = { msg -> scope.launch { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar(msg) } }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val explain: (String) -> Unit = { msg -> scope.launch { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar(msg) } }
     val context = LocalContext.current
     val recapLayer = rememberGraphicsLayer()
     val monthYear = remember {
