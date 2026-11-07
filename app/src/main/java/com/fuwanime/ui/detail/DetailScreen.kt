@@ -1,5 +1,11 @@
 package com.fuwanime.ui.detail
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalConfiguration
+import com.fuwanime.ui.stats.statColumns
+import com.fuwanime.ui.components.IconWithTooltip
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -634,7 +640,7 @@ private fun EpisodeHeader(state: DetailUiState, vm: DetailViewModel) {
     var searching by rememberSaveable { mutableStateOf(false) }
     var confirmDownloadAll by rememberSaveable { mutableStateOf(false) }
     Column(Modifier.padding(top = 24.dp)) {
-        Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        val title: @Composable (Modifier) -> Unit = { m ->
             Text(
                 buildAnnotatedString {
                     append("Episode")
@@ -646,18 +652,34 @@ private fun EpisodeHeader(state: DetailUiState, vm: DetailViewModel) {
                 },
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f),
+                modifier = m,
             )
-            IconButton(onClick = { confirmDownloadAll = true }) {
-                Icon(Icons.Rounded.Download, "Unduh massal episode")
+        }
+        val actions: @Composable () -> Unit = {
+            TextButton(onClick = { confirmDownloadAll = true }) {
+                Icon(Icons.Rounded.Download, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Unduh semua")
             }
-            IconButton(onClick = {
+            IconWithTooltip(if (searching) "Tutup cari episode" else "Cari episode", if (searching) Icons.Rounded.Close else Icons.Rounded.Search, {
                 searching = !searching
                 if (!searching) vm.searchEpisode("")
-            }) { Icon(if (searching) Icons.Rounded.Close else Icons.Rounded.Search, "Cari episode") }
-            IconButton(onClick = vm::toggleOrder) {
-                Icon(Icons.Rounded.SwapVert, if (state.newestFirst) "Urutkan terlama" else "Urutkan terbaru")
+            })
+            TextButton(onClick = vm::toggleOrder, modifier = Modifier.semantics { contentDescription = if (state.newestFirst) "Urutan: terbaru dulu. Ubah ke terlama" else "Urutan: terlama dulu. Ubah ke terbaru" }) {
+                Icon(Icons.Rounded.SwapVert, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(if (state.newestFirst) "Terbaru" else "Terlama")
             }
+        }
+        // Large text can't fit the title and three labelled actions on one line; give the actions their own row.
+        if (statColumns(LocalDensity.current.fontScale, LocalConfiguration.current.screenWidthDp) == 2) {
+            Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                title(Modifier.weight(1f))
+                actions()
+            }
+        } else {
+            title(Modifier.padding(horizontal = 20.dp))
+            Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) { actions() }
         }
         AnimatedVisibility(searching) {
             OutlinedTextField(

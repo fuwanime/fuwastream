@@ -1,5 +1,6 @@
 package com.fuwanime.ui.player
 
+import com.fuwanime.ui.components.IconWithTooltip
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
@@ -982,12 +983,12 @@ private fun Controls(
                 )
             }
             if (fullscreen) {
-                IconButton(onClick = onLock) { Icon(Icons.Rounded.Lock, "Kunci layar", tint = Color.White) }
+                IconWithTooltip("Kunci layar", Icons.Rounded.Lock, onLock, tint = Color.White)
             }
             if (pipSupported) {
-                IconButton(onClick = onEnterPip) { Icon(Icons.Rounded.PictureInPictureAlt, "Picture-in-Picture", tint = Color.White) }
+                IconWithTooltip("Picture-in-Picture", Icons.Rounded.PictureInPictureAlt, onEnterPip, tint = Color.White)
             }
-            IconButton(onClick = { onOpenSettings(); onInteract() }) { Icon(Icons.Rounded.Settings, "Pengaturan video", tint = Color.White) }
+            IconWithTooltip("Pengaturan video", Icons.Rounded.Settings, { onOpenSettings(); onInteract() }, tint = Color.White)
         }
 
         // Center transport
@@ -1036,13 +1037,12 @@ private fun Controls(
                     style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.weight(1f).padding(start = 4.dp),
                 )
-                IconButton(onClick = onToggleFullscreen) {
-                    Icon(
-                        if (fullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
-                        if (fullscreen) "Keluar layar penuh" else "Layar penuh",
-                        tint = Color.White,
-                    )
-                }
+                IconWithTooltip(
+                    if (fullscreen) "Keluar layar penuh" else "Layar penuh",
+                    if (fullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
+                    onToggleFullscreen,
+                    tint = Color.White,
+                )
             }
             Box(Modifier.fillMaxWidth().height(24.dp), contentAlignment = Alignment.Center) {
                 LinearProgressIndicator(
