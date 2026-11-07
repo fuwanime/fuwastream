@@ -1,5 +1,7 @@
 package com.fuwanime.ui.explore
 
+import com.fuwanime.R
+import androidx.annotation.StringRes
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -20,17 +22,19 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-enum class StatusFilter(val label: String) { ALL("Semua"), ONGOING("Tayang"), FINISHED("Tamat") }
+enum class StatusFilter(@StringRes val label: Int) {
+    ALL(R.string.browse_all), ONGOING(R.string.common_status_airing), FINISHED(R.string.common_status_finished),
+}
 
 /** [apiType] is the API's `type` value; null means no type filter. */
-enum class TypeFilter(val label: String, val apiType: String?) {
-    ALL("Semua", null),
-    SERIES("Series", "SERIES"),
-    MOVIE("Film", "MOVIE"),
-    LIVE_ACTION("Live Action", "LIVE ACTION"),
-    ONA("ONA", "ONA"),
-    OVA("OVA", "OVA"),
-    SPECIAL("Special", "SPECIAL");
+enum class TypeFilter(@StringRes val label: Int, val apiType: String?) {
+    ALL(R.string.browse_all, null),
+    SERIES(R.string.browse_type_series, "SERIES"),
+    MOVIE(R.string.browse_type_movie, "MOVIE"),
+    LIVE_ACTION(R.string.browse_type_live_action, "LIVE ACTION"),
+    ONA(R.string.browse_type_ona, "ONA"),
+    OVA(R.string.browse_type_ova, "OVA"),
+    SPECIAL(R.string.browse_type_special, "SPECIAL");
 
     fun matches(type: String): Boolean =
         apiType == null || type.trim().replace('-', ' ').equals(apiType, ignoreCase = true)

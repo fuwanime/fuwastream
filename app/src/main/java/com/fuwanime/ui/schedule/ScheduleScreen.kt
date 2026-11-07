@@ -1,5 +1,6 @@
 package com.fuwanime.ui.schedule
 
+import com.fuwanime.R
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.fuwanime.ui.components.LocalNavBarPadding
@@ -114,12 +115,12 @@ fun ScheduleRoute(onAnimeClick: OpenAnime) {
 
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Text(
-            "Jadwal Tayang",
+            stringResource(R.string.browse_schedule_title),
             style = MaterialTheme.typography.headlineMedium,
             modifier = Modifier.padding(start = 20.dp, top = 12.dp),
         )
         Text(
-            "Rilis episode baru setiap minggu",
+            stringResource(R.string.browse_schedule_subtitle),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(start = 20.dp, bottom = 8.dp),
@@ -134,7 +135,7 @@ fun ScheduleRoute(onAnimeClick: OpenAnime) {
                             Text(stringResource(day.full))
                             if (day == today) {
                                 Spacer(Modifier.width(6.dp))
-                                Badge(containerColor = MaterialTheme.colorScheme.primary) { Text("Hari ini") }
+                                Badge(containerColor = MaterialTheme.colorScheme.primary) { Text(stringResource(R.string.browse_schedule_today_badge)) }
                             }
                         }
                     },
@@ -143,7 +144,7 @@ fun ScheduleRoute(onAnimeClick: OpenAnime) {
             Tab(
                 selected = pager.currentPage == Day.entries.size,
                 onClick = { scope.launch { pager.animateScrollToPage(Day.entries.size) } },
-                text = { Text("Musim ini") },
+                text = { Text(stringResource(R.string.browse_schedule_season_tab)) },
             )
         }
         HorizontalPager(pager, Modifier.fillMaxSize()) { page ->
@@ -167,8 +168,8 @@ fun ScheduleRoute(onAnimeClick: OpenAnime) {
                         ErrorState(schedule.error, { vm.ensureLoaded(day, force = true) })
                     schedule.items.isEmpty() -> MessageState(
                         Icons.Rounded.EventBusy,
-                        "Tidak ada jadwal",
-                        message = "Belum ada anime yang dijadwalkan hari ${stringResource(day.full)}.",
+                        stringResource(R.string.browse_schedule_empty_title),
+                        message = stringResource(R.string.browse_schedule_empty_message, stringResource(day.full)),
                     )
                     else -> LazyColumn(
                         contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp + LocalNavBarPadding.current),
@@ -197,6 +198,7 @@ private fun SeasonPage(state: SeasonTab, onRetry: () -> Unit, onAnimeClick: Open
                 seasonOf(c.get(Calendar.YEAR), c.get(Calendar.MONTH) + 1)
             }
             val (fresh, continuing) = remember(state.all, season) { splitBySeason(state.all, season) }
+            val sections = listOf(stringResource(R.string.browse_schedule_new_season) to fresh, stringResource(R.string.browse_schedule_continuing) to continuing)
             LazyColumn(
                 contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp + LocalNavBarPadding.current),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -205,11 +207,11 @@ private fun SeasonPage(state: SeasonTab, onRetry: () -> Unit, onAnimeClick: Open
                 item(key = "season-title") {
                     Text("${stringResource(season.name)} ${season.year}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 }
-                listOf("Baru musim ini" to fresh, "Lanjutan" to continuing).forEach { (title, list) ->
+                sections.forEach { (title, list) ->
                     if (list.isNotEmpty()) {
                         item(key = "h-$title") {
                             Text(
-                                "$title (${list.size})",
+                                stringResource(R.string.browse_schedule_section, title, list.size),
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.padding(top = 8.dp),
