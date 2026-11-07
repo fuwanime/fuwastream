@@ -15,7 +15,12 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35], application = android.app.Application::class, qualifiers = "id")
 class PlayerPolicyTest {
     private fun anime(title: String, poster: String) = Anime(id = "a", title = title, poster = poster)
 
@@ -54,14 +59,14 @@ class PlayerPolicyTest {
 
     @Test fun nowPlayingUsesEpisodeAndAnime() = assertEquals(
         NowPlaying("Pertemuan", "Frieren", "Episode 3", "https://t/3.jpg"),
-        nowPlaying(Episode(id = "e3", number = "3", title = "Pertemuan", thumbnail = "https://t/3.jpg"), anime("Frieren", "https://p.jpg")),
+        nowPlaying(testResources(), Episode(id = "e3", number = "3", title = "Pertemuan", thumbnail = "https://t/3.jpg"), anime("Frieren", "https://p.jpg")),
     )
     @Test fun nowPlayingFallsBack() = assertEquals(
         NowPlaying("Frieren", "Frieren", "Episode 3", "https://p.jpg"),
-        nowPlaying(Episode(id = "e3", number = "3", title = ""), anime("Frieren", "https://p.jpg")),
+        nowPlaying(testResources(), Episode(id = "e3", number = "3", title = ""), anime("Frieren", "https://p.jpg")),
     )
     @Test fun nowPlayingWithoutAnimeOrNumber() = assertEquals(
         NowPlaying("Spesial", "", "", ""),
-        nowPlaying(Episode(id = "x", number = "", title = "Spesial"), null),
+        nowPlaying(testResources(), Episode(id = "x", number = "", title = "Spesial"), null),
     )
 }

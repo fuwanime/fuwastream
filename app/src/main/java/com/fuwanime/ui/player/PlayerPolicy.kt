@@ -1,5 +1,7 @@
 package com.fuwanime.ui.player
 
+import android.content.res.Resources
+import com.fuwanime.R
 import com.fuwanime.data.Anime
 import com.fuwanime.data.Episode
 import com.fuwanime.data.local.VideoResize
@@ -41,12 +43,12 @@ fun isFullscreen(landscape: Boolean, manual: Boolean?, inPip: Boolean): Boolean 
 /** What the media notification, lock screen and Bluetooth devices show. */
 data class NowPlaying(val title: String, val artist: String, val subtitle: String, val artworkUrl: String)
 
-fun nowPlaying(episode: Episode, anime: Anime?): NowPlaying {
+fun nowPlaying(res: Resources, episode: Episode, anime: Anime?): NowPlaying {
     val animeTitle = anime?.title.orEmpty()
     return NowPlaying(
         title = episode.title.ifBlank { animeTitle },
         artist = animeTitle,
-        subtitle = if (episode.number.isBlank()) "" else "Episode ${episode.number}",
+        subtitle = if (episode.number.isBlank()) "" else res.getString(R.string.watch_episode_label, episode.number),
         artworkUrl = episode.thumbnail.ifBlank { anime?.poster.orEmpty() },
     )
 }

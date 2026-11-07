@@ -21,7 +21,7 @@ fun airingLabel(res: Resources, episode: Int, airingAtMs: Long, nowMs: Long, tz:
             "%s %02d.%02d".format(Locale.ROOT, day, c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE))
         }
     }
-    return "Ep $episode · $whenText"
+    return res.getString(R.string.watch_ep_when, episode, whenText)
 }
 
 /** AniList's 0–100 average as "★ 8,4"; null when unknown. */

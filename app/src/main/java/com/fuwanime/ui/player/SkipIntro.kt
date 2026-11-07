@@ -1,5 +1,7 @@
 package com.fuwanime.ui.player
 
+import androidx.annotation.StringRes
+import com.fuwanime.R
 import com.fuwanime.data.Anime
 import com.fuwanime.data.Episode
 import com.fuwanime.data.OpMark
@@ -67,13 +69,14 @@ fun markOp(current: OpMark?, positionMs: Long, isStart: Boolean): OpMark = if (i
     OpMark(current?.startMs?.takeIf { it < positionMs } ?: (positionMs - GUESSED_OP_MS).coerceAtLeast(0), positionMs)
 }
 
-fun skipLabel(action: SkipAction): String = when (action) {
-    is SkipAction.SkipOp -> "Lewati OP"
-    is SkipAction.JumpAhead -> "+85 dtk"
+@StringRes
+fun skipLabel(action: SkipAction): Int = when (action) {
+    is SkipAction.SkipOp -> R.string.watch_skip_op
+    is SkipAction.JumpAhead -> R.string.watch_skip_jump
     is SkipSegmentAction -> when (action.kind) {
-        SegmentKind.OP -> "Lewati OP"
-        SegmentKind.ED -> "Lewati ED"
-        SegmentKind.RECAP -> "Lewati recap"
+        SegmentKind.OP -> R.string.watch_skip_op
+        SegmentKind.ED -> R.string.watch_skip_ed
+        SegmentKind.RECAP -> R.string.watch_skip_recap
     }
 }
 

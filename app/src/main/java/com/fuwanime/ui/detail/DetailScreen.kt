@@ -13,6 +13,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import com.fuwanime.R
+import com.fuwanime.util.text
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import com.fuwanime.util.loadBitmap
@@ -170,7 +174,7 @@ fun DetailRoute(
     LaunchedEffect(message) {
         message?.let {
             vm.messageShown()
-            snackbar.showSnackbar(it.resolve(res))
+            snackbar.showSnackbar(it(res))
         }
     }
     Box(Modifier.fillMaxSize()) {
@@ -258,12 +262,14 @@ private fun DetailScreen(
             if (anime != null) {
                 item(key = "stats") {
                     val res = LocalContext.current.resources
+                    val viewsLabel = stringResource(R.string.watch_stat_views)
+                    val favoritesLabel = stringResource(R.string.watch_stat_favorites)
                     Text(
                         buildAnnotatedString {
                             withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)) { append(compactNumber(res, anime.views)) }
-                            append(" ditonton      ")
+                            append(" $viewsLabel      ")
                             withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)) { append(compactNumber(res, anime.favorites)) }
-                            append(" favorit")
+                            append(" $favoritesLabel")
                         },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -301,9 +307,9 @@ private fun DetailScreen(
                         Column {
                             Text(
                                 when {
-                                    resume != null -> "Lanjut EP ${resume.episodeNumber}"
-                                    target != null -> "Tonton EP ${target.number}"
-                                    else -> "Memuat episode…"
+                                    resume != null -> stringResource(R.string.watch_continue_ep, resume.episodeNumber)
+                                    target != null -> stringResource(R.string.watch_watch_ep, target.number)
+                                    else -> stringResource(R.string.watch_loading_episodes)
                                 },
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.ExtraBold,
@@ -359,16 +365,17 @@ private fun DetailScreen(
                 if (state.seasons.isNotEmpty()) {
                     item(key = "seasons") {
                         Column(Modifier.padding(top = 24.dp)) {
-                            SectionHeader("Season & Terkait")
+                            SectionHeader(stringResource(R.string.watch_season_related))
                             Spacer(Modifier.height(12.dp))
                             val labels = state.seasons.associate { it.anime.id to it.label }
+                            val viewingNow = stringResource(R.string.watch_now_viewing)
                             PosterRow(
                                 state.seasons.map { it.anime },
                                 loading = false,
                                 // The franchise includes this anime, in airing order; its own card is not a link.
                                 onClick = { if (it.id != anime.id) onAnimeClick(it, "season-$entryKey") },
                                 caption = { a ->
-                                    if (a.id == anime.id) "Sedang dilihat" else labels[a.id]?.takeIf { it.isNotBlank() }
+                                    if (a.id == anime.id) viewingNow else labels[a.id]?.takeIf { it.isNotBlank() }
                                 },
                                 origin = "season-$entryKey",
                                 highlightId = anime.id,
@@ -379,7 +386,7 @@ private fun DetailScreen(
                 if (state.similar.isNotEmpty()) {
                     item(key = "similar") {
                         Column(Modifier.padding(top = 24.dp)) {
-                            SectionHeader("Anime Serupa")
+                            SectionHeader(stringResource(R.string.watch_similar))
                             Spacer(Modifier.height(12.dp))
                             PosterRow(
                                 state.similar,
@@ -409,7 +416,7 @@ private fun DetailScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         items(state.ranges, key = { it.page }) { r ->
-                            TagChip(r.label, onClick = { vm.selectPage(r.page) }, selected = r.page == state.selectedPage)
+                            TagChip(r.label.text(), onClick = { vm.selectPage(r.page) }, selected = r.page == state.selectedPage)
                         }
                     }
                 }
@@ -422,7 +429,7 @@ private fun DetailScreen(
                 }
                 episodes.isEmpty() -> item {
                     Text(
-                        if (state.episodeQuery.isBlank()) "Belum ada episode." else "Episode ${state.episodeQuery} tidak ditemukan.",
+                        if (state.episodeQuery.isBlank()) stringResource(R.string.watch_no_episodes) else stringResource(R.string.watch_episode_not_found, state.episodeQuery),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(20.dp),
                     )
@@ -468,7 +475,7 @@ private fun Header(anime: Anime?, origin: String?, entryKey: String, linkBackdro
                     .height(280.dp)
                     .sharedKey(sharedBackdropKey(anime.id, entryKey).takeIf { linkBackdrop })
                     .fadeToBackground(bg),
-                "Latar ${anime.title}",
+                stringResource(R.string.watch_backdrop_cd, anime.title),
             )
         }
         // The poster's colour washes over the lower backdrop, behind the poster and title.
@@ -521,7 +528,8 @@ private fun Header(anime: Anime?, origin: String?, entryKey: String, linkBackdro
                             modifier = Modifier.padding(top = 4.dp),
                         )
                     }
-                    val count = episodeCount?.let { "${if (it % 1.0 == 0.0) it.toLong() else it} EP" }.orEmpty()
+                    val countText = stringResource(R.string.watch_episode_count, episodeCount?.let { if (it % 1.0 == 0.0) it.toLong().toString() else it.toString() }.orEmpty())
+                    val count = if (episodeCount != null) countText else ""
                     Text(
                         listOf(anime.displayYear, anime.type, statusLabel(LocalContext.current.resources, anime.status), count).filter { it.isNotBlank() }.joinToString(" · "),
                         style = MaterialTheme.typography.labelMedium,
@@ -567,20 +575,20 @@ private fun MetaRow(meta: AnimeMeta, modifier: Modifier) {
 private fun AniListFooter(onUnlink: () -> Unit) {
     var confirm by remember { mutableStateOf(false) }
     Row(Modifier.padding(horizontal = 20.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text("Info dari AniList ·", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        TextButton(onClick = { confirm = true }) { Text("Bukan anime ini?", style = MaterialTheme.typography.labelSmall) }
+        Text(stringResource(R.string.watch_anilist_info), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        TextButton(onClick = { confirm = true }) { Text(stringResource(R.string.watch_not_this_anime), style = MaterialTheme.typography.labelSmall) }
     }
     if (confirm) {
         AlertDialog(
             onDismissRequest = { confirm = false },
-            text = { Text("Sembunyikan info AniList dan lewati otomatis dari AniSkip untuk anime ini?") },
+            text = { Text(stringResource(R.string.watch_hide_anilist_confirm)) },
             confirmButton = {
                 TextButton(onClick = {
                     confirm = false
                     onUnlink()
-                }) { Text("Sembunyikan") }
+                }) { Text(stringResource(R.string.watch_hide)) }
             },
-            dismissButton = { TextButton(onClick = { confirm = false }) { Text("Batal") } },
+            dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.watch_cancel)) } },
         )
     }
 }
@@ -603,7 +611,7 @@ private fun Synopsis(text: String) {
         )
         TextButton(onClick = { expanded = !expanded }, contentPadding = PaddingValues(0.dp)) {
             Text(
-                if (expanded) "Tutup" else "Selengkapnya",
+                stringResource(if (expanded) R.string.watch_show_less else R.string.watch_read_more),
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -615,10 +623,10 @@ private fun Synopsis(text: String) {
 @Composable
 private fun InfoGrid(anime: Anime) {
     val rows = listOfNotNull(
-        anime.studio.takeIf { it.isNotBlank() }?.let { "Studio" to it },
-        anime.airedStart.takeIf { it.isNotBlank() }?.let { "Mulai tayang" to it },
-        anime.displayYear.takeIf { it.isNotBlank() }?.let { "Tahun" to it },
-        anime.type.takeIf { it.isNotBlank() }?.let { "Tipe" to it },
+        anime.studio.takeIf { it.isNotBlank() }?.let { stringResource(R.string.watch_info_studio) to it },
+        anime.airedStart.takeIf { it.isNotBlank() }?.let { stringResource(R.string.watch_info_aired) to it },
+        anime.displayYear.takeIf { it.isNotBlank() }?.let { stringResource(R.string.watch_info_year) to it },
+        anime.type.takeIf { it.isNotBlank() }?.let { stringResource(R.string.watch_info_type) to it },
     )
     if (rows.isEmpty()) return
     Surface(
@@ -642,10 +650,11 @@ private fun EpisodeHeader(state: DetailUiState, vm: DetailViewModel) {
     var searching by rememberSaveable { mutableStateOf(false) }
     var confirmDownloadAll by rememberSaveable { mutableStateOf(false) }
     Column(Modifier.padding(top = 24.dp)) {
+        val episodesTitle = stringResource(R.string.watch_episodes_title)
         val title: @Composable (Modifier) -> Unit = { m ->
             Text(
                 buildAnnotatedString {
-                    append("Episode")
+                    append(episodesTitle)
                     state.latestEpisode?.let {
                         withStyle(SpanStyle(fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)) {
                             append(" · ${if (it % 1.0 == 0.0) it.toLong() else it}")
@@ -661,16 +670,17 @@ private fun EpisodeHeader(state: DetailUiState, vm: DetailViewModel) {
             TextButton(onClick = { confirmDownloadAll = true }) {
                 Icon(Icons.Rounded.Download, null, Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Unduh semua")
+                Text(stringResource(R.string.watch_download_all))
             }
-            IconWithTooltip(if (searching) "Tutup cari episode" else "Cari episode", if (searching) Icons.Rounded.Close else Icons.Rounded.Search, {
+            IconWithTooltip(stringResource(if (searching) R.string.watch_search_close else R.string.watch_search_open), if (searching) Icons.Rounded.Close else Icons.Rounded.Search, {
                 searching = !searching
                 if (!searching) vm.searchEpisode("")
             })
-            TextButton(onClick = vm::toggleOrder, modifier = Modifier.semantics { contentDescription = if (state.newestFirst) "Urutan: terbaru dulu. Ubah ke terlama" else "Urutan: terlama dulu. Ubah ke terbaru" }) {
+            val orderDescription = stringResource(if (state.newestFirst) R.string.watch_order_newest_cd else R.string.watch_order_oldest_cd)
+            TextButton(onClick = vm::toggleOrder, modifier = Modifier.semantics { contentDescription = orderDescription }) {
                 Icon(Icons.Rounded.SwapVert, null, Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text(if (state.newestFirst) "Terbaru" else "Terlama")
+                Text(stringResource(if (state.newestFirst) R.string.watch_order_newest else R.string.watch_order_oldest))
             }
         }
         // Large text can't fit the title and three labelled actions on one line; give the actions their own row.
@@ -687,7 +697,7 @@ private fun EpisodeHeader(state: DetailUiState, vm: DetailViewModel) {
             OutlinedTextField(
                 value = state.episodeQuery,
                 onValueChange = vm::searchEpisode,
-                placeholder = { Text("Nomor episode, mis. 1001") },
+                placeholder = { Text(stringResource(R.string.watch_search_hint)) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 shape = RoundedCornerShape(50),
@@ -701,17 +711,14 @@ private fun EpisodeHeader(state: DetailUiState, vm: DetailViewModel) {
         AlertDialog(
             onDismissRequest = { confirmDownloadAll = false },
             icon = { Icon(Icons.Rounded.Download, null) },
-            title = { Text("Unduh massal episode?") },
+            title = { Text(stringResource(R.string.watch_bulk_title)) },
             text = {
-                Text(
-                    "Mengantre hingga 30 episode terbaru yang belum tersimpan, memakai kualitas " +
-                        "download dan opsi Wi-Fi dari Pengaturan.",
-                )
+                Text(pluralStringResource(R.plurals.watch_bulk_message, 30, 30))
             },
             confirmButton = {
-                TextButton(onClick = { confirmDownloadAll = false; vm.downloadAllEpisodes() }) { Text("Unduh") }
+                TextButton(onClick = { confirmDownloadAll = false; vm.downloadAllEpisodes() }) { Text(stringResource(R.string.watch_bulk_confirm)) }
             },
-            dismissButton = { TextButton(onClick = { confirmDownloadAll = false }) { Text("Batal") } },
+            dismissButton = { TextButton(onClick = { confirmDownloadAll = false }) { Text(stringResource(R.string.watch_cancel)) } },
         )
     }
 }
@@ -743,7 +750,7 @@ private fun EpisodeRow(
                 null,
             )
             if (finished) {
-                Icon(Icons.Rounded.Check, "Sudah ditonton", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.align(Alignment.Center).size(22.dp))
+                Icon(Icons.Rounded.Check, stringResource(R.string.watch_watched_cd), tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.align(Alignment.Center).size(22.dp))
             }
             if (progress != null) {
                 LinearProgressIndicator(
@@ -759,7 +766,7 @@ private fun EpisodeRow(
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    "Episode ${ep.number}",
+                    stringResource(R.string.watch_episode_label, ep.number),
                     style = MaterialTheme.typography.titleSmall,
                     color = if (isResume) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                 )
@@ -797,7 +804,7 @@ private fun FavoriteIcon(favorite: Boolean, pop: Int, shown: Int, onShown: (Int)
     Crossfade(favorite, animationSpec = tween(Motion.Short), label = "favorite") { fav ->
         Icon(
             if (fav) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-            "Favorit",
+            stringResource(R.string.watch_favorite),
             Modifier.graphicsLayer {
                 scaleX = scale.value
                 scaleY = scale.value
@@ -835,7 +842,7 @@ private fun DetailTopBar(solid: Boolean, title: String, onBack: () -> Unit, haze
                 containerColor = if (solid) Color.Transparent else Color.Black.copy(alpha = 0.4f),
                 contentColor = if (solid) MaterialTheme.colorScheme.onSurface else Color.White,
             ),
-        ) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Kembali") }
+        ) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.watch_back)) }
         AnimatedVisibility(solid, enter = fadeIn(), exit = fadeOut()) {
             Text(
                 title,
@@ -855,7 +862,7 @@ private fun EpisodeDownloadButton(download: DownloadItem?, onDownload: () -> Uni
         when {
             download?.state == DownloadState.DONE ->
                 IconButton(onClick = { confirm = true }) {
-                    Icon(Icons.Rounded.DownloadDone, "Tersimpan offline", tint = MaterialTheme.colorScheme.tertiary)
+                    Icon(Icons.Rounded.DownloadDone, stringResource(R.string.watch_saved_offline_cd), tint = MaterialTheme.colorScheme.tertiary)
                 }
             download?.inProgress == true -> {
                 if (download.state == DownloadState.RUNNING && download.totalBytes > 0) {
@@ -868,7 +875,7 @@ private fun EpisodeDownloadButton(download: DownloadItem?, onDownload: () -> Uni
             else -> IconButton(onClick = onDownload) {
                 Icon(
                     if (download?.state == DownloadState.FAILED) Icons.Rounded.ErrorOutline else Icons.Rounded.Download,
-                    if (download?.state == DownloadState.FAILED) "Download gagal, coba lagi" else "Download",
+                    stringResource(if (download?.state == DownloadState.FAILED) R.string.watch_download_failed_retry else R.string.watch_download),
                     tint = if (download?.state == DownloadState.FAILED) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -878,10 +885,10 @@ private fun EpisodeDownloadButton(download: DownloadItem?, onDownload: () -> Uni
         val running = download?.inProgress == true
         AlertDialog(
             onDismissRequest = { confirm = false },
-            title = { Text(if (running) "Batalkan download?" else "Hapus download?") },
-            text = { Text(if (running) "Download episode ini akan dihentikan." else "File episode ini akan dihapus dari perangkat.") },
-            confirmButton = { TextButton(onClick = { confirm = false; onDelete() }) { Text(if (running) "Batalkan" else "Hapus") } },
-            dismissButton = { TextButton(onClick = { confirm = false }) { Text("Tutup") } },
+            title = { Text(stringResource(if (running) R.string.watch_cancel_download_title else R.string.watch_delete_download_title)) },
+            text = { Text(stringResource(if (running) R.string.watch_cancel_download_msg else R.string.watch_delete_download_msg)) },
+            confirmButton = { TextButton(onClick = { confirm = false; onDelete() }) { Text(stringResource(if (running) R.string.watch_stop_download else R.string.watch_delete)) } },
+            dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.watch_close)) } },
         )
     }
 }
