@@ -1,6 +1,8 @@
 package com.fuwanime.ui.library
 
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
+import com.fuwanime.R
 import androidx.compose.ui.platform.LocalContext
 import com.fuwanime.ui.components.IconWithTooltip
 import androidx.compose.ui.semantics.semantics
@@ -223,23 +225,23 @@ fun LibraryRoute(
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 12.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             if (selecting) {
-                IconButton(onClick = { vm.clearSelection() }, modifier = Modifier.padding(end = 4.dp)) { Icon(Icons.Rounded.Close, "Batal pilih") }
-                Text("${selection.size} dipilih", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                IconButton(onClick = { vm.clearSelection() }, modifier = Modifier.padding(end = 4.dp)) { Icon(Icons.Rounded.Close, stringResource(R.string.mine_cancel_select)) }
+                Text(stringResource(R.string.mine_selected_count, selection.size), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
                 IconButton(onClick = {
                     if (selection.size >= 2) confirmDeleteSelected = true else vm.deleteSelected(pager.currentPage)
-                }) { Icon(Icons.Rounded.Delete, "Hapus yang dipilih") }
+                }) { Icon(Icons.Rounded.Delete, stringResource(R.string.mine_delete_selected)) }
             } else {
-                Text("Koleksi", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
+                Text(stringResource(R.string.common_tab_library), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
                 if (pager.currentPage == 0 && !history.isNullOrEmpty()) {
-                    IconButton(onClick = { confirmClear = true }) { Icon(Icons.Rounded.DeleteSweep, "Hapus riwayat") }
+                    IconButton(onClick = { confirmClear = true }) { Icon(Icons.Rounded.DeleteSweep, stringResource(R.string.mine_clear_history)) }
                 }
-                IconWithTooltip("Pengaturan", Icons.Rounded.Settings, onSettings)
+                IconWithTooltip(stringResource(R.string.mine_settings), Icons.Rounded.Settings, onSettings)
             }
         }
         week?.takeIf { !selecting }?.let { WeekCard(it, onStats) }
         SegmentedTabs(
-            listOf("Riwayat" to history?.size, "Favorit" to favorites?.size, "Unduhan" to downloads?.size)
-                .map { (label, count) -> if (count != null && count > 0) "$label · $count" else label },
+            listOf(R.string.mine_tab_history to history?.size, R.string.mine_tab_favorites to favorites?.size, R.string.mine_tab_downloads to downloads?.size)
+                .map { (label, count) -> stringResource(label).let { if (count != null && count > 0) stringResource(R.string.mine_tab_with_count, it, count) else it } },
             selected = pager.currentPage,
             onSelect = { scope.launch { pager.animateScrollToPage(it) } },
         )
@@ -256,12 +258,12 @@ fun LibraryRoute(
         AlertDialog(
             onDismissRequest = { confirmDeleteSelected = false },
             icon = { Icon(Icons.Rounded.Delete, null) },
-            title = { Text("Hapus ${selection.size} item?") },
+            title = { Text(pluralStringResource(R.plurals.mine_delete_items_title, selection.size, selection.size)) },
             text = {
-                Text(if (pager.currentPage == 0) "Progres tontonan anime yang dipilih akan dihapus." else "Anime yang dipilih akan dihapus dari Favorit.")
+                Text(stringResource(if (pager.currentPage == 0) R.string.mine_delete_history_selected else R.string.mine_delete_favorites_selected))
             },
-            confirmButton = { TextButton(onClick = { vm.deleteSelected(pager.currentPage); confirmDeleteSelected = false }) { Text("Hapus") } },
-            dismissButton = { TextButton(onClick = { confirmDeleteSelected = false }) { Text("Batal") } },
+            confirmButton = { TextButton(onClick = { vm.deleteSelected(pager.currentPage); confirmDeleteSelected = false }) { Text(stringResource(R.string.mine_delete)) } },
+            dismissButton = { TextButton(onClick = { confirmDeleteSelected = false }) { Text(stringResource(R.string.mine_cancel)) } },
         )
     }
 
@@ -269,10 +271,10 @@ fun LibraryRoute(
         AlertDialog(
             onDismissRequest = { confirmClear = false },
             icon = { Icon(Icons.Rounded.DeleteSweep, null) },
-            title = { Text("Hapus semua riwayat?") },
-            text = { Text("Progres tontonan semua anime akan dihapus. Favorit tidak terpengaruh.") },
-            confirmButton = { TextButton(onClick = { vm.clearHistory(); confirmClear = false }) { Text("Hapus") } },
-            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("Batal") } },
+            title = { Text(stringResource(R.string.mine_clear_history_title)) },
+            text = { Text(stringResource(R.string.mine_clear_history_body)) },
+            confirmButton = { TextButton(onClick = { vm.clearHistory(); confirmClear = false }) { Text(stringResource(R.string.mine_delete)) } },
+            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text(stringResource(R.string.mine_cancel)) } },
         )
     }
 }
@@ -288,7 +290,7 @@ private fun HistoryList(
 ) {
     if (items == null) return
     if (items.isEmpty()) {
-        MessageState(Icons.Rounded.History, "Belum ada riwayat", message = "Episode yang kamu tonton akan muncul di sini.")
+        MessageState(Icons.Rounded.History, stringResource(R.string.mine_history_empty_title), message = stringResource(R.string.mine_history_empty_body))
         return
     }
     val res = LocalContext.current.resources
@@ -323,6 +325,7 @@ private fun HistoryRow(
     selecting: Boolean,
     onToggleSelect: (String) -> Unit,
 ) {
+    val selectLabel = stringResource(R.string.common_select)
     Row(
         Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium)
             .then(if (selected) Modifier.background(MaterialTheme.colorScheme.secondaryContainer) else Modifier)
@@ -331,7 +334,7 @@ private fun HistoryRow(
                 onClick = { if (selecting) onToggleSelect(entry.animeId) else onResume(entry) },
             )
             // TalkBack has no long-press gesture: offer "Pilih" in its actions menu.
-            .semantics { customActions = listOf(CustomAccessibilityAction("Pilih") { onToggleSelect(entry.animeId); true }) }
+            .semantics { customActions = listOf(CustomAccessibilityAction(selectLabel) { onToggleSelect(entry.animeId); true }) }
             .padding(vertical = 8.dp, horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -340,10 +343,10 @@ private fun HistoryRow(
                 entry.episodeThumbnail.ifBlank { entry.animeCover },
                 Modifier.fillMaxSize().sharedKey(sharedEpisodeKey(entry.episodeId, "library")).clip(RoundedCornerShape(12.dp)),
                 // The only place the anime's name is inside the row's TalkBack node (the title text is its own button).
-                "${entry.animeTitle} — Episode ${entry.episodeNumber}",
+                stringResource(R.string.mine_episode_cd, entry.animeTitle, entry.episodeNumber),
             )
             Text(
-                "EP ${entry.episodeNumber}",
+                stringResource(R.string.mine_ep_badge, entry.episodeNumber),
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
@@ -376,7 +379,7 @@ private fun HistoryRow(
             )
             Text(
                 when {
-                    entry.isFinished -> "Selesai ditonton"
+                    entry.isFinished -> stringResource(R.string.common_finished_watching)
                     else -> remainingLabel(LocalContext.current.resources, entry.positionMs, entry.durationMs) ?: entry.episodeTitle
                 },
                 style = MaterialTheme.typography.labelMedium,
@@ -386,12 +389,12 @@ private fun HistoryRow(
         if (selecting) {
             Icon(
                 if (selected) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
-                if (selected) "Dipilih" else "Tidak dipilih",
+                stringResource(if (selected) R.string.common_selected_cd else R.string.mine_not_selected),
                 tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(12.dp),
             )
         } else {
-            IconButton(onClick = { onRemove(entry.animeId) }) { Icon(Icons.Rounded.Close, "Hapus dari riwayat") }
+            IconButton(onClick = { onRemove(entry.animeId) }) { Icon(Icons.Rounded.Close, stringResource(R.string.mine_remove_from_history)) }
         }
     }
 }
@@ -442,7 +445,7 @@ private fun FavoriteGrid(
 ) {
     if (items == null) return
     if (items.isEmpty()) {
-        MessageState(Icons.Rounded.FavoriteBorder, "Belum ada favorit", message = "Ketuk ikon hati di halaman anime untuk menyimpannya di sini.")
+        MessageState(Icons.Rounded.FavoriteBorder, stringResource(R.string.mine_favorites_empty_title), message = stringResource(R.string.mine_favorites_empty_body))
         return
     }
     val res = LocalContext.current.resources
@@ -486,14 +489,16 @@ private fun DownloadList(
     if (items.isEmpty()) {
         MessageState(
             Icons.Rounded.DownloadForOffline,
-            "Belum ada unduhan",
-            message = "Ketuk ikon download di daftar episode atau di pemutar untuk menonton tanpa internet.",
+            stringResource(R.string.mine_downloads_empty_title),
+            message = stringResource(R.string.mine_downloads_empty_body),
         )
         return
     }
     var pendingDelete by remember { mutableStateOf<DownloadItem?>(null) }
     var confirmWatched by remember { mutableStateOf(false) }
     val watchedBytes = watched.sumOf { it.totalBytes }
+    val res = LocalContext.current.resources
+    val doneCount = items.count { it.state == DownloadState.DONE }
     val stored = items.filter { it.state == DownloadState.DONE }.sumOf { it.totalBytes }
 
     LazyColumn(
@@ -502,7 +507,7 @@ private fun DownloadList(
     ) {
         item {
             Text(
-                "${items.count { it.state == DownloadState.DONE }} episode tersimpan • ${formatBytes(LocalContext.current.resources, stored)}",
+                pluralStringResource(R.plurals.mine_downloads_stored, doneCount, doneCount, formatBytes(res, stored)),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 4.dp),
@@ -513,7 +518,7 @@ private fun DownloadList(
                 TextButton(onClick = { confirmWatched = true }) {
                     Icon(Icons.Rounded.DeleteSweep, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Hapus yang sudah ditonton (${watched.size} • ${formatBytes(LocalContext.current.resources, watchedBytes)})")
+                    Text(stringResource(R.string.mine_delete_watched, watched.size, formatBytes(res, watchedBytes)))
                 }
             }
         }
@@ -530,7 +535,7 @@ private fun DownloadList(
                     NetImage(
                         e.episodeThumbnail.ifBlank { e.animePoster },
                         Modifier.fillMaxSize(),
-                        "${e.animeTitle} — Episode ${e.episodeNumber}",
+                        stringResource(R.string.mine_episode_cd, e.animeTitle, e.episodeNumber),
                     )
                     if (playable) {
                         Icon(
@@ -542,14 +547,14 @@ private fun DownloadList(
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(e.animeTitle, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Text("Episode ${e.episodeNumber} • ${e.quality}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                    Text(stringResource(R.string.mine_episode_quality, e.episodeNumber, e.quality), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                     Text(
                         when (d.state) {
                             DownloadState.DONE -> formatBytes(LocalContext.current.resources, d.totalBytes)
-                            DownloadState.QUEUED -> "Menunggu antrean…"
-                            DownloadState.PAUSED -> "Dijeda, menunggu jaringan…"
-                            DownloadState.RUNNING -> "${(d.progress * 100).toInt()}% • ${formatBytes(LocalContext.current.resources, d.downloadedBytes)}"
-                            DownloadState.FAILED -> "Gagal. Hapus lalu download ulang"
+                            DownloadState.QUEUED -> stringResource(R.string.mine_download_queued)
+                            DownloadState.PAUSED -> stringResource(R.string.mine_download_paused)
+                            DownloadState.RUNNING -> stringResource(R.string.mine_download_running, (d.progress * 100).toInt(), formatBytes(res, d.downloadedBytes))
+                            DownloadState.FAILED -> stringResource(R.string.mine_download_failed)
                         },
                         style = MaterialTheme.typography.labelSmall,
                         color = if (d.state == DownloadState.FAILED) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -565,7 +570,7 @@ private fun DownloadList(
                     }
                 }
                 IconButton(onClick = { pendingDelete = d }) {
-                    Icon(if (d.inProgress) Icons.Rounded.Close else Icons.Rounded.Delete, if (d.inProgress) "Batalkan" else "Hapus")
+                    Icon(if (d.inProgress) Icons.Rounded.Close else Icons.Rounded.Delete, stringResource(if (d.inProgress) R.string.mine_cancel_action else R.string.mine_delete))
                 }
             }
         }
@@ -575,25 +580,25 @@ private fun DownloadList(
         AlertDialog(
             onDismissRequest = { confirmWatched = false },
             icon = { Icon(Icons.Rounded.DeleteSweep, null) },
-            title = { Text("Hapus ${watched.size} unduhan?") },
-            text = { Text("Episode yang sudah selesai ditonton akan dihapus dan ${formatBytes(LocalContext.current.resources, watchedBytes)} dikosongkan.") },
-            confirmButton = { TextButton(onClick = { onDeleteWatched(); confirmWatched = false }) { Text("Hapus") } },
-            dismissButton = { TextButton(onClick = { confirmWatched = false }) { Text("Batal") } },
+            title = { Text(pluralStringResource(R.plurals.mine_delete_downloads_title, watched.size, watched.size)) },
+            text = { Text(stringResource(R.string.mine_delete_downloads_body, formatBytes(res, watchedBytes))) },
+            confirmButton = { TextButton(onClick = { onDeleteWatched(); confirmWatched = false }) { Text(stringResource(R.string.mine_delete)) } },
+            dismissButton = { TextButton(onClick = { confirmWatched = false }) { Text(stringResource(R.string.mine_cancel)) } },
         )
     }
 
     pendingDelete?.let { d ->
         AlertDialog(
             onDismissRequest = { pendingDelete = null },
-            title = { Text(if (d.inProgress) "Batalkan download?" else "Hapus download?") },
-            text = { Text("${d.entity.animeTitle} Episode ${d.entity.episodeNumber}") },
+            title = { Text(stringResource(if (d.inProgress) R.string.mine_cancel_download_title else R.string.mine_delete_download_title)) },
+            text = { Text(stringResource(R.string.mine_download_item, d.entity.animeTitle, d.entity.episodeNumber)) },
             confirmButton = {
                 TextButton(onClick = {
                     onDelete(d.entity.episodeId)
                     pendingDelete = null
-                }) { Text(if (d.inProgress) "Batalkan" else "Hapus") }
+                }) { Text(stringResource(if (d.inProgress) R.string.mine_cancel_action else R.string.mine_delete)) }
             },
-            dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text("Tutup") } },
+            dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text(stringResource(R.string.mine_close)) } },
         )
     }
 }
@@ -602,7 +607,8 @@ private fun DownloadList(
 @Composable
 private fun WeekCard(week: WeekSummary, onClick: () -> Unit) {
     val watchedAny = week.watchedMs > 0 || week.episodes > 0
-    val summary = "${watchTimeLabel(LocalContext.current.resources, week.watchedMs)} · ${week.episodes} episode"
+    val summary = pluralStringResource(R.plurals.mine_week_summary, week.episodes, watchTimeLabel(LocalContext.current.resources, week.watchedMs), week.episodes)
+    val cd = if (watchedAny) stringResource(R.string.mine_week_cd_watched, summary) else stringResource(R.string.mine_week_cd_empty)
     val bar = MaterialTheme.colorScheme.primary
     val shape = RoundedCornerShape(18.dp)
     Row(
@@ -614,17 +620,17 @@ private fun WeekCard(week: WeekSummary, onClick: () -> Unit) {
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
             .clickable(onClick = onClick)
             .semantics(mergeDescendants = true) {
-                contentDescription = if (watchedAny) "Statistik minggu ini, $summary. Buka statistik" else "Statistik. Belum ada tontonan minggu ini. Buka statistik"
+                contentDescription = cd
             }
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text("Minggu ini", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.mine_this_week), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (watchedAny) {
                 Text(summary, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             } else {
-                Text("Mulai nonton untuk melihat statistikmu", style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.mine_week_start), style = MaterialTheme.typography.bodyMedium)
             }
         }
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -638,7 +644,7 @@ private fun WeekCard(week: WeekSummary, onClick: () -> Unit) {
                     drawRoundRect(color, Offset(slot * i + (slot - w) / 2, size.height - h), Size(w, h), CornerRadius(w / 2))
                 }
             }
-            Text("Lihat statistik ›", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            Text(stringResource(R.string.mine_see_stats), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
         }
     }
 }

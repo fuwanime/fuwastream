@@ -21,7 +21,12 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import java.text.DateFormatSymbols
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.TimeZone
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import kotlinx.coroutines.flow.map
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -111,15 +116,15 @@ class StatsViewModel(library: LibraryRepository) : ViewModel() {
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 }
 
-/** Short weekday name ("Sen", "Mon") for an epoch day, in the current locale. */
-private fun weekdayLabel(day: Int): String {
+/** Short weekday name ("Sen", "Mon") for an epoch day, in the app language. */
+fun weekdayLabel(day: Int, locale: Locale): String {
     val dow = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply { timeInMillis = day * 86_400_000L }.get(Calendar.DAY_OF_WEEK)
-    return DateFormatSymbols.getInstance().shortWeekdays[dow]
+    return DateFormatSymbols.getInstance(locale).shortWeekdays[dow]
 }
 
-private val MONTH_NAMES = listOf(
-    "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember",
-)
+/** "November 2026" for the recap card, in the app language. */
+fun recapMonthYear(locale: Locale, now: Long = System.currentTimeMillis()): String =
+    SimpleDateFormat("LLLL yyyy", locale).format(Date(now))
 
 /** "12 jam 5 mnt", or just minutes under an hour. */
 fun watchTimeLabel(res: Resources, ms: Long): String {
@@ -139,18 +144,18 @@ fun StatsRoute(onBack: () -> Unit, onExplore: () -> Unit) {
     val scope = rememberCoroutineScope()
     val explain: (String) -> Unit = { msg -> scope.launch { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar(msg) } }
     val context = LocalContext.current
+    val res = context.resources
+    val locale = res.configuration.locales[0]
     val recapLayer = rememberGraphicsLayer()
-    val monthYear = remember {
-        Calendar.getInstance().let { "${MONTH_NAMES[it.get(Calendar.MONTH)]} ${it.get(Calendar.YEAR)}" }
-    }
+    val monthYear = remember(locale) { recapMonthYear(locale) }
 
     val hazeState = remember { HazeState() }
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             LargeTopAppBar(
-                title = { Text("Statistik") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Kembali") } },
+                title = { Text(stringResource(R.string.mine_stats_title)) },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.mine_back)) } },
                 scrollBehavior = scrollBehavior,
                 // Transparent so the frosted layer shows the list scrolling underneath.
                 colors = TopAppBarDefaults.largeTopAppBarColors(containerColor = Color.Transparent, scrolledContainerColor = Color.Transparent),
@@ -164,9 +169,9 @@ fun StatsRoute(onBack: () -> Unit, onExplore: () -> Unit) {
             Box(Modifier.fillMaxSize().padding(padding)) {
                 MessageState(
                     Icons.Rounded.Insights,
-                    "Belum ada statistik",
-                    message = "Tonton satu episode dulu, nanti angkanya muncul di sini.",
-                    actionLabel = "Cari anime",
+                    stringResource(R.string.mine_stats_empty_title),
+                    message = stringResource(R.string.mine_stats_empty_body),
+                    actionLabel = stringResource(R.string.mine_stats_empty_action),
                     onAction = onExplore,
                 )
             }
@@ -179,9 +184,9 @@ fun StatsRoute(onBack: () -> Unit, onExplore: () -> Unit) {
         ) {
             item {
                 Column(Modifier.semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text("Total waktu nonton", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.mine_stats_total), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(watchTimeLabel(context.resources, stats.totalWatchedMs), style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
-                    if (stats.isEstimated) Text("± perkiraan untuk data lama", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (stats.isEstimated) Text(stringResource(R.string.mine_stats_estimated), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             item {
@@ -191,17 +196,17 @@ fun StatsRoute(onBack: () -> Unit, onExplore: () -> Unit) {
                     maxItemsInEachRow = columns,
                 ) {
                     val card = Modifier.weight(1f)
-                    StatCard("Episode selesai", stats.episodesFinished.toString(), null, card) { explain("Episode yang ditonton sampai minimal 92%.") }
-                    StatCard("Anime", stats.animeWatched.toString(), null, card) { explain("Jumlah judul berbeda yang pernah kamu tonton.") }
-                    StatCard("Minggu aktif", stats.activeWeeks.toString(), "berturut-turut", card) { explain("Minggu berturut-turut kamu menonton, sampai minggu ini.") }
+                    StatCard(stringResource(R.string.mine_stats_episodes_done), stats.episodesFinished.toString(), null, card) { explain(res.getString(R.string.mine_stats_episodes_done_info)) }
+                    StatCard(stringResource(R.string.mine_stats_anime), stats.animeWatched.toString(), null, card) { explain(res.getString(R.string.mine_stats_anime_info)) }
+                    StatCard(stringResource(R.string.mine_stats_active_weeks), stats.activeWeeks.toString(), stringResource(R.string.mine_stats_consecutive), card) { explain(res.getString(R.string.mine_stats_weeks_info)) }
                 }
             }
-            if (week.isNotEmpty()) item { BarChart("7 hari terakhir", week.map { weekdayLabel(it.day) }, week.map { it.minutes }) }
-            item { BarChart("6 bulan terakhir", stats.monthly.map { shortMonth(context.resources, it.month) }, stats.monthly.map { it.minutes }) }
+            if (week.isNotEmpty()) item { BarChart(stringResource(R.string.mine_stats_last7), week.map { weekdayLabel(it.day, locale) }, week.map { it.minutes }) }
+            item { BarChart(stringResource(R.string.mine_stats_last6m), stats.monthly.map { shortMonth(res, it.month) }, stats.monthly.map { it.minutes }) }
             if (stats.topGenres.isNotEmpty()) {
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SectionLabel("Genre favorit")
+                        SectionLabel(stringResource(R.string.mine_stats_top_genres))
                         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             stats.topGenres.forEach { TagChip(it, onClick = {}) }
                         }
@@ -210,7 +215,7 @@ fun StatsRoute(onBack: () -> Unit, onExplore: () -> Unit) {
             }
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    SectionLabel("Rekap")
+                    SectionLabel(stringResource(R.string.mine_stats_recap))
                     Box(
                         Modifier
                             .fillMaxWidth()
@@ -224,15 +229,15 @@ fun StatsRoute(onBack: () -> Unit, onExplore: () -> Unit) {
                             scope.launch {
                                 runCatching {
                                     val bitmap = recapLayer.toImageBitmap().asAndroidBitmap()
-                                    shareRecap(context, bitmap)
-                                }.onFailure { snackbar.showSnackbar("Gagal membuat gambar rekap") }
+                                    shareRecap(context, bitmap, res.getString(R.string.mine_stats_share))
+                                }.onFailure { snackbar.showSnackbar(res.getString(R.string.mine_stats_recap_failed)) }
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Icon(Icons.Rounded.Share, null)
                         Spacer(Modifier.padding(4.dp))
-                        Text("Bagikan rekap")
+                        Text(stringResource(R.string.mine_stats_share))
                     }
                 }
             }
@@ -240,7 +245,7 @@ fun StatsRoute(onBack: () -> Unit, onExplore: () -> Unit) {
     }
 }
 
-private suspend fun shareRecap(context: Context, bitmap: Bitmap) {
+private suspend fun shareRecap(context: Context, bitmap: Bitmap, chooserTitle: String) {
     val file = withContext(Dispatchers.IO) {
         File(context.cacheDir, "share").apply { mkdirs() }.resolve("rekap.png").also { f ->
             f.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
@@ -252,7 +257,7 @@ private suspend fun shareRecap(context: Context, bitmap: Bitmap) {
         putExtra(Intent.EXTRA_STREAM, uri)
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
-    context.startActivity(Intent.createChooser(send, "Bagikan rekap"))
+    context.startActivity(Intent.createChooser(send, chooserTitle))
 }
 
 @Composable
@@ -283,6 +288,7 @@ private fun BarChart(title: String, labels: List<String>, minutes: List<Int>) {
     val bar = MaterialTheme.colorScheme.primary
     val track = MaterialTheme.colorScheme.outlineVariant
     val max = (minutes.maxOrNull() ?: 0).coerceAtLeast(1)
+    val res = LocalContext.current.resources
     val valueStyle = MaterialTheme.typography.labelSmall
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         SectionLabel(title)
@@ -302,7 +308,7 @@ private fun BarChart(title: String, labels: List<String>, minutes: List<Int>) {
             Modifier
                 .fillMaxWidth()
                 .height(120.dp)
-                .semantics { contentDescription = labels.zip(minutes).joinToString { (l, m) -> "$l $m menit" } },
+                .semantics { contentDescription = labels.zip(minutes).joinToString { (l, m) -> res.getString(R.string.mine_stats_chart_item, l, m) } },
         ) {
             val slot = size.width / minutes.size
             val barWidth = slot * 0.5f
@@ -363,12 +369,12 @@ private fun RecapCard(stats: WatchStats, monthYear: String) {
             modifier = Modifier.align(Alignment.TopStart),
         )
         Column(Modifier.align(Alignment.CenterStart), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Waktu nonton", color = RecapMuted, fontSize = 14.sp, fontFamily = PlusJakarta, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.mine_recap_watch_time), color = RecapMuted, fontSize = 14.sp, fontFamily = PlusJakarta, fontWeight = FontWeight.SemiBold)
             Text(watchTimeLabel(LocalContext.current.resources, stats.totalWatchedMs), color = RecapPrimary, fontSize = 40.sp, lineHeight = 44.sp, fontFamily = PlusJakarta, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(10.dp))
-            RecapLine("${stats.episodesFinished} episode selesai")
-            RecapLine("${stats.animeWatched} anime ditonton")
-            stats.topGenres.firstOrNull()?.let { RecapLine("Paling suka: $it") }
+            RecapLine(pluralStringResource(R.plurals.mine_recap_episodes, stats.episodesFinished, stats.episodesFinished))
+            RecapLine(pluralStringResource(R.plurals.mine_recap_anime, stats.animeWatched, stats.animeWatched))
+            stats.topGenres.firstOrNull()?.let { RecapLine(stringResource(R.string.mine_recap_favorite, it)) }
         }
         Text(monthYear, color = RecapMuted, fontSize = 13.sp, fontFamily = PlusJakarta, fontWeight = FontWeight.SemiBold, modifier = Modifier.align(Alignment.BottomStart))
     }
