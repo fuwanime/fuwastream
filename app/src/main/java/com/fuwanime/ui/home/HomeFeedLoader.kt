@@ -5,11 +5,13 @@ import com.fuwanime.data.AnimeRepository
 import com.fuwanime.data.LatestRelease
 import com.fuwanime.data.SortOrder
 import com.fuwanime.util.Day
-import com.fuwanime.util.friendlyMessage
+import com.fuwanime.R
+import com.fuwanime.util.UiText
+import com.fuwanime.util.friendlyText
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 
-const val OFFLINE_EMPTY = "Belum ada data tersimpan. Sambungkan internet lalu coba lagi."
+val OFFLINE_EMPTY = UiText(R.string.common_offline_empty)
 
 /** One load of the Beranda feed. [popular]/[latest] are null when that call failed; [error] only when nothing useful came back. */
 data class FeedResult(
@@ -84,7 +86,7 @@ fun HomeFeed.reduce(
         loading = false,
         refreshing = false,
         syncing = false,
-        error = if (online) result.error.friendlyMessage() else OFFLINE_EMPTY,
+        error = if (online) result.error.friendlyText() else OFFLINE_EMPTY,
     )
 }
 

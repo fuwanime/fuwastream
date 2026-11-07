@@ -4,6 +4,8 @@ import android.app.DownloadManager
 import android.content.Context
 import android.net.Uri
 import android.os.Environment
+import com.fuwanime.R
+import com.fuwanime.util.localizedContext
 import com.fuwanime.data.local.DownloadDao
 import com.fuwanime.data.local.DownloadEntity
 import com.fuwanime.data.remote.AnimeApiService
@@ -78,7 +80,7 @@ class DownloadRepository(
     suspend fun download(show: Anime, episode: Episode, preferredHeight: Int, wifiOnly: Boolean): Result<Unit> {
         val stream = anime.stream(episode.id).getOrElse { return Result.failure(it) }
         val source = stream.sources.closestTo(preferredHeight)
-            ?: return Result.failure(IllegalStateException("Belum ada sumber video untuk episode ini."))
+            ?: return Result.failure(IllegalStateException(localizedContext(context).getString(R.string.system_download_no_source)))
         val merged = stream.episode?.let { info ->
             episode.copy(thumbnail = episode.thumbnail.ifBlank { info.thumbnail }, number = episode.number.ifBlank { info.number })
         } ?: episode
@@ -95,14 +97,14 @@ class DownloadRepository(
                 }
                 val relative = "fuwanime/${safeName(show.id)}_${safeName(episode.id)}_${safeName(source.quality)}.mkv"
                 val dir = context.getExternalFilesDir(Environment.DIRECTORY_MOVIES)
-                    ?: error("Penyimpanan tidak tersedia.")
+                    ?: error(localizedContext(context).getString(R.string.system_download_no_storage))
                 val target = File(dir, relative)
                 target.parentFile?.mkdirs()
                 target.delete()
 
                 val request = DownloadManager.Request(Uri.parse(source.url))
                     .addRequestHeader("User-Agent", AnimeApiService.USER_AGENT)
-                    .setTitle("${show.title} • Episode ${episode.number}")
+                    .setTitle(localizedContext(context).getString(R.string.system_download_title, show.title, episode.number))
                     .setDescription("FuwaNime • ${source.quality}")
                     .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                     .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_MOVIES, relative)

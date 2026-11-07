@@ -1,0 +1,23 @@
+<resources>
+    <string name="system_channel_new_episodes_name">New episodes</string>
+    <string name="system_channel_new_episodes_desc">New episode notifications for favorite anime</string>
+    <string name="system_new_episode_text">Episode %1$s is out!</string>
+    <plurals name="system_new_episodes_summary">
+        <item quantity="one">%1$d new episode</item>
+        <item quantity="other">%1$d new episodes</item>
+    </plurals>
+    <string name="system_shortcut_search_short">Search</string>
+    <string name="system_shortcut_search_long">Search anime</string>
+    <string name="system_shortcut_schedule_short">Schedule</string>
+    <string name="system_shortcut_schedule_long">Airing schedule</string>
+    <string name="system_shortcut_continue_long">Continue %1$s</string>
+    <string name="widget_continue_name">Continue watching</string>
+    <string name="widget_continue_desc">Continue the anime you watched last</string>
+    <string name="system_widget_continue">Continue</string>
+    <string name="system_widget_empty">Nothing watched yet</string>
+    <string name="system_widget_explore">Explore</string>
+    <string name="system_widget_episode">Ep %1$s</string>
+    <string name="system_download_title">%1$s • Episode %2$s</string>
+    <string name="system_download_no_source">No video source for this episode yet.</string>
+    <string name="system_download_no_storage">Storage is unavailable.</string>
+</resources>

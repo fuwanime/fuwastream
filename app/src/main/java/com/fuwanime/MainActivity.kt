@@ -2,6 +2,7 @@ package com.fuwanime
 
 import android.Manifest
 import android.app.PictureInPictureUiState
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -30,6 +31,7 @@ import com.fuwanime.ui.navigation.parseLaunchTarget
 import com.fuwanime.ui.player.LocalPipController
 import com.fuwanime.ui.player.PipController
 import com.fuwanime.ui.theme.FuwaTheme
+import com.fuwanime.util.localizedContext
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -42,6 +44,8 @@ class MainActivity : ComponentActivity() {
     private fun Intent.launchTarget() = parseLaunchTarget(
         getStringExtra(EXTRA_OPEN_ANIME_ID), getStringExtra(EXTRA_OPEN_TAB), getStringExtra(EXTRA_RESUME_EPISODE_ID),
     )
+
+    override fun attachBaseContext(base: Context) = super.attachBaseContext(localizedContext(base))
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

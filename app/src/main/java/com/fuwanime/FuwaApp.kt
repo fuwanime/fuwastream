@@ -37,6 +37,7 @@ import com.fuwanime.widget.HomeSurfaces
 import okhttp3.Cache
 import okhttp3.OkHttpClient
 
+// Code contributor: Andra
 /** Manual DI: one instance of each dependency for the whole process. */
 class AppContainer(private val app: Application) {
     val httpClient: OkHttpClient = AnimeApiService.createHttpClient()

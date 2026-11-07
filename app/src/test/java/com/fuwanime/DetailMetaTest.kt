@@ -10,10 +10,17 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 import java.util.Calendar
 import java.util.TimeZone
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35], application = android.app.Application::class, qualifiers = "id")
 class DetailMetaTest {
+    private val res get() = testResources()
+
     private val jakarta = TimeZone.getTimeZone("Asia/Jakarta")
     private val min = 60_000L
 
@@ -25,10 +32,16 @@ class DetailMetaTest {
     // Wednesday 4 Nov 2026, 10:00 WIB.
     private val now = at(2026, 11, 4, 10, 0)
 
-    @Test fun airingUnderAnHour() = assertEquals("Ep 6 · 45m", airingLabel(6, now + 45 * min, now, jakarta))
-    @Test fun airingUnderADay() = assertEquals("Ep 6 · 2j 14m", airingLabel(6, now + 134 * min, now, jakarta))
-    @Test fun airingLater() = assertEquals("Ep 6 · Sab 23.00", airingLabel(6, at(2026, 11, 7, 23, 0), now, jakarta))
-    @Test fun airingLaterPadsMinutes() = assertEquals("Ep 12 · Jum 08.05", airingLabel(12, at(2026, 11, 6, 8, 5), now, jakarta))
+    @Test fun airingUnderAnHour() = assertEquals("Ep 6 · 45m", airingLabel(res, 6, now + 45 * min, now, jakarta))
+    @Test fun airingUnderADay() = assertEquals("Ep 6 · 2j 14m", airingLabel(res, 6, now + 134 * min, now, jakarta))
+    @Config(sdk = [35], application = android.app.Application::class, qualifiers = "en")
+    @Test fun airingEnglish() {
+        assertEquals("Ep 6 · 2h 14m", airingLabel(res, 6, now + 134 * min, now, jakarta))
+        assertEquals("Ep 6 · Sat 23.00", airingLabel(res, 6, at(2026, 11, 7, 23, 0), now, jakarta))
+    }
+
+    @Test fun airingLater() = assertEquals("Ep 6 · Sab 23.00", airingLabel(res, 6, at(2026, 11, 7, 23, 0), now, jakarta))
+    @Test fun airingLaterPadsMinutes() = assertEquals("Ep 12 · Jum 08.05", airingLabel(res, 12, at(2026, 11, 6, 8, 5), now, jakarta))
 
     @Test fun scoreFormatsOneDecimalWithComma() {
         assertEquals("★ 8,4", scoreLabel(84))

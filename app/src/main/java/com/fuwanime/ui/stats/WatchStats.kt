@@ -7,7 +7,8 @@ import com.fuwanime.util.epochDay
 import java.util.Calendar
 import java.util.TimeZone
 
-data class MonthBar(val label: String, val minutes: Int)
+/** [month] is 0-11; the screen names it in the app language. */
+data class MonthBar(val month: Int, val minutes: Int)
 
 data class WatchStats(
     val totalWatchedMs: Long,
@@ -20,8 +21,6 @@ data class WatchStats(
     /** False until anything has been watched; drives the empty state. */
     val hasData: Boolean,
 )
-
-private val MONTHS = listOf("Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des")
 
 /** Monday-based week number; epoch day 4 (1970-01-05) is the first Monday. */
 fun weekIndex(epochDay: Int): Int = Math.floorDiv(epochDay + 3, 7)
@@ -52,7 +51,7 @@ fun computeStats(
     val monthly = (5 downTo 0).map { back ->
         val total = year * 12 + month - back
         val key = total / 12 to total % 12
-        MonthBar(MONTHS[key.second], ((byMonth[key] ?: 0L) / 60_000).toInt())
+        MonthBar(key.second, ((byMonth[key] ?: 0L) / 60_000).toInt())
     }
 
     val activeSet = daily.filter { it.watchedMs > 0 }.map { weekIndex(it.day) }.toSet()

@@ -17,7 +17,10 @@ import com.fuwanime.data.meta.AnimeMeta
 import com.fuwanime.data.rankSimilar
 import com.fuwanime.data.local.WatchHistoryEntity
 import com.fuwanime.data.remote.AnimeApiService.Companion.EPISODE_PAGE_SIZE
-import com.fuwanime.util.friendlyMessage
+import android.content.res.Resources
+import com.fuwanime.R
+import com.fuwanime.util.UiText
+import com.fuwanime.util.friendlyText
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,18 +38,18 @@ fun relatedSeasons(currentId: String, seasons: List<SeasonEntry>): List<SeasonEn
     seasons.filter { it.anime.id.isNotBlank() && it.anime.id != currentId }.distinctBy { it.anime.id }
 
 /** A page of episodes as shown in the range picker, e.g. "1–30". */
-data class EpisodeRange(val page: Int, val label: String)
+data class EpisodeRange(val page: Int, val label: UiText)
 
 data class DetailUiState(
     val anime: Anime? = null,
     val loadingInfo: Boolean = true,
-    val infoError: String? = null,
+    val infoError: UiText? = null,
     val latestEpisode: Double? = null,
     val ranges: List<EpisodeRange> = emptyList(),
     val selectedPage: Int? = null,
     val episodes: List<Episode> = emptyList(),
     val loadingEpisodes: Boolean = true,
-    val episodesError: String? = null,
+    val episodesError: UiText? = null,
     val newestFirst: Boolean = false,
     val episodeQuery: String = "",
     /** Earliest episode of the series; the primary button plays it when there is no history. */
@@ -114,7 +117,7 @@ class DetailViewModel(
                     loadSimilar(d.anime)
                 }
                 .onFailure { e ->
-                    _state.update { it.copy(loadingInfo = false, infoError = e.friendlyMessage()) }
+                    _state.update { it.copy(loadingInfo = false, infoError = e.friendlyText()) }
                     // The detail endpoint can be unreachable (upstream/Cloudflare) — the cached
                     // list data still carries genres, so "Anime Serupa" keeps working.
                     repo.cachedAnime(animeId)?.let { loadSimilar(it) }
@@ -137,7 +140,7 @@ class DetailViewModel(
         _state.update { it.copy(loadingEpisodes = true, episodesError = null) }
         episodeJob = viewModelScope.launch {
             val newest = repo.episodePage(animeId, 0).getOrElse { e ->
-                _state.update { it.copy(loadingEpisodes = false, episodesError = e.friendlyMessage()) }
+                _state.update { it.copy(loadingEpisodes = false, episodesError = e.friendlyText()) }
                 return@launch
             }
             val latest = newest.maxOfOrNull { it.sortKey }?.takeIf { it != Double.MAX_VALUE }
@@ -161,13 +164,13 @@ class DetailViewModel(
     }
 
     private fun buildRanges(pageCount: Int, latest: Double?): List<EpisodeRange> {
-        if (pageCount <= 1 || latest == null) return listOf(EpisodeRange(0, "Semua"))
+        if (pageCount <= 1 || latest == null) return listOf(EpisodeRange(0, UiText(R.string.watch_range_all)))
         val top = latest.toInt()
         // Ascending: oldest page (highest index) first.
         return (pageCount - 1 downTo 0).map { page ->
             val high = top - page * EPISODE_PAGE_SIZE
             val low = (high - EPISODE_PAGE_SIZE + 1).coerceAtLeast(1)
-            EpisodeRange(page, "$low–$high")
+            EpisodeRange(page, UiText.raw("$low–$high"))
         }
     }
 
@@ -187,7 +190,7 @@ class DetailViewModel(
                         updatePrimary(eps, page)
                     }
                 }
-                .onFailure { e -> _state.update { it.copy(loadingEpisodes = false, episodesError = e.friendlyMessage()) } }
+                .onFailure { e -> _state.update { it.copy(loadingEpisodes = false, episodesError = e.friendlyText()) } }
         }
     }
 
@@ -217,7 +220,7 @@ class DetailViewModel(
                     val sorted = eps.sortedWith(compareBy<Episode> { it.number != digits }.thenBy { it.sortKey })
                     _state.update { it.copy(episodes = sorted, loadingEpisodes = false) }
                 }
-                .onFailure { e -> _state.update { it.copy(loadingEpisodes = false, episodesError = e.friendlyMessage()) } }
+                .onFailure { e -> _state.update { it.copy(loadingEpisodes = false, episodesError = e.friendlyText()) } }
         }
     }
 
@@ -225,18 +228,21 @@ class DetailViewModel(
     val downloadMap: StateFlow<Map<String, DownloadItem>> =
         downloads.forAnime(animeId).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
-    private val _messages = MutableStateFlow<String?>(null)
-    val messages: StateFlow<String?> = _messages.asStateFlow()
+    /** Resolved by the screen against the app locale; a lambda so counts can use plurals. */
+    private val _messages = MutableStateFlow<((Resources) -> String)?>(null)
+    val messages: StateFlow<((Resources) -> String)?> = _messages.asStateFlow()
+    private fun say(text: UiText) { _messages.value = text::resolve }
+    private fun say(@androidx.annotation.StringRes id: Int, vararg args: Any) = say(UiText(id, args.toList()))
     fun messageShown() { _messages.value = null }
 
     fun download(episode: Episode) {
         val anime = _state.value.anime ?: return
         viewModelScope.launch {
             val prefs = settings.settings.first()
-            _messages.value = "Menyiapkan Episode ${episode.number}…"
+            say(R.string.watch_msg_preparing_episode, episode.number)
             downloads.download(anime, episode, prefs.downloadQuality, prefs.downloadWifiOnly)
-                .onSuccess { _messages.value = "Episode ${episode.number} masuk antrean download" }
-                .onFailure { _messages.value = "Gagal download: ${it.friendlyMessage()}" }
+                .onSuccess { say(R.string.watch_msg_queued_episode, episode.number) }
+                .onFailure { say(UiText(R.string.common_download_failed, listOf(it.friendlyText()))) }
         }
     }
 
@@ -246,7 +252,7 @@ class DetailViewModel(
         viewModelScope.launch {
             val newest = repo.episodePage(animeId, 0).getOrNull()?.maxByOrNull { it.sortKey }
             if (newest == null || newest.sortKey == Double.MAX_VALUE) {
-                _messages.value = "Belum ada episode untuk diunduh."
+                say(R.string.watch_msg_no_episodes_download)
                 return@launch
             }
             val pageCount = ceil(newest.sortKey / EPISODE_PAGE_SIZE).toInt().coerceAtLeast(1)
@@ -259,17 +265,17 @@ class DetailViewModel(
                 .sortedByDescending { it.sortKey }
                 .take(MAX_BULK_DOWNLOAD)
             if (targets.isEmpty()) {
-                _messages.value = "Semua episode sudah tersimpan atau sedang diunduh."
+                say(R.string.watch_msg_all_saved)
                 return@launch
             }
             val prefs = settings.settings.first()
-            _messages.value = "Menyiapkan ${targets.size} episode…"
+            _messages.value = { it.getQuantityString(R.plurals.watch_msg_preparing_count, targets.size, targets.size) }
             var queued = 0
             for (ep in targets.sortedBy { it.sortKey }) {
                 downloads.download(anime, ep, prefs.downloadQuality, prefs.downloadWifiOnly)
                     .onSuccess { queued++ }
             }
-            _messages.value = "$queued episode masuk antrean download"
+            _messages.value = { it.getQuantityString(R.plurals.watch_msg_queued_count, queued, queued) }
         }
     }
 
@@ -281,7 +287,7 @@ class DetailViewModel(
     fun deleteDownload(episode: Episode) {
         viewModelScope.launch {
             downloads.delete(episode.id)
-            _messages.value = "Download Episode ${episode.number} dihapus"
+            say(R.string.watch_msg_download_removed, episode.number)
         }
     }
 

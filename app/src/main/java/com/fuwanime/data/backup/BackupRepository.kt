@@ -18,9 +18,14 @@ sealed interface BackupOutcome {
     /** The phone has no data yet and the folder already holds a backup; offer a restore instead. */
     data object SkippedEmpty : BackupOutcome
     data object NoFolder : BackupOutcome
-    data class Failed(val message: String) : BackupOutcome
+    /** [code] is [ERROR_FOLDER] or "other:<detail>"; the UI turns it into text. */
+    data class Failed(val code: String) : BackupOutcome
 }
 
+const val ERROR_FOLDER = "folder"
+const val ERROR_OTHER_PREFIX = "other:"
+
+// Code contributor: Andra
 /** Writes `fuwanime-backup.json` into a folder the user picked (SAF), so it outlives an uninstall. */
 class BackupRepository(
     private val context: Context,
@@ -45,12 +50,12 @@ class BackupRepository(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            val message = when (e) {
-                is SecurityException, is FileNotFoundException, is IllegalArgumentException -> "Folder tidak bisa diakses — pilih ulang"
-                else -> "Gagal mencadangkan: ${e.message}"
+            val code = when (e) {
+                is SecurityException, is FileNotFoundException, is IllegalArgumentException -> ERROR_FOLDER
+                else -> "$ERROR_OTHER_PREFIX${e.message}"
             }
-            settings.setBackupResult(null, message)
-            BackupOutcome.Failed(message)
+            settings.setBackupResult(null, code)
+            BackupOutcome.Failed(code)
         }
     }
 

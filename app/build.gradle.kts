@@ -58,6 +58,7 @@ android {
     compose = true
     buildConfig = true
   }
+  testOptions { unitTests { isIncludeAndroidResources = true } }
   dependenciesInfo {
     includeInApk = false
     includeInBundle = false
@@ -103,5 +104,7 @@ dependencies {
   ksp(libs.moshi.kotlin.codegen)
   testImplementation(libs.junit)
   testImplementation(libs.okhttp.mockwebserver)
+  testImplementation(libs.robolectric)
+  testImplementation(libs.androidx.test.core)
   debugImplementation(libs.androidx.compose.ui.tooling)
 }

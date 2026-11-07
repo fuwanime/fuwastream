@@ -43,6 +43,8 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.fuwanime.FuwaApp
+import com.fuwanime.R
+import com.fuwanime.util.localizedContext
 import com.fuwanime.MainActivity
 import com.fuwanime.data.local.WatchHistoryEntity
 import com.fuwanime.ui.navigation.TAB_EXPLORE_SEARCH
@@ -99,27 +101,28 @@ private fun openApp(context: Context, extra: Pair<String, String>? = null) =
 @Composable
 private fun WidgetBody(context: Context, entries: List<WatchHistoryEntity>, posters: Map<String, Bitmap?>) {
     val height = LocalSize.current.height
+    val res = localizedContext(context).resources
     val rows = when {
         height >= LARGE.height -> 3
         height >= MEDIUM.height -> 2
         else -> 1
     }
-    // The whole widget opens the app; item rows and "Jelajahi" override it with their own targets.
+    // The whole widget opens the app; item rows and "Explore" override it with their own targets.
     Column(
         GlanceModifier.fillMaxSize().cornerRadius(24.dp).background(Surface).padding(12.dp)
             .clickable(actionStartActivity(openApp(context))),
     ) {
         Text(
-            "Lanjutkan",
+            res.getString(R.string.system_widget_continue),
             style = TextStyle(color = ColorProvider(Primary), fontSize = 12.sp, fontWeight = FontWeight.Bold),
         )
         Spacer(GlanceModifier.height(8.dp))
         if (entries.isEmpty()) {
             Column(GlanceModifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-                Text("Belum ada tontonan", style = TextStyle(color = ColorProvider(TextColor), fontSize = 13.sp, fontWeight = FontWeight.Bold))
+                Text(res.getString(R.string.system_widget_empty), style = TextStyle(color = ColorProvider(TextColor), fontSize = 13.sp, fontWeight = FontWeight.Bold))
                 Spacer(GlanceModifier.height(6.dp))
                 Text(
-                    "Jelajahi",
+                    res.getString(R.string.system_widget_explore),
                     style = TextStyle(color = ColorProvider(Primary), fontSize = 13.sp, fontWeight = FontWeight.Bold),
                     modifier = GlanceModifier.clickable(
                         actionStartActivity(openApp(context, MainActivity.EXTRA_OPEN_TAB to TAB_EXPLORE_SEARCH)),
@@ -130,13 +133,13 @@ private fun WidgetBody(context: Context, entries: List<WatchHistoryEntity>, post
         }
         entries.take(rows).forEachIndexed { i, entry ->
             if (i > 0) Spacer(GlanceModifier.height(8.dp))
-            EntryRow(context, entry, posters[entry.episodeId])
+            EntryRow(context, entry, posters[entry.episodeId], res.getString(R.string.system_widget_episode, entry.episodeNumber))
         }
     }
 }
 
 @Composable
-private fun EntryRow(context: Context, entry: WatchHistoryEntity, poster: Bitmap?) {
+private fun EntryRow(context: Context, entry: WatchHistoryEntity, poster: Bitmap?, episodeLabel: String) {
     Row(
         GlanceModifier.fillMaxWidth().clickable(
             actionStartActivity(openApp(context, MainActivity.EXTRA_RESUME_EPISODE_ID to entry.episodeId)),
@@ -155,7 +158,7 @@ private fun EntryRow(context: Context, entry: WatchHistoryEntity, poster: Bitmap
                 maxLines = 2,
                 style = TextStyle(color = ColorProvider(TextColor), fontSize = 13.sp, fontWeight = FontWeight.Bold),
             )
-            Text("Ep ${entry.episodeNumber}", style = TextStyle(color = ColorProvider(Muted), fontSize = 11.sp))
+            Text(episodeLabel, style = TextStyle(color = ColorProvider(Muted), fontSize = 11.sp))
             Spacer(GlanceModifier.height(4.dp))
             LinearProgressIndicator(
                 progress = entry.progress,

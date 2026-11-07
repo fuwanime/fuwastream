@@ -23,7 +23,9 @@ import com.fuwanime.data.StreamSource
 import com.fuwanime.data.local.AppSettings
 import com.fuwanime.data.local.SettingsStore
 import com.fuwanime.data.local.VideoResize
-import com.fuwanime.util.friendlyMessage
+import com.fuwanime.R
+import com.fuwanime.util.UiText
+import com.fuwanime.util.friendlyText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -48,7 +50,7 @@ data class PlayerUiState(
     /** Position to seek to once the current source is prepared. */
     val startPositionMs: Long = 0,
     val loading: Boolean = true,
-    val error: String? = null,
+    val error: UiText? = null,
     val next: Episode? = null,
     val previous: Episode? = null,
     /** Episodes of the current page, for the portrait episode strip. */
@@ -56,7 +58,7 @@ data class PlayerUiState(
     /** Playing a downloaded file; no network needed. */
     val offline: Boolean = false,
     /** One-shot message for the snackbar (download started/failed). */
-    val message: String? = null,
+    val message: UiText? = null,
     /** The franchise entry after this one ("S2" after "S1"), offered when the last episode ends. */
     val nextSeason: SeasonEntry? = null,
 )
@@ -163,11 +165,11 @@ class PlayerViewModel(
             val resumeAt = library.savedPosition(episode.id)
             if (playOffline(episode, resumeAt)) return@launch
             val stream = repo.stream(episode.id).getOrElse { e ->
-                _state.update { it.copy(loading = false, error = e.friendlyMessage()) }
+                _state.update { it.copy(loading = false, error = e.friendlyText()) }
                 return@launch
             }
             if (stream.sources.isEmpty()) {
-                _state.update { it.copy(loading = false, error = "Belum ada sumber video untuk episode ini.") }
+                _state.update { it.copy(loading = false, error = UiText(R.string.watch_err_no_source)) }
                 return@launch
             }
             val merged = stream.episode?.let { info ->
@@ -198,7 +200,7 @@ class PlayerViewModel(
     private suspend fun playOffline(episode: Episode, resumeAt: Long): Boolean {
         val saved = downloads.completed(episode.id) ?: return false
         val e = saved.entity
-        val local = StreamSource(Uri.fromFile(File(e.filePath)).toString(), "${e.quality} • Offline", "Perangkat")
+        val local = StreamSource(Uri.fromFile(File(e.filePath)).toString(), e.quality, "")
         _state.update {
             it.copy(
                 // Offline there may be no detail response, so rebuild the essentials from the download row.
@@ -225,8 +227,8 @@ class PlayerViewModel(
         viewModelScope.launch {
             val wifiOnly = settings.value.downloadWifiOnly
             downloads.enqueue(anime, s.episode, source, wifiOnly)
-                .onSuccess { postMessage(if (wifiOnly) "Download dimulai (menunggu Wi-Fi)" else "Download ${source.quality} dimulai") }
-                .onFailure { postMessage("Gagal download: ${it.friendlyMessage()}") }
+                .onSuccess { postMessage(if (wifiOnly) UiText(R.string.watch_msg_download_wifi) else UiText(R.string.watch_msg_download_started, listOf(source.quality))) }
+                .onFailure { postMessage(UiText(R.string.common_download_failed, listOf(it.friendlyText()))) }
         }
     }
 
@@ -234,11 +236,11 @@ class PlayerViewModel(
         val id = _state.value.episode.id
         viewModelScope.launch {
             downloads.delete(id)
-            postMessage("Download dihapus")
+            postMessage(UiText(R.string.watch_msg_download_deleted))
         }
     }
 
-    private fun postMessage(text: String) = _state.update { it.copy(message = text) }
+    private fun postMessage(text: UiText) = _state.update { it.copy(message = text) }
     fun messageShown() = _state.update { it.copy(message = null) }
 
     private suspend fun loadNeighbours(episode: Episode) {
@@ -270,7 +272,7 @@ class PlayerViewModel(
             it.copy(
                 source = lower,
                 startPositionMs = positionMs,
-                message = "Gagal memutar ${current.quality}, beralih ke ${lower.quality}",
+                message = UiText(R.string.watch_msg_quality_fallback, listOf(current.quality, lower.quality)),
             )
         }
         return true

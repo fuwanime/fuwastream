@@ -12,8 +12,15 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35], application = android.app.Application::class, qualifiers = "id")
 class VisualA11yTest {
+    private val res get() = testResources()
+
     private val black = 0xFF000000.toInt()
     private val white = 0xFFFFFFFF.toInt()
     private val indigo = 0xFF1A237E.toInt()
@@ -52,13 +59,19 @@ class VisualA11yTest {
 
     @Test fun descriptionOrder() = assertEquals(
         "Frieren, Episode 5, Baru, 2 baru, dipilih",
-        posterDescription("Frieren", "Episode 5", "2 baru", isNew = true, airing = true, selected = true),
+        posterDescription(res, "Frieren", "Episode 5", "2 baru", isNew = true, airing = true, selected = true),
     )
 
     @Test fun descriptionAiringWithoutNew() =
-        assertEquals("Frieren, Sedang tayang", posterDescription("Frieren", null, null, isNew = false, airing = true, selected = false))
+        assertEquals("Frieren, Sedang tayang", posterDescription(res, "Frieren", null, null, isNew = false, airing = true, selected = false))
 
-    @Test fun descriptionSkipsBlankCaption() = assertEquals("Frieren", posterDescription("Frieren", " ", null, false, false, false))
+    @Test fun descriptionSkipsBlankCaption() = assertEquals("Frieren", posterDescription(res, "Frieren", " ", null, false, false, false))
+
+    @Config(sdk = [35], application = android.app.Application::class, qualifiers = "en")
+    @Test fun descriptionEnglish() = assertEquals(
+        "Frieren, Episode 5, New, 2 new, selected",
+        posterDescription(res, "Frieren", "Episode 5", "2 new", isNew = true, airing = true, selected = true),
+    )
 
     @Test fun navLabelScaleCapsAt130Percent() {
         assertEquals(1.0f, navLabelFontScale(1.0f), 0f)

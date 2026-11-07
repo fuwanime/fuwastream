@@ -10,7 +10,7 @@ import com.fuwanime.data.remote.StreamData
 
 /** Serves fixtures and records which endpoints the repository called. */
 open class FakeAnimeApi : AnimeApiService {
-    val calls = mutableListOf<String>()
+    val calls: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
 
     override suspend fun explore(page: Int, sort: String, keyword: String): ApiResponse<MovieListData> {
         calls += "explore(page=$page, sort=$sort, keyword=$keyword)"

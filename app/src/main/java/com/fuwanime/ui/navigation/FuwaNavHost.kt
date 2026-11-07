@@ -1,5 +1,8 @@
 package com.fuwanime.ui.navigation
 
+import androidx.compose.ui.res.stringResource
+import com.fuwanime.R
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.WindowInsets
@@ -130,11 +133,11 @@ internal object Routes {
             "&thumb=${Uri.encode(thumb)}&shared=${Uri.encode(shared.orEmpty())}"
 }
 
-private enum class Tab(val route: String, val label: String, val icon: ImageVector, val selectedIcon: ImageVector) {
-    HOME(Routes.HOME, "Beranda", Icons.Outlined.Home, Icons.Rounded.Home),
-    EXPLORE(Routes.EXPLORE, "Jelajah", Icons.Outlined.Explore, Icons.Rounded.Explore),
-    SCHEDULE(Routes.SCHEDULE, "Jadwal", Icons.Outlined.CalendarMonth, Icons.Rounded.CalendarMonth),
-    LIBRARY(Routes.LIBRARY, "Koleksi", Icons.Outlined.VideoLibrary, Icons.Rounded.VideoLibrary),
+private enum class Tab(val route: String, @StringRes val label: Int, val icon: ImageVector, val selectedIcon: ImageVector) {
+    HOME(Routes.HOME, R.string.common_tab_home, Icons.Outlined.Home, Icons.Rounded.Home),
+    EXPLORE(Routes.EXPLORE, R.string.common_tab_explore, Icons.Outlined.Explore, Icons.Rounded.Explore),
+    SCHEDULE(Routes.SCHEDULE, R.string.common_tab_schedule, Icons.Outlined.CalendarMonth, Icons.Rounded.CalendarMonth),
+    LIBRARY(Routes.LIBRARY, R.string.common_tab_library, Icons.Outlined.VideoLibrary, Icons.Rounded.VideoLibrary),
 }
 
 /** Detail and player sit on top of the tabs; moving to or from them is a fade under a shared element. */
@@ -267,7 +270,7 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
                             selected = selected,
                             onClick = { onTab(tab) },
                             icon = { Icon(if (selected) tab.selectedIcon else tab.icon, null) },
-                            label = { NavLabel(tab.label, selected) },
+                            label = { NavLabel(stringResource(tab.label), selected) },
                             colors = railColors,
                         )
                     }
@@ -423,7 +426,7 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
                                 selected = selected,
                                 onClick = { onTab(tab) },
                                 icon = { Icon(if (selected) tab.selectedIcon else tab.icon, null) },
-                                label = { NavLabel(tab.label, selected) },
+                                label = { NavLabel(stringResource(tab.label), selected) },
                                 colors = itemColors,
                             )
                         }

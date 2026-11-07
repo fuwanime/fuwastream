@@ -13,8 +13,15 @@ import com.fuwanime.ui.library.watchedDownloads
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35], application = android.app.Application::class, qualifiers = "id")
 class LibraryLogicTest {
+    private val res get() = testResources()
+
 
     private fun fav(id: String, title: String = id, addedAt: Long = 0) =
         FavoriteEntity(id, title, "", "", "TV", "ONGOING", "2026", "", addedAt)
@@ -53,9 +60,15 @@ class LibraryLogicTest {
     @Test fun newCount_fractionalFloored() = assertEquals(0, newEpisodeCount(12.5, listOf("12")))
     @Test fun newCount_watchedBeyondBaseline_is0() = assertEquals(0, newEpisodeCount(10.0, listOf("12")))
 
-    @Test fun badge_zeroNull() = assertNull(newBadgeLabel(0))
-    @Test fun badge_nine() = assertEquals("9 baru", newBadgeLabel(9))
-    @Test fun badge_ten() = assertEquals("9+ baru", newBadgeLabel(10))
+    @Test fun badge_zeroNull() = assertNull(newBadgeLabel(res, 0))
+    @Test fun badge_nine() = assertEquals("9 baru", newBadgeLabel(res, 9))
+    @Test fun badge_ten() = assertEquals("9+ baru", newBadgeLabel(res, 10))
+
+    @Config(sdk = [35], application = android.app.Application::class, qualifiers = "en")
+    @Test fun badge_english() {
+        assertEquals("2 new", newBadgeLabel(res, 2))
+        assertEquals("9+ new", newBadgeLabel(res, 10))
+    }
 
     @Test fun watchedDownloads_onlyDoneAndFinished() {
         val downloads = listOf(dl("done-fin", DownloadState.DONE), dl("done-half", DownloadState.DONE), dl("run-fin", DownloadState.RUNNING), dl("done-none", DownloadState.DONE))

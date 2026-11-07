@@ -1,0 +1,22 @@
+<resources>
+    <string name="system_channel_new_episodes_name">Episod baharu</string>
+    <string name="system_channel_new_episodes_desc">Pemberitahuan episod baharu untuk anime kegemaran</string>
+    <string name="system_new_episode_text">Episod %1$s sudah ditayangkan!</string>
+    <plurals name="system_new_episodes_summary">
+        <item quantity="other">%1$d episod baharu</item>
+    </plurals>
+    <string name="system_shortcut_search_short">Cari</string>
+    <string name="system_shortcut_search_long">Cari anime</string>
+    <string name="system_shortcut_schedule_short">Jadual</string>
+    <string name="system_shortcut_schedule_long">Jadual tayangan</string>
+    <string name="system_shortcut_continue_long">Sambung %1$s</string>
+    <string name="widget_continue_name">Sambung menonton</string>
+    <string name="widget_continue_desc">Sambung anime yang terakhir ditonton</string>
+    <string name="system_widget_continue">Sambung</string>
+    <string name="system_widget_empty">Belum ada tontonan</string>
+    <string name="system_widget_explore">Terokai</string>
+    <string name="system_widget_episode">Ep %1$s</string>
+    <string name="system_download_title">%1$s • Episod %2$s</string>
+    <string name="system_download_no_source">Belum ada sumber video untuk episod ini.</string>
+    <string name="system_download_no_storage">Storan tidak tersedia.</string>
+</resources>

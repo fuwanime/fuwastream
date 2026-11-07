@@ -1,12 +1,16 @@
 package com.fuwanime.ui.player
 
-enum class SleepOption(val label: String, val minutes: Int?) {
-    OFF("Mati", null),
-    M15("15 menit", 15),
-    M30("30 menit", 30),
-    M45("45 menit", 45),
-    M60("60 menit", 60),
-    END_OF_EPISODE("Akhir episode", null),
+import androidx.annotation.StringRes
+import com.fuwanime.R
+
+/** [label] is 0 for timed options, which show [minutes] through the watch_sleep_minutes plural. */
+enum class SleepOption(@StringRes val label: Int, val minutes: Int?) {
+    OFF(R.string.watch_sleep_off, null),
+    M15(0, 15),
+    M30(0, 30),
+    M45(0, 45),
+    M60(0, 60),
+    END_OF_EPISODE(R.string.watch_sleep_end, null),
 }
 
 /** Wall-clock time at which playback pauses; null when the option is not time-based. */
