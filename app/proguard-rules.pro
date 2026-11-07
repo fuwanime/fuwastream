@@ -9,7 +9,7 @@
 -keep class com.fuwanime.data.remote.** { *; }
 # Backup file models (also @JsonClass): the backup format must survive minification.
 -keep class com.fuwanime.data.backup.** { *; }
--keep class com.fuwanime.data.local.*Entity { *; }
+-keep class com.fuwanime.data.local.*Entity* { *; }
 
 # Retrofit service interfaces are accessed via reflection.
 -keep,allowobfuscation interface com.fuwanime.data.remote.AnimeApiService

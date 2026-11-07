@@ -143,7 +143,13 @@ fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit) {
     val pickFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         // Keep access across reboots; without this the daily worker loses the folder.
-        context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+        val granted = runCatching {
+            context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+        }.isSuccess
+        if (!granted) {
+            say("Folder ini tidak bisa dipakai untuk backup. Pilih folder lain.")
+            return@rememberLauncherForActivityResult
+        }
         scope.launch {
             vm.store.setBackupTree(uri.toString())
             if (vm.store.backup.first().auto) BackupWorker.schedule(context)
@@ -435,7 +441,7 @@ private fun <T> ChoiceRow(
 
 private fun backupMessage(outcome: BackupOutcome): String = when (outcome) {
     BackupOutcome.Written -> "Data dicadangkan"
-    BackupOutcome.SkippedEmpty -> "Belum ada data. Folder ini sudah berisi backup — pulihkan dulu?"
+    BackupOutcome.SkippedEmpty -> "Folder ini sudah berisi backup. Pulihkan dulu, lalu backup akan berjalan otomatis"
     BackupOutcome.NoFolder -> "Pilih folder backup dulu"
     is BackupOutcome.Failed -> outcome.message
 }

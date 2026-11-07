@@ -1,5 +1,6 @@
 package com.fuwanime.data.local
 
+import com.fuwanime.data.backup.settingTypeAccepted
 import kotlinx.coroutines.flow.first
 import com.fuwanime.data.backup.isBackedUpSetting
 import com.fuwanime.data.backup.SettingEntry
@@ -75,6 +76,7 @@ internal object Keys {
     val backupLastMs = longPreferencesKey("backup_last_ms")
     val backupError = stringPreferencesKey("backup_error")
     val backupPromptDismissed = booleanPreferencesKey("backup_prompt_dismissed")
+    val backupFolderAdopted = booleanPreferencesKey("backup_folder_adopted")
 }
 
 /** Where and how the backup file is written; all keys start with "backup_" so the backup itself skips them. */
@@ -84,16 +86,19 @@ data class BackupPrefs(
     val lastMs: Long?,
     val error: String?,
     val promptDismissed: Boolean,
+    /** This install restored from, or wrote the first file into, the picked folder; see shouldWriteBackup. */
+    val folderAdopted: Boolean = false,
 )
 
 class SettingsStore(private val context: Context) {
     val backup: Flow<BackupPrefs> = context.dataStore.data.map {
-        BackupPrefs(it[Keys.backupTreeUri], it[Keys.backupAuto] ?: true, it[Keys.backupLastMs], it[Keys.backupError], it[Keys.backupPromptDismissed] ?: false)
+        BackupPrefs(it[Keys.backupTreeUri], it[Keys.backupAuto] ?: true, it[Keys.backupLastMs], it[Keys.backupError], it[Keys.backupPromptDismissed] ?: false, it[Keys.backupFolderAdopted] ?: false)
     }
 
     suspend fun setBackupTree(uri: String?) = context.dataStore.edit {
         if (uri == null) it.remove(Keys.backupTreeUri) else { it[Keys.backupTreeUri] = uri }
         it.remove(Keys.backupError)
+        it.remove(Keys.backupFolderAdopted)
     }
     suspend fun setBackupAuto(enabled: Boolean) = context.dataStore.edit { it[Keys.backupAuto] = enabled }
 
@@ -103,6 +108,7 @@ class SettingsStore(private val context: Context) {
         if (error == null) it.remove(Keys.backupError) else { it[Keys.backupError] = error }
     }
     suspend fun dismissBackupPrompt() = context.dataStore.edit { it[Keys.backupPromptDismissed] = true }
+    suspend fun adoptBackupFolder() = context.dataStore.edit { it[Keys.backupFolderAdopted] = true }
 
     /** Every user preference as typed strings, minus install bookkeeping (see isBackedUpSetting). */
     suspend fun exportSettings(): List<SettingEntry> =
@@ -121,7 +127,7 @@ class SettingsStore(private val context: Context) {
 
     /** Writes backed-up preferences; unknown types and unparseable values are skipped, not guessed. */
     suspend fun importSettings(entries: List<SettingEntry>) = context.dataStore.edit { prefs ->
-        entries.filter { isBackedUpSetting(it.key) }.forEach { e ->
+        entries.filter { isBackedUpSetting(it.key) && settingTypeAccepted(it.key, it.type) }.forEach { e ->
             when (e.type) {
                 "string" -> { prefs[stringPreferencesKey(e.key)] = e.value }
                 "boolean" -> e.value.toBooleanStrictOrNull()?.let { prefs[booleanPreferencesKey(e.key)] = it }

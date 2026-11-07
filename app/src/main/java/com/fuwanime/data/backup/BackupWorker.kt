@@ -4,8 +4,6 @@ import android.content.Context
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.ExistingWorkPolicy
-import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
@@ -22,7 +20,6 @@ class BackupWorker(context: Context, params: WorkerParameters) : CoroutineWorker
 
     companion object {
         private const val DAILY = "backup-daily"
-        private const val ONCE = "backup-once"
 
         /** Safe on every app start (KEEP policy). */
         fun schedule(context: Context) {
@@ -33,9 +30,5 @@ class BackupWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         }
 
         fun cancel(context: Context) = WorkManager.getInstance(context).cancelUniqueWork(DAILY)
-
-        fun runOnce(context: Context) {
-            WorkManager.getInstance(context).enqueueUniqueWork(ONCE, ExistingWorkPolicy.REPLACE, OneTimeWorkRequestBuilder<BackupWorker>().build())
-        }
     }
 }

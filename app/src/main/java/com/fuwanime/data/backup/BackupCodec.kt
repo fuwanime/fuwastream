@@ -59,5 +59,27 @@ fun isBackedUpSetting(key: String): Boolean =
     key != "update_last_check_ms" && key != "update_dismissed_tag" &&
         !key.startsWith("notify_baseline_") && !key.startsWith("backup_")
 
-/** A freshly installed (empty) phone must never replace a backup that is already in the folder. */
-fun shouldWriteBackup(localEmpty: Boolean, fileExists: Boolean): Boolean = !(localEmpty && fileExists)
+/**
+ * A backup already in the folder is only replaced once this install has adopted the folder (restored from it, or
+ * written the first file there); otherwise a reinstall with one new favourite would wipe hundreds of rows.
+ * An empty phone never replaces an existing file.
+ */
+fun shouldWriteBackup(localEmpty: Boolean, fileExists: Boolean, folderAdopted: Boolean): Boolean =
+    !fileExists || (folderAdopted && !localEmpty)
+
+/** Types the app reads each preference as; a backup entry with another type would crash the reader (ClassCastException). */
+private val SETTING_TYPES = mapOf(
+    "theme_mode" to "string", "video_resize" to "string", "favorite_sort" to "string",
+    "dynamic_color" to "boolean", "amoled_black" to "boolean", "auto_play_next" to "boolean", "auto_pip" to "boolean",
+    "download_wifi_only" to "boolean", "notify_new_episodes" to "boolean", "auto_skip_op" to "boolean",
+    "jump_ahead_button" to "boolean", "age_confirmed" to "boolean", "background_audio" to "boolean",
+    "preferred_quality" to "int", "double_tap_seek_seconds" to "int", "download_quality" to "int", "mobile_data_quality" to "int",
+)
+private val SUPPORTED_TYPES = setOf("string", "boolean", "int", "long", "double")
+
+/** False for unknown types and for known keys stored under the wrong type; keys the app doesn't know are harmless. */
+fun settingTypeAccepted(key: String, type: String): Boolean {
+    if (type !in SUPPORTED_TYPES) return false
+    val expected = SETTING_TYPES[key] ?: if (key.startsWith("op_start_") || key.startsWith("op_end_")) "long" else null
+    return expected == null || expected == type
+}

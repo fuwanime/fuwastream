@@ -1,5 +1,8 @@
 package com.fuwanime.data.backup
 
+import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.Mutex
 import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
@@ -26,12 +29,21 @@ class BackupRepository(
 ) {
     private val resolver get() = context.contentResolver
 
-    suspend fun backupNow(): BackupOutcome {
-        val tree = settings.backup.first().treeUri?.let(Uri::parse) ?: return BackupOutcome.NoFolder
-        return try {
-            withContext(Dispatchers.IO) { write(tree) }.also {
-                if (it == BackupOutcome.Written) settings.setBackupResult(System.currentTimeMillis(), null)
+    /** The daily worker and "Cadangkan sekarang" share this instance; one writer at a time. */
+    private val writing = Mutex()
+
+    suspend fun backupNow(): BackupOutcome = writing.withLock {
+        val prefs = settings.backup.first()
+        val tree = prefs.treeUri?.let(Uri::parse) ?: return@withLock BackupOutcome.NoFolder
+        try {
+            withContext(Dispatchers.IO) { write(tree, prefs.folderAdopted) }.also {
+                if (it == BackupOutcome.Written) {
+                    settings.setBackupResult(System.currentTimeMillis(), null)
+                    settings.adoptBackupFolder()
+                }
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             val message = when (e) {
                 is SecurityException, is FileNotFoundException, is IllegalArgumentException -> "Folder tidak bisa diakses — pilih ulang"
@@ -42,9 +54,11 @@ class BackupRepository(
         }
     }
 
-    private suspend fun write(tree: Uri): BackupOutcome {
+    private suspend fun write(tree: Uri, folderAdopted: Boolean): BackupOutcome {
         val existing = findChild(tree, BackupCodec.FILE_NAME)
-        if (!shouldWriteBackup(library.isEmpty(), existing != null)) return BackupOutcome.SkippedEmpty
+        // A leftover temp file may be the only copy after an interrupted swap, so it counts as an existing backup.
+        val tmpLeft = findChild(tree, TMP_NAME)
+        if (!shouldWriteBackup(library.isEmpty(), existing != null || tmpLeft != null, folderAdopted)) return BackupOutcome.SkippedEmpty
 
         val snap = library.snapshot()
         val json = BackupCodec.encode(
@@ -60,7 +74,7 @@ class BackupRepository(
         val parent = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
 
         // Write a temp file and swap it in, so a crash mid-write never leaves a half-written backup behind.
-        val tmp = findChild(tree, TMP_NAME) ?: create(parent, TMP_NAME)
+        val tmp = tmpLeft ?: create(parent, TMP_NAME)
         writeText(tmp, json)
         try {
             existing?.let { DocumentsContract.deleteDocument(resolver, it) }
@@ -68,7 +82,7 @@ class BackupRepository(
                 ?: throw UnsupportedOperationException("rename")
         } catch (_: UnsupportedOperationException) {
             // shortcut: providers without rename get a direct overwrite (tiny file, small window), no better option via SAF.
-            writeText(existing ?: findChild(tree, BackupCodec.FILE_NAME) ?: create(parent, BackupCodec.FILE_NAME), json)
+            writeText(findChild(tree, BackupCodec.FILE_NAME) ?: create(parent, BackupCodec.FILE_NAME), json)
             runCatching { DocumentsContract.deleteDocument(resolver, tmp) }
         }
         return BackupOutcome.Written
@@ -83,9 +97,11 @@ class BackupRepository(
         }.getOrNull()?.let(BackupCodec::decode) ?: BackupResult.Corrupt
     }
 
+    /** Merges [file] in; the picked folder (if any) now holds data this install has seen, so it may be updated. */
     suspend fun restore(file: BackupFile) {
         library.restore(file)
         settings.importSettings(file.settings)
+        if (settings.backup.first().treeUri != null) settings.adoptBackupFolder()
     }
 
     private fun create(parent: Uri, name: String): Uri =
