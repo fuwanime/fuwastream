@@ -4,6 +4,7 @@ import com.fuwanime.data.local.FavoriteEntity
 import com.fuwanime.data.local.WatchDailyEntity
 import com.fuwanime.data.local.WatchHistoryEntity
 import com.fuwanime.ui.stats.computeStats
+import com.fuwanime.ui.stats.episodeHeaderStacked
 import com.fuwanime.ui.stats.lastNDays
 import com.fuwanime.ui.stats.statColumns
 import com.fuwanime.ui.stats.weekSummary
@@ -125,5 +126,13 @@ class WatchStatsTest {
         assertEquals(1, statColumns(1.5f, 400))
         assertEquals(1, statColumns(2.0f, 600))
         assertEquals(1, statColumns(1.0f, 359))
+    }
+
+    @Test fun episodeHeaderStacksUnlessThereIsRoomForTitleAndThreeActions() {
+        assertTrue(episodeHeaderStacked(1.0f, 360))
+        assertTrue(episodeHeaderStacked(1.0f, 411))
+        assertTrue(episodeHeaderStacked(1.3f, 520))
+        assertFalse(episodeHeaderStacked(1.0f, 440))
+        assertFalse(episodeHeaderStacked(1.0f, 600))
     }
 }
