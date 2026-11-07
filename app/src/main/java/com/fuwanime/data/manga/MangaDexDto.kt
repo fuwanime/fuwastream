@@ -3,6 +3,7 @@ package com.fuwanime.data.manga
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 
+// MangaDex sends [] instead of {} for empty localized maps, so those fields are Any? (read via loc()).
 @JsonClass(generateAdapter = true)
 data class MangaListDto(
     @Json(name = "data") val data: List<MangaDto> = emptyList(),
@@ -21,9 +22,9 @@ data class MangaDto(
 
 @JsonClass(generateAdapter = true)
 data class MangaAttributesDto(
-    @Json(name = "title") val title: Map<String, String> = emptyMap(),
-    @Json(name = "altTitles") val altTitles: List<Map<String, String>> = emptyList(),
-    @Json(name = "description") val description: Map<String, String> = emptyMap(),
+    @Json(name = "title") val title: Any? = null,
+    @Json(name = "altTitles") val altTitles: List<Any?> = emptyList(),
+    @Json(name = "description") val description: Any? = null,
     @Json(name = "status") val status: String? = null,
     @Json(name = "year") val year: Int? = null,
     @Json(name = "tags") val tags: List<TagDto> = emptyList(),
@@ -53,7 +54,7 @@ data class TagDto(
 
 @JsonClass(generateAdapter = true)
 data class TagAttributesDto(
-    @Json(name = "name") val name: Map<String, String> = emptyMap(),
+    @Json(name = "name") val name: Any? = null,
     @Json(name = "group") val group: String = "",
 )
 

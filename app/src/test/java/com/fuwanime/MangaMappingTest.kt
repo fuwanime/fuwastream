@@ -23,6 +23,12 @@ class MangaMappingTest {
         assertEquals("Chainsaw Man", list[1].toManga("en", 256).title)
     }
 
+    @Test fun emptyArrayLocalizedMapDoesNotBreakList() {
+        val list = load("manga_list.json", MangaListDto::class.java).data
+        assertEquals(2, list.size)
+        assertEquals("", list[1].toManga("id", 256).description)
+    }
+
     @Test fun mapsCoverUrl() {
         val m = load("manga_list.json", MangaListDto::class.java).data[0].toManga("en", 256)
         assertEquals("https://uploads.mangadex.org/covers/m1/abc.jpg.256.jpg", m.coverUrl)

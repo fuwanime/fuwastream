@@ -1,5 +1,5 @@
 {"result":"ok","response":"collection","total":2,"data":[
 {"id":"m1","type":"manga","attributes":{"title":{"ja-ro":"Sousou no Frieren"},"altTitles":[{"id":"Frieren"}],"description":{"en":"E","id":"I"},"status":"ongoing","year":2020,"tags":[{"id":"t1","type":"tag","attributes":{"name":{"en":"Fantasy"},"group":"genre"}}]},
  "relationships":[{"id":"c1","type":"cover_art","attributes":{"fileName":"abc.jpg"}},{"id":"a1","type":"author","attributes":{"name":"Kanehito Yamada"}}]},
-{"id":"m2","type":"manga","attributes":{"title":{"en":"Chainsaw Man","ja-ro":"Chainsaw Man JP"},"altTitles":[],"description":{},"status":"completed","year":null,"tags":[]},"relationships":[]}
+{"id":"m2","type":"manga","attributes":{"title":{"en":"Chainsaw Man","ja-ro":"Chainsaw Man JP"},"altTitles":[],"description":[],"status":"completed","year":null,"tags":[]},"relationships":[]}
 ]}

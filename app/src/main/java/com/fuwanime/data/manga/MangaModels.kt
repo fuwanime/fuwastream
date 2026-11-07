@@ -30,19 +30,27 @@ data class MangaChapter(
 
 data class MangaTag(val id: String, val name: String, val group: String)
 
-fun TagDto.toTag() = MangaTag(id, attributes.name["en"] ?: attributes.name.values.firstOrNull().orEmpty(), attributes.group)
+@Suppress("UNCHECKED_CAST")
+internal fun loc(x: Any?): Map<String, String> = (x as? Map<String, Any?>)?.filterValues { it is String } as? Map<String, String> ?: emptyMap()
+
+fun TagDto.toTag(): MangaTag {
+    val n = loc(attributes.name)
+    return MangaTag(id, n["en"] ?: n.values.firstOrNull().orEmpty(), attributes.group)
+}
 
 fun MangaDto.toManga(appLanguage: String, coverSize: Int): Manga {
     val a = attributes
-    val title = a.title["en"] ?: a.title["ja-ro"] ?: a.title.values.firstOrNull()
-        ?: a.altTitles.firstNotNullOfOrNull { it.values.firstOrNull() }.orEmpty()
+    val t = loc(a.title)
+    val title = t["en"] ?: t["ja-ro"] ?: t.values.firstOrNull()
+        ?: a.altTitles.firstNotNullOfOrNull { loc(it).values.firstOrNull() }.orEmpty()
+    val desc = loc(a.description)
     val cover = relationships.firstOrNull { it.type == "cover_art" }?.attributes?.fileName
         ?.let { "https://uploads.mangadex.org/covers/$id/$it.$coverSize.jpg" }
     return Manga(
         id = id,
         title = title,
         coverUrl = cover,
-        description = a.description[appLanguage] ?: a.description["en"].orEmpty(),
+        description = desc[appLanguage] ?: desc["en"].orEmpty(),
         tags = a.tags.map { it.toTag().name },
         status = when (a.status) {
             "ongoing" -> MangaStatus.ONGOING
