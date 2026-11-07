@@ -22,6 +22,8 @@ import com.fuwanime.MainActivity
 import com.fuwanime.R
 import com.fuwanime.data.Episode
 import com.fuwanime.data.local.FavoriteEntity
+import com.fuwanime.util.localizedContext
+import android.content.res.Resources
 import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
 
@@ -79,6 +81,8 @@ class EpisodeNotifyWorker(context: Context, params: WorkerParameters) : Coroutin
 /** Posts "new episode" notifications on a dedicated channel; silent no-op without permission. */
 class EpisodeNotifier(private val context: Context) {
 
+    private val res get() = localizedContext(context).resources
+
     private val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
     /** False without notification permission; otherwise makes sure the channel exists. */
@@ -91,9 +95,9 @@ class EpisodeNotifier(private val context: Context) {
             manager.createNotificationChannel(
                 NotificationChannel(
                     CHANNEL_ID,
-                    "Episode baru",
+                    res.getString(R.string.system_channel_new_episodes_name),
                     NotificationManager.IMPORTANCE_DEFAULT,
-                ).apply { description = "Notifikasi episode baru untuk anime favorit" },
+                ).apply { description = res.getString(R.string.system_channel_new_episodes_desc) },
             )
         }
         return true
@@ -115,7 +119,7 @@ class EpisodeNotifier(private val context: Context) {
         // Artwork is a bonus: when it can't load the notification stays text-only.
         val poster = loadBitmap(context, favorite.poster, 256)
         val cover = loadBitmap(context, favorite.cover.ifBlank { favorite.poster }, 1024)
-        val text = "Episode ${episode.number} sudah tayang!"
+        val text = res.getString(R.string.system_new_episode_text, episode.number)
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
@@ -134,13 +138,13 @@ class EpisodeNotifier(private val context: Context) {
         manager.notify(favorite.animeId.hashCode(), notification)
     }
 
-    /** Collapses several "new episode" notifications under one "N episode baru" header. */
+    /** Collapses several "new episode" notifications under one "N new episodes" header. */
     fun postSummary(titles: List<String>) {
         if (!ready()) return
         val style = NotificationCompat.InboxStyle().also { inbox -> titles.forEach { inbox.addLine(it) } }
         val summary = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle(groupSummaryTitle(titles.size))
+            .setContentTitle(groupSummaryTitle(res, titles.size))
             .setContentText(titles.joinToString(", "))
             .setStyle(style)
             .setGroup(GROUP_KEY)
@@ -158,4 +162,5 @@ class EpisodeNotifier(private val context: Context) {
 }
 
 /** Title of the grouped "new episode" summary. */
-fun groupSummaryTitle(count: Int): String = "$count episode baru"
+fun groupSummaryTitle(res: Resources, count: Int): String =
+    res.getQuantityString(R.plurals.system_new_episodes_summary, count, count)

@@ -8,6 +8,7 @@ import androidx.core.graphics.drawable.IconCompat
 import com.fuwanime.MainActivity
 import com.fuwanime.R
 import com.fuwanime.data.local.WatchHistoryEntity
+import com.fuwanime.util.localizedContext
 
 /**
  * Launcher long-press shortcuts. All are dynamic: a static shortcuts.xml hardcodes the target package,
@@ -31,13 +32,14 @@ object Shortcuts {
     /** "Cari" and "Jadwal"; safe to call on every start. */
     fun publishFixed(context: Context) {
         runCatching {
+            val res = localizedContext(context).resources
             ShortcutManagerCompat.pushDynamicShortcut(
                 context,
-                shortcut(context, "search", "Cari", "Cari anime", intent(context, MainActivity.EXTRA_OPEN_TAB, TAB_EXPLORE_SEARCH), 1),
+                shortcut(context, "search", res.getString(R.string.system_shortcut_search_short), res.getString(R.string.system_shortcut_search_long), intent(context, MainActivity.EXTRA_OPEN_TAB, TAB_EXPLORE_SEARCH), 1),
             )
             ShortcutManagerCompat.pushDynamicShortcut(
                 context,
-                shortcut(context, "schedule", "Jadwal", "Jadwal tayang", intent(context, MainActivity.EXTRA_OPEN_TAB, TAB_SCHEDULE), 2),
+                shortcut(context, "schedule", res.getString(R.string.system_shortcut_schedule_short), res.getString(R.string.system_shortcut_schedule_long), intent(context, MainActivity.EXTRA_OPEN_TAB, TAB_SCHEDULE), 2),
             )
         }
     }
@@ -49,10 +51,11 @@ object Shortcuts {
                 ShortcutManagerCompat.removeDynamicShortcuts(context, listOf(CONTINUE))
                 return
             }
+            val res = localizedContext(context).resources
             ShortcutManagerCompat.pushDynamicShortcut(
                 context,
                 shortcut(
-                    context, CONTINUE, entry.animeTitle.take(25), "Lanjutkan ${entry.animeTitle}",
+                    context, CONTINUE, entry.animeTitle.take(25), res.getString(R.string.system_shortcut_continue_long, entry.animeTitle),
                     intent(context, MainActivity.EXTRA_RESUME_EPISODE_ID, entry.episodeId), 0,
                 ),
             )
