@@ -83,14 +83,15 @@ class MangaHomeViewModel(private val repo: MangaRepository, library: MangaLibrar
 }
 
 /** Manga mode of Beranda: the items of the Home list. [topPad] clears the top bar and the mode switch. */
-fun LazyListScope.mangaHomeItems(state: MangaHomeState, topPad: Dp, onRetry: () -> Unit, onMangaClick: (String) -> Unit) {
+fun LazyListScope.mangaHomeItems(state: MangaHomeState, topPad: Dp, onRetry: () -> Unit, onMangaClick: (String) -> Unit, onRead: (mangaId: String, chapterId: String) -> Unit) {
     item(key = "mTop") { Spacer(Modifier.height(topPad)) }
     if (state.continueReading.isNotEmpty()) {
         item(key = "mContinue") {
             val posters = state.continueReading.map { Anime(id = it.mangaId, title = it.mangaTitle, poster = it.coverUrl.orEmpty()) }
             val labels = state.continueReading.associate { it.mangaId to it.chapterLabel }
+            val chapterOf = state.continueReading.associate { it.mangaId to it.chapterId }
             MangaSection(R.string.manga_home_continue) {
-                PosterRow(posters, loading = false, onClick = { onMangaClick(it.id) }, caption = { labels[it.id] })
+                PosterRow(posters, loading = false, onClick = { a -> chapterOf[a.id]?.let { onRead(a.id, it) } ?: onMangaClick(a.id) }, caption = { labels[it.id] })
             }
         }
     }

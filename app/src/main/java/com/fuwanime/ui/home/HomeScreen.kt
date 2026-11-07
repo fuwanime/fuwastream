@@ -145,6 +145,7 @@ fun HomeRoute(
     mode: ContentMode,
     onModeChange: (ContentMode) -> Unit,
     onMangaClick: (String) -> Unit,
+    onMangaRead: (String, String) -> Unit,
 ) {
     val mangaVm: MangaHomeViewModel = fuwaViewModel { c, _ -> MangaHomeViewModel(c.mangaRepository, c.mangaLibrary) }
     val manga by mangaVm.state.collectAsStateWithLifecycle()
@@ -184,6 +185,7 @@ fun HomeRoute(
         manga = manga,
         onMangaRefresh = mangaVm::refresh,
         onMangaClick = onMangaClick,
+        onMangaRead = onMangaRead,
     )
 }
 
@@ -211,6 +213,7 @@ private fun HomeScreen(
     manga: MangaHomeState,
     onMangaRefresh: () -> Unit,
     onMangaClick: (String) -> Unit,
+    onMangaRead: (String, String) -> Unit,
 ) {
     val listState = rememberLazyListState()
     val feed = state.feed
@@ -226,7 +229,7 @@ private fun HomeScreen(
     ) {
         LazyColumn(state = listState, contentPadding = PaddingValues(bottom = 24.dp + LocalNavBarPadding.current), modifier = Modifier.fillMaxSize()) {
             if (isManga) {
-                mangaHomeItems(manga, topBarDp, onMangaRefresh, onMangaClick)
+                mangaHomeItems(manga, topBarDp, onMangaRefresh, onMangaClick, onMangaRead)
                 return@LazyColumn
             }
             item(key = "hero") {

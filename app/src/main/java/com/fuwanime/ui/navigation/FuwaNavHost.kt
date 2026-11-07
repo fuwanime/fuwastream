@@ -1,5 +1,7 @@
 package com.fuwanime.ui.navigation
 
+import com.fuwanime.ui.manga.MangaReaderRoute
+import com.fuwanime.ui.manga.MangaDetailRoute
 import androidx.compose.ui.res.stringResource
 import com.fuwanime.R
 import androidx.annotation.StringRes
@@ -126,6 +128,8 @@ internal object Routes {
     const val MANGA_DETAIL = "manga/{mangaId}"
 
     fun mangaDetail(id: String) = "manga/${Uri.encode(id)}"
+    const val MANGA_READER = "manga/{mangaId}/read/{chapterId}"
+    fun mangaReader(mangaId: String, chapterId: String) = "manga/${Uri.encode(mangaId)}/read/${Uri.encode(chapterId)}"
 
     fun legal(type: String) = "legal/${Uri.encode(type)}"
 
@@ -324,6 +328,7 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
                                     mode = contentMode,
                                     onModeChange = { contentMode = it },
                                     onMangaClick = openManga,
+                                    onMangaRead = { m, c -> nav.navigate(Routes.mangaReader(m, c)) },
                                 )
                             }
                         }
@@ -344,21 +349,26 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
                                 )
                             }
                         }
-                        // Placeholder until the manga detail screen replaces it.
                         composable(
                             Routes.MANGA_DETAIL,
                             arguments = listOf(navArgument("mangaId") { type = NavType.StringType }),
                         ) { entry ->
+                            val id = entry.arguments?.getString("mangaId").orEmpty()
+                            Scoped { MangaDetailRoute(id, onBack = { nav.popBackStack() }, onRead = { m, c -> nav.navigate(Routes.mangaReader(m, c)) }) }
+                        }
+                        composable(
+                            Routes.MANGA_READER,
+                            arguments = listOf(
+                                navArgument("mangaId") { type = NavType.StringType },
+                                navArgument("chapterId") { type = NavType.StringType },
+                            ),
+                        ) { entry ->
                             Scoped {
-                                Column(Modifier.statusBarsPadding()) {
-                                    IconButton(onClick = { nav.popBackStack() }) {
-                                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.mine_back))
-                                    }
-                                    Text(
-                                        stringResource(R.string.manga_detail_placeholder, entry.arguments?.getString("mangaId").orEmpty()),
-                                        Modifier.padding(horizontal = 20.dp),
-                                    )
-                                }
+                                MangaReaderRoute(
+                                    entry.arguments?.getString("mangaId").orEmpty(),
+                                    entry.arguments?.getString("chapterId").orEmpty(),
+                                    onBack = { nav.popBackStack() },
+                                )
                             }
                         }
                         composable(Routes.SCHEDULE) { Scoped { ScheduleRoute(onAnimeClick = openAnime) } }
@@ -370,6 +380,8 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
                                     onPlayDownload = { d -> nav.navigate(Routes.player(d.animeId, d.episodeId, d.episodeNumber)) },
                                     onStats = { nav.navigate(Routes.STATS) },
                                     onSettings = { nav.navigate(Routes.SETTINGS) },
+                                    onMangaClick = openManga,
+                                    onMangaRead = { m, c -> nav.navigate(Routes.mangaReader(m, c)) },
                                 )
                             }
                         }
