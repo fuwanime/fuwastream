@@ -15,6 +15,7 @@ import okio.Path.Companion.toOkioPath
 import com.fuwanime.data.AnimeRepository
 import com.fuwanime.data.DownloadRepository
 import com.fuwanime.data.LibraryRepository
+import com.fuwanime.data.manga.MangaLibrary
 import com.fuwanime.data.local.FuwaDatabase
 import com.fuwanime.data.local.SettingsStore
 import com.fuwanime.data.manga.MangaDexApi
@@ -60,6 +61,7 @@ class AppContainer(private val app: Application) {
     )
     private val database = FuwaDatabase.create(app)
     val libraryRepository = LibraryRepository(database)
+    val mangaLibrary = MangaLibrary(database)
     val settingsStore = SettingsStore(app)
 
     /** For writes that must outlive the screen that started them (e.g. saving progress on exit). */

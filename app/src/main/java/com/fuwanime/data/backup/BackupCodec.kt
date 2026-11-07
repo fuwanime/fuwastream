@@ -1,6 +1,8 @@
 package com.fuwanime.data.backup
 
 import com.fuwanime.data.local.FavoriteEntity
+import com.fuwanime.data.local.MangaFavoriteEntity
+import com.fuwanime.data.local.MangaHistoryEntity
 import com.fuwanime.data.local.SearchHistoryEntity
 import com.fuwanime.data.local.WatchDailyEntity
 import com.fuwanime.data.local.WatchHistoryEntity
@@ -21,6 +23,8 @@ data class BackupFile(
     val watchDaily: List<WatchDailyEntity>,
     val searches: List<SearchHistoryEntity>,
     val settings: List<SettingEntry>,
+    val mangaFavorites: List<MangaFavoriteEntity> = emptyList(),
+    val mangaHistory: List<MangaHistoryEntity> = emptyList(),
 )
 
 sealed interface BackupResult {
@@ -34,7 +38,7 @@ sealed interface BackupResult {
 internal data class BackupHeader(val format: Int?, val app: String?)
 
 object BackupCodec {
-    const val FORMAT = 1
+    const val FORMAT = 2
     const val APP = "fuwanime"
     const val FILE_NAME = "fuwanime-backup.json"
 

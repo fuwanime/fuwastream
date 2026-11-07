@@ -1,6 +1,8 @@
 package com.fuwanime.data.backup
 
 import com.fuwanime.data.local.FavoriteEntity
+import com.fuwanime.data.local.MangaFavoriteEntity
+import com.fuwanime.data.local.MangaHistoryEntity
 import com.fuwanime.data.local.SearchHistoryEntity
 import com.fuwanime.data.local.WatchDailyEntity
 import com.fuwanime.data.local.WatchHistoryEntity
@@ -28,4 +30,15 @@ fun mergeSearches(local: List<SearchHistoryEntity>, backup: List<SearchHistoryEn
 fun newFavorites(local: List<FavoriteEntity>, backup: List<FavoriteEntity>): List<FavoriteEntity> {
     val mine = local.mapTo(HashSet()) { it.animeId }
     return backup.filter { it.animeId !in mine }
+}
+
+/** Per chapter, the more recent progress wins. */
+fun mergeMangaHistory(local: List<MangaHistoryEntity>, backup: List<MangaHistoryEntity>): List<MangaHistoryEntity> {
+    val mine = local.associateBy { it.chapterId }
+    return backup.filter { b -> mine[b.chapterId].let { it == null || b.updatedAt > it.updatedAt } }
+}
+
+fun newMangaFavorites(local: List<MangaFavoriteEntity>, backup: List<MangaFavoriteEntity>): List<MangaFavoriteEntity> {
+    val mine = local.mapTo(HashSet()) { it.mangaId }
+    return backup.filter { it.mangaId !in mine }
 }
