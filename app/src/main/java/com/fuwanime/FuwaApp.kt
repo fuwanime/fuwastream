@@ -1,5 +1,8 @@
 package com.fuwanime
 
+import kotlinx.coroutines.flow.first
+import com.fuwanime.data.backup.BackupWorker
+import com.fuwanime.data.backup.BackupRepository
 import android.app.Application
 import coil3.ImageLoader
 import coil3.PlatformContext
@@ -82,6 +85,9 @@ class AppContainer(private val app: Application) {
     }
     val animeLinkRepository by lazy { AnimeLinkRepository(database.animeLinkDao(), AniListApi.create(metaHttpClient)) }
     val skipRepository by lazy { SkipRepository(AniSkipApi.create(metaHttpClient)) }
+
+    /** Daily backup file in a folder the user picked; survives an uninstall. */
+    val backupRepository by lazy { BackupRepository(app, libraryRepository, settingsStore) }
 }
 
 class FuwaApp : Application(), SingletonImageLoader.Factory {
@@ -92,6 +98,10 @@ class FuwaApp : Application(), SingletonImageLoader.Factory {
         super.onCreate()
         container = AppContainer(this)
         EpisodeNotifyWorker.schedule(this)
+        container.appScope.launch {
+            val backup = container.settingsStore.backup.first()
+            if (backup.treeUri != null && backup.auto) BackupWorker.schedule(this@FuwaApp)
+        }
     }
 
     // Coil 3 ignores HTTP cache headers by default, matching the old respectCacheHeaders(false).

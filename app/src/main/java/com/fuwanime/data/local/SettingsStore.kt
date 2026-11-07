@@ -1,5 +1,9 @@
 package com.fuwanime.data.local
 
+import com.fuwanime.data.backup.settingTypeAccepted
+import kotlinx.coroutines.flow.first
+import com.fuwanime.data.backup.isBackedUpSetting
+import com.fuwanime.data.backup.SettingEntry
 import android.content.Context
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -67,9 +71,73 @@ internal object Keys {
     val ageConfirmed = booleanPreferencesKey("age_confirmed")
     val backgroundAudio = booleanPreferencesKey("background_audio")
     val videoResize = stringPreferencesKey("video_resize")
+    val backupTreeUri = stringPreferencesKey("backup_tree_uri")
+    val backupAuto = booleanPreferencesKey("backup_auto")
+    val backupLastMs = longPreferencesKey("backup_last_ms")
+    val backupError = stringPreferencesKey("backup_error")
+    val backupPromptDismissed = booleanPreferencesKey("backup_prompt_dismissed")
+    val backupFolderAdopted = booleanPreferencesKey("backup_folder_adopted")
 }
 
+/** Where and how the backup file is written; all keys start with "backup_" so the backup itself skips them. */
+data class BackupPrefs(
+    val treeUri: String?,
+    val auto: Boolean,
+    val lastMs: Long?,
+    val error: String?,
+    val promptDismissed: Boolean,
+    /** This install restored from, or wrote the first file into, the picked folder; see shouldWriteBackup. */
+    val folderAdopted: Boolean = false,
+)
+
 class SettingsStore(private val context: Context) {
+    val backup: Flow<BackupPrefs> = context.dataStore.data.map {
+        BackupPrefs(it[Keys.backupTreeUri], it[Keys.backupAuto] ?: true, it[Keys.backupLastMs], it[Keys.backupError], it[Keys.backupPromptDismissed] ?: false, it[Keys.backupFolderAdopted] ?: false)
+    }
+
+    suspend fun setBackupTree(uri: String?) = context.dataStore.edit {
+        if (uri == null) it.remove(Keys.backupTreeUri) else { it[Keys.backupTreeUri] = uri }
+        it.remove(Keys.backupError)
+        it.remove(Keys.backupFolderAdopted)
+    }
+    suspend fun setBackupAuto(enabled: Boolean) = context.dataStore.edit { it[Keys.backupAuto] = enabled }
+
+    /** A success clears the last error; a failure keeps the last successful time. */
+    suspend fun setBackupResult(lastMs: Long?, error: String?) = context.dataStore.edit {
+        if (lastMs != null) { it[Keys.backupLastMs] = lastMs }
+        if (error == null) it.remove(Keys.backupError) else { it[Keys.backupError] = error }
+    }
+    suspend fun dismissBackupPrompt() = context.dataStore.edit { it[Keys.backupPromptDismissed] = true }
+    suspend fun adoptBackupFolder() = context.dataStore.edit { it[Keys.backupFolderAdopted] = true }
+
+    /** Every user preference as typed strings, minus install bookkeeping (see isBackedUpSetting). */
+    suspend fun exportSettings(): List<SettingEntry> =
+        context.dataStore.data.first().asMap().mapNotNull { (key, value) ->
+            if (!isBackedUpSetting(key.name)) return@mapNotNull null
+            val type = when (value) {
+                is String -> "string"
+                is Boolean -> "boolean"
+                is Int -> "int"
+                is Long -> "long"
+                is Double -> "double"
+                else -> return@mapNotNull null
+            }
+            SettingEntry(key.name, type, value.toString())
+        }
+
+    /** Writes backed-up preferences; unknown types and unparseable values are skipped, not guessed. */
+    suspend fun importSettings(entries: List<SettingEntry>) = context.dataStore.edit { prefs ->
+        entries.filter { isBackedUpSetting(it.key) && settingTypeAccepted(it.key, it.type) }.forEach { e ->
+            when (e.type) {
+                "string" -> { prefs[stringPreferencesKey(e.key)] = e.value }
+                "boolean" -> e.value.toBooleanStrictOrNull()?.let { prefs[booleanPreferencesKey(e.key)] = it }
+                "int" -> e.value.toIntOrNull()?.let { prefs[intPreferencesKey(e.key)] = it }
+                "long" -> e.value.toLongOrNull()?.let { prefs[longPreferencesKey(e.key)] = it }
+                "double" -> e.value.toDoubleOrNull()?.let { prefs[doublePreferencesKey(e.key)] = it }
+            }
+        }
+    }
+
 
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { it.toSettings() }

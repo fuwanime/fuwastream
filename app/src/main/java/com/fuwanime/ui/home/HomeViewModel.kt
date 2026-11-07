@@ -1,5 +1,6 @@
 package com.fuwanime.ui.home
 
+import com.fuwanime.data.backup.BackupRepository
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fuwanime.data.Anime
@@ -60,7 +61,15 @@ class HomeViewModel(
     private val updateRepository: UpdateRepository,
     private val settingsStore: SettingsStore,
     private val networkStatus: NetworkStatus,
+    val backup: BackupRepository,
 ) : ViewModel() {
+
+    /** A fresh install (nothing watched or saved) gets one offer to restore a backup file. */
+    val showRestorePrompt: StateFlow<Boolean> =
+        combine(library.allHistory, library.favoriteList, settingsStore.backup) { h, f, b -> h.isEmpty() && f.isEmpty() && !b.promptDismissed }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun dismissRestorePrompt() = viewModelScope.launch { settingsStore.dismissBackupPrompt() }
 
     private val feed = MutableStateFlow(HomeFeed())
 

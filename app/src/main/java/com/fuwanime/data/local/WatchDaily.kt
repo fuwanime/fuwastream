@@ -1,5 +1,7 @@
 package com.fuwanime.data.local
 
+import androidx.room.Upsert
+import com.squareup.moshi.JsonClass
 import androidx.room.Dao
 import androidx.room.Entity
 import androidx.room.PrimaryKey
@@ -8,6 +10,7 @@ import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 
 /** Real playing time per local calendar day ([day] = epoch day), for the statistics screen. */
+@JsonClass(generateAdapter = true)
 @Entity(tableName = "watch_daily")
 data class WatchDailyEntity(@PrimaryKey val day: Int, val watchedMs: Long)
 
@@ -28,6 +31,12 @@ interface WatchDailyDao {
 
     @Query("SELECT * FROM watch_daily")
     fun observeAll(): Flow<List<WatchDailyEntity>>
+
+    @Query("SELECT * FROM watch_daily")
+    suspend fun all(): List<WatchDailyEntity>
+
+    @Upsert
+    suspend fun upsertAll(entities: List<WatchDailyEntity>)
 
     @Query("DELETE FROM watch_daily")
     suspend fun clear()

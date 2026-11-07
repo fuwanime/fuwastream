@@ -1,5 +1,9 @@
 package com.fuwanime.ui.home
 
+import com.fuwanime.ui.settings.rememberRestoreFlow
+import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.rounded.Restore
+import android.widget.Toast
 import com.fuwanime.ui.components.IconWithTooltip
 import androidx.compose.foundation.layout.heightIn
 import com.fuwanime.ui.components.LocalNavBarPadding
@@ -131,11 +135,18 @@ fun HomeRoute(
     onExplore: (genre: String?) -> Unit,
 ) {
     val vm: HomeViewModel = fuwaViewModel { c, _ ->
-        HomeViewModel(c.animeRepository, c.libraryRepository, c.updateRepository, c.settingsStore, c.networkStatus)
+        HomeViewModel(c.animeRepository, c.libraryRepository, c.updateRepository, c.settingsStore, c.networkStatus, c.backupRepository)
     }
     val state by vm.state.collectAsStateWithLifecycle()
     val update by vm.update.collectAsStateWithLifecycle()
     val favoriteIds by vm.favoriteIds.collectAsStateWithLifecycle()
+    val showRestore by vm.showRestorePrompt.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val restore = rememberRestoreFlow(
+        vm.backup,
+        onRestored = { vm.dismissRestorePrompt() },
+        onMessage = { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() },
+    )
     HomeScreen(
         state = state,
         favoriteIds = favoriteIds,
@@ -144,6 +155,9 @@ fun HomeRoute(
         onRefresh = vm::refresh,
         update = update,
         onDismissUpdate = vm::dismissUpdate,
+        showRestore = showRestore,
+        onRestore = restore,
+        onDismissRestore = { vm.dismissRestorePrompt() },
         onAnimeClick = onAnimeClick,
         onContinue = onContinue,
         onSearch = onSearch,
@@ -163,6 +177,9 @@ private fun HomeScreen(
     onRefresh: () -> Unit,
     update: UpdateRepository.UpdateInfo?,
     onDismissUpdate: () -> Unit,
+    showRestore: Boolean,
+    onRestore: () -> Unit,
+    onDismissRestore: () -> Unit,
     onAnimeClick: OpenAnime,
     onContinue: (WatchHistoryEntity) -> Unit,
     onSearch: () -> Unit,
@@ -194,6 +211,10 @@ private fun HomeScreen(
                 item(key = "updateBanner") {
                     UpdateBanner(update, onClick = { showUpdateSheet = true }, onDismiss = onDismissUpdate)
                 }
+            }
+
+            if (showRestore) {
+                item(key = "restoreBanner") { RestoreBanner(onRestore, onDismissRestore) }
             }
 
             if (feed.error != null && feed.popular.isEmpty()) {
@@ -322,6 +343,32 @@ private fun UpdateBanner(info: UpdateRepository.UpdateInfo, onClick: () -> Unit,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(16.dp),
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RestoreBanner(onRestore: () -> Unit, onDismiss: () -> Unit) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = MaterialTheme.shapes.medium,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier.padding(horizontal = 20.dp).padding(top = 12.dp),
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(start = 14.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Rounded.Restore, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+            Text(
+                "Pernah pakai fuwanime? Pulihkan data dari file backup",
+                style = MaterialTheme.typography.labelMedium,
+                modifier = Modifier.weight(1f).padding(horizontal = 10.dp),
+            )
+            TextButton(onClick = onRestore) { Text("Pulihkan") }
+            IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.Rounded.Close, "Tutup tawaran pulihkan", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
             }
         }
     }
