@@ -1,3 +1,16 @@
 <resources>
     <string name="manga_error_not_found">未找到该漫画。</string>
+    <string name="manga_switch_cd">内容类型</string>
+    <string name="manga_mode_anime">动画</string>
+    <string name="manga_mode_manga">漫画</string>
+    <string name="manga_status_ongoing">连载中</string>
+    <string name="manga_status_completed">已完结</string>
+    <string name="manga_status_hiatus">休刊中</string>
+    <string name="manga_status_cancelled">已中止</string>
+    <string name="manga_home_continue">继续阅读</string>
+    <string name="manga_home_popular">热门</string>
+    <string name="manga_home_latest">最新更新</string>
+    <string name="manga_filter_all">全部</string>
+    <string name="manga_search_hint">搜索漫画</string>
+    <string name="manga_detail_placeholder">漫画详情：%1$s</string>
 </resources>

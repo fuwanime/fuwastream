@@ -15,6 +15,6 @@ class MangaPagingTest {
     @Test fun neverPassesMangaDexOffsetCap() {
         // 10000 loaded: next request would be offset 10000 + limit > cap.
         assertFalse(shouldLoadMore(lastVisible = 9999, loaded = 9990, total = 50000))
-        assertTrue(shouldLoadMore(lastVisible = 9000, loaded = 9960, total = 50000))
+        assertTrue(shouldLoadMore(lastVisible = 9955, loaded = 9960, total = 50000))
     }
 }
