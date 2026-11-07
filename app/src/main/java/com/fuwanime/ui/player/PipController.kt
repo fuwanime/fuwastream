@@ -78,10 +78,10 @@ class PipController(private val activity: ComponentActivity) {
             .setAspectRatio(aspect)
             .setActions(
                 listOf(
-                    action(1, R.drawable.ic_pip_rewind, "Mundur 10 detik", KeyEvent.KEYCODE_MEDIA_REWIND),
-                    if (isPlaying) action(2, R.drawable.ic_pip_pause, "Jeda", KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)
-                    else action(2, R.drawable.ic_pip_play, "Putar", KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE),
-                    action(3, R.drawable.ic_pip_forward, "Maju 10 detik", KeyEvent.KEYCODE_MEDIA_FAST_FORWARD),
+                    action(1, R.drawable.ic_pip_rewind, activity.getString(R.string.watch_rewind_10), KeyEvent.KEYCODE_MEDIA_REWIND),
+                    if (isPlaying) action(2, R.drawable.ic_pip_pause, activity.getString(R.string.watch_pause), KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)
+                    else action(2, R.drawable.ic_pip_play, activity.getString(R.string.watch_play), KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE),
+                    action(3, R.drawable.ic_pip_forward, activity.getString(R.string.watch_forward_10), KeyEvent.KEYCODE_MEDIA_FAST_FORWARD),
                 ),
             )
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {

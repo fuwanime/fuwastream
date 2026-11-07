@@ -1,5 +1,6 @@
 package com.fuwanime
 
+import com.fuwanime.R
 import com.fuwanime.data.OpMark
 import com.fuwanime.data.meta.SegmentKind
 import com.fuwanime.data.meta.SkipSegment
@@ -40,11 +41,11 @@ class SkipSegmentsTest {
     }
 
     @Test fun labels() {
-        assertEquals("Lewati OP", skipLabel(SkipAction.SkipOp(1)))
-        assertEquals("Lewati OP", skipLabel(SkipSegmentAction(SegmentKind.OP, 1)))
-        assertEquals("Lewati ED", skipLabel(SkipSegmentAction(SegmentKind.ED, 1)))
-        assertEquals("Lewati recap", skipLabel(SkipSegmentAction(SegmentKind.RECAP, 1)))
-        assertEquals("+85 dtk", skipLabel(SkipAction.JumpAhead(1)))
+        assertEquals(R.string.watch_skip_op, skipLabel(SkipAction.SkipOp(1)))
+        assertEquals(R.string.watch_skip_op, skipLabel(SkipSegmentAction(SegmentKind.OP, 1)))
+        assertEquals(R.string.watch_skip_ed, skipLabel(SkipSegmentAction(SegmentKind.ED, 1)))
+        assertEquals(R.string.watch_skip_recap, skipLabel(SkipSegmentAction(SegmentKind.RECAP, 1)))
+        assertEquals(R.string.watch_skip_jump, skipLabel(SkipAction.JumpAhead(1)))
     }
 
     @Test fun episodeNumbers() {

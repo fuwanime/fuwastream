@@ -169,7 +169,7 @@ class PlayerViewModel(
                 return@launch
             }
             if (stream.sources.isEmpty()) {
-                _state.update { it.copy(loading = false, error = UiText.raw("Belum ada sumber video untuk episode ini.")) }
+                _state.update { it.copy(loading = false, error = UiText(R.string.watch_err_no_source)) }
                 return@launch
             }
             val merged = stream.episode?.let { info ->
@@ -200,7 +200,7 @@ class PlayerViewModel(
     private suspend fun playOffline(episode: Episode, resumeAt: Long): Boolean {
         val saved = downloads.completed(episode.id) ?: return false
         val e = saved.entity
-        val local = StreamSource(Uri.fromFile(File(e.filePath)).toString(), "${e.quality} • Offline", "Perangkat")
+        val local = StreamSource(Uri.fromFile(File(e.filePath)).toString(), e.quality, "")
         _state.update {
             it.copy(
                 // Offline there may be no detail response, so rebuild the essentials from the download row.
@@ -227,7 +227,7 @@ class PlayerViewModel(
         viewModelScope.launch {
             val wifiOnly = settings.value.downloadWifiOnly
             downloads.enqueue(anime, s.episode, source, wifiOnly)
-                .onSuccess { postMessage(UiText.raw(if (wifiOnly) "Download dimulai (menunggu Wi-Fi)" else "Download ${source.quality} dimulai")) }
+                .onSuccess { postMessage(if (wifiOnly) UiText(R.string.watch_msg_download_wifi) else UiText(R.string.watch_msg_download_started, listOf(source.quality))) }
                 .onFailure { postMessage(UiText(R.string.common_download_failed, listOf(it.friendlyText()))) }
         }
     }
@@ -236,7 +236,7 @@ class PlayerViewModel(
         val id = _state.value.episode.id
         viewModelScope.launch {
             downloads.delete(id)
-            postMessage(UiText.raw("Download dihapus"))
+            postMessage(UiText(R.string.watch_msg_download_deleted))
         }
     }
 
@@ -272,7 +272,7 @@ class PlayerViewModel(
             it.copy(
                 source = lower,
                 startPositionMs = positionMs,
-                message = UiText.raw("Gagal memutar ${current.quality}, beralih ke ${lower.quality}"),
+                message = UiText(R.string.watch_msg_quality_fallback, listOf(current.quality, lower.quality)),
             )
         }
         return true

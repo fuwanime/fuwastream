@@ -17,6 +17,7 @@ import com.fuwanime.data.meta.AnimeMeta
 import com.fuwanime.data.rankSimilar
 import com.fuwanime.data.local.WatchHistoryEntity
 import com.fuwanime.data.remote.AnimeApiService.Companion.EPISODE_PAGE_SIZE
+import android.content.res.Resources
 import com.fuwanime.R
 import com.fuwanime.util.UiText
 import com.fuwanime.util.friendlyText
@@ -37,7 +38,7 @@ fun relatedSeasons(currentId: String, seasons: List<SeasonEntry>): List<SeasonEn
     seasons.filter { it.anime.id.isNotBlank() && it.anime.id != currentId }.distinctBy { it.anime.id }
 
 /** A page of episodes as shown in the range picker, e.g. "1–30". */
-data class EpisodeRange(val page: Int, val label: String)
+data class EpisodeRange(val page: Int, val label: UiText)
 
 data class DetailUiState(
     val anime: Anime? = null,
@@ -163,13 +164,13 @@ class DetailViewModel(
     }
 
     private fun buildRanges(pageCount: Int, latest: Double?): List<EpisodeRange> {
-        if (pageCount <= 1 || latest == null) return listOf(EpisodeRange(0, "Semua"))
+        if (pageCount <= 1 || latest == null) return listOf(EpisodeRange(0, UiText(R.string.watch_range_all)))
         val top = latest.toInt()
         // Ascending: oldest page (highest index) first.
         return (pageCount - 1 downTo 0).map { page ->
             val high = top - page * EPISODE_PAGE_SIZE
             val low = (high - EPISODE_PAGE_SIZE + 1).coerceAtLeast(1)
-            EpisodeRange(page, "$low–$high")
+            EpisodeRange(page, UiText.raw("$low–$high"))
         }
     }
 
@@ -227,18 +228,21 @@ class DetailViewModel(
     val downloadMap: StateFlow<Map<String, DownloadItem>> =
         downloads.forAnime(animeId).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
-    private val _messages = MutableStateFlow<UiText?>(null)
-    val messages: StateFlow<UiText?> = _messages.asStateFlow()
+    /** Resolved by the screen against the app locale; a lambda so counts can use plurals. */
+    private val _messages = MutableStateFlow<((Resources) -> String)?>(null)
+    val messages: StateFlow<((Resources) -> String)?> = _messages.asStateFlow()
+    private fun say(text: UiText) { _messages.value = text::resolve }
+    private fun say(@androidx.annotation.StringRes id: Int, vararg args: Any) = say(UiText(id, args.toList()))
     fun messageShown() { _messages.value = null }
 
     fun download(episode: Episode) {
         val anime = _state.value.anime ?: return
         viewModelScope.launch {
             val prefs = settings.settings.first()
-            _messages.value = UiText.raw("Menyiapkan Episode ${episode.number}…")
+            say(R.string.watch_msg_preparing_episode, episode.number)
             downloads.download(anime, episode, prefs.downloadQuality, prefs.downloadWifiOnly)
-                .onSuccess { _messages.value = UiText.raw("Episode ${episode.number} masuk antrean download") }
-                .onFailure { _messages.value = UiText(R.string.common_download_failed, listOf(it.friendlyText())) }
+                .onSuccess { say(R.string.watch_msg_queued_episode, episode.number) }
+                .onFailure { say(UiText(R.string.common_download_failed, listOf(it.friendlyText()))) }
         }
     }
 
@@ -248,7 +252,7 @@ class DetailViewModel(
         viewModelScope.launch {
             val newest = repo.episodePage(animeId, 0).getOrNull()?.maxByOrNull { it.sortKey }
             if (newest == null || newest.sortKey == Double.MAX_VALUE) {
-                _messages.value = UiText.raw("Belum ada episode untuk diunduh.")
+                say(R.string.watch_msg_no_episodes_download)
                 return@launch
             }
             val pageCount = ceil(newest.sortKey / EPISODE_PAGE_SIZE).toInt().coerceAtLeast(1)
@@ -261,17 +265,17 @@ class DetailViewModel(
                 .sortedByDescending { it.sortKey }
                 .take(MAX_BULK_DOWNLOAD)
             if (targets.isEmpty()) {
-                _messages.value = UiText.raw("Semua episode sudah tersimpan atau sedang diunduh.")
+                say(R.string.watch_msg_all_saved)
                 return@launch
             }
             val prefs = settings.settings.first()
-            _messages.value = UiText.raw("Menyiapkan ${targets.size} episode…")
+            _messages.value = { it.getQuantityString(R.plurals.watch_msg_preparing_count, targets.size, targets.size) }
             var queued = 0
             for (ep in targets.sortedBy { it.sortKey }) {
                 downloads.download(anime, ep, prefs.downloadQuality, prefs.downloadWifiOnly)
                     .onSuccess { queued++ }
             }
-            _messages.value = UiText.raw("$queued episode masuk antrean download")
+            _messages.value = { it.getQuantityString(R.plurals.watch_msg_queued_count, queued, queued) }
         }
     }
 
@@ -283,7 +287,7 @@ class DetailViewModel(
     fun deleteDownload(episode: Episode) {
         viewModelScope.launch {
             downloads.delete(episode.id)
-            _messages.value = UiText.raw("Download Episode ${episode.number} dihapus")
+            say(R.string.watch_msg_download_removed, episode.number)
         }
     }
 
