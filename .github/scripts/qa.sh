@@ -150,7 +150,7 @@ chip_y=$(find_xy "Terakhir ditonton" | cut -d' ' -f2)
 adb shell input swipe 190 $(( ${chip_y:-600} + 300 )) 190 $(( ${chip_y:-600} + 300 )) 900; shot qa8b-select 1.5
 adb shell input keyevent KEYCODE_BACK; shot qa8c-select-cleared 1.5
 [ -n "$(find_xy "Koleksi")" ] && echo "select: back stays on Koleksi" | tee -a "$OUT/qa-checks.txt" || echo "select: back left Koleksi" | tee -a "$OUT/qa-checks.txt"
-tap "Statistik"; shot qa8d-stats 3
+tap "Statistik*"; shot qa8d-stats 3
 scroll_to "Bagikan rekap"; shot qa8e-recap 2
 adb shell input keyevent KEYCODE_BACK; sleep 1; alive
 
@@ -228,7 +228,7 @@ fresh
 tap "Tonton"; shot qa11b-detail-tint-dark 6
 adb shell input swipe 540 1600 540 600 400; shot qa11c-detail-frosted-topbar 1.5
 adb shell input keyevent KEYCODE_BACK; sleep 2
-tap "Statistik" >/dev/null 2>&1 || { tap "Koleksi"; sleep 2; tap "Statistik"; }; sleep 3
+tap "Statistik*" >/dev/null 2>&1 || { tap "Koleksi"; sleep 2; tap "Statistik*"; }; sleep 3
 adb shell input swipe 540 1600 540 800 400; shot qa11d-stats-frosted-header-dark 1.5
 adb shell cmd uimode night no; sleep 2; alive
 # Font 200%.

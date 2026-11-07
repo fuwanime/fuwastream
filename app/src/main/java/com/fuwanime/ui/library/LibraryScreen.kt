@@ -1,5 +1,6 @@
 package com.fuwanime.ui.library
 
+import com.fuwanime.ui.components.IconWithTooltip
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -13,7 +14,17 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Insights
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.border
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.semantics.contentDescription
+import com.fuwanime.ui.stats.WeekSummary
+import com.fuwanime.ui.stats.watchTimeLabel
+import com.fuwanime.ui.stats.weekSummary
+import com.fuwanime.util.epochDay
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.runtime.LaunchedEffect
 import com.fuwanime.ui.components.TagChip
@@ -136,6 +147,10 @@ class LibraryViewModel(
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Finished downloads of episodes already watched to the end. */
+    val week: StateFlow<WeekSummary?> =
+        combine(library.allHistory, library.watchDaily) { h, d -> weekSummary(h, d, epochDay(System.currentTimeMillis())) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
     val watched: StateFlow<List<DownloadItem>> =
         combine(downloadRepo.downloads, library.allHistory) { dls, all -> watchedDownloads(dls, all.associateBy { it.episodeId }) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -182,6 +197,7 @@ fun LibraryRoute(
     onResume: (WatchHistoryEntity) -> Unit,
     onPlayDownload: (DownloadEntity) -> Unit,
     onStats: () -> Unit,
+    onSettings: () -> Unit,
 ) {
     val vm: LibraryViewModel = fuwaViewModel { c, _ -> LibraryViewModel(c.libraryRepository, c.downloadRepository, c.settingsStore, c::refreshHomeSurfaces) }
     val downloads by vm.downloads.collectAsStateWithLifecycle()
@@ -191,6 +207,7 @@ fun LibraryRoute(
     val favoriteSort by vm.favoriteSort.collectAsStateWithLifecycle()
     val watched by vm.watched.collectAsStateWithLifecycle()
     val selection by vm.selection.collectAsStateWithLifecycle()
+    val week by vm.week.collectAsStateWithLifecycle()
     val pager = rememberPagerState { 3 }
     val scope = rememberCoroutineScope()
     var confirmClear by remember { mutableStateOf(false) }
@@ -211,12 +228,13 @@ fun LibraryRoute(
                 }) { Icon(Icons.Rounded.Delete, "Hapus yang dipilih") }
             } else {
                 Text("Koleksi", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
-                IconButton(onClick = onStats) { Icon(Icons.Rounded.Insights, "Statistik") }
                 if (pager.currentPage == 0 && !history.isNullOrEmpty()) {
                     IconButton(onClick = { confirmClear = true }) { Icon(Icons.Rounded.DeleteSweep, "Hapus riwayat") }
                 }
+                IconWithTooltip("Pengaturan", Icons.Rounded.Settings, onSettings)
             }
         }
+        week?.takeIf { !selecting }?.let { WeekCard(it, onStats) }
         SegmentedTabs(
             listOf("Riwayat" to history?.size, "Favorit" to favorites?.size, "Unduhan" to downloads?.size)
                 .map { (label, count) -> if (count != null && count > 0) "$label · $count" else label },
@@ -573,5 +591,50 @@ private fun DownloadList(
             },
             dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text("Tutup") } },
         )
+    }
+}
+
+/** Koleksi's way into Statistik: this week at a glance, the whole card opens the full screen. */
+@Composable
+private fun WeekCard(week: WeekSummary, onClick: () -> Unit) {
+    val watchedAny = week.watchedMs > 0 || week.episodes > 0
+    val summary = "${watchTimeLabel(week.watchedMs)} · ${week.episodes} episode"
+    val bar = MaterialTheme.colorScheme.primary
+    val shape = RoundedCornerShape(18.dp)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
+            .clip(shape)
+            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
+            .clickable(onClick = onClick)
+            .semantics(mergeDescendants = true) {
+                contentDescription = if (watchedAny) "Statistik minggu ini, $summary. Buka statistik" else "Statistik. Belum ada tontonan minggu ini. Buka statistik"
+            }
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text("Minggu ini", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (watchedAny) {
+                Text(summary, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            } else {
+                Text("Mulai nonton untuk melihat statistikmu", style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            val max = (week.days.maxOfOrNull { it.minutes } ?: 0).coerceAtLeast(1)
+            Canvas(Modifier.width(84.dp).height(32.dp)) {
+                val slot = size.width / week.days.size
+                val w = slot * 0.6f
+                week.days.forEachIndexed { i, d ->
+                    val h = (size.height * d.minutes / max).coerceAtLeast(3.dp.toPx())
+                    val color = if (i == week.days.lastIndex) bar else bar.copy(alpha = 0.4f)
+                    drawRoundRect(color, Offset(slot * i + (slot - w) / 2, size.height - h), Size(w, h), CornerRadius(w / 2))
+                }
+            }
+            Text("Lihat statistik ›", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+        }
     }
 }
