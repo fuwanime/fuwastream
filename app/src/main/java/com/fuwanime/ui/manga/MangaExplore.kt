@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -67,6 +68,8 @@ private const val PREFETCH = 6
 fun shouldLoadMore(lastVisible: Int, loaded: Int, total: Int): Boolean =
     loaded < total && loaded + PAGE_SIZE <= OFFSET_CAP && lastVisible >= loaded - PREFETCH
 
+private fun orderFor(query: String) = if (query.isBlank()) MangaOrder.POPULAR else MangaOrder.RELEVANCE
+
 data class MangaExploreState(
     val query: String = "",
     val status: MangaStatus? = null,
@@ -77,6 +80,8 @@ data class MangaExploreState(
     val loading: Boolean = true,
     val loadingMore: Boolean = false,
     val error: UiText? = null,
+    /** Bumps with every fresh first page, so UI state tied to the old result list (scroll, pending paging) can be dropped. */
+    val generation: Int = 0,
 ) {
     val endReached get() = results.size >= total || results.size + PAGE_SIZE > OFFSET_CAP
     val filtered get() = query.isNotBlank() || status != null || tagIds.isNotEmpty()
@@ -119,9 +124,9 @@ class MangaExploreViewModel(private val repo: MangaRepository) : ViewModel() {
 
     private suspend fun loadFirst(q: String, status: MangaStatus?, tags: Set<String>) {
         moreJob?.cancel()
-        _state.update { it.copy(results = emptyList(), total = 0, loading = true, loadingMore = false, error = null) }
+        _state.update { it.copy(results = emptyList(), total = 0, loading = true, loadingMore = false, error = null, generation = it.generation + 1) }
         try {
-            val page = repo.browse(MangaOrder.POPULAR, q, tags.toList(), status, 0)
+            val page = repo.browse(orderFor(q), q, tags.toList(), status, 0)
             _state.update { it.copy(results = page.items, total = page.total, loading = false) }
         } catch (e: CancellationException) {
             throw e
@@ -130,14 +135,15 @@ class MangaExploreViewModel(private val repo: MangaRepository) : ViewModel() {
         }
     }
 
-    fun loadMore() {
+    /** [generation] is the one the caller saw; a request from before a filter change is ignored. */
+    fun loadMore(generation: Int) {
         val s = _state.value
-        if (s.loading || s.loadingMore || s.endReached) return
+        if (generation != s.generation || s.loading || s.loadingMore || s.endReached) return
         val (q, status, tags) = applied
         moreJob = viewModelScope.launch {
             _state.update { it.copy(loadingMore = true, error = null) }
             try {
-                val page = repo.browse(MangaOrder.POPULAR, q, tags.toList(), status, s.results.size)
+                val page = repo.browse(orderFor(q), q, tags.toList(), status, s.results.size)
                 _state.update { cur ->
                     val known = cur.results.mapTo(HashSet()) { it.id }
                     val fresh = page.items.filter { it.id !in known }
@@ -172,10 +178,16 @@ fun MangaFilterBar(state: MangaExploreState, vm: MangaExploreViewModel) {
 
 @Composable
 fun MangaResultsGrid(state: MangaExploreState, vm: MangaExploreViewModel, onMangaClick: (String) -> Unit, topPad: Dp) {
+    // A new first page starts with a fresh grid state, so it opens at the top.
+    key(state.generation) { MangaResultsGridBody(state, vm, onMangaClick, topPad) }
+}
+
+@Composable
+private fun MangaResultsGridBody(state: MangaExploreState, vm: MangaExploreViewModel, onMangaClick: (String) -> Unit, topPad: Dp) {
     val gridState = rememberLazyGridState()
     val last by remember { derivedStateOf { gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0 } }
     LaunchedEffect(last, state.results.size, state.total) {
-        if (state.results.isNotEmpty() && shouldLoadMore(last, state.results.size, state.total)) vm.loadMore()
+        if (state.results.isNotEmpty() && shouldLoadMore(last, state.results.size, state.total)) vm.loadMore(state.generation)
     }
     val bottom = 24.dp + LocalNavBarPadding.current
     when {
@@ -221,7 +233,7 @@ fun MangaResultsGrid(state: MangaExploreState, vm: MangaExploreViewModel, onMang
                 if (state.error != null) {
                     item(span = { GridItemSpan(maxLineSpan) }) {
                         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            TextButton(onClick = vm::loadMore) { Text(stringResource(R.string.browse_load_failed_retry)) }
+                            TextButton(onClick = { vm.loadMore(state.generation) }) { Text(stringResource(R.string.browse_load_failed_retry)) }
                         }
                     }
                 }

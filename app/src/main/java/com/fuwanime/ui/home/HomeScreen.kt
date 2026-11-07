@@ -63,6 +63,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.fuwanime.ui.theme.PlusJakarta
@@ -215,6 +217,7 @@ private fun HomeScreen(
     var showUpdateSheet by remember { mutableStateOf(false) }
 
     val isManga = mode == ContentMode.MANGA
+    var topBarPx by remember { mutableIntStateOf(0) }
     PullToRefreshBox(
         isRefreshing = if (isManga) manga.refreshing else feed.refreshing,
         onRefresh = if (isManga) onMangaRefresh else onRefresh,
@@ -222,7 +225,7 @@ private fun HomeScreen(
     ) {
         LazyColumn(state = listState, contentPadding = PaddingValues(bottom = 24.dp + LocalNavBarPadding.current), modifier = Modifier.fillMaxSize()) {
             if (isManga) {
-                mangaHomeItems(manga, onMangaRefresh, onMangaClick)
+                mangaHomeItems(manga, with(LocalDensity.current) { topBarPx.toDp() }, onMangaRefresh, onMangaClick)
                 return@LazyColumn
             }
             item(key = "hero") {
@@ -338,6 +341,7 @@ private fun HomeScreen(
             syncing = if (isManga) manga.refreshing else feed.syncing,
             mode = mode,
             onModeChange = onModeChange,
+            modifier = Modifier.onSizeChanged { topBarPx = it.height },
             onSearch = onSearch,
             onSettings = onSettings,
         )
@@ -484,13 +488,13 @@ private fun Section(
 }
 
 @Composable
-private fun HomeTopBar(solid: Boolean, syncing: Boolean, mode: ContentMode, onModeChange: (ContentMode) -> Unit, onSearch: () -> Unit, onSettings: () -> Unit) {
+private fun HomeTopBar(solid: Boolean, syncing: Boolean, mode: ContentMode, onModeChange: (ContentMode) -> Unit, modifier: Modifier = Modifier, onSearch: () -> Unit, onSettings: () -> Unit) {
     val bg by animateColorAsState(
         if (solid) MaterialTheme.colorScheme.surface.copy(alpha = 0.96f) else Color.Transparent,
         label = "topbarBg",
     )
     val scrim = Brush.verticalGradient(listOf(Color.Black.copy(alpha = if (solid) 0f else 0.55f), Color.Transparent))
-    Column {
+    Column(modifier) {
         Row(
             Modifier
                 .fillMaxWidth()
@@ -506,7 +510,8 @@ private fun HomeTopBar(solid: Boolean, syncing: Boolean, mode: ContentMode, onMo
             IconWithTooltip(stringResource(R.string.browse_search), Icons.Rounded.Search, onSearch, tint = tint)
             IconWithTooltip(stringResource(R.string.browse_settings), Icons.Rounded.Settings, onSettings, tint = tint)
         }
-        ContentSwitch(mode, onModeChange, Modifier.background(bg).padding(bottom = 8.dp))
+        // Over hero artwork the segmented button has no backing of its own, so it gets a surface band to stay legible in both themes.
+        ContentSwitch(mode, onModeChange, Modifier.background(if (solid) bg else MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)).padding(vertical = 8.dp))
         RefreshHairline(syncing)
     }
 }

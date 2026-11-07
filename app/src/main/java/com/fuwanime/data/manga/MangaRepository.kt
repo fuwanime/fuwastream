@@ -6,7 +6,8 @@ import com.fuwanime.util.UiTextException
 import java.util.concurrent.ConcurrentHashMap
 import retrofit2.HttpException
 
-enum class MangaOrder { POPULAR, LATEST }
+/** RELEVANCE only makes sense together with a title query. */
+enum class MangaOrder { POPULAR, LATEST, RELEVANCE }
 
 data class MangaPage(val items: List<Manga>, val total: Int, val offset: Int)
 
@@ -31,6 +32,7 @@ class MangaRepository(
                 title = query.trim().ifEmpty { null },
                 byFollowed = if (order == MangaOrder.POPULAR) "desc" else null,
                 byLatest = if (order == MangaOrder.LATEST) "desc" else null,
+                byRelevance = if (order == MangaOrder.RELEVANCE) "desc" else null,
                 langs = CATALOG_LANGS, ratings = RATINGS, tags = tagIds,
                 status = listOfNotNull(status?.takeIf { it != MangaStatus.UNKNOWN }?.name?.lowercase()),
                 includes = listOf("cover_art"),

@@ -17,6 +17,7 @@ interface MangaDexApi {
         @Query("title") title: String?,
         @Query("order[followedCount]") byFollowed: String?,
         @Query("order[latestUploadedChapter]") byLatest: String?,
+        @Query("order[relevance]") byRelevance: String?,
         @Query("availableTranslatedLanguage[]") langs: List<String>,
         @Query("contentRating[]") ratings: List<String>,
         @Query("includedTags[]") tags: List<String>,

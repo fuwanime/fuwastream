@@ -3,7 +3,7 @@ package com.fuwanime.ui.manga
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.Composable
@@ -83,8 +83,8 @@ class MangaHomeViewModel(private val repo: MangaRepository, library: MangaLibrar
 }
 
 /** Manga mode of Beranda: the items of the Home list. [topPad] clears the top bar and the mode switch. */
-fun LazyListScope.mangaHomeItems(state: MangaHomeState, onRetry: () -> Unit, onMangaClick: (String) -> Unit) {
-    item(key = "mTop") { Spacer(Modifier.statusBarsPadding().height(112.dp)) }
+fun LazyListScope.mangaHomeItems(state: MangaHomeState, topPad: Dp, onRetry: () -> Unit, onMangaClick: (String) -> Unit) {
+    item(key = "mTop") { Spacer(Modifier.height(topPad)) }
     if (state.continueReading.isNotEmpty()) {
         item(key = "mContinue") {
             val posters = state.continueReading.map { Anime(id = it.mangaId, title = it.mangaTitle, poster = it.coverUrl.orEmpty()) }

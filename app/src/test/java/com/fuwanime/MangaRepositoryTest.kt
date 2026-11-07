@@ -11,6 +11,7 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
@@ -45,6 +46,15 @@ class MangaRepositoryTest {
         ).forEach { assertTrue("$it in $path", path.contains(it)) }
         assertEquals(2, page.items.size)
         assertEquals("Sousou no Frieren", page.items[0].title)
+    }
+
+    @Test fun searchQueryCanOrderByRelevance() = runBlocking {
+        server.enqueue(json(fixture("manga_list.json")))
+        repo.browse(MangaOrder.RELEVANCE, query = "frieren")
+        val path = server.takeRequest().path!!
+        assertTrue(path, path.contains("order%5Brelevance%5D=desc"))
+        assertTrue(path, path.contains("title=frieren"))
+        assertFalse(path, path.contains("followedCount"))
     }
 
     @Test fun chaptersPagesThroughFeed() = runBlocking {
