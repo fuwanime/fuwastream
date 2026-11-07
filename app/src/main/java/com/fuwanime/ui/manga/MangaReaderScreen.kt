@@ -86,6 +86,14 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
+/**
+ * The chapter to read. A saved chapter can drop out of the picked list (another group's upload won, or the app
+ * language changed); its pages still load by id, so read it as an unlisted chapter labelled from history.
+ */
+fun readerChapter(chapters: List<MangaChapter>, chapterId: String, savedLabel: String?): MangaChapter =
+    chapters.firstOrNull { it.id == chapterId }
+        ?: MangaChapter(chapterId, number = null, title = savedLabel, language = "", group = null, pages = 0, externalUrl = null, publishAt = 0)
+
 /** First page to show: the saved one, clamped to the chapter; 0 without history. */
 fun readerStartIndex(savedPage: Int?, pageCount: Int): Int =
     if (pageCount <= 0) 0 else (savedPage ?: 0).coerceIn(0, pageCount - 1)
@@ -97,6 +105,8 @@ data class ReaderState(
     val pages: List<String>? = null,
     val startPage: Int = 0,
     val error: UiText? = null,
+    /** The chapter last asked for, so a retry reopens it even before it has loaded. */
+    val requestedId: String = "",
     /** Bumped when page URLs are refetched, so failed images retry with the new server. */
     val generation: Int = 0,
 )
@@ -107,6 +117,8 @@ class MangaReaderViewModel(
     private val repo: MangaRepository,
     private val library: MangaLibrary,
     private val settings: SettingsStore,
+    /** Outlives the screen, so the save on exit isn't cancelled with viewModelScope. */
+    private val appScope: kotlinx.coroutines.CoroutineScope,
 ) : ViewModel() {
     private val _state = MutableStateFlow(ReaderState())
     val state: StateFlow<ReaderState> = _state.asStateFlow()
@@ -114,16 +126,16 @@ class MangaReaderViewModel(
     init { open(firstChapterId) }
 
     fun open(chapterId: String) {
-        _state.value = _state.value.copy(chapter = null, pages = null, error = null)
+        _state.value = _state.value.copy(chapter = null, pages = null, error = null, requestedId = chapterId)
         viewModelScope.launch {
             try {
                 val manga = _state.value.manga ?: repo.detail(mangaId)
                 val chapters = _state.value.chapters.ifEmpty { repo.chapters(mangaId) }
-                val chapter = chapters.firstOrNull { it.id == chapterId } ?: error("chapter $chapterId not listed")
+                val saved = library.historyFor(mangaId).first().firstOrNull { it.chapterId == chapterId }
+                val chapter = readerChapter(chapters, chapterId, saved?.chapterLabel)
                 val dataSaver = settings.mangaDataSaver.first()
                 val pages = repo.pages(chapterId, dataSaver)
-                val saved = library.historyFor(mangaId).first().firstOrNull { it.chapterId == chapterId }?.page
-                _state.value = ReaderState(manga, chapters, chapter, pages, readerStartIndex(saved, pages.size), generation = _state.value.generation)
+                _state.value = ReaderState(manga, chapters, chapter, pages, readerStartIndex(saved?.page, pages.size), requestedId = chapterId, generation = _state.value.generation)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -144,7 +156,7 @@ class MangaReaderViewModel(
     /** Takes the chapter explicitly: on a chapter switch the old one is saved after the state has moved on. */
     fun saveProgress(chapter: MangaChapter, page: Int, pageCount: Int, chapterLabel: String) {
         val manga = _state.value.manga ?: return
-        viewModelScope.launch { library.saveProgress(manga, chapter, chapterLabel, page, pageCount) }
+        appScope.launch { library.saveProgress(manga, chapter, chapterLabel, page, pageCount) }
     }
 }
 
@@ -158,7 +170,7 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
 @Composable
 fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
     val vm: MangaReaderViewModel = fuwaViewModel(key = "reader-$mangaId-$chapterId") { c, _ ->
-        MangaReaderViewModel(mangaId, chapterId, c.mangaRepository, c.mangaLibrary, c.settingsStore)
+        MangaReaderViewModel(mangaId, chapterId, c.mangaRepository, c.mangaLibrary, c.settingsStore, c.appScope)
     }
     val state by vm.state.collectAsStateWithLifecycle()
     var barsVisible by rememberSaveable { mutableStateOf(true) }
@@ -178,12 +190,13 @@ fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
         val pages = state.pages
         when {
             state.error != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                ErrorState(state.error!!, onRetry = { vm.open(chapter?.id ?: chapterId) })
+                ErrorState(state.error!!, onRetry = { vm.open(state.requestedId.ifEmpty { chapterId }) })
             }
             chapter == null || pages == null -> CircularProgressIndicator(Modifier.align(Alignment.Center), color = Color.White)
             else -> key(chapter.id) {
                 val label = chapterLabel(chapter)
-                val listState = rememberLazyListState(initialFirstVisibleItemIndex = state.startPage + 1)
+                // From the start, show the credit above page 1; when resuming, jump straight to the saved page.
+                val listState = rememberLazyListState(initialFirstVisibleItemIndex = if (state.startPage == 0) 0 else state.startPage + 1)
                 // External (official-site) chapters can't be shown here, so prev/next skip them.
                 val readable = remember(state.chapters) { state.chapters.filter { it.externalUrl == null && it.pages > 0 } }
                 val next = nextChapter(readable, chapter.id)
@@ -243,6 +256,12 @@ fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
                 }
             }
         }
+        // Loading and error states have no reader bar; keep a way out.
+        if (state.error != null || state.chapter == null || state.pages == null) {
+            IconButton(onClick = onBack, modifier = Modifier.statusBarsPadding().padding(4.dp)) {
+                Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.mine_back), tint = Color.White)
+            }
+        }
     }
 }
 
@@ -265,13 +284,14 @@ private fun Page(url: String, index: Int, generation: Int, onFailed: () -> Unit)
         Modifier.fillMaxWidth().then(if (status is AsyncImagePainter.State.Success) Modifier else Modifier.aspectRatio(1f / 1.4f)),
         contentAlignment = Alignment.Center,
     ) {
-        AsyncImage(
+        // A new generation recreates the request, so "Muat ulang" retries even when the refetched URL is identical.
+        key(generation) { AsyncImage(
             model = url,
             contentDescription = description,
             contentScale = ContentScale.FillWidth,
             onState = { status = it },
             modifier = Modifier.fillMaxWidth(),
-        )
+        ) }
         when (status) {
             is AsyncImagePainter.State.Error -> TextButton(onClick = onFailed, modifier = Modifier.semantics { contentDescription = description }) {
                 Icon(Icons.Rounded.Refresh, null, tint = Color.White)

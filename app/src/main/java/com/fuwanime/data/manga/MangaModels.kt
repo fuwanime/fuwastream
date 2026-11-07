@@ -79,12 +79,13 @@ fun ChapterDto.toChapter() = MangaChapter(
 private fun parsePublishAt(s: String?): Long =
     runCatching { SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US).parse(s!!)!!.time }.getOrDefault(0L)
 
-/** One entry per chapter number (preferred language, else any; newest upload), in reading order. */
+/** One entry per chapter number (preferred language, else any; readable before external/empty; newest upload), in reading order. */
 fun pickChapters(all: List<MangaChapter>, preferred: String): List<MangaChapter> {
     val (oneshots, numbered) = all.partition { it.number == null }
     val picked = numbered.groupBy { it.number }.values.map { group ->
         val pool = group.filter { it.language == preferred }.ifEmpty { group }
-        pool.maxBy { it.publishAt }
+        // A newer official (external) or empty upload must not hide a readable scan of the same chapter.
+        pool.filter { it.externalUrl == null && it.pages > 0 }.ifEmpty { pool }.maxBy { it.publishAt }
     }
     val (parsable, odd) = picked.partition { it.number?.toBigDecimalOrNull() != null }
     return parsable.sortedBy { it.number!!.toBigDecimal() } +
