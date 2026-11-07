@@ -1,5 +1,6 @@
 package com.fuwanime.ui.home
 
+import androidx.compose.ui.res.stringResource
 import com.fuwanime.ui.settings.rememberRestoreFlow
 import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.rounded.Restore
@@ -151,7 +152,7 @@ fun HomeRoute(
         state = state,
         favoriteIds = favoriteIds,
         onToggleFavorite = vm::toggleFavorite,
-        todayLabel = vm.today.label,
+        todayLabel = stringResource(vm.today.full),
         onRefresh = vm::refresh,
         update = update,
         onDismissUpdate = vm::dismissUpdate,
@@ -240,9 +241,10 @@ private fun HomeScreen(
                 item(key = "latest") {
                     Section("Episode Terbaru") {
                         val releases = remember(feed.latest) { feed.latest.associateBy { it.anime.id } }
+                        val res = LocalContext.current.resources
                         PosterRow(feed.latest.map { it.anime }, feed.loading, { onAnimeClick(it, "home-latest") }, origin = "home-latest", isNew = { true }, caption = { a ->
                             releases[a.id]?.let { r ->
-                                listOf(r.episodeLabel.trim(), relativeTime(r.updatedAt))
+                                listOf(r.episodeLabel.trim(), relativeTime(res, r.updatedAt))
                                     .filter { it.isNotBlank() }
                                     .joinToString(" · ")
                                     .ifBlank { null }

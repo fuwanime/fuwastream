@@ -1,5 +1,6 @@
 package com.fuwanime.ui.explore
 
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.material3.AssistChip
@@ -286,7 +287,7 @@ private fun ResultsHeader(filters: ExploreFilters, vm: ExploreViewModel, onRando
                 Icon(Icons.Rounded.Sort, null, Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
                 Text(
-                    if (filters.status == StatusFilter.ALL) filters.sort.label else "${filters.sort.label} · ${filters.status.label}",
+                    if (filters.status == StatusFilter.ALL) stringResource(filters.sort.label) else "${stringResource(filters.sort.label)} · ${filters.status.label}",
                     style = MaterialTheme.typography.labelLarge,
                 )
                 Icon(Icons.Rounded.ArrowDropDown, null)
@@ -295,7 +296,7 @@ private fun ResultsHeader(filters: ExploreFilters, vm: ExploreViewModel, onRando
                 MenuLabel("Urutkan")
                 SortOrder.entries.forEach { s ->
                     DropdownMenuItem(
-                        text = { Text(s.label) },
+                        text = { Text(stringResource(s.label)) },
                         onClick = { vm.setSort(s); menuOpen = false },
                         trailingIcon = { if (s == filters.sort) Icon(Icons.Rounded.Check, null) },
                     )
@@ -354,7 +355,7 @@ private fun ResultsGrid(state: ExploreUiState, vm: ExploreViewModel, onAnimeClic
             userScrollEnabled = false,
         ) { items(12) { PosterSkeleton() } }
 
-        ResultsBranch.ERROR -> Box(Modifier.padding(top = topPad)) { ErrorState(state.error.orEmpty(), vm::reload) }
+        ResultsBranch.ERROR -> Box(Modifier.padding(top = topPad)) { state.error?.let { ErrorState(it, vm::reload) } }
 
         ResultsBranch.EMPTY -> Box(Modifier.padding(top = topPad)) { MessageState(
             icon = Icons.Rounded.SearchOff,

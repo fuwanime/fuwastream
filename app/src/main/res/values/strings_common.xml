@@ -1,0 +1,72 @@
+<resources>
+    <string name="common_today">HARI INI</string>
+    <string name="common_yesterday">KEMARIN</string>
+    <string name="common_day_monday">Senin</string>
+    <string name="common_day_tuesday">Selasa</string>
+    <string name="common_day_wednesday">Rabu</string>
+    <string name="common_day_thursday">Kamis</string>
+    <string name="common_day_friday">Jumat</string>
+    <string name="common_day_saturday">Sabtu</string>
+    <string name="common_day_sunday">Minggu</string>
+    <string name="common_day_monday_short">Sen</string>
+    <string name="common_day_tuesday_short">Sel</string>
+    <string name="common_day_wednesday_short">Rab</string>
+    <string name="common_day_thursday_short">Kam</string>
+    <string name="common_day_friday_short">Jum</string>
+    <string name="common_day_saturday_short">Sab</string>
+    <string name="common_day_sunday_short">Min</string>
+    <string name="common_just_now">baru saja</string>
+    <string name="common_offline">Offline</string>
+    <string name="common_offline_with_age">Offline · data %1$s</string>
+    <string name="common_back_online">Kembali online</string>
+    <string name="common_offline_empty">Belum ada data tersimpan. Sambungkan internet lalu coba lagi.</string>
+    <string name="common_error_no_internet">Tidak ada koneksi internet.</string>
+    <string name="common_error_timeout">Server terlalu lama merespons.</string>
+    <string name="common_error_connect">Gagal terhubung ke server.</string>
+    <string name="common_error_server">Server sedang bermasalah (%1$d).</string>
+    <string name="common_error_generic">Terjadi kesalahan.</string>
+    <string name="common_error_title">Gagal memuat</string>
+    <string name="common_retry">Coba lagi</string>
+    <string name="common_download_failed">Gagal download: %1$s</string>
+    <string name="common_status_airing">Tayang</string>
+    <string name="common_status_finished">Tamat</string>
+    <string name="common_status_upcoming">Segera</string>
+    <string name="common_new">Baru</string>
+    <string name="common_new_upper">BARU</string>
+    <string name="common_airing_now">Sedang tayang</string>
+    <string name="common_selected">dipilih</string>
+    <string name="common_selected_cd">Dipilih</string>
+    <string name="common_select">Pilih</string>
+    <string name="common_see_all">Lihat semua</string>
+    <string name="common_finished_watching">Selesai ditonton</string>
+    <string name="common_new_count">%1$d baru</string>
+    <string name="common_new_count_max">9+ baru</string>
+    <string name="common_sort_popular">Terpopuler</string>
+    <string name="common_sort_title">A–Z</string>
+    <string name="common_sort_latest">Terbaru</string>
+    <string name="library_sort_added">Ditambahkan</string>
+    <string name="library_sort_last_watched">Terakhir ditonton</string>
+    <string name="library_sort_title">A–Z</string>
+    <string name="common_tab_home">Beranda</string>
+    <string name="common_tab_explore">Jelajah</string>
+    <string name="common_tab_schedule">Jadwal</string>
+    <string name="common_tab_library">Koleksi</string>
+    <string name="schedule_season_winter">Musim Dingin</string>
+    <string name="schedule_season_spring">Musim Semi</string>
+    <string name="schedule_season_summer">Musim Panas</string>
+    <string name="schedule_season_autumn">Musim Gugur</string>
+    <string name="stats_hours_minutes">%1$d jam %2$d mnt</string>
+    <string name="stats_minutes">%1$d mnt</string>
+    <plurals name="common_minutes_left">
+        <item quantity="other">Sisa %1$d menit</item>
+    </plurals>
+    <plurals name="common_minutes_ago">
+        <item quantity="other">%1$d mnt lalu</item>
+    </plurals>
+    <plurals name="common_hours_ago">
+        <item quantity="other">%1$d jam lalu</item>
+    </plurals>
+    <plurals name="common_days_ago">
+        <item quantity="other">%1$d hari lalu</item>
+    </plurals>
+</resources>

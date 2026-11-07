@@ -1,5 +1,9 @@
 package com.fuwanime.ui.components
 
+import com.fuwanime.util.text
+import com.fuwanime.util.UiText
+import androidx.compose.ui.res.stringResource
+import com.fuwanime.R
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.customActions
@@ -185,9 +189,10 @@ fun PosterCard(
     /** Multi-select state: outlined, dimmed and checked. */
     selected: Boolean = false,
     /** What TalkBack's actions menu calls [onLongClick]. */
-    longClickLabel: String = "Pilih",
+    longClickLabel: String = stringResource(R.string.common_select),
 ) {
     val interaction = remember { MutableInteractionSource() }
+    val res = LocalContext.current.resources
     val marked = highlighted || selected
     Column(
         (if (width != null) modifier.width(width) else modifier)
@@ -201,7 +206,7 @@ fun PosterCard(
             )
             // One TalkBack item per card; long-press (TalkBack has no such gesture) becomes a named action.
             .semantics(mergeDescendants = true) {
-                contentDescription = posterDescription(anime.title, caption, badge, isNew, anime.isOngoing, selected)
+                contentDescription = posterDescription(res, anime.title, caption, badge, isNew, anime.isOngoing, selected)
                 if (onLongClick != null) customActions = listOf(CustomAccessibilityAction(longClickLabel) { onLongClick(); true })
             },
     ) {
@@ -234,7 +239,7 @@ fun PosterCard(
                 ) {
                     LiveDot()
                     Spacer(Modifier.width(4.dp))
-                    Text("Tayang", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color.White)
+                    Text(stringResource(R.string.common_status_airing), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color.White)
                 }
             }
             if (badge != null && !selected) {
@@ -256,7 +261,7 @@ fun PosterCard(
             if (selected) {
                 Icon(
                     Icons.Rounded.CheckCircle,
-                    contentDescription = "Dipilih",
+                    contentDescription = stringResource(R.string.common_selected_cd),
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.align(Alignment.Center).size(36.dp),
                 )
@@ -291,7 +296,7 @@ val ImageScrim = Color(0xFF0B0A0F)
 @Composable
 fun NewBadge(modifier: Modifier = Modifier) {
     Text(
-        "BARU",
+        stringResource(R.string.common_new_upper),
         style = MaterialTheme.typography.labelSmall,
         fontWeight = FontWeight.ExtraBold,
         letterSpacing = 0.06.em,
@@ -352,7 +357,7 @@ fun SectionHeader(
         }
         if (onSeeAll != null) {
             TextButton(onClick = onSeeAll) {
-                Text("Lihat semua", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.common_see_all), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -450,7 +455,7 @@ fun ContinueWatchingCard(
             modifier = Modifier.padding(top = 8.dp, start = 2.dp, end = 2.dp),
         )
         Text(
-            if (entry.isFinished) "Selesai ditonton" else remainingLabel(entry.positionMs, entry.durationMs) ?: entry.episodeTitle,
+            if (entry.isFinished) stringResource(R.string.common_finished_watching) else remainingLabel(LocalContext.current.resources, entry.positionMs, entry.durationMs) ?: entry.episodeTitle,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
@@ -502,12 +507,12 @@ fun MessageState(
 }
 
 @Composable
-fun ErrorState(message: String, onRetry: () -> Unit, modifier: Modifier = Modifier) {
+fun ErrorState(message: UiText, onRetry: () -> Unit, modifier: Modifier = Modifier) {
     MessageState(
         icon = Icons.Rounded.CloudOff,
-        title = "Gagal memuat",
-        message = message,
-        actionLabel = "Coba lagi",
+        title = stringResource(R.string.common_error_title),
+        message = message.text(),
+        actionLabel = stringResource(R.string.common_retry),
         onAction = onRetry,
         modifier = modifier,
     )
@@ -524,7 +529,7 @@ fun StatusPill(status: String, modifier: Modifier = Modifier) {
     if (status.isBlank()) return
     val ongoing = status.equals("ONGOING", true)
     Pill(
-        statusLabel(status),
+        statusLabel(LocalContext.current.resources, status),
         modifier,
         container = if (ongoing) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
         content = if (ongoing) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,

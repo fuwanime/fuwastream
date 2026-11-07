@@ -1,5 +1,7 @@
 package com.fuwanime.ui.library
 
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalContext
 import com.fuwanime.ui.components.IconWithTooltip
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.customActions
@@ -135,14 +137,14 @@ class LibraryViewModel(
 
     fun setFavoriteSort(sort: FavoriteSort) = viewModelScope.launch { settings.setFavoriteSort(sort) }
 
-    /** Favourites in the chosen order, each with its "N baru" label (null when nothing new). */
-    val favoriteCards: StateFlow<List<Pair<FavoriteEntity, String?>>?> =
+    /** Favourites in the chosen order, each with its count of new episodes (0 when nothing new). */
+    val favoriteCards: StateFlow<List<Pair<FavoriteEntity, Int>>?> =
         combine(library.favoriteList, library.allHistory, settings.notifyBaselines, settings.favoriteSort) { favs, all, baselines, sort ->
             val byAnime = all.groupBy { it.animeId }
             val lastWatched = byAnime.mapValues { (_, rows) -> rows.maxOf { it.updatedAt } }
             sortFavorites(favs, lastWatched, sort).map { fav ->
                 val watched = byAnime[fav.animeId].orEmpty().map { it.episodeNumber }
-                fav to newBadgeLabel(newEpisodeCount(baselines[fav.animeId], watched))
+                fav to newEpisodeCount(baselines[fav.animeId], watched)
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
@@ -289,7 +291,8 @@ private fun HistoryList(
         MessageState(Icons.Rounded.History, "Belum ada riwayat", message = "Episode yang kamu tonton akan muncul di sini.")
         return
     }
-    val groups = remember(items) { items.groupBy { historyDayLabel(it.updatedAt) } }
+    val res = LocalContext.current.resources
+    val groups = remember(items) { items.groupBy { historyDayLabel(res, it.updatedAt) } }
     LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 8.dp, bottom = 16.dp + LocalNavBarPadding.current)) {
         groups.forEach { (day, entries) ->
             item(key = "day-$day") {
@@ -374,7 +377,7 @@ private fun HistoryRow(
             Text(
                 when {
                     entry.isFinished -> "Selesai ditonton"
-                    else -> remainingLabel(entry.positionMs, entry.durationMs) ?: entry.episodeTitle
+                    else -> remainingLabel(LocalContext.current.resources, entry.positionMs, entry.durationMs) ?: entry.episodeTitle
                 },
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -430,7 +433,7 @@ private fun SegmentedTabs(titles: List<String>, selected: Int, onSelect: (Int) -
 
 @Composable
 private fun FavoriteGrid(
-    items: List<Pair<FavoriteEntity, String?>>?,
+    items: List<Pair<FavoriteEntity, Int>>?,
     sort: FavoriteSort,
     onSort: (FavoriteSort) -> Unit,
     onAnimeClick: OpenAnime,
@@ -442,6 +445,7 @@ private fun FavoriteGrid(
         MessageState(Icons.Rounded.FavoriteBorder, "Belum ada favorit", message = "Ketuk ikon hati di halaman anime untuk menyimpannya di sini.")
         return
     }
+    val res = LocalContext.current.resources
     val selecting = selection.isNotEmpty()
     LazyVerticalGrid(
         columns = GridCells.Adaptive(108.dp),
@@ -452,17 +456,17 @@ private fun FavoriteGrid(
         item(key = "sort", span = { GridItemSpan(maxLineSpan) }) {
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FavoriteSort.entries.forEach { option ->
-                    TagChip(option.label, onClick = { onSort(option) }, selected = option == sort)
+                    TagChip(stringResource(option.label), onClick = { onSort(option) }, selected = option == sort)
                 }
             }
         }
-        items(items, key = { it.first.animeId }) { (fav, badge) ->
+        items(items, key = { it.first.animeId }) { (fav, newCount) ->
             val anime = fav.toAnime()
             PosterCard(
                 anime,
                 onClick = { if (selecting) onToggleSelect(fav.animeId) else onAnimeClick(anime, "library-fav") },
                 sharedOrigin = "library-fav",
-                badge = badge,
+                badge = newBadgeLabel(res, newCount),
                 onLongClick = { onToggleSelect(fav.animeId) },
                 selected = fav.animeId in selection,
             )
@@ -598,7 +602,7 @@ private fun DownloadList(
 @Composable
 private fun WeekCard(week: WeekSummary, onClick: () -> Unit) {
     val watchedAny = week.watchedMs > 0 || week.episodes > 0
-    val summary = "${watchTimeLabel(week.watchedMs)} · ${week.episodes} episode"
+    val summary = "${watchTimeLabel(LocalContext.current.resources, week.watchedMs)} · ${week.episodes} episode"
     val bar = MaterialTheme.colorScheme.primary
     val shape = RoundedCornerShape(18.dp)
     Row(

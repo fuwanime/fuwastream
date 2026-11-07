@@ -1,12 +1,19 @@
 package com.fuwanime.ui.library
 
+import android.content.res.Resources
+import androidx.annotation.StringRes
+import com.fuwanime.R
 import com.fuwanime.data.DownloadItem
 import com.fuwanime.data.DownloadState
 import com.fuwanime.data.local.FavoriteEntity
 import com.fuwanime.data.local.WatchHistoryEntity
 import kotlin.math.floor
 
-enum class FavoriteSort(val label: String) { ADDED("Ditambahkan"), LAST_WATCHED("Terakhir ditonton"), TITLE("A–Z") }
+enum class FavoriteSort(@StringRes val label: Int) {
+    ADDED(R.string.library_sort_added),
+    LAST_WATCHED(R.string.library_sort_last_watched),
+    TITLE(R.string.library_sort_title),
+}
 
 /** [lastWatched] maps animeId to its newest history timestamp; unwatched favourites go last, newest added first. */
 fun sortFavorites(favs: List<FavoriteEntity>, lastWatched: Map<String, Long>, sort: FavoriteSort): List<FavoriteEntity> = when (sort) {
@@ -27,10 +34,10 @@ fun newEpisodeCount(latestKnown: Double?, watchedNumbers: List<String>): Int {
     return (floor(latest) - floor(watched)).toInt().coerceAtLeast(0)
 }
 
-fun newBadgeLabel(count: Int): String? = when {
+fun newBadgeLabel(res: Resources, count: Int): String? = when {
     count <= 0 -> null
-    count > 9 -> "9+ baru"
-    else -> "$count baru"
+    count > 9 -> res.getString(R.string.common_new_count_max)
+    else -> res.getString(R.string.common_new_count, count)
 }
 
 /** Finished downloads of episodes the user has watched to the end; [history] is keyed by episodeId. */

@@ -1,5 +1,8 @@
 package com.fuwanime.ui.stats
 
+import com.fuwanime.util.shortMonth
+import com.fuwanime.R
+import android.content.res.Resources
 import androidx.compose.foundation.layout.fillMaxHeight
 import com.fuwanime.ui.components.readableWidth
 import com.fuwanime.ui.components.frostedStyle
@@ -119,9 +122,9 @@ private val MONTH_NAMES = listOf(
 )
 
 /** "12 jam 5 mnt", or just minutes under an hour. */
-fun watchTimeLabel(ms: Long): String {
+fun watchTimeLabel(res: Resources, ms: Long): String {
     val minutes = ms / 60_000
-    return if (minutes >= 60) "${minutes / 60} jam ${minutes % 60} mnt" else "$minutes mnt"
+    return if (minutes >= 60) res.getString(R.string.stats_hours_minutes, minutes / 60, minutes % 60) else res.getString(R.string.stats_minutes, minutes)
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -177,7 +180,7 @@ fun StatsRoute(onBack: () -> Unit, onExplore: () -> Unit) {
             item {
                 Column(Modifier.semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text("Total waktu nonton", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(watchTimeLabel(stats.totalWatchedMs), style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
+                    Text(watchTimeLabel(context.resources, stats.totalWatchedMs), style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
                     if (stats.isEstimated) Text("± perkiraan untuk data lama", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -194,7 +197,7 @@ fun StatsRoute(onBack: () -> Unit, onExplore: () -> Unit) {
                 }
             }
             if (week.isNotEmpty()) item { BarChart("7 hari terakhir", week.map { weekdayLabel(it.day) }, week.map { it.minutes }) }
-            item { BarChart("6 bulan terakhir", stats.monthly.map { it.label }, stats.monthly.map { it.minutes }) }
+            item { BarChart("6 bulan terakhir", stats.monthly.map { shortMonth(context.resources, it.month) }, stats.monthly.map { it.minutes }) }
             if (stats.topGenres.isNotEmpty()) {
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -361,7 +364,7 @@ private fun RecapCard(stats: WatchStats, monthYear: String) {
         )
         Column(Modifier.align(Alignment.CenterStart), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("Waktu nonton", color = RecapMuted, fontSize = 14.sp, fontFamily = PlusJakarta, fontWeight = FontWeight.SemiBold)
-            Text(watchTimeLabel(stats.totalWatchedMs), color = RecapPrimary, fontSize = 40.sp, lineHeight = 44.sp, fontFamily = PlusJakarta, fontWeight = FontWeight.ExtraBold)
+            Text(watchTimeLabel(LocalContext.current.resources, stats.totalWatchedMs), color = RecapPrimary, fontSize = 40.sp, lineHeight = 44.sp, fontFamily = PlusJakarta, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(10.dp))
             RecapLine("${stats.episodesFinished} episode selesai")
             RecapLine("${stats.animeWatched} anime ditonton")

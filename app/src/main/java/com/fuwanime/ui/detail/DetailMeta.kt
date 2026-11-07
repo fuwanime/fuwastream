@@ -1,5 +1,6 @@
 package com.fuwanime.ui.detail
 
+import android.content.res.Resources
 import com.fuwanime.data.Anime
 import com.fuwanime.data.SeasonEntry
 import com.fuwanime.util.Day
@@ -8,14 +9,14 @@ import java.util.Locale
 import java.util.TimeZone
 
 /** "Ep 6 · 45m", "Ep 6 · 2j 14m", or "Ep 6 · Sab 23.00" when it is a day or more away. */
-fun airingLabel(episode: Int, airingAtMs: Long, nowMs: Long, tz: TimeZone = TimeZone.getDefault()): String {
+fun airingLabel(res: Resources, episode: Int, airingAtMs: Long, nowMs: Long, tz: TimeZone = TimeZone.getDefault()): String {
     val minutes = ((airingAtMs - nowMs).coerceAtLeast(0) / 60_000).toInt()
     val whenText = when {
         minutes < 60 -> "${minutes}m"
         minutes < 24 * 60 -> "${minutes / 60}j ${minutes % 60}m"
         else -> {
             val c = Calendar.getInstance(tz).apply { timeInMillis = airingAtMs }
-            val day = Day.of(c.get(Calendar.DAY_OF_WEEK)).short
+            val day = res.getString(Day.of(c.get(Calendar.DAY_OF_WEEK)).short)
             "%s %02d.%02d".format(Locale.ROOT, day, c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE))
         }
     }

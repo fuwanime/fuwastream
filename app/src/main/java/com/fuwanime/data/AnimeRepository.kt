@@ -1,5 +1,7 @@
 package com.fuwanime.data
 
+import com.fuwanime.R
+import androidx.annotation.StringRes
 import com.fuwanime.data.remote.AnimeApiService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -10,10 +12,10 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.util.concurrent.ConcurrentHashMap
 
-enum class SortOrder(val apiValue: String, val label: String) {
-    POPULAR("views", "Terpopuler"),
-    TITLE("alphabet", "A–Z"),
-    LATEST("latest", "Terbaru"),
+enum class SortOrder(val apiValue: String, @StringRes val label: Int) {
+    POPULAR("views", R.string.common_sort_popular),
+    TITLE("alphabet", R.string.common_sort_title),
+    LATEST("latest", R.string.common_sort_latest),
 }
 
 /**

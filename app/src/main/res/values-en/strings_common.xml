@@ -1,0 +1,76 @@
+<resources>
+    <string name="common_today">TODAY</string>
+    <string name="common_yesterday">YESTERDAY</string>
+    <string name="common_day_monday">Monday</string>
+    <string name="common_day_tuesday">Tuesday</string>
+    <string name="common_day_wednesday">Wednesday</string>
+    <string name="common_day_thursday">Thursday</string>
+    <string name="common_day_friday">Friday</string>
+    <string name="common_day_saturday">Saturday</string>
+    <string name="common_day_sunday">Sunday</string>
+    <string name="common_day_monday_short">Mon</string>
+    <string name="common_day_tuesday_short">Tue</string>
+    <string name="common_day_wednesday_short">Wed</string>
+    <string name="common_day_thursday_short">Thu</string>
+    <string name="common_day_friday_short">Fri</string>
+    <string name="common_day_saturday_short">Sat</string>
+    <string name="common_day_sunday_short">Sun</string>
+    <string name="common_just_now">just now</string>
+    <string name="common_offline">Offline</string>
+    <string name="common_offline_with_age">Offline · data %1$s</string>
+    <string name="common_back_online">Back online</string>
+    <string name="common_offline_empty">No saved data yet. Connect to the internet and try again.</string>
+    <string name="common_error_no_internet">No internet connection.</string>
+    <string name="common_error_timeout">The server took too long to respond.</string>
+    <string name="common_error_connect">Could not connect to the server.</string>
+    <string name="common_error_server">The server is having problems (%1$d).</string>
+    <string name="common_error_generic">Something went wrong.</string>
+    <string name="common_error_title">Could not load</string>
+    <string name="common_retry">Try again</string>
+    <string name="common_download_failed">Download failed: %1$s</string>
+    <string name="common_status_airing">Airing</string>
+    <string name="common_status_finished">Finished</string>
+    <string name="common_status_upcoming">Upcoming</string>
+    <string name="common_new">New</string>
+    <string name="common_new_upper">NEW</string>
+    <string name="common_airing_now">Airing now</string>
+    <string name="common_selected">selected</string>
+    <string name="common_selected_cd">Selected</string>
+    <string name="common_select">Select</string>
+    <string name="common_see_all">See all</string>
+    <string name="common_finished_watching">Watched</string>
+    <string name="common_new_count">%1$d new</string>
+    <string name="common_new_count_max">9+ new</string>
+    <string name="common_sort_popular">Most popular</string>
+    <string name="common_sort_title">A–Z</string>
+    <string name="common_sort_latest">Newest</string>
+    <string name="library_sort_added">Date added</string>
+    <string name="library_sort_last_watched">Last watched</string>
+    <string name="library_sort_title">A–Z</string>
+    <string name="common_tab_home">Home</string>
+    <string name="common_tab_explore">Explore</string>
+    <string name="common_tab_schedule">Schedule</string>
+    <string name="common_tab_library">Library</string>
+    <string name="schedule_season_winter">Winter</string>
+    <string name="schedule_season_spring">Spring</string>
+    <string name="schedule_season_summer">Summer</string>
+    <string name="schedule_season_autumn">Autumn</string>
+    <string name="stats_hours_minutes">%1$dh %2$dm</string>
+    <string name="stats_minutes">%1$d min</string>
+    <plurals name="common_minutes_left">
+        <item quantity="one">%1$d minute left</item>
+        <item quantity="other">%1$d minutes left</item>
+    </plurals>
+    <plurals name="common_minutes_ago">
+        <item quantity="one">%1$d minute ago</item>
+        <item quantity="other">%1$d minutes ago</item>
+    </plurals>
+    <plurals name="common_hours_ago">
+        <item quantity="one">%1$d hour ago</item>
+        <item quantity="other">%1$d hours ago</item>
+    </plurals>
+    <plurals name="common_days_ago">
+        <item quantity="one">%1$d day ago</item>
+        <item quantity="other">%1$d days ago</item>
+    </plurals>
+</resources>

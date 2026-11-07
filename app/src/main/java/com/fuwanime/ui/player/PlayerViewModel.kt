@@ -23,7 +23,9 @@ import com.fuwanime.data.StreamSource
 import com.fuwanime.data.local.AppSettings
 import com.fuwanime.data.local.SettingsStore
 import com.fuwanime.data.local.VideoResize
-import com.fuwanime.util.friendlyMessage
+import com.fuwanime.R
+import com.fuwanime.util.UiText
+import com.fuwanime.util.friendlyText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -48,7 +50,7 @@ data class PlayerUiState(
     /** Position to seek to once the current source is prepared. */
     val startPositionMs: Long = 0,
     val loading: Boolean = true,
-    val error: String? = null,
+    val error: UiText? = null,
     val next: Episode? = null,
     val previous: Episode? = null,
     /** Episodes of the current page, for the portrait episode strip. */
@@ -56,7 +58,7 @@ data class PlayerUiState(
     /** Playing a downloaded file; no network needed. */
     val offline: Boolean = false,
     /** One-shot message for the snackbar (download started/failed). */
-    val message: String? = null,
+    val message: UiText? = null,
     /** The franchise entry after this one ("S2" after "S1"), offered when the last episode ends. */
     val nextSeason: SeasonEntry? = null,
 )
@@ -163,11 +165,11 @@ class PlayerViewModel(
             val resumeAt = library.savedPosition(episode.id)
             if (playOffline(episode, resumeAt)) return@launch
             val stream = repo.stream(episode.id).getOrElse { e ->
-                _state.update { it.copy(loading = false, error = e.friendlyMessage()) }
+                _state.update { it.copy(loading = false, error = e.friendlyText()) }
                 return@launch
             }
             if (stream.sources.isEmpty()) {
-                _state.update { it.copy(loading = false, error = "Belum ada sumber video untuk episode ini.") }
+                _state.update { it.copy(loading = false, error = UiText.raw("Belum ada sumber video untuk episode ini.")) }
                 return@launch
             }
             val merged = stream.episode?.let { info ->
@@ -225,8 +227,8 @@ class PlayerViewModel(
         viewModelScope.launch {
             val wifiOnly = settings.value.downloadWifiOnly
             downloads.enqueue(anime, s.episode, source, wifiOnly)
-                .onSuccess { postMessage(if (wifiOnly) "Download dimulai (menunggu Wi-Fi)" else "Download ${source.quality} dimulai") }
-                .onFailure { postMessage("Gagal download: ${it.friendlyMessage()}") }
+                .onSuccess { postMessage(UiText.raw(if (wifiOnly) "Download dimulai (menunggu Wi-Fi)" else "Download ${source.quality} dimulai")) }
+                .onFailure { postMessage(UiText(R.string.common_download_failed, listOf(it.friendlyText()))) }
         }
     }
 
@@ -234,11 +236,11 @@ class PlayerViewModel(
         val id = _state.value.episode.id
         viewModelScope.launch {
             downloads.delete(id)
-            postMessage("Download dihapus")
+            postMessage(UiText.raw("Download dihapus"))
         }
     }
 
-    private fun postMessage(text: String) = _state.update { it.copy(message = text) }
+    private fun postMessage(text: UiText) = _state.update { it.copy(message = text) }
     fun messageShown() = _state.update { it.copy(message = null) }
 
     private suspend fun loadNeighbours(episode: Episode) {
@@ -270,7 +272,7 @@ class PlayerViewModel(
             it.copy(
                 source = lower,
                 startPositionMs = positionMs,
-                message = "Gagal memutar ${current.quality}, beralih ke ${lower.quality}",
+                message = UiText.raw("Gagal memutar ${current.quality}, beralih ke ${lower.quality}"),
             )
         }
         return true

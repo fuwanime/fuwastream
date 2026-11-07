@@ -8,7 +8,8 @@ import com.fuwanime.data.AnimeRepository
 import com.fuwanime.data.LibraryRepository
 import com.fuwanime.data.SortOrder
 import com.fuwanime.data.remote.AnimeApiService
-import com.fuwanime.util.friendlyMessage
+import com.fuwanime.util.UiText
+import com.fuwanime.util.friendlyText
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -55,7 +56,7 @@ data class ExploreUiState(
     val loading: Boolean = false,
     val loadingMore: Boolean = false,
     val endReached: Boolean = false,
-    val error: String? = null,
+    val error: UiText? = null,
 )
 
 class ExploreViewModel(
@@ -136,7 +137,7 @@ class ExploreViewModel(
             repeat(MAX_PAGES_PER_BATCH) {
                 val f = _state.value.filters
                 val page = repo.explore(nextPage, f.sort, f.query, f.type.apiType).getOrElse { e ->
-                    _state.update { it.copy(loading = false, loadingMore = false, error = e.friendlyMessage()) }
+                    _state.update { it.copy(loading = false, loadingMore = false, error = e.friendlyText()) }
                     return@launch
                 }
                 nextPage++

@@ -1,5 +1,6 @@
 package com.fuwanime.ui.player
 
+import com.fuwanime.util.text
 import com.fuwanime.ui.components.IconWithTooltip
 import android.app.Activity
 import android.content.Context
@@ -259,10 +260,11 @@ fun PlayerRoute(
     val state by vm.state.collectAsStateWithLifecycle()
     val download by vm.download.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
+    val res = LocalContext.current.resources
     LaunchedEffect(state.message) {
         state.message?.let {
             vm.messageShown()
-            snackbar.showSnackbar(it)
+            snackbar.showSnackbar(it.resolve(res))
         }
     }
     val settings by vm.settings.collectAsStateWithLifecycle()
@@ -882,7 +884,7 @@ private fun VideoSurface(
             }
         }
 
-        val error = state.error ?: playback.error
+        val error = state.error?.text() ?: playback.error
         if (error != null && !state.loading) {
             Column(
                 Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.8f)).padding(24.dp),

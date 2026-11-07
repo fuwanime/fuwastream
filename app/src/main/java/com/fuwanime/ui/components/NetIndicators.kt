@@ -1,5 +1,8 @@
 package com.fuwanime.ui.components
 
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import com.fuwanime.R
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
@@ -110,7 +113,7 @@ fun OfflinePill(state: NetState, reduceMotion: Boolean, modifier: Modifier = Mod
                 }
                 Spacer(Modifier.width(6.dp))
                 Text(
-                    if (state.online) "Kembali online" else offlineLabel(state.cacheServedAt, now),
+                    if (state.online) stringResource(R.string.common_back_online) else offlineLabel(LocalContext.current.resources, state.cacheServedAt, now),
                     style = MaterialTheme.typography.labelMedium,
                     color = colors.onSurfaceVariant,
                 )

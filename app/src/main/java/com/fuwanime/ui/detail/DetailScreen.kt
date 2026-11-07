@@ -166,10 +166,11 @@ fun DetailRoute(
     val downloads by vm.downloadMap.collectAsStateWithLifecycle()
     val message by vm.messages.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
+    val res = LocalContext.current.resources
     LaunchedEffect(message) {
         message?.let {
             vm.messageShown()
-            snackbar.showSnackbar(it)
+            snackbar.showSnackbar(it.resolve(res))
         }
     }
     Box(Modifier.fillMaxSize()) {
@@ -307,7 +308,7 @@ private fun DetailScreen(
                                 fontWeight = FontWeight.ExtraBold,
                                 maxLines = 1,
                             )
-                            resume?.takeUnless { it.isFinished }?.let { remainingLabel(it.positionMs, it.durationMs) }?.let {
+                            resume?.takeUnless { it.isFinished }?.let { remainingLabel(LocalContext.current.resources, it.positionMs, it.durationMs) }?.let {
                                 Text(it, style = MaterialTheme.typography.labelSmall, modifier = Modifier.alpha(0.75f))
                             }
                         }
@@ -521,7 +522,7 @@ private fun Header(anime: Anime?, origin: String?, entryKey: String, linkBackdro
                     }
                     val count = episodeCount?.let { "${if (it % 1.0 == 0.0) it.toLong() else it} EP" }.orEmpty()
                     Text(
-                        listOf(anime.displayYear, anime.type, statusLabel(anime.status), count).filter { it.isNotBlank() }.joinToString(" · "),
+                        listOf(anime.displayYear, anime.type, statusLabel(LocalContext.current.resources, anime.status), count).filter { it.isNotBlank() }.joinToString(" · "),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -545,7 +546,7 @@ private fun MetaRow(meta: AnimeMeta, modifier: Modifier) {
     }
     val chips = listOfNotNull(
         scoreLabel(meta.score),
-        meta.nextAiringAt?.takeIf { it > now }?.let { at -> meta.nextEpisode?.let { airingLabel(it, at, now) } },
+        meta.nextAiringAt?.takeIf { it > now }?.let { at -> meta.nextEpisode?.let { airingLabel(LocalContext.current.resources, it, at, now) } },
     ) + meta.tags
     if (chips.isEmpty()) return
     FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

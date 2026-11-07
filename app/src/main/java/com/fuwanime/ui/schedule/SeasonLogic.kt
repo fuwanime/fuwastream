@@ -1,17 +1,20 @@
 package com.fuwanime.ui.schedule
 
+import androidx.annotation.StringRes
+import com.fuwanime.R
 import com.fuwanime.data.Anime
+import com.fuwanime.util.UiText
 import java.util.Locale
 
-/** An anime broadcast season (quarter), e.g. "Musim Gugur" 2026 starting in October. */
-data class AnimeSeason(val name: String, val year: Int, val startMonth: Int)
+/** An anime broadcast season (quarter), e.g. R.string.schedule_season_autumn 2026 starting in October. */
+data class AnimeSeason(@StringRes val name: Int, val year: Int, val startMonth: Int)
 
 /** [month] is 1–12. */
 fun seasonOf(year: Int, month: Int): AnimeSeason = when (month) {
-    in 1..3 -> AnimeSeason("Musim Dingin", year, 1)
-    in 4..6 -> AnimeSeason("Musim Semi", year, 4)
-    in 7..9 -> AnimeSeason("Musim Panas", year, 7)
-    else -> AnimeSeason("Musim Gugur", year, 10)
+    in 1..3 -> AnimeSeason(R.string.schedule_season_winter, year, 1)
+    in 4..6 -> AnimeSeason(R.string.schedule_season_spring, year, 4)
+    in 7..9 -> AnimeSeason(R.string.schedule_season_summer, year, 7)
+    else -> AnimeSeason(R.string.schedule_season_autumn, year, 10)
 }
 
 /** (premiered this season, continuing), each sorted by title; duplicates by id collapse. */
@@ -23,7 +26,7 @@ fun splitBySeason(all: List<Anime>, season: AnimeSeason): Pair<List<Anime>, List
 
 sealed interface SeasonTab {
     data object Loading : SeasonTab
-    data class Error(val message: String) : SeasonTab
+    data class Error(val message: UiText) : SeasonTab
     data class Ready(val all: List<Anime>) : SeasonTab
 }
 

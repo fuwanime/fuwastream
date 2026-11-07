@@ -1,5 +1,6 @@
 package com.fuwanime.ui.schedule
 
+import androidx.compose.ui.res.stringResource
 import com.fuwanime.ui.components.LocalNavBarPadding
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -57,7 +58,8 @@ import com.fuwanime.ui.components.SkeletonBox
 import com.fuwanime.util.Day
 import com.fuwanime.util.airTime
 import com.fuwanime.util.compactNumber
-import com.fuwanime.util.friendlyMessage
+import com.fuwanime.util.UiText
+import com.fuwanime.util.friendlyText
 import com.fuwanime.util.fuwaViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -69,7 +71,7 @@ data class DaySchedule(
     val items: List<Anime> = emptyList(),
     val loading: Boolean = false,
     val loaded: Boolean = false,
-    val error: String? = null,
+    val error: UiText? = null,
 )
 
 class ScheduleViewModel(private val repo: AnimeRepository) : ViewModel() {
@@ -88,7 +90,7 @@ class ScheduleViewModel(private val repo: AnimeRepository) : ViewModel() {
                     items = result.getOrDefault(emptyList()).sortedBy { airTime(it.nextAirTime).ifBlank { "99" } },
                     loading = false,
                     loaded = result.isSuccess,
-                    error = result.exceptionOrNull()?.friendlyMessage(),
+                    error = result.exceptionOrNull()?.friendlyText(),
                 ))
             }
         }
@@ -128,7 +130,7 @@ fun ScheduleRoute(onAnimeClick: OpenAnime) {
                     onClick = { scope.launch { pager.animateScrollToPage(i) } },
                     text = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(day.label)
+                            Text(stringResource(day.full))
                             if (day == today) {
                                 Spacer(Modifier.width(6.dp))
                                 Badge(containerColor = MaterialTheme.colorScheme.primary) { Text("Hari ini") }
@@ -165,7 +167,7 @@ fun ScheduleRoute(onAnimeClick: OpenAnime) {
                     schedule.items.isEmpty() -> MessageState(
                         Icons.Rounded.EventBusy,
                         "Tidak ada jadwal",
-                        message = "Belum ada anime yang dijadwalkan hari ${day.label}.",
+                        message = "Belum ada anime yang dijadwalkan hari ${stringResource(day.full)}.",
                     )
                     else -> LazyColumn(
                         contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp + LocalNavBarPadding.current),
@@ -200,7 +202,7 @@ private fun SeasonPage(state: SeasonTab, onRetry: () -> Unit, onAnimeClick: Open
                 modifier = Modifier.fillMaxSize(),
             ) {
                 item(key = "season-title") {
-                    Text("${season.name} ${season.year}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text("${stringResource(season.name)} ${season.year}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 }
                 listOf("Baru musim ini" to fresh, "Lanjutan" to continuing).forEach { (title, list) ->
                     if (list.isNotEmpty()) {

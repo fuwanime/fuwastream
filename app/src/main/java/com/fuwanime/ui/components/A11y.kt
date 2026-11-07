@@ -1,5 +1,6 @@
 package com.fuwanime.ui.components
 
+import android.content.res.Resources
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -13,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.fuwanime.R
 
 /** An icon-only button that names itself on long-press, so its meaning isn't a guess. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -36,12 +38,12 @@ fun IconWithTooltip(
 }
 
 /** What TalkBack reads for one poster card, e.g. "Frieren, Episode 5, Baru, 2 baru, dipilih". */
-fun posterDescription(title: String, caption: String?, badge: String?, isNew: Boolean, airing: Boolean, selected: Boolean): String =
+fun posterDescription(res: Resources, title: String, caption: String?, badge: String?, isNew: Boolean, airing: Boolean, selected: Boolean): String =
     listOfNotNull(
         title,
         caption?.takeIf { it.isNotBlank() },
-        "Baru".takeIf { isNew },
-        "Sedang tayang".takeIf { airing && !isNew },
+        res.getString(R.string.common_new).takeIf { isNew },
+        res.getString(R.string.common_airing_now).takeIf { airing && !isNew },
         badge?.takeIf { it.isNotBlank() },
-        "dipilih".takeIf { selected },
+        res.getString(R.string.common_selected).takeIf { selected },
     ).joinToString(", ")

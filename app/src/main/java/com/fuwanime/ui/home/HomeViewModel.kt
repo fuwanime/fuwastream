@@ -1,5 +1,6 @@
 package com.fuwanime.ui.home
 
+import com.fuwanime.util.UiText
 import com.fuwanime.data.backup.BackupRepository
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -39,7 +40,7 @@ data class HomeFeed(
     val syncing: Boolean = false,
     /** What is on screen came from the disk cache, not yet confirmed by the network. */
     val stale: Boolean = false,
-    val error: String? = null,
+    val error: UiText? = null,
 ) {
     val hasData: Boolean get() = popular.isNotEmpty() || thisSeason.isNotEmpty() || latest.isNotEmpty()
 }
