@@ -4,7 +4,7 @@ import com.fuwanime.data.manga.DohAnswer
 import com.fuwanime.data.manga.DohResponse
 import com.fuwanime.data.manga.MangaDexDns
 import com.fuwanime.data.manga.dohAddresses
-import com.fuwanime.data.manga.isMangaDexHost
+import com.fuwanime.data.manga.needsDoh
 import java.net.InetAddress
 import okhttp3.Dns
 import org.junit.Assert.assertEquals
@@ -19,11 +19,11 @@ class MangaDexDnsTest {
     private val answer = DohResponse(0, listOf(DohAnswer(5, 300, "dxlb.mangadex.org."), DohAnswer(1, 2, "45.129.229.1"), DohAnswer(1, 2, "45.129.229.2")))
 
     @Test fun mangaDexHosts() {
-        assertTrue(isMangaDexHost("api.mangadex.org"))
-        assertTrue(isMangaDexHost("uploads.mangadex.org"))
-        assertTrue(isMangaDexHost("abc123.xyz.mangadex.network"))
-        assertFalse(isMangaDexHost("xyz-api.animein.net"))
-        assertFalse(isMangaDexHost("evilmangadex.org"))
+        assertTrue(needsDoh("api.mangadex.org"))
+        assertTrue(needsDoh("uploads.mangadex.org"))
+        assertTrue(needsDoh("abc123.xyz.mangadex.network"))
+        assertFalse(needsDoh("xyz-api.animein.net"))
+        assertFalse(needsDoh("evilmangadex.org"))
     }
 
     @Test fun addressesSkipCname() = assertEquals(listOf("45.129.229.1", "45.129.229.2"), dohAddresses(answer))
