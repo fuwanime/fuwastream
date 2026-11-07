@@ -6,6 +6,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import okhttp3.Request
 import okhttp3.Response
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -20,7 +21,7 @@ class RateLimitInterceptorTest {
         .addInterceptor(Interceptor { chain ->
             calls++
             val (code, headers) = replies.removeFirstOrNull() ?: (200 to emptyMap())
-            Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1).code(code).message("m")
+            Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1).code(code).message("m").body("".toResponseBody())
                 .apply { headers.forEach { (k, v) -> header(k, v) } }.build()
         }).build()
 
