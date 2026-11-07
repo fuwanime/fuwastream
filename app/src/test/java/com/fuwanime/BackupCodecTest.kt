@@ -5,6 +5,7 @@ import com.fuwanime.data.backup.BackupFile
 import com.fuwanime.data.backup.BackupResult
 import com.fuwanime.data.backup.SettingEntry
 import com.fuwanime.data.backup.isBackedUpSetting
+import com.fuwanime.data.backup.settingTypeAccepted
 import com.fuwanime.data.backup.shouldWriteBackup
 import com.fuwanime.data.local.FavoriteEntity
 import com.fuwanime.data.local.SearchHistoryEntity
@@ -47,10 +48,26 @@ class BackupCodecTest {
         assertFalse(isBackedUpSetting("backup_tree_uri"))
     }
 
-    @Test fun emptyPhoneNeverOverwritesExistingBackup() {
-        assertFalse(shouldWriteBackup(localEmpty = true, fileExists = true))
-        assertTrue(shouldWriteBackup(localEmpty = true, fileExists = false))
-        assertTrue(shouldWriteBackup(localEmpty = false, fileExists = true))
-        assertTrue(shouldWriteBackup(localEmpty = false, fileExists = false))
+    @Test fun existingBackupIsOnlyOverwrittenAfterThisInstallAdoptedTheFolder() {
+        // Folder without a backup: always write.
+        assertTrue(shouldWriteBackup(localEmpty = true, fileExists = false, folderAdopted = false))
+        assertTrue(shouldWriteBackup(localEmpty = false, fileExists = false, folderAdopted = false))
+        // Folder with someone's backup, not yet restored/written by this install: never overwrite, even with local data.
+        assertFalse(shouldWriteBackup(localEmpty = false, fileExists = true, folderAdopted = false))
+        assertFalse(shouldWriteBackup(localEmpty = true, fileExists = true, folderAdopted = false))
+        // Adopted folder: keep it current, but an empty phone still never replaces it.
+        assertTrue(shouldWriteBackup(localEmpty = false, fileExists = true, folderAdopted = true))
+        assertFalse(shouldWriteBackup(localEmpty = true, fileExists = true, folderAdopted = true))
+    }
+
+    @Test fun importRejectsKnownKeyWithWrongType() {
+        assertTrue(settingTypeAccepted("preferred_quality", "int"))
+        assertFalse(settingTypeAccepted("preferred_quality", "string"))
+        assertTrue(settingTypeAccepted("theme_mode", "string"))
+        assertFalse(settingTypeAccepted("auto_pip", "int"))
+        assertTrue(settingTypeAccepted("op_start_42", "long"))
+        assertFalse(settingTypeAccepted("op_end_42", "string"))
+        assertTrue(settingTypeAccepted("some_future_key", "string"))
+        assertFalse(settingTypeAccepted("theme_mode", "blob"))
     }
 }
