@@ -329,6 +329,7 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
                                     onResume = { e -> nav.navigate(playerRouteFor(e, "library")) },
                                     onPlayDownload = { d -> nav.navigate(Routes.player(d.animeId, d.episodeId, d.episodeNumber)) },
                                     onStats = { nav.navigate(Routes.STATS) },
+                                    onSettings = { nav.navigate(Routes.SETTINGS) },
                                 )
                             }
                         }
@@ -371,7 +372,7 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
                                 )
                             }
                         }
-                        composable(Routes.STATS) { Scoped { StatsRoute(onBack = { nav.popBackStack() }) } }
+                        composable(Routes.STATS) { Scoped { StatsRoute(onBack = { nav.popBackStack() }, onExplore = { nav.navigateTab(Routes.explore()) }) } }
                         composable(Routes.SETTINGS) {
                             Scoped {
                                 SettingsRoute(

@@ -1,5 +1,8 @@
 package com.fuwanime.ui.explore
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.material3.AssistChip
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -265,7 +268,13 @@ private fun ResultsHeader(filters: ExploreFilters, vm: ExploreViewModel, onRando
             fontWeight = FontWeight.Bold,
             modifier = Modifier.weight(1f),
         )
-        IconButton(onClick = { onRandom?.invoke() }, enabled = onRandom != null) { Icon(Icons.Rounded.Casino, "Anime acak") }
+        AssistChip(
+            onClick = { onRandom?.invoke() },
+            enabled = onRandom != null,
+            label = { Text("Acak") },
+            leadingIcon = { Icon(Icons.Rounded.Casino, null, Modifier.size(18.dp)) },
+            modifier = Modifier.padding(end = 8.dp).semantics { contentDescription = "Anime acak" },
+        )
         Box {
             FilledTonalButton(
                 onClick = { menuOpen = true },

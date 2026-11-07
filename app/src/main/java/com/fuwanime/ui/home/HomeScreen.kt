@@ -1,5 +1,6 @@
 package com.fuwanime.ui.home
 
+import com.fuwanime.ui.components.IconWithTooltip
 import androidx.compose.foundation.layout.heightIn
 import com.fuwanime.ui.components.LocalNavBarPadding
 import androidx.compose.animation.animateColorAsState
@@ -417,8 +418,8 @@ private fun HomeTopBar(solid: Boolean, syncing: Boolean, onSearch: () -> Unit, o
             Wordmark(onDark = !solid)
             Spacer(Modifier.weight(1f))
             val tint = if (solid) MaterialTheme.colorScheme.onSurface else Color.White
-            IconButton(onClick = onSearch) { Icon(Icons.Rounded.Search, "Cari", tint = tint) }
-            IconButton(onClick = onSettings) { Icon(Icons.Rounded.Settings, "Pengaturan", tint = tint) }
+            IconWithTooltip("Cari", Icons.Rounded.Search, onSearch, tint = tint)
+            IconWithTooltip("Pengaturan", Icons.Rounded.Settings, onSettings, tint = tint)
         }
         RefreshHairline(syncing)
     }

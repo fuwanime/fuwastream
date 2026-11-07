@@ -12,6 +12,14 @@ import android.graphics.Bitmap
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import java.text.DateFormatSymbols
+import java.util.TimeZone
+import kotlinx.coroutines.flow.map
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -94,6 +102,16 @@ class StatsViewModel(library: LibraryRepository) : ViewModel() {
         combine(library.allHistory, library.watchDaily, library.favoriteList) { history, daily, favorites ->
             computeStats(history, daily, favorites, epochDay(System.currentTimeMillis()))
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    val week: StateFlow<List<DayBar>> =
+        library.watchDaily.map { lastNDays(it, epochDay(System.currentTimeMillis())) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+}
+
+/** Short weekday name ("Sen", "Mon") for an epoch day, in the current locale. */
+private fun weekdayLabel(day: Int): String {
+    val dow = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply { timeInMillis = day * 86_400_000L }.get(Calendar.DAY_OF_WEEK)
+    return DateFormatSymbols.getInstance().shortWeekdays[dow]
 }
 
 private val MONTH_NAMES = listOf(
@@ -106,14 +124,17 @@ fun watchTimeLabel(ms: Long): String {
     return if (minutes >= 60) "${minutes / 60} jam ${minutes % 60} mnt" else "$minutes mnt"
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun StatsRoute(onBack: () -> Unit) {
+fun StatsRoute(onBack: () -> Unit, onExplore: () -> Unit) {
     val vm: StatsViewModel = fuwaViewModel { c, _ -> StatsViewModel(c.libraryRepository) }
     val loaded by vm.stats.collectAsStateWithLifecycle()
+    val week by vm.week.collectAsStateWithLifecycle()
+    val columns = statColumns(LocalDensity.current.fontScale, LocalConfiguration.current.screenWidthDp)
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val explain: (String) -> Unit = { msg -> scope.launch { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar(msg) } }
     val context = LocalContext.current
     val recapLayer = rememberGraphicsLayer()
     val monthYear = remember {
@@ -138,7 +159,13 @@ fun StatsRoute(onBack: () -> Unit) {
         val stats = loaded ?: return@Scaffold
         if (!stats.hasData) {
             Box(Modifier.fillMaxSize().padding(padding)) {
-                MessageState(Icons.Rounded.Insights, "Belum ada statistik", message = "Tonton satu episode dulu, nanti angkanya muncul di sini.")
+                MessageState(
+                    Icons.Rounded.Insights,
+                    "Belum ada statistik",
+                    message = "Tonton satu episode dulu, nanti angkanya muncul di sini.",
+                    actionLabel = "Cari anime",
+                    onAction = onExplore,
+                )
             }
             return@Scaffold
         }
@@ -148,18 +175,26 @@ fun StatsRoute(onBack: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        StatCard("Jam tonton", watchTimeLabel(stats.totalWatchedMs), if (stats.isEstimated) "± perkiraan untuk data lama" else null, Modifier.weight(1f))
-                        StatCard("Episode selesai", stats.episodesFinished.toString(), null, Modifier.weight(1f))
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        StatCard("Anime", stats.animeWatched.toString(), null, Modifier.weight(1f))
-                        StatCard("Minggu aktif", stats.activeWeeks.toString(), "berturut-turut", Modifier.weight(1f))
-                    }
+                Column(Modifier.semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text("Total waktu nonton", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(watchTimeLabel(stats.totalWatchedMs), style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
+                    if (stats.isEstimated) Text("± perkiraan untuk data lama", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            item { MonthlyChart(stats.monthly) }
+            item {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    maxItemsInEachRow = columns,
+                ) {
+                    val card = Modifier.weight(1f)
+                    StatCard("Episode selesai", stats.episodesFinished.toString(), null, card) { explain("Episode yang ditonton sampai minimal 92%.") }
+                    StatCard("Anime", stats.animeWatched.toString(), null, card) { explain("Jumlah judul berbeda yang pernah kamu tonton.") }
+                    StatCard("Minggu aktif", stats.activeWeeks.toString(), "berturut-turut", card) { explain("Minggu berturut-turut kamu menonton, sampai minggu ini.") }
+                }
+            }
+            if (week.isNotEmpty()) item { BarChart("7 hari terakhir", week.map { weekdayLabel(it.day) }, week.map { it.minutes }) }
+            item { BarChart("6 bulan terakhir", stats.monthly.map { it.label }, stats.monthly.map { it.minutes }) }
             if (stats.topGenres.isNotEmpty()) {
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -223,10 +258,11 @@ private fun SectionLabel(text: String) {
 }
 
 @Composable
-private fun StatCard(label: String, value: String, caption: String?, modifier: Modifier = Modifier) {
+private fun StatCard(label: String, value: String, caption: String?, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Column(
         modifier
             .clip(RoundedCornerShape(18.dp))
+            .clickable(onClick = onClick)
             .background(MaterialTheme.colorScheme.surfaceContainerLow)
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(18.dp))
             .padding(16.dp),
@@ -238,36 +274,52 @@ private fun StatCard(label: String, value: String, caption: String?, modifier: M
     }
 }
 
+/** Rounded bars with the latest one highlighted and each non-zero value printed above its bar. */
 @Composable
-private fun MonthlyChart(months: List<MonthBar>) {
+private fun BarChart(title: String, labels: List<String>, minutes: List<Int>) {
     val bar = MaterialTheme.colorScheme.primary
     val track = MaterialTheme.colorScheme.outlineVariant
-    val max = (months.maxOfOrNull { it.minutes } ?: 0).coerceAtLeast(1)
+    val max = (minutes.maxOrNull() ?: 0).coerceAtLeast(1)
+    val valueStyle = MaterialTheme.typography.labelSmall
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        SectionLabel("6 bulan terakhir")
+        SectionLabel(title)
+        Row(Modifier.fillMaxWidth()) {
+            minutes.forEach {
+                Text(
+                    if (it > 0) it.toString() else "",
+                    style = valueStyle,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    maxLines = 1,
+                )
+            }
+        }
         Canvas(
             Modifier
                 .fillMaxWidth()
                 .height(120.dp)
-                .semantics { contentDescription = months.joinToString { "${it.label} ${it.minutes} menit" } },
+                .semantics { contentDescription = labels.zip(minutes).joinToString { (l, m) -> "$l $m menit" } },
         ) {
-            val slot = size.width / months.size
+            val slot = size.width / minutes.size
             val barWidth = slot * 0.5f
-            months.forEachIndexed { i, m ->
+            minutes.forEachIndexed { i, m ->
                 val x = slot * i + (slot - barWidth) / 2
                 drawRoundRect(track, Offset(x, 0f), Size(barWidth, size.height), CornerRadius(barWidth / 2))
-                val h = size.height * m.minutes / max
-                if (h > 0) drawRoundRect(bar, Offset(x, size.height - h), Size(barWidth, h), CornerRadius(barWidth / 2))
+                val h = size.height * m / max
+                val color = if (i == minutes.lastIndex) bar else bar.copy(alpha = 0.45f)
+                if (h > 0) drawRoundRect(color, Offset(x, size.height - h), Size(barWidth, h), CornerRadius(barWidth / 2))
             }
         }
         Row(Modifier.fillMaxWidth()) {
-            months.forEach {
+            labels.forEach {
                 Text(
-                    it.label,
+                    it,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f),
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    maxLines = 1,
                 )
             }
         }
