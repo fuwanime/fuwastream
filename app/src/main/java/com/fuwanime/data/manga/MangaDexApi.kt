@@ -23,6 +23,7 @@ interface MangaDexApi {
         @Query("includedTags[]") tags: List<String>,
         @Query("status[]") status: List<String>,
         @Query("includes[]") includes: List<String>,
+        @Query("hasAvailableChapters") hasAvailableChapters: Boolean = true,
     ): MangaListDto
 
     @GET("manga/{id}")

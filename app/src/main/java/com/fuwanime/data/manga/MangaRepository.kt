@@ -36,6 +36,8 @@ class MangaRepository(
                 langs = CATALOG_LANGS, ratings = RATINGS, tags = tagIds,
                 status = listOfNotNull(status?.takeIf { it != MangaStatus.UNKNOWN }?.name?.lowercase()),
                 includes = listOf("cover_art"),
+                // Only titles with at least one uploaded chapter in id/en; others would open to an empty chapter list.
+                hasAvailableChapters = true,
             )
         }
         val lang = appLanguage()
