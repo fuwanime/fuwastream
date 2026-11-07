@@ -25,6 +25,8 @@
     <string name="common_error_connect">Could not connect to the server.</string>
     <string name="common_error_server">The server is having problems (%1$d).</string>
     <string name="common_error_generic">Something went wrong.</string>
+    <string name="common_error_anime_not_found">Anime not found</string>
+    <string name="common_error_stream_unavailable">Stream unavailable</string>
     <string name="common_error_title">Could not load</string>
     <string name="common_retry">Try again</string>
     <string name="common_download_failed">Download failed: %1$s</string>

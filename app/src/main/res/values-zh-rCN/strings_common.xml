@@ -25,6 +25,8 @@
     <string name="common_error_connect">无法连接到服务器。</string>
     <string name="common_error_server">服务器出现问题（%1$d）。</string>
     <string name="common_error_generic">出错了。</string>
+    <string name="common_error_anime_not_found">未找到该动漫</string>
+    <string name="common_error_stream_unavailable">视频流不可用</string>
     <string name="common_error_title">加载失败</string>
     <string name="common_retry">重试</string>
     <string name="common_download_failed">下载失败：%1$s</string>

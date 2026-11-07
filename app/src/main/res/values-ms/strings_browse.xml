@@ -9,7 +9,7 @@
     <string name="browse_views">%1$s tontonan</string>
     <string name="browse_home_popular_subtitle">Paling banyak ditonton</string>
     <string name="browse_home_genres">Terokai Genre</string>
-    <string name="browse_update_banner">Kemas kini %1$s tersedia — ketik untuk lihat perubahan</string>
+    <string name="browse_update_banner">Kemas kini %1$s tersedia — ketuk untuk lihat perubahan</string>
     <string name="browse_update_dismiss_cd">Tutup sepanduk kemas kini</string>
     <string name="browse_restore_prompt">Pernah guna fuwanime? Pulihkan data daripada fail sandaran</string>
     <string name="browse_restore">Pulihkan</string>

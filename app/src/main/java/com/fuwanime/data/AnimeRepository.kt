@@ -1,6 +1,8 @@
 package com.fuwanime.data
 
 import com.fuwanime.R
+import com.fuwanime.util.UiText
+import com.fuwanime.util.UiTextException
 import androidx.annotation.StringRes
 import com.fuwanime.data.remote.AnimeApiService
 import kotlinx.coroutines.Dispatchers
@@ -119,7 +121,7 @@ class AnimeRepository(private val api: AnimeApiService, private val cachedApi: A
     /** Detail plus the franchise list ("S1", "Movie", …) that only the detail response carries. */
     suspend fun detailWithSeasons(id: String): Result<AnimeDetail> = io {
         val data = api.detail(id).data
-        val anime = data?.movie?.toAnime() ?: error("Anime tidak ditemukan")
+        val anime = data?.movie?.toAnime() ?: throw UiTextException(UiText(R.string.common_error_anime_not_found))
         val seasons = data.season.orEmpty()
             .filter { it.id.isNotBlank() }
             .map { SeasonEntry(it.toAnime(), it.season?.trim().orEmpty()) }
@@ -182,7 +184,7 @@ class AnimeRepository(private val api: AnimeApiService, private val cachedApi: A
     }
 
     suspend fun stream(episodeId: String): Result<EpisodeStream> = io {
-        val data = api.stream(episodeId).data ?: error("Stream tidak tersedia")
+        val data = api.stream(episodeId).data ?: throw UiTextException(UiText(R.string.common_error_stream_unavailable))
         val servers = data.server.orEmpty().filter { it.link.isNotBlank() }
         // Prefer direct files; other types are embed pages the native player can't open.
         val direct = servers.filter { it.type.equals("direct", ignoreCase = true) }

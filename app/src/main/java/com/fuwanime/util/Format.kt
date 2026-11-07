@@ -10,8 +10,6 @@ import java.util.Calendar
 import java.util.Locale
 import java.util.TimeZone
 
-private val ID = Locale.forLanguageTag("id-ID")
-
 /** One decimal in the app language, without a trailing zero: 15.9 / 2. */
 private fun decimal1(res: Resources, value: Double): String {
     val locale = res.configuration.locales[0]
@@ -131,6 +129,7 @@ fun offlineLabel(res: Resources, cacheServedAt: Long?, nowMs: Long): String {
 
 /** Network/server failure as a message; ViewModels keep this and the screen resolves it so it follows the app language. */
 fun Throwable.friendlyText(): UiText = when (this) {
+    is UiTextException -> text
     is java.net.UnknownHostException -> UiText(R.string.common_error_no_internet)
     is java.net.SocketTimeoutException -> UiText(R.string.common_error_timeout)
     is java.io.IOException -> UiText(R.string.common_error_connect)

@@ -422,7 +422,7 @@ fun ContinueWatchingCard(
             NetImage(
                 entry.episodeThumbnail.ifBlank { entry.animeCover },
                 Modifier.fillMaxSize().sharedKey(thumb).clip(MaterialTheme.shapes.medium),
-                "${entry.animeTitle} — Episode ${entry.episodeNumber}",
+                "${entry.animeTitle} — ${stringResource(R.string.watch_episode_label, entry.episodeNumber)}",
             )
             Box(
                 Modifier
@@ -432,7 +432,7 @@ fun ContinueWatchingCard(
                     .background(Brush.verticalGradient(0.5f to Color.Transparent, 1f to ImageScrim.copy(alpha = 0.75f))),
             )
             Text(
-                "EP ${entry.episodeNumber}",
+                stringResource(R.string.mine_ep_badge, entry.episodeNumber),
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,

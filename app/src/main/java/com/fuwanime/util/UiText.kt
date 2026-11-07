@@ -20,3 +20,6 @@ data class UiText(@StringRes val id: Int = 0, val args: List<Any> = emptyList(),
 
 @Composable
 fun UiText.text(): String = resolve(LocalContext.current.resources)
+
+/** Error whose message is a string resource, so it is shown in the app language. */
+class UiTextException(val text: UiText) : Exception()

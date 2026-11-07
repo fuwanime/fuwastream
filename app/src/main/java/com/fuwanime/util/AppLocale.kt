@@ -46,8 +46,8 @@ fun setAppLanguage(activity: Activity, tag: String?) {
 /** API 33+ the platform applies the per-app locale itself; below that we wrap the context. */
 fun localizedContext(context: Context): Context {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) return context
-    val config = android.content.res.Configuration(context.resources.configuration)
-    config.setLocale(resolveAppLocale(savedLanguageTag(context), Locale.getDefault()))
+    // Locale only: a full copy would freeze orientation/uiMode/fontScale that MainActivity handles in place.
+    val config = android.content.res.Configuration().apply { setLocale(resolveAppLocale(savedLanguageTag(context), Locale.getDefault())) }
     return context.createConfigurationContext(config)
 }
 

@@ -25,6 +25,7 @@ sealed interface BackupOutcome {
 const val ERROR_FOLDER = "folder"
 const val ERROR_OTHER_PREFIX = "other:"
 
+// Code contributor: Andra
 /** Writes `fuwanime-backup.json` into a folder the user picked (SAF), so it outlives an uninstall. */
 class BackupRepository(
     private val context: Context,

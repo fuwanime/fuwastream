@@ -25,6 +25,8 @@
     <string name="common_error_connect">Gagal terhubung ke server.</string>
     <string name="common_error_server">Server sedang bermasalah (%1$d).</string>
     <string name="common_error_generic">Terjadi kesalahan.</string>
+    <string name="common_error_anime_not_found">Anime tidak ditemukan</string>
+    <string name="common_error_stream_unavailable">Stream tidak tersedia</string>
     <string name="common_error_title">Gagal memuat</string>
     <string name="common_retry">Coba lagi</string>
     <string name="common_download_failed">Gagal download: %1$s</string>

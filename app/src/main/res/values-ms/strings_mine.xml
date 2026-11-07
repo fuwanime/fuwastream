@@ -24,9 +24,9 @@
     <string name="mine_not_selected">Tidak dipilih</string>
     <string name="mine_remove_from_history">Padam daripada sejarah</string>
     <string name="mine_favorites_empty_title">Belum ada kegemaran</string>
-    <string name="mine_favorites_empty_body">Ketik ikon hati pada halaman anime untuk menyimpannya di sini.</string>
+    <string name="mine_favorites_empty_body">Ketuk ikon hati pada halaman anime untuk menyimpannya di sini.</string>
     <string name="mine_downloads_empty_title">Belum ada muat turun</string>
-    <string name="mine_downloads_empty_body">Ketik ikon muat turun pada senarai episod atau pemain untuk menonton tanpa internet.</string>
+    <string name="mine_downloads_empty_body">Ketuk ikon muat turun pada senarai episod atau pemain untuk menonton tanpa internet.</string>
     <string name="mine_delete_watched">Padam yang sudah ditonton (%1$d • %2$s)</string>
     <string name="mine_episode_quality">Episod %1$s • %2$s</string>
     <string name="mine_download_queued">Menunggu giliran…</string>
@@ -95,7 +95,7 @@
     <string name="mine_skip_op_desc">Untuk anime yang OP-nya sudah anda tandakan dalam pemain</string>
     <string name="mine_jump85">Butang +85 saat</string>
     <string name="mine_jump85_desc">Lompat 85 saat pada permulaan episod yang OP-nya belum ditandakan</string>
-    <string name="mine_double_tap">Ketik dua kali untuk lompat</string>
+    <string name="mine_double_tap">Ketuk dua kali untuk lompat</string>
     <string name="mine_seconds_short">%1$ds</string>
     <string name="mine_notify_new">Pemberitahuan episod baharu</string>
     <string name="mine_notify_new_desc">Semak anime kegemaran yang masih bersiaran setiap 6 jam</string>

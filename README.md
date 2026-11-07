@@ -25,6 +25,9 @@
 > [!TIP]
 > **Baru:** FuwaStream sekarang **tahan offline**. Beranda langsung tampil dari data terakhir, layar yang pernah dibuka tetap bisa dilihat tanpa internet, dan aplikasi memperbarui diri diam-diam begitu kamu kembali online.
 
+> [!NOTE]
+> Aplikasi tersedia dalam Bahasa Indonesia, Bahasa Melayu, English, dan 中文 (简体). Terjemahan Melayu dan Mandarin dibuat dengan mesin; koreksi dari penutur asli sangat kami hargai.
+
 ---
 
 ## 📱 Tampilan

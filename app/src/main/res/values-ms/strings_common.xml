@@ -25,6 +25,8 @@
     <string name="common_error_connect">Gagal menyambung ke pelayan.</string>
     <string name="common_error_server">Pelayan sedang bermasalah (%1$d).</string>
     <string name="common_error_generic">Berlaku ralat.</string>
+    <string name="common_error_anime_not_found">Anime tidak ditemui</string>
+    <string name="common_error_stream_unavailable">Strim tidak tersedia</string>
     <string name="common_error_title">Gagal memuatkan</string>
     <string name="common_retry">Cuba lagi</string>
     <string name="common_download_failed">Gagal muat turun: %1$s</string>
