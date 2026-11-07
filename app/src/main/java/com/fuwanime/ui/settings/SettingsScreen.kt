@@ -1,5 +1,20 @@
 package com.fuwanime.ui.settings
 
+import kotlinx.coroutines.flow.first
+import com.fuwanime.data.local.BackupPrefs
+import com.fuwanime.data.backup.BackupWorker
+import com.fuwanime.data.backup.BackupRepository
+import com.fuwanime.data.backup.BackupOutcome
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material.icons.rounded.Restore
+import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.rounded.Backup
+import androidx.compose.material.icons.rounded.Autorenew
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
+import android.provider.DocumentsContract
+import android.net.Uri
+import android.content.Intent
 import androidx.compose.foundation.layout.fillMaxHeight
 import com.fuwanime.ui.components.readableWidth
 import com.fuwanime.ui.components.frostedStyle
@@ -89,8 +104,11 @@ class SettingsViewModel(
     val store: SettingsStore,
     private val library: LibraryRepository,
     private val downloads: DownloadRepository,
+    val backup: BackupRepository,
     private val refreshHomeSurfaces: () -> Unit = {},
 ) : ViewModel() {
+    val backupPrefs: StateFlow<BackupPrefs?> = store.backup.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
     val settings: StateFlow<AppSettings> = store.settings.stateIn(viewModelScope, SharingStarted.Eagerly, AppSettings())
 
     fun update(block: suspend SettingsStore.() -> Unit) = viewModelScope.launch { store.block() }
@@ -111,13 +129,27 @@ class SettingsViewModel(
 @Composable
 fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit) {
     val vm: SettingsViewModel = fuwaViewModel { c, _ ->
-        SettingsViewModel(c.settingsStore, c.libraryRepository, c.downloadRepository, c::refreshHomeSurfaces)
+        SettingsViewModel(c.settingsStore, c.libraryRepository, c.downloadRepository, c.backupRepository, c::refreshHomeSurfaces)
     }
     val s by vm.settings.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var confirm by remember { mutableStateOf<Pair<String, () -> Unit>?>(null) }
+    val backupPrefs by vm.backupPrefs.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val say: (String) -> Unit = { msg -> scope.launch { snackbar.showSnackbar(msg) } }
+    val restore = rememberRestoreFlow(vm.backup, onRestored = {}, onMessage = say)
+    val pickFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        // Keep access across reboots; without this the daily worker loses the folder.
+        context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+        scope.launch {
+            vm.store.setBackupTree(uri.toString())
+            if (vm.store.backup.first().auto) BackupWorker.schedule(context)
+            say(backupMessage(vm.backup.backupNow()))
+        }
+    }
 
     val hazeState = remember { HazeState() }
     Scaffold(
@@ -252,6 +284,29 @@ fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit) {
                 }
             }
 
+            item { Group("Cadangan") }
+            backupPrefs?.let { b ->
+                item {
+                    ActionRow(Icons.Rounded.Folder, "Folder backup", b.treeUri?.let { folderName(Uri.parse(it)) } ?: "Belum dipilih") {
+                        pickFolder.launch(null)
+                    }
+                }
+                if (b.treeUri != null) {
+                    item {
+                        SwitchRow(Icons.Rounded.Autorenew, "Cadangkan otomatis", "Setiap hari", b.auto) { on ->
+                            scope.launch { vm.store.setBackupAuto(on) }
+                            if (on) BackupWorker.schedule(context) else BackupWorker.cancel(context)
+                        }
+                    }
+                }
+                item {
+                    ActionRow(Icons.Rounded.Backup, "Cadangkan sekarang", backupStatusLabel(b)) {
+                        scope.launch { say(backupMessage(vm.backup.backupNow())) }
+                    }
+                }
+                item { ActionRow(Icons.Rounded.Restore, "Pulihkan dari file", "Gabung dengan data di HP ini", restore) }
+            }
+
             item { Group("Data") }
             item {
                 ActionRow(Icons.Rounded.DeleteSweep, "Hapus riwayat tontonan", "Progres semua episode akan hilang") {
@@ -377,3 +432,14 @@ private fun <T> ChoiceRow(
         }
     }
 }
+
+private fun backupMessage(outcome: BackupOutcome): String = when (outcome) {
+    BackupOutcome.Written -> "Data dicadangkan"
+    BackupOutcome.SkippedEmpty -> "Belum ada data. Folder ini sudah berisi backup — pulihkan dulu?"
+    BackupOutcome.NoFolder -> "Pilih folder backup dulu"
+    is BackupOutcome.Failed -> outcome.message
+}
+
+/** "Download/Anime" from a tree id like "primary:Download/Anime". */
+private fun folderName(tree: Uri): String =
+    runCatching { DocumentsContract.getTreeDocumentId(tree).substringAfterLast(':') }.getOrNull()?.ifEmpty { null } ?: "Penyimpanan"
