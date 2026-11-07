@@ -1,5 +1,8 @@
 package com.fuwanime.ui.navigation
 
+import androidx.compose.material.icons.automirrored.rounded.MenuBook
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import com.fuwanime.ui.manga.MangaTabScreen
 import com.fuwanime.ui.manga.MangaReaderRoute
 import com.fuwanime.ui.manga.MangaDetailRoute
 import androidx.compose.ui.res.stringResource
@@ -107,7 +110,6 @@ import com.fuwanime.data.Episode
 import com.fuwanime.ui.detail.DetailRoute
 import com.fuwanime.ui.explore.ExploreRoute
 import com.fuwanime.ui.home.HomeRoute
-import com.fuwanime.ui.manga.ContentMode
 import com.fuwanime.ui.library.LibraryRoute
 import com.fuwanime.ui.legal.LegalRoute
 import com.fuwanime.ui.player.PlayerRoute
@@ -125,6 +127,7 @@ internal object Routes {
     const val SETTINGS = "settings"
     const val STATS = "stats"
     const val LEGAL = "legal/{type}"
+    const val MANGA_TAB = "manga_tab"
     const val MANGA_DETAIL = "manga/{mangaId}"
 
     fun mangaDetail(id: String) = "manga/${Uri.encode(id)}"
@@ -149,6 +152,7 @@ internal object Routes {
 private enum class Tab(val route: String, @StringRes val label: Int, val icon: ImageVector, val selectedIcon: ImageVector) {
     HOME(Routes.HOME, R.string.common_tab_home, Icons.Outlined.Home, Icons.Rounded.Home),
     EXPLORE(Routes.EXPLORE, R.string.common_tab_explore, Icons.Outlined.Explore, Icons.Rounded.Explore),
+    MANGA(Routes.MANGA_TAB, R.string.manga_tab, Icons.AutoMirrored.Outlined.MenuBook, Icons.AutoMirrored.Rounded.MenuBook),
     SCHEDULE(Routes.SCHEDULE, R.string.common_tab_schedule, Icons.Outlined.CalendarMonth, Icons.Rounded.CalendarMonth),
     LIBRARY(Routes.LIBRARY, R.string.common_tab_library, Icons.Outlined.VideoLibrary, Icons.Rounded.VideoLibrary),
 }
@@ -223,7 +227,6 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
         nav.navigate(Routes.player(animeId, ep.id, ep.number, thumb, shared))
     }
     val reduceMotion = rememberReduceMotion()
-    var contentMode by rememberSaveable { mutableStateOf(ContentMode.ANIME) }
     val openManga: (String) -> Unit = { nav.navigate(Routes.mangaDetail(it)) }
     // Fresh Explore entry (no restoreState) so the new genre/focus arguments take effect.
     val openExplore: (String?, Boolean) -> Unit = { genre, focus ->
@@ -325,10 +328,6 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
                                     onSettings = { nav.navigate(Routes.SETTINGS) },
                                     onSchedule = { nav.navigateTab(Routes.SCHEDULE) },
                                     onExplore = { g -> openExplore(g, false) },
-                                    mode = contentMode,
-                                    onModeChange = { contentMode = it },
-                                    onMangaClick = openManga,
-                                    onMangaRead = { m, c -> nav.navigate(Routes.mangaReader(m, c)) },
                                 )
                             }
                         }
@@ -343,11 +342,11 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
                                 ExploreRoute(
                                     focusSearch = entry.arguments?.getBoolean("focus") == true,
                                     onAnimeClick = openAnime,
-                                    mode = contentMode,
-                                    onModeChange = { contentMode = it },
-                                    onMangaClick = openManga,
                                 )
                             }
+                        }
+                        composable(Routes.MANGA_TAB) {
+                            Scoped { MangaTabScreen(onMangaClick = openManga, onRead = { m, c -> nav.navigate(Routes.mangaReader(m, c)) }) }
                         }
                         composable(
                             Routes.MANGA_DETAIL,
