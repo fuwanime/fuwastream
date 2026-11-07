@@ -8,6 +8,8 @@ import com.fuwanime.data.backup.isBackedUpSetting
 import com.fuwanime.data.backup.settingTypeAccepted
 import com.fuwanime.data.backup.shouldWriteBackup
 import com.fuwanime.data.local.FavoriteEntity
+import com.fuwanime.data.local.MangaFavoriteEntity
+import com.fuwanime.data.local.MangaHistoryEntity
 import com.fuwanime.data.local.SearchHistoryEntity
 import com.fuwanime.data.local.WatchDailyEntity
 import com.fuwanime.data.local.WatchHistoryEntity
@@ -24,12 +26,27 @@ class BackupCodecTest {
         watchDaily = listOf(WatchDailyEntity(20399, 1_200_000)),
         searches = listOf(SearchHistoryEntity("frieren", 9)),
         settings = listOf(SettingEntry("theme_mode", "string", "DARK"), SettingEntry("auto_pip", "boolean", "true")),
+        mangaFavorites = listOf(MangaFavoriteEntity("m1", "Chainsaw", null, 3)),
+        mangaHistory = listOf(MangaHistoryEntity("c1", "m1", "Chainsaw", "u", "Ch 1", 4, 20, 8)),
     )
 
     @Test fun roundTripKeepsEverything() = assertEquals(BackupResult.Ok(file), BackupCodec.decode(BackupCodec.encode(file)))
 
     @Test fun newerFormatIsTooNew() =
-        assertEquals(BackupResult.TooNew, BackupCodec.decode(BackupCodec.encode(file).replace("\"format\":1", "\"format\":2")))
+        assertEquals(BackupResult.TooNew, BackupCodec.decode(BackupCodec.encode(file).replace("\"format\":2", "\"format\":3")))
+
+    @Test fun formatOneStillDecodes() {
+        val v1 = """{"format":1,"app":"fuwanime","createdAt":1,"favorites":[],"history":[],"watchDaily":[],"searches":[],"settings":[]}"""
+        val r = BackupCodec.decode(v1) as BackupResult.Ok
+        assertEquals(emptyList<MangaFavoriteEntity>(), r.file.mangaFavorites)
+        assertEquals(emptyList<MangaHistoryEntity>(), r.file.mangaHistory)
+    }
+
+    @Test fun roundTripFormatTwo() {
+        val json = BackupCodec.encode(file)
+        assertTrue(json.contains("\"format\":2"))
+        assertEquals(BackupResult.Ok(file), BackupCodec.decode(json))
+    }
 
     @Test fun truncatedIsCorrupt() = assertEquals(BackupResult.Corrupt, BackupCodec.decode(BackupCodec.encode(file).dropLast(10)))
 
