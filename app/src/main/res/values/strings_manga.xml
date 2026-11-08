@@ -45,7 +45,6 @@
     <string name="manga_restore_summary">Manga: %1$d favorit, %2$d riwayat baca.</string>
     <string name="manga_home_popular_id">Populer di Indonesia</string>
     <string name="manga_credit_shinigami">Data &amp; gambar dari Shinigami</string>
-    <string name="manga_credit_both">Info dari MangaDex · chapter dari Shinigami</string>
     <string name="manga_reader_source_shinigami">Sumber: Shinigami</string>
     <string name="manga_home_komiku">Klasik &amp; tamat lengkap</string>
     <string name="manga_settings_mature">Konten dewasa</string>
@@ -66,4 +65,8 @@
     <string name="manga_info_source">Sumber</string>
     <string name="manga_info_updated">Diperbarui</string>
     <string name="manga_reader_pick">Pilih chapter</string>
+    <string name="manga_lang_id">Indonesia</string>
+    <string name="manga_lang_en">Inggris</string>
+    <string name="manga_lang_raw">Raw</string>
+    <string name="manga_credit_merged">Data &amp; gambar dari %1$s</string>
 </resources>

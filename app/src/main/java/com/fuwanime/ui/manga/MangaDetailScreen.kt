@@ -13,6 +13,12 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
 import androidx.compose.ui.semantics.semantics
 import java.text.DateFormat
+import java.util.Locale
+import com.fuwanime.data.manga.ChapterLang
+import com.fuwanime.data.manga.availableLanguages
+import com.fuwanime.data.manga.effectiveLanguage
+import com.fuwanime.data.manga.mergeChapters
+import com.fuwanime.data.manga.sourceRank
 import java.util.Date
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -98,8 +104,6 @@ data class MangaDetailState(
     val chaptersError: UiText? = null,
     val history: List<MangaHistoryEntity> = emptyList(),
     val favorite: Boolean = false,
-    /** Set when the chapters come from the same title on Shinigami (MangaDex had nothing readable here). */
-    val readFrom: Manga? = null,
 )
 
 class MangaDetailViewModel(private val id: String, private val repo: MangaRepository, private val library: MangaLibrary) : ViewModel() {
@@ -108,35 +112,28 @@ class MangaDetailViewModel(private val id: String, private val repo: MangaReposi
         val chapters: List<MangaChapter>? = null,
         val error: UiText? = null,
         val chaptersError: UiText? = null,
-        val readFrom: Manga? = null,
     )
 
     private val remote = MutableStateFlow(Remote())
 
     val state: StateFlow<MangaDetailState> =
         combine(remote, library.historyFor(id), library.isFavorite(id)) { r, h, f ->
-            MangaDetailState(r.manga, r.chapters, r.error, r.chaptersError, h, f, r.readFrom)
+            MangaDetailState(r.manga, r.chapters, r.error, r.chaptersError, h, f)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MangaDetailState())
 
     init { load() }
 
     fun load() {
         remote.value = Remote()
+        repo.clearMerged(id)
         viewModelScope.launch {
             val manga = try { repo.detail(id) } catch (e: CancellationException) { throw e } catch (e: Exception) {
                 remote.value = Remote(error = e.friendlyText()); return@launch
             }
             remote.value = Remote(manga = manga)
             try {
-                val chapters = repo.chapters(id)
-                val inApp = chapters.any { it.externalUrl == null && it.pages > 0 }
-                // Nothing readable here (licensed or not uploaded): read the same title from Shinigami, still in the app.
-                val alt = if (!inApp && !isShinigamiId(id) && !isKomikuId(id)) runCatching { repo.findOnShinigami(manga) }.getOrNull() else null
-                remote.value = if (alt != null) {
-                    remote.value.copy(chapters = repo.chapters(alt.id), readFrom = alt)
-                } else {
-                    remote.value.copy(chapters = chapters)
-                }
+                // Every source's chapters, every language; the screen picks one language and the best source per chapter.
+                remote.value = remote.value.copy(chapters = repo.mergedChapters(manga))
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -163,13 +160,21 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
             state.error != null -> Box(Modifier.fillMaxSize().statusBarsPadding(), contentAlignment = Alignment.Center) { ErrorState(state.error!!, vm::load) }
             manga == null -> Unit
             else -> {
-                // Reading (and its history) belongs to the title the chapters came from.
-                val readId = state.readFrom?.id ?: mangaId
+                // History stays under the opened title, whichever source a chapter comes from.
+                val readId = mangaId
                 val readIds = state.history.mapTo(HashSet()) { it.chapterId }
-                val target = state.chapters?.let { resumeTarget(it, state.history) }
-                val resumed = target != null && target.id in readIds
+                val available = remember(state.chapters) { state.chapters?.let(::availableLanguages).orEmpty() }
+                var chosen by rememberSaveable(mangaId) { mutableStateOf<ChapterLang?>(null) }
+                val lang = effectiveLanguage(chosen, available, Locale.getDefault().language)
                 // Everything is read in the app: chapters that only exist on an external site (or have no pages) are left out.
-                val inApp = remember(state.chapters) { state.chapters?.filter { it.externalUrl == null && it.pages > 0 } }
+                val inApp = remember(state.chapters, lang) {
+                    state.chapters?.let { all -> lang?.let { mergeChapters(all, it) }.orEmpty().filter { it.externalUrl == null && it.pages > 0 } }
+                }
+                val target = inApp?.let { resumeTarget(it, state.history) }
+                val resumed = target != null && target.id in readIds
+                val sources = remember(state.chapters) {
+                    state.chapters.orEmpty().map { sourceRank(it.id) }.distinct().sorted().map { SOURCE_NAMES[it] }
+                }
                 val ranges = remember(inApp) { inApp?.let { chapterRanges(it) }.orEmpty() }
                 var picked by rememberSaveable(mangaId) { mutableIntStateOf(-1) }
                 // Until the user picks a range, open the one holding the chapter "Lanjut" would read.
@@ -183,13 +188,12 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
                 ) {
                     item(key = "header") { Header(manga, state.favorite, vm::toggleFavorite) }
                     item(key = "info") {
-                        val source = when {
+                        val own = when {
                             isShinigamiId(mangaId) -> "Shinigami"
                             isKomikuId(mangaId) -> "Komiku"
-                            state.readFrom != null -> "MangaDex + " + (if (isKomikuId(state.readFrom!!.id)) "Komiku" else "Shinigami")
                             else -> "MangaDex"
                         }
-                        InfoTable(manga, source, inApp?.maxOfOrNull { it.publishAt }?.takeIf { it > 0 })
+                        InfoTable(manga, sources.ifEmpty { listOf(own) }.joinToString(" + "), inApp?.maxOfOrNull { it.publishAt }?.takeIf { it > 0 })
                     }
                     item(key = "read") {
                         Button(
@@ -232,6 +236,15 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
                             MessageState(Icons.AutoMirrored.Rounded.MenuBook, stringResource(R.string.manga_detail_no_chapters))
                         }
                         else -> {
+                            if (available.size >= 2) {
+                                item(key = "chLangs") {
+                                    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        items(available) { l ->
+                                            TagChip(stringResource(LANG_LABELS.getValue(l)), onClick = { chosen = l; picked = -1 }, selected = l == lang)
+                                        }
+                                    }
+                                }
+                            }
                             if (ranges.isNotEmpty()) {
                                 item(key = "chRanges") {
                                     LazyRow(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -253,14 +266,17 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
                     }
                     item(key = "credit") {
                         Text(
-                            stringResource(
-                                when {
-                                    isShinigamiId(mangaId) -> R.string.manga_credit_shinigami
-                                    isKomikuId(mangaId) || state.readFrom?.id?.let(::isKomikuId) == true -> R.string.manga_credit_komiku
-                                    state.readFrom != null -> R.string.manga_credit_both
-                                    else -> R.string.manga_credit_mangadex
-                                },
-                            ),
+                            if (sources.size > 1) {
+                                stringResource(R.string.manga_credit_merged, sources.joinToString(" + "))
+                            } else {
+                                stringResource(
+                                    when {
+                                        isShinigamiId(mangaId) -> R.string.manga_credit_shinigami
+                                        isKomikuId(mangaId) -> R.string.manga_credit_komiku
+                                        else -> R.string.manga_credit_mangadex
+                                    },
+                                )
+                            },
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp).navigationBarsPadding(),
@@ -274,6 +290,9 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
         }
     }
 }
+
+private val SOURCE_NAMES = listOf("Shinigami", "Komiku", "MangaDex") // indexed by sourceRank
+private val LANG_LABELS = mapOf(ChapterLang.ID to R.string.manga_lang_id, ChapterLang.EN to R.string.manga_lang_en, ChapterLang.RAW to R.string.manga_lang_raw)
 
 /** "Ch. 12", or the chapter title for a oneshot without a number. */
 @Composable
