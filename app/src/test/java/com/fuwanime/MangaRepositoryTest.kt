@@ -1,6 +1,9 @@
 package com.fuwanime
 
+import com.fuwanime.data.manga.Manga
 import com.fuwanime.data.manga.MangaDexApi
+import com.fuwanime.data.manga.MangaStatus
+import com.fuwanime.data.manga.MangaType
 import com.fuwanime.data.manga.MangaOrder
 import com.fuwanime.data.manga.MangaRepository
 import com.fuwanime.data.manga.RateLimitInterceptor
@@ -55,6 +58,29 @@ class MangaRepositoryTest {
         assertTrue(path, path.contains("order%5Brelevance%5D=desc"))
         assertTrue(path, path.contains("title=frieren"))
         assertFalse(path, path.contains("followedCount"))
+    }
+
+    @Test fun chaptersRequestRawLanguages() = runBlocking {
+        server.enqueue(json(fixture("feed.json")))
+        repo.chapters("m1")
+        val path = server.takeRequest().path!!
+        listOf("id", "en", "ja", "ko", "zh", "zh-hk").forEach { assertTrue(path, path.contains("translatedLanguage%5B%5D=$it")) }
+    }
+
+    @Test fun mergedChaptersKeepEveryLanguageAndCache() = runBlocking {
+        server.enqueue(json(
+            """{"total":2,"data":[{"id":"i1","attributes":{"chapter":"1","translatedLanguage":"id","pages":5}},{"id":"e1","attributes":{"chapter":"1","translatedLanguage":"en","pages":5}}]}""",
+        ))
+        val m = Manga("m1", "T", null, "", emptyList(), MangaStatus.ONGOING, null, null)
+        assertEquals(2, repo.mergedChapters(m).size)
+        repo.mergedChapters(m)
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test fun browseSendsOriginalLanguageForType() = runBlocking {
+        server.enqueue(json(fixture("manga_list.json")))
+        repo.browse(MangaOrder.POPULAR, type = MangaType.MANHWA)
+        assertTrue(server.takeRequest().path!!.contains("originalLanguage%5B%5D=ko"))
     }
 
     @Test fun chaptersPagesThroughFeed() = runBlocking {

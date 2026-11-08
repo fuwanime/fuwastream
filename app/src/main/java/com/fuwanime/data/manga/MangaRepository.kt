@@ -4,6 +4,10 @@ import com.fuwanime.R
 import com.fuwanime.util.UiText
 import com.fuwanime.util.UiTextException
 import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withTimeoutOrNull
 import retrofit2.HttpException
 
 /** RELEVANCE only makes sense together with a title query. */
@@ -24,6 +28,8 @@ class MangaRepository(
 ) {
     private val atHomeCache = ConcurrentHashMap<String, Pair<Long, AtHomeDto>>()
     @Volatile private var tagCache: List<MangaTag>? = null
+    private val sourceCache = ConcurrentHashMap<String, List<Manga>>()
+    private val mergedCache = ConcurrentHashMap<String, List<MangaChapter>>()
 
     suspend fun browse(
         order: MangaOrder,
@@ -31,6 +37,7 @@ class MangaRepository(
         tagIds: List<String> = emptyList(),
         status: MangaStatus? = null,
         offset: Int = 0,
+        type: MangaType? = null,
     ): MangaPage {
         val dto = call {
             api.mangaList(
@@ -44,6 +51,7 @@ class MangaRepository(
                 includes = listOf("cover_art"),
                 // Only titles with at least one uploaded chapter in id/en; others would open to an empty chapter list.
                 hasAvailableChapters = true,
+                originalLanguages = type?.mangaDex.orEmpty(),
             )
         }
         val lang = appLanguage()
@@ -61,10 +69,39 @@ class MangaRepository(
     /** Popular Komiku titles; [page] is 1-based, 10 per page. */
     suspend fun popularKomiku(page: Int = 1): MangaPage = komiku?.browse("meta_value_num", page) ?: MangaPage(emptyList(), 0, 0)
 
-    /** The same title on an Indonesian source (Shinigami, then Komiku), for titles with nothing readable in the app. */
-    suspend fun findOnShinigami(manga: Manga): Manga? {
+    /** The MangaDex entry for a title (tries each name in order), or null. */
+    suspend fun findOnMangaDex(names: List<String>): Manga? {
+        for (name in names.filter { it.isNotBlank() }.distinct().take(3)) {
+            val hit = runCatching { browse(MangaOrder.RELEVANCE, name).items }.getOrNull()
+                ?.firstOrNull { sameTitle(name, it.title, it.altTitles) }
+            if (hit != null) return hit
+        }
+        return null
+    }
+
+    /** [manga] plus the same title on the other sources; a lookup that fails or takes over 8 s is left out. */
+    suspend fun sources(manga: Manga): List<Manga> = sourceCache[manga.id] ?: coroutineScope {
         val names = listOf(manga.title) + manga.altTitles
-        return runCatching { shinigami?.find(names) }.getOrNull() ?: runCatching { komiku?.find(names) }.getOrNull()
+        suspend fun look(block: suspend () -> Manga?) = runCatching { withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { block() } }.getOrNull()
+        val others = listOfNotNull(
+            if (isShinigamiId(manga.id)) null else async { look { shinigami?.find(names) } },
+            if (isKomikuId(manga.id)) null else async { look { komiku?.find(names) } },
+            if (isShinigamiId(manga.id) || isKomikuId(manga.id)) async { look { findOnMangaDex(names) } } else null,
+        ).awaitAll().filterNotNull()
+        (listOf(manga) + others).also { sourceCache[manga.id] = it }
+    }
+
+    /** Every chapter of [manga] on every source, all languages; [mergeChapters] picks per language. Fails only if every source fails. */
+    suspend fun mergedChapters(manga: Manga): List<MangaChapter> = mergedCache[manga.id] ?: coroutineScope {
+        val results = sources(manga).map { m -> async { runCatching { chapters(m.id) } } }.awaitAll()
+        if (results.all { it.isFailure }) throw results.first().exceptionOrNull()!!
+        results.flatMap { it.getOrDefault(emptyList()) }.also { mergedCache[manga.id] = it }
+    }
+
+    /** Forget the cached sources and chapters of one title, so a retry looks again. */
+    fun clearMerged(mangaId: String) {
+        sourceCache.remove(mangaId)
+        mergedCache.remove(mangaId)
     }
 
     suspend fun detail(id: String): Manga {
@@ -80,12 +117,12 @@ class MangaRepository(
         val all = ArrayList<MangaChapter>()
         var offset = 0
         while (true) {
-            val feed = call { api.feed(id, FEED_LIMIT, offset, CATALOG_LANGS, ratings(), listOf("scanlation_group")) }
+            val feed = call { api.feed(id, FEED_LIMIT, offset, FEED_LANGS, ratings(), listOf("scanlation_group")) }
             all += feed.data.map { it.toChapter() }
             offset += FEED_LIMIT
             if (feed.data.isEmpty() || offset >= feed.total) break
         }
-        return pickChapters(all, chapterLanguageFor(appLanguage()))
+        return all
     }
 
     suspend fun pages(chapterId: String, dataSaver: Boolean, forceRefresh: Boolean = false): List<String> {
@@ -114,6 +151,9 @@ class MangaRepository(
         const val FEED_LIMIT = 500
         const val BASE_URL_TTL_MS = 14 * 60_000L
         val CATALOG_LANGS = listOf("id", "en")
+        // Chapter feeds also bring raw uploads for the Raw language chip.
+        val FEED_LANGS = listOf("id", "en", "ja", "ko", "zh", "zh-hk")
+        const val LOOKUP_TIMEOUT_MS = 8_000L
         val RATINGS = listOf("safe", "suggestive")
         val RATINGS_MATURE = RATINGS + "erotica"
     }
