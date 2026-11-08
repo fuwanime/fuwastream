@@ -80,6 +80,9 @@ import com.fuwanime.R
 import com.fuwanime.data.local.SettingsStore
 import com.fuwanime.data.manga.Manga
 import com.fuwanime.data.manga.MangaChapter
+import com.fuwanime.data.manga.mergeChapters
+import com.fuwanime.data.manga.readerLanguage
+import java.util.Locale
 import com.fuwanime.data.manga.MangaLibrary
 import com.fuwanime.data.manga.MangaRepository
 import com.fuwanime.data.manga.nextChapter
@@ -142,7 +145,11 @@ class MangaReaderViewModel(
         viewModelScope.launch {
             try {
                 val manga = _state.value.manga ?: repo.detail(mangaId)
-                val chapters = _state.value.chapters.ifEmpty { repo.chapters(mangaId) }
+                // Same merged list as the detail page (cached there), kept to the language of the opened chapter.
+                val chapters = _state.value.chapters.ifEmpty {
+                    val all = repo.mergedChapters(manga)
+                    readerLanguage(all, chapterId, Locale.getDefault().language)?.let { mergeChapters(all, it) } ?: all
+                }
                 val saved = library.historyFor(mangaId).first().firstOrNull { it.chapterId == chapterId }
                 val chapter = readerChapter(chapters, chapterId, saved?.chapterLabel)
                 val dataSaver = settings.mangaDataSaver.first()
