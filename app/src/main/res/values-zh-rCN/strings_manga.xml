@@ -77,7 +77,6 @@
     <string name="manga_download_range">下载 %1$s</string>
     <string name="manga_download_all">全部下载</string>
     <plurals name="manga_download_queued">
-        <item quantity="one">已将 %d 章加入下载队列</item>
         <item quantity="other">已将 %d 章加入下载队列</item>
     </plurals>
     <string name="manga_download_state_queued">排队中</string>

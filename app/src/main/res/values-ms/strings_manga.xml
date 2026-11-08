@@ -77,7 +77,6 @@
     <string name="manga_download_range">Muat turun %1$s</string>
     <string name="manga_download_all">Muat turun semua</string>
     <plurals name="manga_download_queued">
-        <item quantity="one">%d bab dalam baris gilir</item>
         <item quantity="other">%d bab dalam baris gilir</item>
     </plurals>
     <string name="manga_download_state_queued">Dalam baris gilir</string>

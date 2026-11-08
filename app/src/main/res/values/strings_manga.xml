@@ -77,7 +77,6 @@
     <string name="manga_download_range">Unduh %1$s</string>
     <string name="manga_download_all">Unduh semua</string>
     <plurals name="manga_download_queued">
-        <item quantity="one">%d chapter masuk antrean unduhan</item>
         <item quantity="other">%d chapter masuk antrean unduhan</item>
     </plurals>
     <string name="manga_download_state_queued">Dalam antrean</string>
