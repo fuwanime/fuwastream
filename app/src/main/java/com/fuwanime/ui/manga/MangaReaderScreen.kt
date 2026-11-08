@@ -80,6 +80,9 @@ import com.fuwanime.R
 import com.fuwanime.data.local.SettingsStore
 import com.fuwanime.data.manga.Manga
 import com.fuwanime.data.manga.MangaChapter
+import com.fuwanime.data.manga.MangaDownloadRepository
+import com.fuwanime.data.manga.MangaStatus
+import com.fuwanime.data.local.MangaDownloadState
 import com.fuwanime.data.manga.mergeChapters
 import com.fuwanime.data.manga.readerLanguage
 import com.fuwanime.data.manga.withChapter
@@ -133,6 +136,7 @@ class MangaReaderViewModel(
     private val repo: MangaRepository,
     private val library: MangaLibrary,
     private val settings: SettingsStore,
+    private val downloads: MangaDownloadRepository,
     /** Outlives the screen, so the save on exit isn't cancelled with viewModelScope. */
     private val appScope: kotlinx.coroutines.CoroutineScope,
 ) : ViewModel() {
@@ -148,13 +152,23 @@ class MangaReaderViewModel(
                 val dataSaver = settings.mangaDataSaver.first()
                 // Pages don't depend on the chapter list; fetch them while the sources are merged.
                 // runCatching: a failed async child would otherwise cancel this coroutine and crash past the catch below.
-                val pagesJob = async { runCatching { repo.pages(chapterId, dataSaver) } }
-                val manga = _state.value.manga ?: repo.detail(mangaId)
-                // Same merged list as the detail page (cached there), kept to the language of the opened chapter.
-                val chapters = _state.value.chapters.ifEmpty {
-                    val all = repo.mergedChapters(manga)
-                    val merged = readerLanguage(all, chapterId, repo.language())?.let { mergeChapters(all, it) } ?: all
-                    all.firstOrNull { it.id == chapterId }?.let { withChapter(merged, it) } ?: merged
+                // A downloaded chapter reads its saved images, no network.
+                val pagesJob = async { runCatching { downloads.localPages(chapterId) ?: repo.pages(chapterId, dataSaver) } }
+                val (manga, chapters) = try {
+                    val manga = _state.value.manga ?: repo.detail(mangaId)
+                    // Same merged list as the detail page (cached there), kept to the language of the opened chapter.
+                    manga to _state.value.chapters.ifEmpty {
+                        val all = repo.mergedChapters(manga)
+                        val merged = readerLanguage(all, chapterId, repo.language())?.let { mergeChapters(all, it) } ?: all
+                        all.firstOrNull { it.id == chapterId }?.let { withChapter(merged, it) } ?: merged
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    // Offline: a downloaded chapter still opens, with Prev/Next among the downloaded chapters.
+                    val row = downloads.row(chapterId)?.takeIf { it.state == MangaDownloadState.DONE.name } ?: throw e
+                    (_state.value.manga ?: Manga(row.mangaId, row.mangaTitle, row.coverUrl, "", emptyList(), MangaStatus.UNKNOWN, null, null)) to
+                        downloads.offline(mangaId)
                 }
                 val saved = library.historyFor(mangaId).first().firstOrNull { it.chapterId == chapterId }
                 val chapter = readerChapter(chapters, chapterId, saved?.chapterLabel)
@@ -194,7 +208,7 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
 @Composable
 fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
     val vm: MangaReaderViewModel = fuwaViewModel(key = "reader-$mangaId-$chapterId") { c, _ ->
-        MangaReaderViewModel(mangaId, chapterId, c.mangaRepository, c.mangaLibrary, c.settingsStore, c.appScope)
+        MangaReaderViewModel(mangaId, chapterId, c.mangaRepository, c.mangaLibrary, c.settingsStore, c.mangaDownloads, c.appScope)
     }
     val state by vm.state.collectAsStateWithLifecycle()
     var barsVisible by rememberSaveable { mutableStateOf(true) }
