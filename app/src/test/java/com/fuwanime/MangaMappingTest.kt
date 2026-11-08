@@ -37,6 +37,14 @@ class MangaMappingTest {
         assertEquals(MangaStatus.ONGOING, m.status)
     }
 
+    @Test fun typeFromOriginalLanguage() {
+        assertEquals("Manga", mangaType("ja"))
+        assertEquals("Manhwa", mangaType("ko"))
+        assertEquals("Manhua", mangaType("zh-hk"))
+        assertNull(mangaType("en"))
+        assertNull(mangaType(null))
+    }
+
     @Test fun descriptionPrefersAppLanguage() {
         val d = load("manga_list.json", MangaListDto::class.java).data[0]
         assertEquals("I", d.toManga("id", 256).description)

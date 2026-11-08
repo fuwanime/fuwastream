@@ -63,6 +63,7 @@ fun parseKomikuDetail(html: String, slug: String): Manga {
         },
         year = null,
         author = infoRow(html, "Author"),
+        type = infoRow(html, "Tipe"),
         altTitles = infoRow(html, "Judul Alternatif")?.split(',', '/')?.map { it.trim() }?.filter { it.isNotEmpty() && it != title }.orEmpty(),
     )
 }

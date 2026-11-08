@@ -55,6 +55,10 @@ fun MangaTabScreen(onMangaClick: (String) -> Unit, onRead: (mangaId: String, cha
         homeVm.start()
         exploreVm.start()
     }
+    val genre by pendingMangaGenre.collectAsStateWithLifecycle()
+    LaunchedEffect(genre) {
+        genre?.let { exploreVm.applyGenre(it); pendingMangaGenre.value = null }
+    }
 
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Text(

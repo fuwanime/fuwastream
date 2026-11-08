@@ -59,4 +59,11 @@
     <string name="manga_genre_comedy">Komedi</string>
     <string name="manga_genre_fantasy">Fantasi</string>
     <string name="manga_genre_isekai">Isekai</string>
+    <string name="manga_info_status">Status</string>
+    <string name="manga_info_type">Tipe</string>
+    <string name="manga_info_year">Tahun</string>
+    <string name="manga_info_author">Pengarang</string>
+    <string name="manga_info_source">Sumber</string>
+    <string name="manga_info_updated">Diperbarui</string>
+    <string name="manga_reader_pick">Pilih chapter</string>
 </resources>

@@ -59,4 +59,11 @@
     <string name="manga_genre_comedy">喜剧</string>
     <string name="manga_genre_fantasy">奇幻</string>
     <string name="manga_genre_isekai">异世界</string>
+    <string name="manga_info_status">状态</string>
+    <string name="manga_info_type">类型</string>
+    <string name="manga_info_year">年份</string>
+    <string name="manga_info_author">作者</string>
+    <string name="manga_info_source">来源</string>
+    <string name="manga_info_updated">更新</string>
+    <string name="manga_reader_pick">选择章节</string>
 </resources>

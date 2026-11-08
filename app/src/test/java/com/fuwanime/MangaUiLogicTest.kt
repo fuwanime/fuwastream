@@ -3,7 +3,9 @@ package com.fuwanime
 import com.fuwanime.data.local.MangaHistoryEntity
 import com.fuwanime.data.manga.MangaChapter
 import com.fuwanime.data.manga.pickChapters
+import com.fuwanime.data.manga.MangaTag
 import com.fuwanime.ui.manga.chapterRanges
+import com.fuwanime.ui.manga.genreTagId
 import com.fuwanime.ui.manga.rangeLabel
 import com.fuwanime.ui.manga.readerChapter
 import com.fuwanime.ui.manga.readerStartIndex
@@ -69,4 +71,10 @@ class MangaUiLogicTest {
         val list = listOf(ch("a", "0.5"), ch("b", "1")) + (2..101).map { ch("c$it", it.toString()) }
         assertEquals("0.5–99", rangeLabel(list, chapterRanges(list)[0]))
     }
+
+    private val tags = listOf(MangaTag("t1", "Action", "genre"), MangaTag("t2", "Slice of Life", "genre"))
+
+    @Test fun genreTagIdMatchesIgnoringCase() = assertEquals("t2", genreTagId("slice of life", tags))
+
+    @Test fun genreTagIdNullWhenUnknown() = assertNull(genreTagId("Aksi", tags))
 }

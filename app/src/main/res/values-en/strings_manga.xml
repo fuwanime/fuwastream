@@ -60,4 +60,11 @@
     <string name="manga_genre_comedy">Comedy</string>
     <string name="manga_genre_fantasy">Fantasy</string>
     <string name="manga_genre_isekai">Isekai</string>
+    <string name="manga_info_status">Status</string>
+    <string name="manga_info_type">Type</string>
+    <string name="manga_info_year">Year</string>
+    <string name="manga_info_author">Author</string>
+    <string name="manga_info_source">Source</string>
+    <string name="manga_info_updated">Updated</string>
+    <string name="manga_reader_pick">Choose chapter</string>
 </resources>

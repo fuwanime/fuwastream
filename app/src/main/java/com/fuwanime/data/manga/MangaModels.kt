@@ -17,7 +17,17 @@ data class Manga(
     val author: String?,
     /** Other names (romaji, English, …); used to find the same title on another source. */
     val altTitles: List<String> = emptyList(),
+    /** "Manga", "Manhwa" or "Manhua" when the source says. */
+    val type: String? = null,
 )
+
+/** The format name from MangaDex's original language. */
+fun mangaType(originalLanguage: String?): String? = when (originalLanguage?.substringBefore('-')) {
+    "ja" -> "Manga"
+    "ko" -> "Manhwa"
+    "zh" -> "Manhua"
+    else -> null
+}
 
 data class MangaChapter(
     val id: String,
@@ -63,6 +73,7 @@ fun MangaDto.toManga(appLanguage: String, coverSize: Int): Manga {
         },
         year = a.year,
         author = relationships.firstOrNull { it.type == "author" }?.attributes?.name,
+        type = mangaType(a.originalLanguage),
         altTitles = (t.values + a.altTitles.flatMap { loc(it).filterKeys { k -> k == "en" || k.endsWith("-ro") }.values }).filter { it != title }.distinct(),
     )
 }

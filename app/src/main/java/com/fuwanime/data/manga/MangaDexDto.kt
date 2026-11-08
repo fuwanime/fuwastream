@@ -27,6 +27,7 @@ data class MangaAttributesDto(
     @Json(name = "description") val description: Any? = null,
     @Json(name = "status") val status: String? = null,
     @Json(name = "year") val year: Int? = null,
+    @Json(name = "originalLanguage") val originalLanguage: String? = null,
     @Json(name = "tags") val tags: List<TagDto> = emptyList(),
 )
 

@@ -58,11 +58,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 private const val PAGE_SIZE = 30 // MangaRepository's page size
 private const val OFFSET_CAP = 10_000 // MangaDex rejects offset + limit above this
@@ -71,6 +73,12 @@ private const val PREFETCH = 6
 /** Load the next page once the last visible item is within [PREFETCH] of the end, and only while the server has more and the offset cap allows it. */
 fun shouldLoadMore(lastVisible: Int, loaded: Int, total: Int): Boolean =
     loaded < total && loaded + PAGE_SIZE <= OFFSET_CAP && lastVisible >= loaded - PREFETCH
+
+/** The MangaDex tag a genre name from any source stands for, or null (Indonesian-only names have none). */
+fun genreTagId(name: String, tags: List<MangaTag>): String? = tags.firstOrNull { it.name.equals(name.trim(), ignoreCase = true) }?.id
+
+/** A genre tapped on a manga page, waiting for the Manga tab to show it as a filter. */
+val pendingMangaGenre = MutableStateFlow<String?>(null)
 
 private fun orderFor(query: String) = if (query.isBlank()) MangaOrder.POPULAR else MangaOrder.RELEVANCE
 
@@ -125,6 +133,16 @@ class MangaExploreViewModel(private val repo: MangaRepository) : ViewModel() {
     fun toggleTag(id: String) = _state.update { it.copy(tagIds = if (id in it.tagIds) it.tagIds - id else it.tagIds + id) }
     fun clearFilters() = _state.update { it.copy(query = "", status = null, tagIds = emptySet()) }
     fun reload() { retry.update { it + 1 } }
+
+    /** Shows one genre: as the MangaDex filter when the name matches a tag, else as a text search. */
+    fun applyGenre(name: String) {
+        viewModelScope.launch {
+            // On a cold tab the tag list may still be loading.
+            val tags = withTimeoutOrNull(5_000) { _state.first { it.tags.isNotEmpty() }.tags }.orEmpty()
+            val id = genreTagId(name, tags)
+            _state.update { if (id != null) it.copy(query = "", status = null, tagIds = setOf(id)) else it.copy(query = name, status = null, tagIds = emptySet()) }
+        }
+    }
 
     private suspend fun loadFirst(q: String, status: MangaStatus?, tags: Set<String>) {
         moreJob?.cancel()
