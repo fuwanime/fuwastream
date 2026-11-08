@@ -3,7 +3,10 @@ package com.fuwanime
 import com.fuwanime.data.local.MangaHistoryEntity
 import com.fuwanime.data.manga.MangaChapter
 import com.fuwanime.data.manga.pickChapters
+import com.fuwanime.data.manga.Manga
+import com.fuwanime.data.manga.MangaStatus
 import com.fuwanime.data.manga.MangaTag
+import com.fuwanime.ui.manga.dedupeByTitle
 import com.fuwanime.data.manga.withChapter
 import com.fuwanime.ui.manga.chapterRanges
 import com.fuwanime.ui.manga.genreTagId
@@ -90,4 +93,13 @@ class MangaUiLogicTest {
     @Test fun genreTagIdMatchesIgnoringCase() = assertEquals("t2", genreTagId("slice of life", tags))
 
     @Test fun genreTagIdNullWhenUnknown() = assertNull(genreTagId("Aksi", tags))
+
+    private fun m(id: String, title: String, alt: List<String> = emptyList()) =
+        Manga(id, title, null, "", emptyList(), MangaStatus.ONGOING, null, null, alt)
+
+    @Test fun dedupeKeepsFirstOfSameTitle() =
+        assertEquals(listOf("sh:1", "x"), dedupeByTitle(listOf(m("sh:1", "Solo Leveling"), m("km:1", "solo leveling"), m("x", "Berserk"))).map { it.id })
+
+    @Test fun dedupeMatchesAltTitles() =
+        assertEquals(listOf("a"), dedupeByTitle(listOf(m("a", "Ore dake Level Up na Ken"), m("b", "Solo Leveling", listOf("Ore dake Level Up na Ken")))).map { it.id })
 }

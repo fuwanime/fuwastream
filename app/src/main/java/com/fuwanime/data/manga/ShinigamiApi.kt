@@ -123,6 +123,7 @@ interface ShinigamiApi {
         @Query("page_size") pageSize: Int,
         @Query("sort") sort: String?,
         @Query("q") query: String?,
+        @Query("format") format: String? = null,
     ): ShListDto
 
     @GET("v1/manga/detail/{id}")
@@ -152,8 +153,8 @@ interface ShinigamiApi {
 
 /** Shinigami calls for [MangaRepository]: browse, detail, chapters, pages, and finding a MangaDex title there. */
 class ShinigamiSource(private val api: ShinigamiApi) {
-    suspend fun browse(sort: String?, query: String?, page: Int = 1): MangaPage {
-        val dto = api.list(page, PAGE_SIZE, sort, query?.trim()?.ifEmpty { null })
+    suspend fun browse(sort: String?, query: String?, page: Int = 1, format: String? = null): MangaPage {
+        val dto = api.list(page, PAGE_SIZE, sort, query?.trim()?.ifEmpty { null }, format)
         return MangaPage(dto.data.map { it.toManga() }, dto.meta.totalRecord, (page - 1) * PAGE_SIZE)
     }
 

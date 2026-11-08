@@ -59,7 +59,8 @@ class MangaRepository(
     }
 
     /** Popular Indonesian titles (Shinigami). */
-    suspend fun popularIndonesia(page: Int = 1): MangaPage = shinigami?.browse("popularity", null, page) ?: MangaPage(emptyList(), 0, 0)
+    suspend fun popularIndonesia(page: Int = 1, type: MangaType? = null): MangaPage =
+        shinigami?.browse("popularity", null, page, type?.slug) ?: MangaPage(emptyList(), 0, 0)
 
     /** Shinigami search results for [query]; empty when the source is off or fails. */
     suspend fun searchIndonesia(query: String): List<Manga> =
@@ -67,7 +68,8 @@ class MangaRepository(
             runCatching { komiku?.search(query) }.getOrNull().orEmpty()
 
     /** Popular Komiku titles; [page] is 1-based, 10 per page. */
-    suspend fun popularKomiku(page: Int = 1): MangaPage = komiku?.browse("meta_value_num", page) ?: MangaPage(emptyList(), 0, 0)
+    suspend fun popularKomiku(page: Int = 1, type: MangaType? = null): MangaPage =
+        komiku?.browse("meta_value_num", page, type?.slug) ?: MangaPage(emptyList(), 0, 0)
 
     /** The MangaDex entry for a title (tries each name in order), or null. */
     suspend fun findOnMangaDex(names: List<String>): Manga? {

@@ -2,6 +2,7 @@ package com.fuwanime.ui.manga
 
 import com.fuwanime.ui.components.SectionHeader
 import com.fuwanime.data.manga.MangaTag
+import com.fuwanime.data.manga.MangaType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
@@ -88,7 +89,7 @@ fun MangaTabScreen(onMangaClick: (String) -> Unit, onRead: (mangaId: String, cha
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp + LocalNavBarPadding.current)) {
                 mangaHomeItems(
                     home, topPad = 0.dp, onRetry = homeVm::refresh, onMangaClick = onMangaClick, onRead = onRead,
-                    middle = { GenreTiles(explore.tags, onPick = exploreVm::toggleTag) },
+                    middle = { GenreTiles(explore.tags, onPick = exploreVm::toggleTag, onType = exploreVm::setType) },
                 )
             }
         }
@@ -102,20 +103,23 @@ private val GENRE_TILES = listOf(
 )
 
 @Composable
-private fun GenreTiles(tags: List<MangaTag>, onPick: (String) -> Unit) {
+private fun GenreTiles(tags: List<MangaTag>, onPick: (String) -> Unit, onType: (MangaType) -> Unit) {
     val byName = tags.associateBy { it.name.lowercase() }
-    val tiles = GENRE_TILES.mapNotNull { (name, label) -> byName[name.lowercase()]?.let { it.id to label } }
-    if (tiles.isEmpty()) return
+    val genres = GENRE_TILES.mapNotNull { (name, label) -> byName[name.lowercase()]?.let { it.id to stringResource(label) } }
+    // Type tiles first (they need no tag list), then the genres.
+    val tiles: List<Pair<String, () -> Unit>> =
+        listOf(MangaType.MANHWA, MangaType.MANHUA, MangaType.MANGA).map { t -> t.label to { onType(t) } } +
+            genres.map { (id, label) -> label to { onPick(id) } }
     val colors = listOf(Color(0xFF3B2A5C), Color(0xFF5C2A44), Color(0xFF2A2F5C), Color(0xFF2A5C4E), Color(0xFF5C4A2A), Color(0xFF4A2A5C))
     Column(Modifier.padding(top = 24.dp)) {
         SectionHeader(stringResource(R.string.manga_home_genres))
         Spacer(Modifier.height(12.dp))
         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            itemsIndexed(tiles, key = { _, t -> t.first }) { i, (id, label) ->
+            itemsIndexed(tiles, key = { _, t -> t.first }) { i, (label, onClick) ->
                 Box(
-                    Modifier.size(width = 132.dp, height = 72.dp).clip(RoundedCornerShape(16.dp)).background(colors[i % colors.size]).clickable { onPick(id) }.padding(12.dp),
+                    Modifier.size(width = 132.dp, height = 72.dp).clip(RoundedCornerShape(16.dp)).background(colors[i % colors.size]).clickable(onClick = onClick).padding(12.dp),
                     contentAlignment = Alignment.BottomStart,
-                ) { Text(stringResource(label), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = Color.White) }
+                ) { Text(label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = Color.White) }
             }
         }
     }
