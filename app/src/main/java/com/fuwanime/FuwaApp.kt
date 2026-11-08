@@ -17,6 +17,9 @@ import com.fuwanime.data.DownloadRepository
 import com.fuwanime.data.LibraryRepository
 import com.fuwanime.data.local.FuwaDatabase
 import com.fuwanime.data.local.SettingsStore
+import com.fuwanime.data.manga.MangaDexApi
+import com.fuwanime.data.manga.MangaRepository
+import com.fuwanime.data.manga.RateLimitInterceptor
 import com.fuwanime.data.meta.AniListApi
 import com.fuwanime.data.meta.AniSkipApi
 import com.fuwanime.data.meta.AnimeLinkRepository
@@ -86,6 +89,24 @@ class AppContainer(private val app: Application) {
     }
     val animeLinkRepository by lazy { AnimeLinkRepository(database.animeLinkDao(), AniListApi.create(metaHttpClient)) }
     val skipRepository by lazy { SkipRepository(AniSkipApi.create(metaHttpClient)) }
+
+    /** MangaDex asks for a descriptive User-Agent and caps requests per second. */
+    val mangaHttpClient: OkHttpClient by lazy {
+        metaHttpClient.newBuilder()
+            .addInterceptor { chain ->
+                val req = chain.request()
+                chain.proceed(
+                    if (req.url.host == "api.mangadex.org") {
+                        req.newBuilder().header("User-Agent", "FuwaStream/${BuildConfig.VERSION_NAME} (github.com/SakamotoMrX/fuwanime)").build()
+                    } else req,
+                )
+            }
+            .addInterceptor(RateLimitInterceptor())
+            .build()
+    }
+    val mangaRepository by lazy {
+        MangaRepository(MangaDexApi.create(mangaHttpClient), appLanguage = { app.resources.configuration.locales[0].language })
+    }
 
     /** Daily backup file in a folder the user picked; survives an uninstall. */
     val backupRepository by lazy { BackupRepository(app, libraryRepository, settingsStore) }
