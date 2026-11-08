@@ -1,0 +1,4 @@
+{"result":"ok","response":"collection","total":2,"data":[
+{"id":"ch1","type":"chapter","attributes":{"chapter":"1","title":"Awal","translatedLanguage":"id","pages":20,"externalUrl":null,"publishAt":"2023-09-29T12:00:00+00:00"},"relationships":[{"id":"g1","type":"scanlation_group","attributes":{"name":"Grup A"}}]},
+{"id":"ch2","type":"chapter","attributes":{"chapter":null,"title":null,"translatedLanguage":"en","pages":0,"externalUrl":"https://mangaplus.shueisha.co.jp/viewer/1","publishAt":"2023-10-01T00:00:00+07:00"},"relationships":[]}
+]}

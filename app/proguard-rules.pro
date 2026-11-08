@@ -16,3 +16,6 @@
 -keep,allowobfuscation,allowshrinking class kotlin.coroutines.Continuation
 -keep,allowobfuscation,allowshrinking interface retrofit2.Call
 -keep,allowobfuscation,allowshrinking class retrofit2.Response
+
+# MangaDex DTOs (@JsonClass): keep so generated Moshi adapters resolve after R8.
+-keep class com.fuwanime.data.manga.** { *; }
