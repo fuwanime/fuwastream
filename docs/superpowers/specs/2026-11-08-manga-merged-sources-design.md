@@ -1,4 +1,4 @@
-# Manga: one title across sources, with a language switch
+# Manga: one title across sources, a language switch, and type filters
 
 Date: 2026-11-08 · Branch: `feat/manga-merged-sources`
 
@@ -67,6 +67,33 @@ MangaDex's own feed fetch adds the raw languages: the feed asks for `id, en, ja,
 
 In `MangaExploreViewModel`, merged search results drop later entries whose title `sameTitle`-matches an earlier one, comparing title and alt titles. Indonesian results come first, so they are the kept entry. This also runs when appending MangaDex pages in `loadMore`. Home shelves are unchanged.
 
+### 6. Manga / Manhwa / Manhua filter
+
+Added after the spec was first written: "kategori manhua / manhwa ... tambahin". All three sources filter by type server-side (checked live on 2026-11-08):
+
+- MangaDex: `originalLanguage[]` = `ja` (Manga), `ko` (Manhwa), `zh`, `zh-hk` (Manhua). This is a new `@Query("originalLanguage[]")` on `MangaDexApi.search`.
+- Shinigami: `v1/manga/list?format=manga|manhwa|manhua`. This is a new `@Query("format")` on `ShinigamiApi.list`.
+- Komiku: `api.komiku.org/manga/?tipe=manga|manhwa|manhua`, which adds `tipe` to `KomikuSource.browse`.
+
+`enum class MangaType(val label: String, val mangaDex: List<String>, val slug: String) { MANGA, MANHWA, MANHUA }`, with labels as proper nouns that need no translation.
+
+UI:
+
+- `MangaFilterBar` gains three chips, `Manga · Manhwa · Manhua`, after the status chips. A tap selects, a second tap clears, and at most one is selected. The selection is stored in `MangaExploreState.type: MangaType?` and is part of `filtered`.
+- On the Manga home, the genre-tiles row starts with three tiles (Manhwa, Manhua, Manga) that set the type filter, just as genre tiles set a genre.
+
+Results with a type selected:
+
+- Type only, or type plus text query: the Indonesian results of that type come first (Shinigami `format`, Komiku `tipe`, page 1 each), then MangaDex with `originalLanguage[]`. They are de-duplicated as in section 5.
+- Type plus genre or status: MangaDex only, as genre and status already are MangaDex-only filters.
+- `loadMore` pages MangaDex as today.
+
+Test: `MangaType` maps to the right MangaDex languages and source slugs.
+
+### Not included: Donghua
+
+Donghua is Chinese animation, so it belongs to the anime side, not manga. The anime API (`xyz-api.animein.net`) has no Donghua type or genre. On 2026-11-08 its genre list and `movie_type` values showed none, `type=DONGHUA` returns empty, and Chinese titles sit inside `ONA` with no country field. A Donghua category would need another data source, such as AniList `countryOfOrigin: CN` matched to anime titles. That is a separate feature with its own spec.
+
 ## Error handling
 
 - Opened source fails on detail: the existing detail error state, unchanged.
@@ -95,3 +122,4 @@ Verification as usual: `ci-test.sh` (unit tests + release build). No emulator QA
 - Merging entries on the home shelves.
 - Per-chapter source switching by the user.
 - Raw from sources other than MangaDex.
+- Donghua (see section 6).
