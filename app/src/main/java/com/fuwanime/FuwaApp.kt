@@ -23,6 +23,7 @@ import com.fuwanime.data.manga.MangaLibrary
 import com.fuwanime.data.local.FuwaDatabase
 import com.fuwanime.data.local.SettingsStore
 import com.fuwanime.data.manga.MangaDexApi
+import com.fuwanime.data.manga.MangaDownloadRepository
 import com.fuwanime.data.manga.MangaRepository
 import com.fuwanime.data.manga.RateLimitInterceptor
 import com.fuwanime.data.meta.AniListApi
@@ -127,6 +128,11 @@ class AppContainer(private val app: Application) {
             mature = { settingsStore.mangaMature.first() },
         )
     }
+
+    val mangaDownloadDao by lazy { database.mangaDownloadDao() }
+
+    /** Downloaded manga chapters (app-private files), fetched one at a time by MangaDownloadWorker. */
+    val mangaDownloads by lazy { MangaDownloadRepository(app, mangaDownloadDao, settingsStore) }
 
     /** Daily backup file in a folder the user picked; survives an uninstall. */
     val backupRepository by lazy { BackupRepository(app, libraryRepository, settingsStore) }

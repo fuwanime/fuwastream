@@ -70,4 +70,26 @@
     <string name="manga_lang_raw">Raw</string>
     <string name="manga_credit_merged">数据和图片来自 %1$s</string>
     <string name="manga_detail_finding_sources">正在从所有来源查找章节…</string>
+    <string name="manga_download_channel">漫画下载</string>
+    <string name="manga_download_notif">%1$s · %2$s</string>
+    <string name="manga_download">下载</string>
+    <string name="manga_download_delete">删除下载</string>
+    <string name="manga_download_range">下载 %1$s</string>
+    <string name="manga_download_all">全部下载</string>
+    <plurals name="manga_download_queued">
+        <item quantity="other">已将 %1$d 章加入下载队列</item>
+    </plurals>
+    <string name="manga_download_state_queued">排队中</string>
+    <string name="manga_download_state_running">下载中</string>
+    <string name="manga_download_state_done">已下载</string>
+    <string name="manga_download_state_failed">下载失败</string>
+    <string name="manga_library_downloads">下载</string>
+    <plurals name="manga_download_count">
+        <item quantity="other">%1$d 章</item>
+    </plurals>
+    <plurals name="manga_download_pending">
+        <item quantity="other">%1$d 个排队中</item>
+    </plurals>
+    <string name="manga_download_delete_all_title">删除《%1$s》的全部下载?</string>
+    <string name="manga_download_delete_all">删除</string>
 </resources>

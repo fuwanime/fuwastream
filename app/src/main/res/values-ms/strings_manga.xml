@@ -70,4 +70,26 @@
     <string name="manga_lang_raw">Raw</string>
     <string name="manga_credit_merged">Data &amp; gambar daripada %1$s</string>
     <string name="manga_detail_finding_sources">Mencari bab di semua sumber…</string>
+    <string name="manga_download_channel">Muat turun manga</string>
+    <string name="manga_download_notif">%1$s · %2$s</string>
+    <string name="manga_download">Muat turun</string>
+    <string name="manga_download_delete">Padam muat turun</string>
+    <string name="manga_download_range">Muat turun %1$s</string>
+    <string name="manga_download_all">Muat turun semua</string>
+    <plurals name="manga_download_queued">
+        <item quantity="other">%1$d bab dalam baris gilir</item>
+    </plurals>
+    <string name="manga_download_state_queued">Dalam baris gilir</string>
+    <string name="manga_download_state_running">Memuat turun</string>
+    <string name="manga_download_state_done">Sudah dimuat turun</string>
+    <string name="manga_download_state_failed">Gagal dimuat turun</string>
+    <string name="manga_library_downloads">Muat turun</string>
+    <plurals name="manga_download_count">
+        <item quantity="other">%1$d bab</item>
+    </plurals>
+    <plurals name="manga_download_pending">
+        <item quantity="other">%1$d dalam baris gilir</item>
+    </plurals>
+    <string name="manga_download_delete_all_title">Padam semua muat turun %1$s?</string>
+    <string name="manga_download_delete_all">Padam</string>
 </resources>
