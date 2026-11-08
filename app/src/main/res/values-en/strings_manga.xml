@@ -48,4 +48,9 @@
     <string name="manga_credit_shinigami">Data &amp; images from Shinigami</string>
     <string name="manga_credit_both">Info from MangaDex · chapters from Shinigami</string>
     <string name="manga_reader_source_shinigami">Source: Shinigami</string>
+    <string name="manga_home_komiku">Popular comics (Komiku)</string>
+    <string name="manga_settings_mature">Mature content</string>
+    <string name="manga_settings_mature_desc">Show mature-themed manga (e.g. Berserk, Vagabond) from MangaDex</string>
+    <string name="manga_credit_komiku">Data &amp; images from Komiku</string>
+    <string name="manga_reader_source_komiku">Source: Komiku</string>
 </resources>

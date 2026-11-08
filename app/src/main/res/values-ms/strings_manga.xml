@@ -47,4 +47,9 @@
     <string name="manga_credit_shinigami">Data &amp; imej daripada Shinigami</string>
     <string name="manga_credit_both">Maklumat daripada MangaDex · bab daripada Shinigami</string>
     <string name="manga_reader_source_shinigami">Sumber: Shinigami</string>
+    <string name="manga_home_komiku">Komik popular (Komiku)</string>
+    <string name="manga_settings_mature">Kandungan dewasa</string>
+    <string name="manga_settings_mature_desc">Tunjukkan manga bertema dewasa (cth. Berserk, Vagabond) daripada MangaDex</string>
+    <string name="manga_credit_komiku">Data &amp; imej daripada Komiku</string>
+    <string name="manga_reader_source_komiku">Sumber: Komiku</string>
 </resources>
