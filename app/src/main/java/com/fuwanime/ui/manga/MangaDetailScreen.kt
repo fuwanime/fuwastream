@@ -6,7 +6,14 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.LazyRow
 import com.fuwanime.data.manga.isKomikuId
 import com.fuwanime.data.manga.isShinigamiId
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Surface
+import androidx.compose.ui.semantics.semantics
+import java.text.DateFormat
+import java.util.Date
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -146,7 +153,7 @@ class MangaDetailViewModel(private val id: String, private val repo: MangaReposi
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: String, chapterId: String) -> Unit) {
+fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: String, chapterId: String) -> Unit, onGenre: (String) -> Unit) {
     val vm: MangaDetailViewModel = fuwaViewModel(key = "manga-$mangaId") { c, _ -> MangaDetailViewModel(mangaId, c.mangaRepository, c.mangaLibrary) }
     val state by vm.state.collectAsStateWithLifecycle()
 
@@ -175,6 +182,15 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
                     contentPadding = PaddingValues(bottom = 24.dp),
                 ) {
                     item(key = "header") { Header(manga, state.favorite, vm::toggleFavorite) }
+                    item(key = "info") {
+                        val source = when {
+                            isShinigamiId(mangaId) -> "Shinigami"
+                            isKomikuId(mangaId) -> "Komiku"
+                            state.readFrom != null -> "MangaDex + " + (if (isKomikuId(state.readFrom!!.id)) "Komiku" else "Shinigami")
+                            else -> "MangaDex"
+                        }
+                        InfoTable(manga, source, inApp?.maxOfOrNull { it.publishAt }?.takeIf { it > 0 })
+                    }
                     item(key = "read") {
                         Button(
                             onClick = { target?.let { onRead(readId, it.id) } },
@@ -196,7 +212,7 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
                     if (manga.tags.isNotEmpty()) {
                         item(key = "tags") {
                             FlowRow(Modifier.padding(horizontal = 20.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                manga.tags.forEach { TagChip(it, onClick = {}) }
+                                manga.tags.forEach { TagChip(it, onClick = { onGenre(it) }, selected = true) }
                             }
                         }
                     }
@@ -224,8 +240,14 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
                                 }
                             }
                             val shown = ranges.getOrNull(rangeIndex)?.let { chapters.slice(it) } ?: chapters
-                            items(shown, key = { it.id }) { c ->
-                                ChapterRow(c, read = c.id in readIds) { onRead(readId, c.id) }
+                            // Three boxed cells per row, like the chapter grids on Indonesian manga sites.
+                            items(shown.chunked(3), key = { it.first().id }) { row ->
+                                Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    row.forEach { c ->
+                                        ChapterCell(c, read = c.id in readIds, current = resumed && c.id == target?.id, Modifier.weight(1f)) { onRead(readId, c.id) }
+                                    }
+                                    repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+                                }
                             }
                         }
                     }
@@ -260,7 +282,6 @@ internal fun chapterLabel(c: MangaChapter): String =
 
 @Composable
 private fun Header(manga: Manga, favorite: Boolean, onToggleFavorite: () -> Unit) {
-    val status = mangaStatusLabel()(manga.status)
     Row(Modifier.statusBarsPadding().padding(start = 20.dp, end = 12.dp, top = 52.dp), verticalAlignment = Alignment.Bottom) {
         NetImage(
             manga.coverUrl.orEmpty(),
@@ -270,8 +291,7 @@ private fun Header(manga: Manga, favorite: Boolean, onToggleFavorite: () -> Unit
         Column(Modifier.weight(1f).padding(start = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(manga.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, maxLines = 4, overflow = TextOverflow.Ellipsis)
             manga.author?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            val meta = listOfNotNull(status, manga.year?.toString()).joinToString(" · ")
-            if (meta.isNotEmpty()) Text(meta, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            manga.type?.let { Text(it, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary) }
         }
         IconButton(onClick = onToggleFavorite) {
             Icon(
@@ -303,30 +323,64 @@ private fun Synopsis(manga: Manga) {
     }
 }
 
+/** Status, type, year, author, source and last update in a framed two-column table. */
 @Composable
-private fun ChapterRow(c: MangaChapter, read: Boolean, onClick: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 20.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
+private fun InfoTable(manga: Manga, source: String, updated: Long?) {
+    val dates = remember { DateFormat.getDateInstance(DateFormat.MEDIUM) }
+    val rows = listOfNotNull(
+        mangaStatusLabel()(manga.status)?.let { R.string.manga_info_status to it },
+        manga.type?.let { R.string.manga_info_type to it },
+        manga.year?.let { R.string.manga_info_year to it.toString() },
+        manga.author?.let { R.string.manga_info_author to it },
+        R.string.manga_info_source to source,
+        updated?.let { R.string.manga_info_updated to dates.format(Date(it)) },
+    )
+    val colors = MaterialTheme.colorScheme
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+            .clip(RoundedCornerShape(12.dp)).border(1.dp, colors.outlineVariant, RoundedCornerShape(12.dp)),
     ) {
-        Column(Modifier.weight(1f)) {
-            Text(
-                listOfNotNull(chapterLabel(c), c.title?.takeIf { it.isNotBlank() && c.number != null }).joinToString(" · "),
-                style = MaterialTheme.typography.bodyLarge,
-                color = if (read) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                listOfNotNull(c.language.uppercase(), c.group).joinToString(" · "),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+        rows.forEachIndexed { i, (label, value) ->
+            if (i > 0) HorizontalDivider(color = colors.outlineVariant)
+            Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                Text(stringResource(label), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, modifier = Modifier.width(110.dp))
+                Text(value, style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant, modifier = Modifier.weight(1f))
+            }
         }
-        when {
-            read -> Icon(Icons.Rounded.CheckCircle, stringResource(R.string.manga_chapter_read), Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+    }
+}
+
+/** One boxed chapter in the grid: number and date; read chapters are dimmed, the one "Lanjut" opens is outlined. */
+@Composable
+private fun ChapterCell(c: MangaChapter, read: Boolean, current: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val dates = remember { DateFormat.getDateInstance(DateFormat.MEDIUM) }
+    Surface(
+        onClick = onClick,
+        modifier = modifier,
+        shape = RoundedCornerShape(10.dp),
+        color = colors.surfaceContainerLow,
+        border = BorderStroke(if (current) 1.5.dp else 1.dp, if (current) colors.primary else colors.outlineVariant),
+    ) {
+        Column(Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    chapterLabel(c),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = if (read) colors.onSurfaceVariant else colors.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                if (read) Icon(Icons.Rounded.CheckCircle, stringResource(R.string.manga_chapter_read), Modifier.size(14.dp), tint = colors.primary)
+            }
+            Text(
+                if (c.publishAt > 0) dates.format(Date(c.publishAt)) else c.language.uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                color = colors.onSurfaceVariant,
+                maxLines = 1,
+            )
         }
     }
 }

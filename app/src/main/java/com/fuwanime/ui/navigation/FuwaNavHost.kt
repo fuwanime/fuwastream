@@ -5,6 +5,7 @@ import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import com.fuwanime.ui.manga.MangaTabScreen
 import com.fuwanime.ui.manga.MangaReaderRoute
 import com.fuwanime.ui.manga.MangaDetailRoute
+import com.fuwanime.ui.manga.pendingMangaGenre
 import androidx.compose.ui.res.stringResource
 import com.fuwanime.R
 import androidx.annotation.StringRes
@@ -353,7 +354,14 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
                             arguments = listOf(navArgument("mangaId") { type = NavType.StringType }),
                         ) { entry ->
                             val id = entry.arguments?.getString("mangaId").orEmpty()
-                            Scoped { MangaDetailRoute(id, onBack = { nav.popBackStack() }, onRead = { m, c -> nav.navigate(Routes.mangaReader(m, c)) }) }
+                            Scoped {
+                                MangaDetailRoute(
+                                    id,
+                                    onBack = { nav.popBackStack() },
+                                    onRead = { m, c -> nav.navigate(Routes.mangaReader(m, c)) },
+                                    onGenre = { pendingMangaGenre.value = it; nav.navigateTab(Routes.MANGA_TAB) },
+                                )
+                            }
                         }
                         composable(
                             Routes.MANGA_READER,
