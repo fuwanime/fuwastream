@@ -72,4 +72,16 @@
     <string name="manga_detail_finding_sources">正在从所有来源查找章节…</string>
     <string name="manga_download_channel">漫画下载</string>
     <string name="manga_download_notif">%1$s · %2$s</string>
+    <string name="manga_download">下载</string>
+    <string name="manga_download_delete">删除下载</string>
+    <string name="manga_download_range">下载 %1$s</string>
+    <string name="manga_download_all">全部下载</string>
+    <plurals name="manga_download_queued">
+        <item quantity="one">已将 %d 章加入下载队列</item>
+        <item quantity="other">已将 %d 章加入下载队列</item>
+    </plurals>
+    <string name="manga_download_state_queued">排队中</string>
+    <string name="manga_download_state_running">下载中</string>
+    <string name="manga_download_state_done">已下载</string>
+    <string name="manga_download_state_failed">下载失败</string>
 </resources>

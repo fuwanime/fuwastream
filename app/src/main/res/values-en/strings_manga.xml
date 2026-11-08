@@ -73,4 +73,16 @@
     <string name="manga_detail_finding_sources">Looking for chapters on every source…</string>
     <string name="manga_download_channel">Manga downloads</string>
     <string name="manga_download_notif">%1$s · %2$s</string>
+    <string name="manga_download">Download</string>
+    <string name="manga_download_delete">Delete download</string>
+    <string name="manga_download_range">Download %1$s</string>
+    <string name="manga_download_all">Download all</string>
+    <plurals name="manga_download_queued">
+        <item quantity="one">%d chapter queued for download</item>
+        <item quantity="other">%d chapters queued for download</item>
+    </plurals>
+    <string name="manga_download_state_queued">Queued</string>
+    <string name="manga_download_state_running">Downloading</string>
+    <string name="manga_download_state_done">Downloaded</string>
+    <string name="manga_download_state_failed">Download failed</string>
 </resources>
