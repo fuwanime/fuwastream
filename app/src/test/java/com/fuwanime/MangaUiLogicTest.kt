@@ -3,7 +3,14 @@ package com.fuwanime
 import com.fuwanime.data.local.MangaHistoryEntity
 import com.fuwanime.data.manga.MangaChapter
 import com.fuwanime.data.manga.pickChapters
+import com.fuwanime.data.manga.Manga
+import com.fuwanime.data.manga.MangaStatus
 import com.fuwanime.data.manga.MangaTag
+import com.fuwanime.ui.manga.dedupeByTitle
+import com.fuwanime.data.manga.withChapter
+import com.fuwanime.data.manga.ChapterLang
+import com.fuwanime.ui.manga.readKeys
+import com.fuwanime.ui.manga.historyLanguage
 import com.fuwanime.ui.manga.chapterRanges
 import com.fuwanime.ui.manga.genreTagId
 import com.fuwanime.ui.manga.rangeLabel
@@ -26,6 +33,29 @@ class MangaUiLogicTest {
 
     @Test fun resumeTargetFallsBackWhenChapterGone() =
         assertEquals("c2", resumeTarget(chapters, listOf(h("removed", 30)))?.id)
+
+    @Test fun resumeTargetFindsSameNumberFromAnotherSource() {
+        val shown = listOf(ch("sh:1", "1"), ch("sh:50", "50"))
+        val all = shown + ch("md50", "50.0")
+        assertEquals("sh:50", resumeTarget(shown, listOf(h("md50", 10)), all)?.id)
+    }
+
+    @Test fun readKeysMarkSameNumberFromAnotherSource() {
+        val all = listOf(ch("md50", "50"), ch("sh:50", "50.0"), ch("sh:51", "51"))
+        assertEquals(setOf("50"), readKeys(listOf(h("md50", 1)), all))
+    }
+
+    @Test fun historyLanguageIsThatOfLatestReadChapter() {
+        val all = listOf(MangaChapter("e150", "150", null, "en", null, 5, null, 0), MangaChapter("i1", "1", null, "id", null, 5, null, 0))
+        assertEquals(ChapterLang.EN, historyLanguage(listOf(h("i1", 1), h("e150", 9)), all))
+        assertNull(historyLanguage(listOf(h("gone", 9)), all))
+    }
+
+    @Test fun withChapterSwapsInTheOpenedSource() {
+        val list = listOf(ch("sh:1", "1"), ch("sh:2", "2"), ch("sh:3", "3"))
+        assertEquals(listOf("sh:1", "md2", "sh:3"), withChapter(list, ch("md2", "2")).map { it.id })
+        assertEquals(listOf("sh:1", "sh:2", "sh:3"), withChapter(list, ch("x", "9")).map { it.id })
+    }
 
     @Test fun resumeTargetWithoutHistoryIsFirstReadable() = assertEquals("c2", resumeTarget(chapters, emptyList())?.id)
 
@@ -77,4 +107,13 @@ class MangaUiLogicTest {
     @Test fun genreTagIdMatchesIgnoringCase() = assertEquals("t2", genreTagId("slice of life", tags))
 
     @Test fun genreTagIdNullWhenUnknown() = assertNull(genreTagId("Aksi", tags))
+
+    private fun m(id: String, title: String, alt: List<String> = emptyList()) =
+        Manga(id, title, null, "", emptyList(), MangaStatus.ONGOING, null, null, alt)
+
+    @Test fun dedupeKeepsFirstOfSameTitle() =
+        assertEquals(listOf("sh:1", "x"), dedupeByTitle(listOf(m("sh:1", "Solo Leveling"), m("km:1", "solo leveling"), m("x", "Berserk"))).map { it.id })
+
+    @Test fun dedupeMatchesAltTitles() =
+        assertEquals(listOf("a"), dedupeByTitle(listOf(m("a", "Ore dake Level Up na Ken"), m("b", "Solo Leveling", listOf("Ore dake Level Up na Ken")))).map { it.id })
 }

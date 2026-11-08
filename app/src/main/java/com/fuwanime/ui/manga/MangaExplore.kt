@@ -42,6 +42,8 @@ import com.fuwanime.data.manga.MangaOrder
 import com.fuwanime.data.manga.MangaRepository
 import com.fuwanime.data.manga.MangaStatus
 import com.fuwanime.data.manga.MangaTag
+import com.fuwanime.data.manga.MangaType
+import com.fuwanime.data.manga.sameTitle
 import com.fuwanime.ui.components.ErrorState
 import com.fuwanime.ui.components.LocalNavBarPadding
 import com.fuwanime.ui.components.MessageState
@@ -77,6 +79,15 @@ fun shouldLoadMore(lastVisible: Int, loaded: Int, total: Int): Boolean =
 /** The MangaDex tag a genre name from any source stands for, or null (Indonesian-only names have none). */
 fun genreTagId(name: String, tags: List<MangaTag>): String? = tags.firstOrNull { it.name.equals(name.trim(), ignoreCase = true) }?.id
 
+/** One entry per title: a later entry whose title matches an earlier one (either side's alt titles) is dropped. */
+fun dedupeByTitle(list: List<Manga>): List<Manga> {
+    val kept = ArrayList<Manga>()
+    for (m in list) {
+        if (kept.none { k -> sameTitle(k.title, m.title, m.altTitles) || sameTitle(m.title, k.title, k.altTitles) }) kept += m
+    }
+    return kept
+}
+
 /** A genre tapped on a manga page, waiting for the Manga tab to show it as a filter. */
 val pendingMangaGenre = MutableStateFlow<String?>(null)
 
@@ -87,6 +98,7 @@ data class MangaExploreState(
     val status: MangaStatus? = null,
     val tagIds: Set<String> = emptySet(),
     val tags: List<MangaTag> = emptyList(),
+    val type: MangaType? = null,
     val results: List<Manga> = emptyList(),
     val total: Int = 0,
     val loading: Boolean = true,
@@ -96,7 +108,7 @@ data class MangaExploreState(
     val generation: Int = 0,
 ) {
     val endReached get() = results.size >= total || results.size + PAGE_SIZE > OFFSET_CAP
-    val filtered get() = query.isNotBlank() || status != null || tagIds.isNotEmpty()
+    val filtered get() = query.isNotBlank() || status != null || tagIds.isNotEmpty() || type != null
 }
 
 @OptIn(FlowPreview::class)
@@ -107,8 +119,12 @@ class MangaExploreViewModel(private val repo: MangaRepository) : ViewModel() {
     private var moreJob: Job? = null
     private var started = false
 
+    private data class Applied(val q: String = "", val status: MangaStatus? = null, val tags: Set<String> = emptySet(), val type: MangaType? = null)
+
     // What the shown results were fetched with (the query is debounced, so it can lag behind state.query).
-    private var applied = Triple("", null as MangaStatus?, emptySet<String>())
+    private var applied = Applied()
+    // MangaDex items fetched so far: the next page's offset (results also hold Indonesian entries and drop duplicates).
+    private var mangaDexOffset = 0
 
     /** Starts the search pipeline when manga mode is first shown. */
     fun start() {
@@ -117,9 +133,9 @@ class MangaExploreViewModel(private val repo: MangaRepository) : ViewModel() {
         viewModelScope.launch {
             // Empty query (initial load, or cleared) applies at once; typing waits 400 ms.
             val query = _state.map { it.query }.debounce { if (it.isEmpty()) 0L else 400L }.distinctUntilChanged()
-            val filters = _state.map { it.status to it.tagIds }.distinctUntilChanged()
-            combine(query, filters, retry) { q, f, _ -> Triple(q, f.first, f.second) }
-                .collectLatest { applied = it; loadFirst(it.first, it.second, it.third) }
+            val filters = _state.map { Triple(it.status, it.tagIds, it.type) }.distinctUntilChanged()
+            combine(query, filters, retry) { q, f, _ -> Applied(q, f.first, f.second, f.third) }
+                .collectLatest { applied = it; loadFirst(it) }
         }
         viewModelScope.launch {
             runCatching { repo.tags() }.onSuccess { all ->
@@ -131,7 +147,8 @@ class MangaExploreViewModel(private val repo: MangaRepository) : ViewModel() {
     fun onQueryChange(q: String) = _state.update { it.copy(query = q) }
     fun setStatus(s: MangaStatus?) = _state.update { it.copy(status = s) }
     fun toggleTag(id: String) = _state.update { it.copy(tagIds = if (id in it.tagIds) it.tagIds - id else it.tagIds + id) }
-    fun clearFilters() = _state.update { it.copy(query = "", status = null, tagIds = emptySet()) }
+    fun clearFilters() = _state.update { it.copy(query = "", status = null, tagIds = emptySet(), type = null) }
+    fun setType(t: MangaType?) = _state.update { it.copy(type = t) }
     fun reload() { retry.update { it + 1 } }
 
     /** Shows one genre: as the MangaDex filter when the name matches a tag, else as a text search. */
@@ -144,14 +161,23 @@ class MangaExploreViewModel(private val repo: MangaRepository) : ViewModel() {
         }
     }
 
-    private suspend fun loadFirst(q: String, status: MangaStatus?, tags: Set<String>) {
+    private suspend fun loadFirst(a: Applied) {
         moreJob?.cancel()
         _state.update { it.copy(results = emptyList(), total = 0, loading = true, loadingMore = false, error = null, generation = it.generation + 1) }
         try {
-            val page = repo.browse(orderFor(q), q, tags.toList(), status, 0)
-            // Text search also asks the Indonesian source; its matches come first (tags/status are MangaDex-only filters).
-            val indonesian = if (q.isNotBlank() && tags.isEmpty() && status == null) repo.searchIndonesia(q) else emptyList()
-            _state.update { it.copy(results = (indonesian + page.items).distinctBy { m -> m.id }, total = page.total + indonesian.size, loading = false) }
+            val page = repo.browse(orderFor(a.q), a.q, a.tags.toList(), a.status, 0, a.type)
+            mangaDexOffset = page.items.size
+            // Indonesian sources come first; genre and status are MangaDex-only filters, so they turn them off.
+            val indonesian = when {
+                a.tags.isNotEmpty() || a.status != null -> emptyList()
+                a.q.isNotBlank() -> repo.searchIndonesia(a.q).filter { a.type == null || it.type == null || it.type.equals(a.type.label, ignoreCase = true) }
+                a.type != null -> runCatching { repo.popularIndonesia(1, a.type).items }.getOrDefault(emptyList()) +
+                    runCatching { repo.popularKomiku(1, a.type).items }.getOrDefault(emptyList())
+                else -> emptyList()
+            }
+            val results = dedupeByTitle((indonesian + page.items).distinctBy { m -> m.id })
+            // results.size >= total exactly when MangaDex has nothing more.
+            _state.update { it.copy(results = results, total = page.total + results.size - mangaDexOffset, loading = false) }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -163,16 +189,17 @@ class MangaExploreViewModel(private val repo: MangaRepository) : ViewModel() {
     fun loadMore(generation: Int) {
         val s = _state.value
         if (generation != s.generation || s.loading || s.loadingMore || s.endReached) return
-        val (q, status, tags) = applied
+        val a = applied
         moreJob = viewModelScope.launch {
             _state.update { it.copy(loadingMore = true, error = null) }
             try {
-                val page = repo.browse(orderFor(q), q, tags.toList(), status, s.results.size)
+                val page = repo.browse(orderFor(a.q), a.q, a.tags.toList(), a.status, mangaDexOffset, a.type)
+                mangaDexOffset += page.items.size
                 _state.update { cur ->
                     val known = cur.results.mapTo(HashSet()) { it.id }
-                    val fresh = page.items.filter { it.id !in known }
+                    val merged = dedupeByTitle(cur.results + page.items.filter { it.id !in known })
                     // An empty page ends paging even when `total` says more (it counts items we may not receive).
-                    cur.copy(results = cur.results + fresh, total = if (page.items.isEmpty()) cur.results.size else page.total, loadingMore = false)
+                    cur.copy(results = merged, total = if (page.items.isEmpty()) merged.size else page.total + merged.size - mangaDexOffset, loadingMore = false)
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -192,6 +219,7 @@ fun MangaFilterBar(state: MangaExploreState, vm: MangaExploreViewModel) {
         item { TagChip(stringResource(R.string.manga_filter_all), onClick = { vm.setStatus(null) }, selected = state.status == null) }
         item { TagChip(stringResource(R.string.manga_status_ongoing), onClick = { vm.setStatus(MangaStatus.ONGOING) }, selected = state.status == MangaStatus.ONGOING) }
         item { TagChip(stringResource(R.string.manga_status_completed), onClick = { vm.setStatus(MangaStatus.COMPLETED) }, selected = state.status == MangaStatus.COMPLETED) }
+        items(MangaType.entries) { t -> TagChip(t.label, onClick = { vm.setType(if (state.type == t) null else t) }, selected = state.type == t) }
     }
     if (genresOpen) {
         GenreSheet(

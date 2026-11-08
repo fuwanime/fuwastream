@@ -108,9 +108,9 @@ class KomikuSource(private val client: OkHttpClient) {
     }
 
     /** [order]: "meta_value_num" (popular) or "modified" (latest). 10 titles per page. */
-    suspend fun browse(order: String, page: Int = 1): MangaPage {
+    suspend fun browse(order: String, page: Int = 1, tipe: String? = null): MangaPage {
         val path = if (page <= 1) "manga/" else "manga/page/$page/"
-        val items = parseKomikuList(get("$API$path?orderby=$order"))
+        val items = parseKomikuList(get("$API$path?orderby=$order" + (tipe?.let { "&tipe=$it" } ?: "")))
         return MangaPage(items, if (items.isEmpty()) 0 else Int.MAX_VALUE, (page - 1) * 10)
     }
 

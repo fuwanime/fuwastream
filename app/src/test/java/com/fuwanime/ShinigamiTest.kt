@@ -73,6 +73,9 @@ class ShinigamiTest {
         assertTrue(sameTitle("Solo Leveling", "Solo Leveling", emptyList()))
         assertTrue(sameTitle("Na Honjaman Level-Up", "Solo Leveling", listOf("Na Honjaman Level-Up", "Only I Level Up")))
         assertFalse(sameTitle("One Piece", "One Punch Man", emptyList()))
+        // A short alt-title fragment (comma split) must not pull in a different title.
+        assertFalse(sameTitle("Love", "Love Is War", listOf("Love")))
+        assertTrue(sameTitle("Love", "Love", emptyList()))
     }
 
     @Test fun dohCoversShinigamiAndMangaDex() {
