@@ -3,6 +3,8 @@ package com.fuwanime
 import com.fuwanime.data.local.MangaHistoryEntity
 import com.fuwanime.data.manga.MangaChapter
 import com.fuwanime.data.manga.pickChapters
+import com.fuwanime.ui.manga.chapterRanges
+import com.fuwanime.ui.manga.rangeLabel
 import com.fuwanime.ui.manga.readerChapter
 import com.fuwanime.ui.manga.readerStartIndex
 import com.fuwanime.ui.manga.resumeTarget
@@ -50,5 +52,21 @@ class MangaUiLogicTest {
         assertEquals("Ch. 7", c.title)
         assertNull(c.number)
         assertNull(c.externalUrl)
+    }
+
+    private fun many(n: Int) = (1..n).map { ch("c$it", it.toString()) }
+
+    @Test fun noRangesUpTo100Chapters() = assertEquals(emptyList<IntRange>(), chapterRanges(many(100)))
+
+    @Test fun rangesOf100() {
+        val r = chapterRanges(many(250))
+        assertEquals(listOf(0..99, 100..199, 200..249), r)
+        assertEquals("1–100", rangeLabel(many(250), r[0]))
+        assertEquals("201–250", rangeLabel(many(250), r[2]))
+    }
+
+    @Test fun rangeLabelUsesChapterNumbers() {
+        val list = listOf(ch("a", "0.5"), ch("b", "1")) + (2..101).map { ch("c$it", it.toString()) }
+        assertEquals("0.5–99", rangeLabel(list, chapterRanges(list)[0]))
     }
 }

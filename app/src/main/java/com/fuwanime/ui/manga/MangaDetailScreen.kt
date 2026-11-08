@@ -1,5 +1,9 @@
 package com.fuwanime.ui.manga
 
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.LazyRow
 import com.fuwanime.data.manga.isKomikuId
 import com.fuwanime.data.manga.isShinigamiId
 import androidx.compose.foundation.clickable
@@ -157,6 +161,15 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
                 val readIds = state.history.mapTo(HashSet()) { it.chapterId }
                 val target = state.chapters?.let { resumeTarget(it, state.history) }
                 val resumed = target != null && target.id in readIds
+                // Everything is read in the app: chapters that only exist on an external site (or have no pages) are left out.
+                val inApp = remember(state.chapters) { state.chapters?.filter { it.externalUrl == null && it.pages > 0 } }
+                val ranges = remember(inApp) { inApp?.let { chapterRanges(it) }.orEmpty() }
+                var picked by rememberSaveable(mangaId) { mutableIntStateOf(-1) }
+                // Until the user picks a range, open the one holding the chapter "Lanjut" would read.
+                val rangeIndex = if (picked in ranges.indices) picked else {
+                    val at = inApp?.indexOfFirst { it.id == target?.id } ?: -1
+                    ranges.indexOfFirst { at in it }.coerceAtLeast(0)
+                }
                 LazyColumn(
                     Modifier.fillMaxSize().readableWidth(),
                     contentPadding = PaddingValues(bottom = 24.dp),
@@ -195,16 +208,25 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
                             modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 4.dp),
                         )
                     }
-                    // Everything is read in the app: chapters that only exist on an external site (or have no pages) are left out.
-                    val chapters = state.chapters?.filter { it.externalUrl == null && it.pages > 0 }
+                    val chapters = inApp
                     when {
                         state.chaptersError != null -> item(key = "chErr") { ErrorState(state.chaptersError!!, vm::load) }
                         chapters == null -> Unit
                         chapters.isEmpty() -> item(key = "chEmpty") {
                             MessageState(Icons.AutoMirrored.Rounded.MenuBook, stringResource(R.string.manga_detail_no_chapters))
                         }
-                        else -> items(chapters, key = { it.id }) { c ->
-                            ChapterRow(c, read = c.id in readIds) { onRead(readId, c.id) }
+                        else -> {
+                            if (ranges.isNotEmpty()) {
+                                item(key = "chRanges") {
+                                    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        itemsIndexed(ranges) { i, r -> TagChip(rangeLabel(chapters, r), onClick = { picked = i }, selected = i == rangeIndex) }
+                                    }
+                                }
+                            }
+                            val shown = ranges.getOrNull(rangeIndex)?.let { chapters.slice(it) } ?: chapters
+                            items(shown, key = { it.id }) { c ->
+                                ChapterRow(c, read = c.id in readIds) { onRead(readId, c.id) }
+                            }
                         }
                     }
                     item(key = "credit") {
@@ -307,4 +329,14 @@ private fun ChapterRow(c: MangaChapter, read: Boolean, onClick: () -> Unit) {
             read -> Icon(Icons.Rounded.CheckCircle, stringResource(R.string.manga_chapter_read), Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
         }
     }
+}
+
+/** Index ranges of [size] chapters for the range chips; empty when everything fits on one page. */
+fun chapterRanges(chapters: List<MangaChapter>, size: Int = 100): List<IntRange> =
+    if (chapters.size <= size) emptyList() else chapters.indices.chunked(size).map { it.first()..it.last() }
+
+/** "1–100" from the chapter numbers at both ends of [range] (oneshots without a number fall back to their position). */
+fun rangeLabel(chapters: List<MangaChapter>, range: IntRange): String {
+    fun n(i: Int) = chapters[i].number ?: (i + 1).toString()
+    return "${n(range.first)}–${n(range.last)}"
 }
