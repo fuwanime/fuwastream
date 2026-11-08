@@ -109,7 +109,7 @@ class MangaDownloadRepository(private val context: Context, private val dao: Man
         val todo = chaptersToQueue(chapters, rows)
         if (todo.isEmpty()) return 0
         val now = System.currentTimeMillis()
-        val network = if (settings.downloadWifiOnly.first()) NetworkType.UNMETERED else NetworkType.CONNECTED
+        val network = if (settings.settings.first().downloadWifiOnly) NetworkType.UNMETERED else NetworkType.CONNECTED
         val requests = todo.mapIndexed { i, c ->
             dao.upsert(MangaDownloadEntity(c.id, manga.id, manga.title, manga.coverUrl, c.number, label(c), c.language, 0, 0, 0, MangaDownloadState.QUEUED.name, now + i))
             OneTimeWorkRequestBuilder<MangaDownloadWorker>()
