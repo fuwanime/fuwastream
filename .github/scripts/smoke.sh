@@ -48,6 +48,8 @@ alive() {
 }
 
 adb shell pm grant "$PKG" android.permission.POST_NOTIFICATIONS || true
+# The app follows the system language; the walk taps Indonesian labels, so pin the app to Indonesian.
+adb shell cmd locale set-app-locales "$PKG" --locales id || true
 # Home screen first, so the launcher icon is captured with the app installed.
 adb shell input keyevent KEYCODE_HOME; sleep 3; shot 00-launcher 1
 adb shell am start -W -n "$PKG/com.fuwanime.MainActivity"
@@ -114,6 +116,22 @@ sleep 3; alive
 adb shell input keyevent KEYCODE_BACK; sleep 2
 adb shell input keyevent KEYCODE_BACK; sleep 2
 tap "Koleksi" && sleep 2 && tap "Unduhan*" && shot 13-downloads 15; alive
+
+# Manga tab: shelves, a title, the reader; Statistik; Pengaturan language & team info (also used for promo material).
+adb shell input keyevent KEYCODE_BACK; sleep 1
+tap "Manga" && shot 14-manga-tab 12; alive
+adb shell input swipe 540 1500 540 700 400; shot 14b-manga-shelves 4; alive
+y=$(find_xy "Populer Indonesia" 2>/dev/null | cut -d' ' -f2)
+adb shell input tap 150 $(( ${y:-500} + 260 )); shot 15-manga-detail 10; alive
+tap "Mulai baca" && shot 16-manga-reader 12; alive
+adb shell input swipe 540 1600 540 400 300; shot 16b-manga-reader-scroll 4; alive
+adb shell input keyevent KEYCODE_BACK; sleep 2; adb shell input keyevent KEYCODE_BACK; sleep 2
+tap "Manga" && sleep 2 && tap "Cari manga" && adb shell input text "berserk" && shot 17-manga-search 10; alive
+adb shell input keyevent KEYCODE_BACK; sleep 1
+tap "Koleksi" && sleep 2 && tap "Statistik*" && shot 18-stats 6; alive
+adb shell input keyevent KEYCODE_BACK; sleep 2
+tap "Koleksi" && sleep 1 && tap "Pengaturan" && shot 19-settings 3; alive
+adb shell input swipe 540 1700 540 600 400; shot 19b-settings-more 2; alive
 
 adb logcat -d -b crash | tail -40
 echo "Smoke test passed"
