@@ -78,7 +78,10 @@ fun rememberRestoreFlow(backup: BackupRepository, onRestored: () -> Unit, onMess
             icon = { Icon(Icons.Rounded.Restore, null) },
             title = { Text(stringResource(R.string.mine_restore_title)) },
             text = {
-                Text(stringResource(R.string.mine_restore_body, file.favorites.size, file.history.size, date))
+                Text(
+                    stringResource(R.string.mine_restore_body, file.favorites.size, file.history.size, date) +
+                        if (file.mangaFavorites.isEmpty() && file.mangaHistory.isEmpty()) "" else "\n\n" + stringResource(R.string.manga_restore_summary, file.mangaFavorites.size, file.mangaHistory.size),
+                )
             },
             confirmButton = {
                 TextButton(onClick = {

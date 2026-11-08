@@ -1,8 +1,5 @@
 <resources>
     <string name="manga_error_not_found">Manga not found.</string>
-    <string name="manga_switch_cd">Content type</string>
-    <string name="manga_mode_anime">Anime</string>
-    <string name="manga_mode_manga">Manga</string>
     <string name="manga_status_ongoing">Ongoing</string>
     <string name="manga_status_completed">Completed</string>
     <string name="manga_status_hiatus">On hiatus</string>
@@ -12,5 +9,43 @@
     <string name="manga_home_latest">Latest updates</string>
     <string name="manga_filter_all">All</string>
     <string name="manga_search_hint">Search manga</string>
-    <string name="manga_detail_placeholder">Manga details: %1$s</string>
+    <string name="manga_detail_start">Start reading</string>
+    <string name="manga_detail_resume">Continue %1$s</string>
+    <string name="manga_detail_chapters">Chapters</string>
+    <string name="manga_detail_no_chapters">No Indonesian or English chapters yet</string>
+    <string name="manga_credit_mangadex">Data &amp; images from MangaDex</string>
+    <string name="manga_chapter_number">Ch. %1$s</string>
+    <string name="manga_chapter_oneshot">Oneshot</string>
+    <string name="manga_favorite_add">Add to favorites</string>
+    <string name="manga_favorite_remove">Remove from favorites</string>
+    <string name="manga_detail_more">More</string>
+    <string name="manga_detail_less">Less</string>
+    <string name="manga_chapter_read">Read</string>
+    <string name="manga_reader_page">%1$d / %2$d</string>
+    <string name="manga_reader_prev">Previous chapter</string>
+    <string name="manga_reader_next">Next chapter</string>
+    <string name="manga_reader_end">End of %1$s</string>
+    <string name="manga_reader_last">This is the last available chapter</string>
+    <string name="manga_reader_scanlation">Scanlation: %1$s · via MangaDex</string>
+    <string name="manga_reader_scanlation_unknown">via MangaDex</string>
+    <string name="manga_reader_reload">Reload image</string>
+    <string name="manga_reader_page_cd">Page %1$d</string>
+    <plurals name="manga_detail_chapters_count">
+        <item quantity="one">%1$d chapter</item>
+        <item quantity="other">%1$d chapters</item>
+    </plurals>
+    <string name="manga_tab">Manga</string>
+    <string name="manga_library_favorites">Favorite manga</string>
+    <string name="manga_library_empty_title">No manga yet</string>
+    <string name="manga_library_empty_body">Manga you read or favorite will show up here.</string>
+    <string name="manga_library_remove">Remove from continue reading</string>
+    <string name="manga_library_progress">%1$s · p. %2$d/%3$d</string>
+    <string name="manga_settings_group">Manga</string>
+    <string name="manga_settings_data_saver">Save data while reading</string>
+    <string name="manga_settings_data_saver_desc">Smaller images from MangaDex</string>
+    <string name="manga_restore_summary">Manga: %1$d favorites, %2$d reading history.</string>
+    <string name="manga_home_popular_id">Popular in Indonesian</string>
+    <string name="manga_credit_shinigami">Data &amp; images from Shinigami</string>
+    <string name="manga_credit_both">Info from MangaDex · chapters from Shinigami</string>
+    <string name="manga_reader_source_shinigami">Source: Shinigami</string>
 </resources>

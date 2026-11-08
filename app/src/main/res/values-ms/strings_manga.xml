@@ -1,8 +1,5 @@
 <resources>
     <string name="manga_error_not_found">Manga tidak dijumpai.</string>
-    <string name="manga_switch_cd">Jenis kandungan</string>
-    <string name="manga_mode_anime">Anime</string>
-    <string name="manga_mode_manga">Manga</string>
     <string name="manga_status_ongoing">Sedang berjalan</string>
     <string name="manga_status_completed">Tamat</string>
     <string name="manga_status_hiatus">Hiatus</string>
@@ -12,5 +9,42 @@
     <string name="manga_home_latest">Kemas kini terkini</string>
     <string name="manga_filter_all">Semua</string>
     <string name="manga_search_hint">Cari manga</string>
-    <string name="manga_detail_placeholder">Butiran manga: %1$s</string>
+    <string name="manga_detail_start">Mula baca</string>
+    <string name="manga_detail_resume">Sambung %1$s</string>
+    <string name="manga_detail_chapters">Bab</string>
+    <string name="manga_detail_no_chapters">Belum ada bab dalam bahasa Indonesia atau Inggeris</string>
+    <string name="manga_credit_mangadex">Data &amp; imej daripada MangaDex</string>
+    <string name="manga_chapter_number">Bab %1$s</string>
+    <string name="manga_chapter_oneshot">Oneshot</string>
+    <string name="manga_favorite_add">Tambah ke kegemaran</string>
+    <string name="manga_favorite_remove">Buang daripada kegemaran</string>
+    <string name="manga_detail_more">Lagi</string>
+    <string name="manga_detail_less">Ringkas</string>
+    <string name="manga_chapter_read">Sudah dibaca</string>
+    <string name="manga_reader_page">%1$d / %2$d</string>
+    <string name="manga_reader_prev">Bab sebelumnya</string>
+    <string name="manga_reader_next">Bab seterusnya</string>
+    <string name="manga_reader_end">Tamat %1$s</string>
+    <string name="manga_reader_last">Ini bab terakhir yang tersedia</string>
+    <string name="manga_reader_scanlation">Scanlation: %1$s · melalui MangaDex</string>
+    <string name="manga_reader_scanlation_unknown">melalui MangaDex</string>
+    <string name="manga_reader_reload">Muat semula imej</string>
+    <string name="manga_reader_page_cd">Halaman %1$d</string>
+    <plurals name="manga_detail_chapters_count">
+        <item quantity="other">%1$d bab</item>
+    </plurals>
+    <string name="manga_tab">Manga</string>
+    <string name="manga_library_favorites">Manga kegemaran</string>
+    <string name="manga_library_empty_title">Belum ada manga</string>
+    <string name="manga_library_empty_body">Manga yang anda baca atau gemari akan muncul di sini.</string>
+    <string name="manga_library_remove">Buang daripada sambung baca</string>
+    <string name="manga_library_progress">%1$s · hlm. %2$d/%3$d</string>
+    <string name="manga_settings_group">Manga</string>
+    <string name="manga_settings_data_saver">Jimat data semasa membaca</string>
+    <string name="manga_settings_data_saver_desc">Imej lebih kecil daripada MangaDex</string>
+    <string name="manga_restore_summary">Manga: %1$d kegemaran, %2$d sejarah bacaan.</string>
+    <string name="manga_home_popular_id">Popular Indonesia</string>
+    <string name="manga_credit_shinigami">Data &amp; imej daripada Shinigami</string>
+    <string name="manga_credit_both">Maklumat daripada MangaDex · bab daripada Shinigami</string>
+    <string name="manga_reader_source_shinigami">Sumber: Shinigami</string>
 </resources>

@@ -1,5 +1,10 @@
 package com.fuwanime.ui.navigation
 
+import androidx.compose.material.icons.automirrored.rounded.MenuBook
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import com.fuwanime.ui.manga.MangaTabScreen
+import com.fuwanime.ui.manga.MangaReaderRoute
+import com.fuwanime.ui.manga.MangaDetailRoute
 import androidx.compose.ui.res.stringResource
 import com.fuwanime.R
 import androidx.annotation.StringRes
@@ -105,7 +110,6 @@ import com.fuwanime.data.Episode
 import com.fuwanime.ui.detail.DetailRoute
 import com.fuwanime.ui.explore.ExploreRoute
 import com.fuwanime.ui.home.HomeRoute
-import com.fuwanime.ui.manga.ContentMode
 import com.fuwanime.ui.library.LibraryRoute
 import com.fuwanime.ui.legal.LegalRoute
 import com.fuwanime.ui.player.PlayerRoute
@@ -123,9 +127,12 @@ internal object Routes {
     const val SETTINGS = "settings"
     const val STATS = "stats"
     const val LEGAL = "legal/{type}"
+    const val MANGA_TAB = "manga_tab"
     const val MANGA_DETAIL = "manga/{mangaId}"
 
     fun mangaDetail(id: String) = "manga/${Uri.encode(id)}"
+    const val MANGA_READER = "manga/{mangaId}/read/{chapterId}"
+    fun mangaReader(mangaId: String, chapterId: String) = "manga/${Uri.encode(mangaId)}/read/${Uri.encode(chapterId)}"
 
     fun legal(type: String) = "legal/${Uri.encode(type)}"
 
@@ -145,6 +152,7 @@ internal object Routes {
 private enum class Tab(val route: String, @StringRes val label: Int, val icon: ImageVector, val selectedIcon: ImageVector) {
     HOME(Routes.HOME, R.string.common_tab_home, Icons.Outlined.Home, Icons.Rounded.Home),
     EXPLORE(Routes.EXPLORE, R.string.common_tab_explore, Icons.Outlined.Explore, Icons.Rounded.Explore),
+    MANGA(Routes.MANGA_TAB, R.string.manga_tab, Icons.AutoMirrored.Outlined.MenuBook, Icons.AutoMirrored.Rounded.MenuBook),
     SCHEDULE(Routes.SCHEDULE, R.string.common_tab_schedule, Icons.Outlined.CalendarMonth, Icons.Rounded.CalendarMonth),
     LIBRARY(Routes.LIBRARY, R.string.common_tab_library, Icons.Outlined.VideoLibrary, Icons.Rounded.VideoLibrary),
 }
@@ -219,7 +227,6 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
         nav.navigate(Routes.player(animeId, ep.id, ep.number, thumb, shared))
     }
     val reduceMotion = rememberReduceMotion()
-    var contentMode by rememberSaveable { mutableStateOf(ContentMode.ANIME) }
     val openManga: (String) -> Unit = { nav.navigate(Routes.mangaDetail(it)) }
     // Fresh Explore entry (no restoreState) so the new genre/focus arguments take effect.
     val openExplore: (String?, Boolean) -> Unit = { genre, focus ->
@@ -321,9 +328,6 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
                                     onSettings = { nav.navigate(Routes.SETTINGS) },
                                     onSchedule = { nav.navigateTab(Routes.SCHEDULE) },
                                     onExplore = { g -> openExplore(g, false) },
-                                    mode = contentMode,
-                                    onModeChange = { contentMode = it },
-                                    onMangaClick = openManga,
                                 )
                             }
                         }
@@ -338,27 +342,32 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
                                 ExploreRoute(
                                     focusSearch = entry.arguments?.getBoolean("focus") == true,
                                     onAnimeClick = openAnime,
-                                    mode = contentMode,
-                                    onModeChange = { contentMode = it },
-                                    onMangaClick = openManga,
                                 )
                             }
                         }
-                        // Placeholder until the manga detail screen replaces it.
+                        composable(Routes.MANGA_TAB) {
+                            Scoped { MangaTabScreen(onMangaClick = openManga, onRead = { m, c -> nav.navigate(Routes.mangaReader(m, c)) }) }
+                        }
                         composable(
                             Routes.MANGA_DETAIL,
                             arguments = listOf(navArgument("mangaId") { type = NavType.StringType }),
                         ) { entry ->
+                            val id = entry.arguments?.getString("mangaId").orEmpty()
+                            Scoped { MangaDetailRoute(id, onBack = { nav.popBackStack() }, onRead = { m, c -> nav.navigate(Routes.mangaReader(m, c)) }) }
+                        }
+                        composable(
+                            Routes.MANGA_READER,
+                            arguments = listOf(
+                                navArgument("mangaId") { type = NavType.StringType },
+                                navArgument("chapterId") { type = NavType.StringType },
+                            ),
+                        ) { entry ->
                             Scoped {
-                                Column(Modifier.statusBarsPadding()) {
-                                    IconButton(onClick = { nav.popBackStack() }) {
-                                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.mine_back))
-                                    }
-                                    Text(
-                                        stringResource(R.string.manga_detail_placeholder, entry.arguments?.getString("mangaId").orEmpty()),
-                                        Modifier.padding(horizontal = 20.dp),
-                                    )
-                                }
+                                MangaReaderRoute(
+                                    entry.arguments?.getString("mangaId").orEmpty(),
+                                    entry.arguments?.getString("chapterId").orEmpty(),
+                                    onBack = { nav.popBackStack() },
+                                )
                             }
                         }
                         composable(Routes.SCHEDULE) { Scoped { ScheduleRoute(onAnimeClick = openAnime) } }
@@ -370,6 +379,8 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
                                     onPlayDownload = { d -> nav.navigate(Routes.player(d.animeId, d.episodeId, d.episodeNumber)) },
                                     onStats = { nav.navigate(Routes.STATS) },
                                     onSettings = { nav.navigate(Routes.SETTINGS) },
+                                    onMangaClick = openManga,
+                                    onMangaRead = { m, c -> nav.navigate(Routes.mangaReader(m, c)) },
                                 )
                             }
                         }
