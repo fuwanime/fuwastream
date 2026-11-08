@@ -24,6 +24,7 @@ interface MangaDexApi {
         @Query("status[]") status: List<String>,
         @Query("includes[]") includes: List<String>,
         @Query("hasAvailableChapters") hasAvailableChapters: Boolean = true,
+        @Query("originalLanguage[]") originalLanguages: List<String> = emptyList(),
     ): MangaListDto
 
     @GET("manga/{id}")

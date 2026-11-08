@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FuwaStream Logo Concepts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0F0D15; --night: #0B0A0F; --lav: #D4BBFF; --pink: #FFB0C9; --sky: #8FD3F2;
+    --plum: #2A2238; --text: #EBDCFF; --muted: #A99BC2; --line: #2E2840;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--night); color: var(--text); font-family: "Plus Jakarta Sans", system-ui, sans-serif; }
+  main { max-width: 1120px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-weight: 800; font-size: 32px; margin: 0 0 4px; letter-spacing: -0.02em; }
+  h2 { font-weight: 800; font-size: 22px; margin: 0; }
+  p { color: var(--muted); line-height: 1.55; margin: 6px 0 0; }
+  .lead { max-width: 720px; }
+  section { border: 1px solid var(--line); border-radius: 20px; padding: 20px; margin-top: 24px; background: #120F1A; }
+  .head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: baseline; }
+  .tag { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 99px; background: var(--plum); color: var(--lav); }
+  .tag.rec { background: var(--lav); color: #3A1B76; }
+  .row { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end; margin-top: 18px; }
+  figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  figcaption { font-size: 11px; color: var(--muted); }
+  svg.icon { display: block; }
+  .circle { clip-path: circle(50%); }
+  .squircle { clip-path: inset(0 round 30%); }
+  .pebble { clip-path: inset(0 round 18%); }
+  .themed { background: #E8DEF8; border-radius: 50%; }
+  .pros { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 16px; font-size: 14px; }
+  .pros div { background: var(--ink); border-radius: 12px; padding: 12px 14px; }
+  .pros b { color: var(--lav); display: block; margin-bottom: 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+  .pros ul { margin: 0; padding-left: 18px; color: var(--muted); line-height: 1.5; }
+  .lockup { display: flex; align-items: center; gap: 12px; margin-top: 18px; padding: 14px 18px; border-radius: 14px; background: var(--ink); width: fit-content; }
+  .lockup span { font-weight: 800; font-size: 28px; letter-spacing: -0.03em; }
+  .lockup span i { font-style: normal; color: var(--lav); }
+  .light { background: #F6F1FF; color: #1D1530; }
+  .light span i { color: #52348E; }
+  .swatches { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+  .sw { width: 132px; border-radius: 12px; overflow: hidden; background: var(--ink); font-size: 12px; }
+  .sw div { height: 48px; }
+  .sw p { margin: 0; padding: 8px 10px; color: var(--text); }
+  .sw p small { color: var(--muted); display: block; }
+  @media (max-width: 560px) { h1 { font-size: 26px; } .row { gap: 14px; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- Every icon is drawn on the 108dp adaptive canvas; everything stays inside the 66dp safe circle (r 33 around 54,54). -->
+    <!-- Current: petal-play -->
+    <symbol id="cur" viewBox="0 0 108 108">
+      <rect width="108" height="108" fill="#0F0D15"/>
+      <path fill="#D4BBFF" d="M84,54 C70,34 48,26 34,32 C26,36 24,44.4 34,47 L50,54 L34,61 C24,63.6 26,72 34,76 C48,82 70,74 84,54 Z"/>
+    </symbol>
+    <symbol id="cur-m" viewBox="0 0 108 108">
+      <path fill="currentColor" d="M84,54 C70,34 48,26 34,32 C26,36 24,44.4 34,47 L50,54 L34,61 C24,63.6 26,72 34,76 C48,82 70,74 84,54 Z"/>
+    </symbol>
+
+    <!-- A: Fuwa Kumo. Cloud of circles; the play button and the book spine are cut out. -->
+    <mask id="kumo-cut" maskUnits="userSpaceOnUse" x="0" y="0" width="108" height="108">
+      <rect width="108" height="108" fill="#fff"/>
+      <path d="M49,50 L49,68 L64,59 Z" fill="#000" stroke="#000" stroke-width="6" stroke-linejoin="round"/>
+      <path d="M54,76 L54,71" stroke="#000" stroke-width="3" stroke-linecap="round"/>
+    </mask>
+    <g id="kumo-shape">
+      <circle cx="40" cy="53" r="13"/>
+      <circle cx="57" cy="45" r="17"/>
+      <circle cx="72" cy="57" r="11"/>
+      <rect x="27" y="51" width="56" height="26" rx="13"/>
+    </g>
+    <symbol id="kumo" viewBox="0 0 108 108">
+      <rect width="108" height="108" fill="#0F0D15"/>
+      <g fill="#D4BBFF" mask="url(#kumo-cut)"><use href="#kumo-shape"/></g>
+      <circle cx="68" cy="38" r="3" fill="#FFB0C9"/>
+    </symbol>
+    <symbol id="kumo-m" viewBox="0 0 108 108">
+      <g fill="currentColor" mask="url(#kumo-cut)"><use href="#kumo-shape"/></g>
+    </symbol>
+
+    <!-- B: Origami page-play. A pink page on the left, a rounded lavender play wedge on the right, a 4dp seam between. -->
+    <g id="ori-page"><path d="M50,32 C42,30.5 35,31.5 31,34.5 Q29.5,35.6 29.5,37.5 L29.5,72 Q29.5,74.2 31.6,73.6 C37,72.2 44,73 50,76 Z"/></g>
+    <g id="ori-play"><path d="M56.5,35 L56.5,73 L79,54 Z" stroke-width="5" stroke-linejoin="round"/></g>
+    <symbol id="ori" viewBox="0 0 108 108">
+      <rect width="108" height="108" fill="#0F0D15"/>
+      <g fill="#FFB0C9"><use href="#ori-page"/></g>
+      <g fill="#D4BBFF" stroke="#D4BBFF"><use href="#ori-play"/></g>
+    </symbol>
+    <symbol id="ori-m" viewBox="0 0 108 108">
+      <g fill="currentColor"><use href="#ori-page"/></g>
+      <g fill="currentColor" stroke="currentColor"><use href="#ori-play"/></g>
+    </symbol>
+
+    <!-- C: Koma portal. A soft squircle frame (manga panel / screen) with a play inside and a pink bookmark. -->
+    <mask id="koma-cut" maskUnits="userSpaceOnUse" x="0" y="0" width="108" height="108">
+      <rect width="108" height="108" fill="#fff"/>
+      <rect x="34" y="34" width="40" height="40" rx="9" fill="#000"/>
+    </mask>
+    <symbol id="koma" viewBox="0 0 108 108">
+      <rect width="108" height="108" fill="#0F0D15"/>
+      <rect x="27" y="27" width="54" height="54" rx="16" fill="#D4BBFF" mask="url(#koma-cut)"/>
+      <path d="M49,46 L49,62 L62,54 Z" fill="#FFB0C9" stroke="#FFB0C9" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M64,27 L72,27 L72,40 L68,37 L64,40 Z" fill="#FFB0C9"/>
+    </symbol>
+    <symbol id="koma-m" viewBox="0 0 108 108">
+      <rect x="27" y="27" width="54" height="54" rx="16" fill="currentColor" mask="url(#koma-cut)"/>
+      <path d="M49,46 L49,62 L62,54 Z" fill="currentColor" stroke="currentColor" stroke-width="4" stroke-linejoin="round"/>
+    </symbol>
+
+    <!-- Safe-zone overlay -->
+    <symbol id="safe" viewBox="0 0 108 108">
+      <circle cx="54" cy="54" r="33" fill="none" stroke="#8FD3F2" stroke-width="0.6" stroke-dasharray="2 2"/>
+      <rect x="0.3" y="0.3" width="107.4" height="107.4" fill="none" stroke="#8FD3F2" stroke-width="0.6" opacity=".4"/>
+    </symbol>
+  </defs>
+</svg>
+
+<main>
+  <h1>FuwaStream logo concepts</h1>
+  <p class="lead">Three directions for the launcher icon, each tested in circle, squircle and rounded-square masks, at 48 px and 24 px, and as an Android 13+ themed (monochrome) icon. Colors are the app's Yozakura palette; the wordmark uses Plus Jakarta Sans, already bundled in the app (SIL Open Font License).</p>
+  <p class="lead"><b style="color:var(--text)">Positioning:</b> For Indonesian anime and manga fans, FuwaStream is the free app that keeps watching and reading in one soft, ad-free place.</p>
+
+  <section>
+    <div class="head"><h2>Now: petal-play</h2><span class="tag">current</span></div>
+    <p>Reads as an arrowhead more than a sakura petal; the sharp tip fights "fuwa" (soft); nothing says manga; the themed icon is a bare arrow.</p>
+    <div class="row">
+      <figure><svg class="icon" width="160" height="160"><use href="#cur"/><use href="#safe"/></svg><figcaption>108dp canvas + safe zone</figcaption></figure>
+      <figure><svg class="icon circle" width="96" height="96"><use href="#cur"/></svg><figcaption>circle</figcaption></figure>
+      <figure><svg class="icon squircle" width="96" height="96"><use href="#cur"/></svg><figcaption>squircle</figcaption></figure>
+      <figure><svg class="icon circle" width="48" height="48"><use href="#cur"/></svg><figcaption>48 px</figcaption></figure>
+      <figure><svg class="icon circle" width="24" height="24"><use href="#cur"/></svg><figcaption>24 px</figcaption></figure>
+      <figure><svg class="icon themed" width="96" height="96" style="color:#4F378B"><use href="#cur-m"/></svg><figcaption>themed</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <div class="head"><h2>A · Fuwa Kumo</h2><span class="tag rec">recommended</span></div>
+    <p>A soft cloud (fuwa = fluffy) with a rounded play cut out of its belly and a small book-spine notch at the base: watching and reading inside one soft shape. A pink dot keeps the sakura accent.</p>
+    <div class="row">
+      <figure><svg class="icon" width="160" height="160"><use href="#kumo"/><use href="#safe"/></svg><figcaption>108dp canvas + safe zone</figcaption></figure>
+      <figure><svg class="icon circle" width="96" height="96"><use href="#kumo"/></svg><figcaption>circle</figcaption></figure>
+      <figure><svg class="icon squircle" width="96" height="96"><use href="#kumo"/></svg><figcaption>squircle</figcaption></figure>
+      <figure><svg class="icon pebble" width="96" height="96"><use href="#kumo"/></svg><figcaption>rounded square</figcaption></figure>
+      <figure><svg class="icon circle" width="48" height="48"><use href="#kumo"/></svg><figcaption>48 px</figcaption></figure>
+      <figure><svg class="icon circle" width="24" height="24"><use href="#kumo"/></svg><figcaption>24 px</figcaption></figure>
+      <figure><svg class="icon themed" width="96" height="96" style="color:#4F378B"><use href="#kumo-m"/></svg><figcaption>themed</figcaption></figure>
+    </div>
+    <div class="lockup"><svg class="icon squircle" width="44" height="44"><use href="#kumo"/></svg><span><i>fuwa</i>stream</span></div>
+    <div class="lockup light"><svg class="icon" width="44" height="44" style="color:#52348E"><use href="#kumo-m"/></svg><span><i>fuwa</i>stream</span></div>
+    <div class="pros">
+      <div><b>Why</b><ul><li>The only direction that draws the word "fuwa" itself.</li><li>The cut-out play survives one-colour use, so the themed icon still says "video".</li></ul></div>
+      <div><b>Watch out</b><ul><li>A cloud alone can read as weather or backup; the play cut-out has to stay big.</li><li>The spine notch disappears below 32 px (fine: it is a detail, not the idea).</li></ul></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="head"><h2>B · Origami page-play</h2><span class="tag">evolution</span></div>
+    <p>Keeps today's two-tone sakura idea but splits it into a pink manga page and a lavender play wedge with a clean seam. Every corner is rounded, so the needle tip is gone.</p>
+    <div class="row">
+      <figure><svg class="icon" width="160" height="160"><use href="#ori"/><use href="#safe"/></svg><figcaption>108dp canvas + safe zone</figcaption></figure>
+      <figure><svg class="icon circle" width="96" height="96"><use href="#ori"/></svg><figcaption>circle</figcaption></figure>
+      <figure><svg class="icon squircle" width="96" height="96"><use href="#ori"/></svg><figcaption>squircle</figcaption></figure>
+      <figure><svg class="icon pebble" width="96" height="96"><use href="#ori"/></svg><figcaption>rounded square</figcaption></figure>
+      <figure><svg class="icon circle" width="48" height="48"><use href="#ori"/></svg><figcaption>48 px</figcaption></figure>
+      <figure><svg class="icon circle" width="24" height="24"><use href="#ori"/></svg><figcaption>24 px</figcaption></figure>
+      <figure><svg class="icon themed" width="96" height="96" style="color:#4F378B"><use href="#ori-m"/></svg><figcaption>themed</figcaption></figure>
+    </div>
+    <div class="lockup"><svg class="icon squircle" width="44" height="44"><use href="#ori"/></svg><span><i>fuwa</i>stream</span></div>
+    <div class="pros">
+      <div><b>Why</b><ul><li>The clearest "manga + anime" read: a page next to a play.</li><li>Closest to the current icon, so existing users still recognise it.</li></ul></div>
+      <div><b>Watch out</b><ul><li>Less "fuwa": it is soft but not fluffy.</li><li>The 4dp seam is about 2 px at 48 px; any thinner and the two shapes merge.</li></ul></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="head"><h2>C · Koma portal</h2><span class="tag">bold</span></div>
+    <p>A soft squircle frame that is both a manga panel (koma) and a screen, with a pink play inside and a bookmark ribbon on top.</p>
+    <div class="row">
+      <figure><svg class="icon" width="160" height="160"><use href="#koma"/><use href="#safe"/></svg><figcaption>108dp canvas + safe zone</figcaption></figure>
+      <figure><svg class="icon circle" width="96" height="96"><use href="#koma"/></svg><figcaption>circle</figcaption></figure>
+      <figure><svg class="icon squircle" width="96" height="96"><use href="#koma"/></svg><figcaption>squircle</figcaption></figure>
+      <figure><svg class="icon pebble" width="96" height="96"><use href="#koma"/></svg><figcaption>rounded square</figcaption></figure>
+      <figure><svg class="icon circle" width="48" height="48"><use href="#koma"/></svg><figcaption>48 px</figcaption></figure>
+      <figure><svg class="icon circle" width="24" height="24"><use href="#koma"/></svg><figcaption>24 px</figcaption></figure>
+      <figure><svg class="icon themed" width="96" height="96" style="color:#4F378B"><use href="#koma-m"/></svg><figcaption>themed</figcaption></figure>
+    </div>
+    <div class="lockup"><svg class="icon squircle" width="44" height="44"><use href="#koma"/></svg><span><i>fuwa</i>stream</span></div>
+    <div class="pros">
+      <div><b>Why</b><ul><li>Strongest at 24 px: a solid frame and one mark.</li><li>Fills every launcher mask evenly.</li></ul></div>
+      <div><b>Watch out</b><ul><li>Framed-play icons are common (YouTube-like), so it is the least distinctive.</li><li>The bookmark is lost in the themed icon.</li></ul></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="head"><h2>Colour jobs</h2><span class="tag">unchanged palette</span></div>
+    <div class="swatches">
+      <div class="sw"><div style="background:#D4BBFF"></div><p>#D4BBFF<small>Mark, wordmark "fuwa"</small></p></div>
+      <div class="sw"><div style="background:#FFB0C9"></div><p>#FFB0C9<small>Sakura accent</small></p></div>
+      <div class="sw"><div style="background:#8FD3F2"></div><p>#8FD3F2<small>Guides only, not in icon</small></p></div>
+      <div class="sw"><div style="background:#0F0D15;border-bottom:1px solid #2E2840"></div><p>#0F0D15<small>Icon background</small></p></div>
+      <div class="sw"><div style="background:#EBDCFF"></div><p>#EBDCFF<small>Wordmark "stream" on dark</small></p></div>
+      <div class="sw"><div style="background:#52348E"></div><p>#52348E<small>Mark on light surfaces</small></p></div>
+    </div>
+    <p>Contrast: #D4BBFF on #0F0D15 11.3:1, #EBDCFF on #0F0D15 14.9:1, #52348E on #F6F1FF 8.5:1.</p>
+    <p><b style="color:var(--text)">Don'ts:</b> no gradients or glow in the launcher layer (they turn muddy when themed) · no text inside the icon · no stretching the mark past the dashed safe circle.</p>
+  </section>
+</main>
+</body>
+</html>

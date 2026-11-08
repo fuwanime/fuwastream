@@ -106,6 +106,73 @@ fun pickChapters(all: List<MangaChapter>, preferred: String): List<MangaChapter>
         (odd + oneshots).sortedBy { it.publishAt }
 }
 
+enum class ChapterLang { ID, EN, RAW }
+
+/** Raw = untranslated uploads (Japanese, Korean, Chinese); everything else that is not Indonesian counts as English. */
+fun languageGroup(language: String): ChapterLang = when (language.lowercase()) {
+    "id" -> ChapterLang.ID
+    "ja", "ko", "zh", "zh-hk" -> ChapterLang.RAW
+    else -> ChapterLang.EN
+}
+
+/** 0 Shinigami, 1 Komiku, 2 MangaDex: lower wins when several sources have the same chapter. */
+fun sourceRank(chapterId: String): Int = when {
+    chapterId.startsWith("sh:") -> 0
+    chapterId.startsWith("km:") -> 1
+    else -> 2
+}
+
+private fun MangaChapter.readable() = externalUrl == null && pages > 0
+
+fun availableLanguages(chapters: List<MangaChapter>): List<ChapterLang> {
+    val present = chapters.filter { it.readable() }.mapTo(HashSet()) { languageGroup(it.language) }
+    return ChapterLang.entries.filter { it in present }
+}
+
+fun defaultLanguage(available: List<ChapterLang>, appLanguage: String): ChapterLang? = when {
+    // Older Android reports Indonesian as the legacy code "in".
+    (appLanguage == "id" || appLanguage == "in") && ChapterLang.ID in available -> ChapterLang.ID
+    ChapterLang.EN in available -> ChapterLang.EN
+    else -> available.firstOrNull()
+}
+
+fun effectiveLanguage(chosen: ChapterLang?, available: List<ChapterLang>, appLanguage: String): ChapterLang? =
+    chosen?.takeIf { it in available } ?: defaultLanguage(available, appLanguage)
+
+/** The language the reader stays in: that of the opened chapter, or the default when it is not in the list. */
+fun readerLanguage(all: List<MangaChapter>, chapterId: String, appLanguage: String): ChapterLang? =
+    all.firstOrNull { it.id == chapterId }?.let { languageGroup(it.language) } ?: defaultLanguage(availableLanguages(all), appLanguage)
+
+/** Chapter number as a comparable key: "5", "5.0" and "05" are the same chapter. */
+fun numberKey(c: MangaChapter): String? = c.number?.let { it.toBigDecimalOrNull()?.stripTrailingZeros()?.toPlainString() ?: it }
+
+/** [list] with the entry of [opened]'s number replaced by [opened], so Prev/Next still work when it lost the merge to another source. */
+fun withChapter(list: List<MangaChapter>, opened: MangaChapter): List<MangaChapter> {
+    val key = numberKey(opened) ?: return list
+    return list.map { if (numberKey(it) == key) opened else it }
+}
+
+/** One chapter per number in [lang], from all sources: readable first, then [sourceRank], then newest; in reading order. */
+fun mergeChapters(all: List<MangaChapter>, lang: ChapterLang): List<MangaChapter> {
+    val inLang = all.filter { languageGroup(it.language) == lang }
+    val (oneshots, numbered) = inLang.partition { it.number == null }
+    val picked = numbered.groupBy { numberKey(it) }.values.map { group ->
+        group.filter { it.readable() }.ifEmpty { group }.sortedWith(compareBy<MangaChapter> { sourceRank(it.id) }.thenByDescending { it.publishAt }).first()
+    }
+    // Oneshots have no number to match on; take them from one source only so they don't show twice.
+    val bestOneshotRank = oneshots.filter { it.readable() }.ifEmpty { oneshots }.minOfOrNull { sourceRank(it.id) }
+    val (parsable, odd) = picked.partition { it.number?.toBigDecimalOrNull() != null }
+    return parsable.sortedBy { it.number!!.toBigDecimal() } +
+        (odd + oneshots.filter { sourceRank(it.id) == bestOneshotRank }).sortedBy { it.publishAt }
+}
+
+/** A comic's origin; each source filters by it server-side. */
+enum class MangaType(val label: String, val mangaDex: List<String>, val slug: String) {
+    MANGA("Manga", listOf("ja"), "manga"),
+    MANHWA("Manhwa", listOf("ko"), "manhwa"),
+    MANHUA("Manhua", listOf("zh", "zh-hk"), "manhua"),
+}
+
 fun firstReadable(list: List<MangaChapter>): MangaChapter? =
     list.firstOrNull { it.externalUrl == null && it.pages > 0 }
 
@@ -118,4 +185,3 @@ fun previousChapter(list: List<MangaChapter>, currentId: String): MangaChapter? 
 fun pageUrls(baseUrl: String, hash: String, data: List<String>, dataSaver: List<String>, useDataSaver: Boolean): List<String> =
     if (useDataSaver) dataSaver.map { "$baseUrl/data-saver/$hash/$it" } else data.map { "$baseUrl/data/$hash/$it" }
 
-fun chapterLanguageFor(appLanguage: String): String = if (appLanguage == "id") "id" else "en"

@@ -111,7 +111,8 @@ private fun norm(s: String) = s.lowercase().filter { it.isLetterOrDigit() }
 /** True when a Shinigami title (or one of its comma-separated alternative titles) is the same as [title]. */
 fun sameTitle(title: String, shTitle: String, shAlternatives: List<String>): Boolean {
     val want = norm(title).ifEmpty { return false }
-    return norm(shTitle) == want || shAlternatives.any { norm(it) == want }
+    // Alt titles are comma-split fragments; a short one ("Love") would match unrelated titles.
+    return norm(shTitle) == want || (want.length >= 5 && shAlternatives.any { norm(it) == want })
 }
 
 fun ShMangaDto.alternatives(): List<String> = alternativeTitle.orEmpty().split(',').map { it.trim() }.filter { it.isNotEmpty() }
@@ -123,6 +124,7 @@ interface ShinigamiApi {
         @Query("page_size") pageSize: Int,
         @Query("sort") sort: String?,
         @Query("q") query: String?,
+        @Query("format") format: String? = null,
     ): ShListDto
 
     @GET("v1/manga/detail/{id}")
@@ -152,8 +154,8 @@ interface ShinigamiApi {
 
 /** Shinigami calls for [MangaRepository]: browse, detail, chapters, pages, and finding a MangaDex title there. */
 class ShinigamiSource(private val api: ShinigamiApi) {
-    suspend fun browse(sort: String?, query: String?, page: Int = 1): MangaPage {
-        val dto = api.list(page, PAGE_SIZE, sort, query?.trim()?.ifEmpty { null })
+    suspend fun browse(sort: String?, query: String?, page: Int = 1, format: String? = null): MangaPage {
+        val dto = api.list(page, PAGE_SIZE, sort, query?.trim()?.ifEmpty { null }, format)
         return MangaPage(dto.data.map { it.toManga() }, dto.meta.totalRecord, (page - 1) * PAGE_SIZE)
     }
 
