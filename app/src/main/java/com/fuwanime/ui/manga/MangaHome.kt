@@ -38,6 +38,7 @@ data class MangaShelf(val items: List<Manga> = emptyList(), val loading: Boolean
 
 data class MangaHomeState(
     val indonesia: MangaShelf = MangaShelf(),
+    val komiku: MangaShelf = MangaShelf(),
     val popular: MangaShelf = MangaShelf(),
     val latest: MangaShelf = MangaShelf(),
     val continueReading: List<MangaHistoryEntity> = emptyList(),
@@ -46,12 +47,15 @@ data class MangaHomeState(
 
 class MangaHomeViewModel(private val repo: MangaRepository, library: MangaLibrary) : ViewModel() {
     private val indonesia = MutableStateFlow(MangaShelf())
+    private val komiku = MutableStateFlow(MangaShelf())
     private val popular = MutableStateFlow(MangaShelf())
     private val latest = MutableStateFlow(MangaShelf())
     private val refreshing = MutableStateFlow(false)
     private var started = false
 
-    val state: StateFlow<MangaHomeState> = combine(indonesia, popular, latest, library.continueReading, refreshing) { i, p, l, c, r -> MangaHomeState(i, p, l, c, r) }
+    val state: StateFlow<MangaHomeState> = combine(combine(indonesia, komiku, ::Pair), popular, latest, library.continueReading, refreshing) { ik, p, l, c, r ->
+        MangaHomeState(ik.first, ik.second, p, l, c, r)
+    }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MangaHomeState())
 
     /** Loads once, when manga mode is first shown. */
@@ -65,6 +69,7 @@ class MangaHomeViewModel(private val repo: MangaRepository, library: MangaLibrar
         viewModelScope.launch {
             coroutineScope {
                 launch { loadWith(indonesia) { repo.popularIndonesia().items } }
+                launch { loadWith(komiku) { (1..3).flatMap { repo.popularKomiku(it).items } } }
                 launch { load(popular, MangaOrder.POPULAR) }
                 launch { load(latest, MangaOrder.LATEST) }
             }
@@ -88,7 +93,15 @@ class MangaHomeViewModel(private val repo: MangaRepository, library: MangaLibrar
 }
 
 /** Manga mode of Beranda: the items of the Home list. [topPad] clears the top bar and the mode switch. */
-fun LazyListScope.mangaHomeItems(state: MangaHomeState, topPad: Dp, onRetry: () -> Unit, onMangaClick: (String) -> Unit, onRead: (mangaId: String, chapterId: String) -> Unit) {
+fun LazyListScope.mangaHomeItems(
+    state: MangaHomeState,
+    topPad: Dp,
+    onRetry: () -> Unit,
+    onMangaClick: (String) -> Unit,
+    onRead: (mangaId: String, chapterId: String) -> Unit,
+    /** Row between the Indonesian shelves and the global ones (genre shortcuts). */
+    middle: (@Composable () -> Unit)? = null,
+) {
     item(key = "mTop") { Spacer(Modifier.height(topPad)) }
     if (state.continueReading.isNotEmpty()) {
         item(key = "mContinue") {
@@ -101,6 +114,8 @@ fun LazyListScope.mangaHomeItems(state: MangaHomeState, topPad: Dp, onRetry: () 
         }
     }
     shelf(R.string.manga_home_popular_id, "mIndonesia", state.indonesia, onRetry, onMangaClick)
+    shelf(R.string.manga_home_komiku, "mKomiku", state.komiku, onRetry, onMangaClick)
+    if (middle != null) item(key = "mMiddle") { middle() }
     shelf(R.string.manga_home_popular, "mPopular", state.popular, onRetry, onMangaClick)
     shelf(R.string.manga_home_latest, "mLatest", state.latest, onRetry, onMangaClick)
 }

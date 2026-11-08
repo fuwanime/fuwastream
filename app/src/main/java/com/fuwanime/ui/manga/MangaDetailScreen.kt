@@ -1,5 +1,6 @@
 package com.fuwanime.ui.manga
 
+import com.fuwanime.data.manga.isKomikuId
 import com.fuwanime.data.manga.isShinigamiId
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -119,7 +120,7 @@ class MangaDetailViewModel(private val id: String, private val repo: MangaReposi
                 val chapters = repo.chapters(id)
                 val inApp = chapters.any { it.externalUrl == null && it.pages > 0 }
                 // Nothing readable here (licensed or not uploaded): read the same title from Shinigami, still in the app.
-                val alt = if (!inApp && !isShinigamiId(id)) runCatching { repo.findOnShinigami(manga) }.getOrNull() else null
+                val alt = if (!inApp && !isShinigamiId(id) && !isKomikuId(id)) runCatching { repo.findOnShinigami(manga) }.getOrNull() else null
                 remote.value = if (alt != null) {
                     remote.value.copy(chapters = repo.chapters(alt.id), readFrom = alt)
                 } else {
@@ -211,6 +212,7 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
                             stringResource(
                                 when {
                                     isShinigamiId(mangaId) -> R.string.manga_credit_shinigami
+                                    isKomikuId(mangaId) || state.readFrom?.id?.let(::isKomikuId) == true -> R.string.manga_credit_komiku
                                     state.readFrom != null -> R.string.manga_credit_both
                                     else -> R.string.manga_credit_mangadex
                                 },

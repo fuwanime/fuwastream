@@ -43,6 +43,8 @@ object LegalText {
     const val DEVELOPER_NAME = "FuwaStream Community (YuzakiNetwork)"
     const val DEVELOPER_EMAIL = "fuwanimereal@gmail.com"
     const val DEVELOPER_WEB = "https://github.com/fuwanime/fuwastream"
+    const val COLLABORATOR_NAME = "Andra"
+    const val COLLABORATOR_EMAIL = "andrahijati@gmail.com"
 
     private val PRIVACY = intArrayOf(
         R.string.legal_privacy_updated, R.string.legal_privacy_summary, R.string.legal_privacy_data_stored,
@@ -65,6 +67,7 @@ object LegalText {
     fun about(res: Resources): String = listOf(
         res.getString(R.string.legal_about_version, BuildConfig.VERSION_NAME),
         res.getString(R.string.legal_about_developer, DEVELOPER_NAME, DEVELOPER_EMAIL, DEVELOPER_WEB),
+        res.getString(R.string.legal_about_collaborator, COLLABORATOR_NAME, COLLABORATOR_EMAIL),
         res.getString(R.string.legal_about_license),
         res.getString(R.string.legal_about_content),
         res.getString(R.string.legal_about_affiliation),

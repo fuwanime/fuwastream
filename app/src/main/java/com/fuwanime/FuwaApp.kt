@@ -1,5 +1,6 @@
 package com.fuwanime
 
+import com.fuwanime.data.manga.KomikuSource
 import com.fuwanime.data.manga.ShinigamiApi
 import com.fuwanime.data.manga.ShinigamiSource
 import com.fuwanime.data.manga.MangaDexDns
@@ -122,6 +123,8 @@ class AppContainer(private val app: Application) {
             MangaDexApi.create(mangaHttpClient),
             appLanguage = { app.resources.configuration.locales[0].language },
             shinigami = ShinigamiSource(ShinigamiApi.create(mangaHttpClient)),
+            komiku = KomikuSource(mangaHttpClient),
+            mature = { settingsStore.mangaMature.first() },
         )
     }
 

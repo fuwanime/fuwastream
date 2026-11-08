@@ -80,4 +80,7 @@
         <item quantity="one">%1$d day ago</item>
         <item quantity="other">%1$d days ago</item>
     </plurals>
+    <string name="common_genre">Genre</string>
+    <string name="common_genre_count">Genre · %1$d</string>
+    <string name="common_genre_clear">Clear</string>
 </resources>

@@ -5,8 +5,8 @@
     <string name="manga_status_hiatus">Hiatus</string>
     <string name="manga_status_cancelled">Dibatalkan</string>
     <string name="manga_home_continue">Teruskan membaca</string>
-    <string name="manga_home_popular">Popular</string>
-    <string name="manga_home_latest">Kemas kini terkini</string>
+    <string name="manga_home_popular">Trending dunia</string>
+    <string name="manga_home_latest">Baru dikemas kini</string>
     <string name="manga_filter_all">Semua</string>
     <string name="manga_search_hint">Cari manga</string>
     <string name="manga_detail_start">Mula baca</string>
@@ -43,8 +43,20 @@
     <string name="manga_settings_data_saver">Jimat data semasa membaca</string>
     <string name="manga_settings_data_saver_desc">Imej lebih kecil daripada MangaDex</string>
     <string name="manga_restore_summary">Manga: %1$d kegemaran, %2$d sejarah bacaan.</string>
-    <string name="manga_home_popular_id">Popular Indonesia</string>
+    <string name="manga_home_popular_id">Popular di Indonesia</string>
     <string name="manga_credit_shinigami">Data &amp; imej daripada Shinigami</string>
     <string name="manga_credit_both">Maklumat daripada MangaDex · bab daripada Shinigami</string>
     <string name="manga_reader_source_shinigami">Sumber: Shinigami</string>
+    <string name="manga_home_komiku">Klasik &amp; tamat lengkap</string>
+    <string name="manga_settings_mature">Kandungan dewasa</string>
+    <string name="manga_settings_mature_desc">Tunjukkan manga bertema dewasa (cth. Berserk, Vagabond) daripada MangaDex</string>
+    <string name="manga_credit_komiku">Data &amp; imej daripada Komiku</string>
+    <string name="manga_reader_source_komiku">Sumber: Komiku</string>
+    <string name="manga_home_genres">Teroka genre</string>
+    <string name="manga_genre_action">Aksi</string>
+    <string name="manga_genre_romance">Romantik</string>
+    <string name="manga_genre_horror">Seram</string>
+    <string name="manga_genre_comedy">Komedi</string>
+    <string name="manga_genre_fantasy">Fantasi</string>
+    <string name="manga_genre_isekai">Isekai</string>
 </resources>

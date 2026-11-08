@@ -16,7 +16,7 @@ data class DohResponse(@Json(name = "Status") val status: Int = -1, @Json(name =
 @JsonClass(generateAdapter = true)
 data class DohAnswer(@Json(name = "type") val type: Int = 0, @Json(name = "TTL") val ttl: Int = 0, @Json(name = "data") val data: String = "")
 
-private val DOH_DOMAINS = listOf("mangadex.org", "mangadex.network", "shngm.io", "shngm.id")
+private val DOH_DOMAINS = listOf("mangadex.org", "mangadex.network", "shngm.io", "shngm.id", "komiku.org", "komiku.to")
 
 /** Manga hosts that Indonesian ISP DNS may block; they are resolved over HTTPS. */
 fun needsDoh(host: String): Boolean = DOH_DOMAINS.any { host == it || host.endsWith(".$it") }
