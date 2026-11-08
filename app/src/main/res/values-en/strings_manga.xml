@@ -91,6 +91,7 @@
         <item quantity="other">%d chapters</item>
     </plurals>
     <plurals name="manga_download_pending">
+        <item quantity="one">%d queued</item>
         <item quantity="other">%d queued</item>
     </plurals>
     <string name="manga_download_delete_all_title">Delete all downloads of %1$s?</string>
