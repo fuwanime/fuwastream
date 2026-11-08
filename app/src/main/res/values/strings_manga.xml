@@ -70,4 +70,26 @@
     <string name="manga_lang_raw">Raw</string>
     <string name="manga_credit_merged">Data &amp; gambar dari %1$s</string>
     <string name="manga_detail_finding_sources">Mencari chapter di semua sumber…</string>
+    <string name="manga_download_channel">Unduhan manga</string>
+    <string name="manga_download_notif">%1$s · %2$s</string>
+    <string name="manga_download">Unduh</string>
+    <string name="manga_download_delete">Hapus unduhan</string>
+    <string name="manga_download_range">Unduh %1$s</string>
+    <string name="manga_download_all">Unduh semua</string>
+    <plurals name="manga_download_queued">
+        <item quantity="other">%1$d chapter masuk antrean unduhan</item>
+    </plurals>
+    <string name="manga_download_state_queued">Dalam antrean</string>
+    <string name="manga_download_state_running">Mengunduh</string>
+    <string name="manga_download_state_done">Sudah diunduh</string>
+    <string name="manga_download_state_failed">Gagal diunduh</string>
+    <string name="manga_library_downloads">Unduhan</string>
+    <plurals name="manga_download_count">
+        <item quantity="other">%1$d chapter</item>
+    </plurals>
+    <plurals name="manga_download_pending">
+        <item quantity="other">%1$d dalam antrean</item>
+    </plurals>
+    <string name="manga_download_delete_all_title">Hapus semua unduhan %1$s?</string>
+    <string name="manga_download_delete_all">Hapus</string>
 </resources>

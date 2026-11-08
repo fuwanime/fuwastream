@@ -15,6 +15,19 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import android.text.format.Formatter
+import com.fuwanime.data.manga.DownloadedManga
+import com.fuwanime.data.manga.MangaDownloadRepository
+import com.fuwanime.data.manga.groupDownloads
+import kotlinx.coroutines.flow.map
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -44,7 +57,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-class MangaShelfViewModel(private val library: MangaLibrary) : ViewModel() {
+class MangaShelfViewModel(private val library: MangaLibrary, private val downloadRepo: MangaDownloadRepository) : ViewModel() {
+    val downloads: StateFlow<List<DownloadedManga>?> =
+        downloadRepo.all.map(::groupDownloads).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    fun deleteDownloads(mangaId: String) = viewModelScope.launch { downloadRepo.deleteFor(mangaId) }
+
     val continueReading: StateFlow<List<MangaHistoryEntity>?> =
         library.continueReading.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
     val favorites: StateFlow<List<MangaFavoriteEntity>?> =
@@ -56,12 +74,24 @@ class MangaShelfViewModel(private val library: MangaLibrary) : ViewModel() {
 /** Koleksi › Manga: what the user is reading, then their favourite titles. */
 @Composable
 fun MangaLibraryTab(onOpen: (mangaId: String) -> Unit, onRead: (mangaId: String, chapterId: String) -> Unit) {
-    val vm: MangaShelfViewModel = fuwaViewModel { c, _ -> MangaShelfViewModel(c.mangaLibrary) }
+    val vm: MangaShelfViewModel = fuwaViewModel { c, _ -> MangaShelfViewModel(c.mangaLibrary, c.mangaDownloads) }
     val reading by vm.continueReading.collectAsStateWithLifecycle()
     val favorites by vm.favorites.collectAsStateWithLifecycle()
+    val dls by vm.downloads.collectAsStateWithLifecycle()
     val r = reading ?: return
     val f = favorites ?: return
-    if (r.isEmpty() && f.isEmpty()) {
+    val d = dls ?: return
+    val ctx = LocalContext.current
+    var confirm by remember { mutableStateOf<DownloadedManga?>(null) }
+    confirm?.let { dm ->
+        AlertDialog(
+            onDismissRequest = { confirm = null },
+            title = { Text(stringResource(R.string.manga_download_delete_all_title, dm.title)) },
+            confirmButton = { TextButton(onClick = { vm.deleteDownloads(dm.mangaId); confirm = null }) { Text(stringResource(R.string.manga_download_delete_all)) } },
+            dismissButton = { TextButton(onClick = { confirm = null }) { Text(stringResource(android.R.string.cancel)) } },
+        )
+    }
+    if (r.isEmpty() && f.isEmpty() && d.isEmpty()) {
         MessageState(Icons.AutoMirrored.Rounded.MenuBook, stringResource(R.string.manga_library_empty_title), message = stringResource(R.string.manga_library_empty_body))
         return
     }
@@ -77,6 +107,19 @@ fun MangaLibraryTab(onOpen: (mangaId: String) -> Unit, onRead: (mangaId: String,
         if (f.isNotEmpty()) {
             item(key = "favTitle") { SectionTitle(stringResource(R.string.manga_library_favorites)) }
             items(f, key = { "f-" + it.mangaId }) { fav -> ShelfRow(fav.title, fav.coverUrl, subtitle = null, onClick = { onOpen(fav.mangaId) }) }
+        }
+        if (d.isNotEmpty()) {
+            item(key = "dlTitle") { SectionTitle(stringResource(R.string.manga_library_downloads)) }
+            items(d, key = { "d-" + it.mangaId }) { dm ->
+                val parts = listOfNotNull(
+                    pluralStringResource(R.plurals.manga_download_count, dm.done, dm.done),
+                    Formatter.formatShortFileSize(ctx, dm.bytes),
+                    if (dm.pending > 0) pluralStringResource(R.plurals.manga_download_pending, dm.pending, dm.pending) else null,
+                )
+                ShelfRow(dm.title, dm.coverUrl, subtitle = parts.joinToString(" · "), onClick = { onOpen(dm.mangaId) }) {
+                    IconButton(onClick = { confirm = dm }) { Icon(Icons.Rounded.Delete, stringResource(R.string.manga_download_delete_all)) }
+                }
+            }
         }
     }
 }

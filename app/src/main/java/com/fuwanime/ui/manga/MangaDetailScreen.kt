@@ -10,6 +10,24 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.DownloadDone
+import androidx.compose.material.icons.rounded.ErrorOutline
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
+import com.fuwanime.data.local.MangaDownloadEntity
+import com.fuwanime.data.local.MangaDownloadState
+import com.fuwanime.data.manga.MangaDownloadRepository
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.ui.semantics.semantics
@@ -128,7 +146,22 @@ data class MangaDetailState(
     val favorite: Boolean = false,
 )
 
-class MangaDetailViewModel(private val id: String, private val repo: MangaRepository, private val library: MangaLibrary) : ViewModel() {
+class MangaDetailViewModel(
+    private val id: String,
+    private val repo: MangaRepository,
+    private val library: MangaLibrary,
+    private val downloadRepo: MangaDownloadRepository,
+) : ViewModel() {
+    val downloads: StateFlow<Map<String, MangaDownloadEntity>> =
+        downloadRepo.forManga(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    fun download(chapters: List<MangaChapter>, label: (MangaChapter) -> String, onQueued: (Int) -> Unit) {
+        val manga = state.value.manga ?: return
+        viewModelScope.launch { onQueued(downloadRepo.enqueue(manga, chapters, label)) }
+    }
+
+    fun deleteDownload(chapterId: String) = viewModelScope.launch { downloadRepo.delete(chapterId) }
+
     private data class Remote(
         val manga: Manga? = null,
         val chapters: List<MangaChapter>? = null,
@@ -173,8 +206,21 @@ class MangaDetailViewModel(private val id: String, private val repo: MangaReposi
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: String, chapterId: String) -> Unit, onGenre: (String) -> Unit) {
-    val vm: MangaDetailViewModel = fuwaViewModel(key = "manga-$mangaId") { c, _ -> MangaDetailViewModel(mangaId, c.mangaRepository, c.mangaLibrary) }
+    val vm: MangaDetailViewModel = fuwaViewModel(key = "manga-$mangaId") { c, _ -> MangaDetailViewModel(mangaId, c.mangaRepository, c.mangaLibrary, c.mangaDownloads) }
     val state by vm.state.collectAsStateWithLifecycle()
+    val downloads by vm.downloads.collectAsStateWithLifecycle()
+    val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val ctx = LocalContext.current
+    // Plain-context label: the download queue stores it for Library and the notification.
+    val labelOf: (MangaChapter) -> String = { c ->
+        c.number?.let { ctx.getString(R.string.manga_chapter_number, it) } ?: c.title?.takeIf { it.isNotBlank() } ?: ctx.getString(R.string.manga_chapter_oneshot)
+    }
+    val queue: (List<MangaChapter>) -> Unit = { list ->
+        vm.download(list, labelOf) { n ->
+            if (n > 0) scope.launch { snackbar.showSnackbar(ctx.resources.getQuantityString(R.plurals.manga_download_queued, n, n)) }
+        }
+    }
 
     Box(Modifier.fillMaxSize()) {
         val manga = state.manga
@@ -290,11 +336,28 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
                                 }
                             }
                             val shown = ranges.getOrNull(rangeIndex)?.let { chapters.slice(it) } ?: chapters
+                            item(key = "chDownload") {
+                                Box(Modifier.fillMaxWidth().padding(horizontal = 8.dp), contentAlignment = Alignment.CenterEnd) {
+                                    TextButton(onClick = { queue(shown) }) {
+                                        Icon(Icons.Rounded.Download, null, Modifier.size(18.dp))
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(
+                                            ranges.getOrNull(rangeIndex)?.let { stringResource(R.string.manga_download_range, rangeLabel(chapters, it)) }
+                                                ?: stringResource(R.string.manga_download_all),
+                                        )
+                                    }
+                                }
+                            }
                             // Three boxed cells per row, like the chapter grids on Indonesian manga sites.
                             items(shown.chunked(3), key = { it.first().id }) { row ->
                                 Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     row.forEach { c ->
-                                        ChapterCell(c, read = isRead(c), current = resumed && c.id == target?.id, Modifier.weight(1f)) { onRead(readId, c.id) }
+                                        ChapterCell(
+                                            c, read = isRead(c), current = resumed && c.id == target?.id, Modifier.weight(1f),
+                                            download = downloads[c.id],
+                                            onDownload = { queue(listOf(c)) },
+                                            onDelete = { vm.deleteDownload(c.id) },
+                                        ) { onRead(readId, c.id) }
                                     }
                                     repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
                                 }
@@ -322,6 +385,7 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
                 }
             }
         }
+        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
         IconButton(onClick = onBack, modifier = Modifier.statusBarsPadding().padding(4.dp)) {
             Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.mine_back))
         }
@@ -406,14 +470,31 @@ private fun InfoTable(manga: Manga, source: String, updated: Long?) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 /** One boxed chapter in the grid: number and date; read chapters are dimmed, the one "Lanjut" opens is outlined. */
 @Composable
-private fun ChapterCell(c: MangaChapter, read: Boolean, current: Boolean, modifier: Modifier, onClick: () -> Unit) {
+private fun ChapterCell(
+    c: MangaChapter,
+    read: Boolean,
+    current: Boolean,
+    modifier: Modifier,
+    download: MangaDownloadEntity?,
+    onDownload: () -> Unit,
+    onDelete: () -> Unit,
+    onClick: () -> Unit,
+) {
     val colors = MaterialTheme.colorScheme
     val dates = remember { DateFormat.getDateInstance(DateFormat.MEDIUM) }
+    var menuOpen by remember { mutableStateOf(false) }
+    val canDownload = download == null || download.state == MangaDownloadState.FAILED.name
+    val actionLabel = stringResource(if (canDownload) R.string.manga_download else R.string.manga_download_delete)
+    val act = { if (canDownload) onDownload() else onDelete() }
     Surface(
-        onClick = onClick,
-        modifier = modifier,
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
+            .combinedClickable(onClick = onClick, onLongClick = { menuOpen = true })
+            // TalkBack gets the long-press action too.
+            .semantics { customActions = listOf(CustomAccessibilityAction(actionLabel) { act(); true }) },
         shape = RoundedCornerShape(10.dp),
         color = colors.surfaceContainerLow,
         border = BorderStroke(if (current) 1.5.dp else 1.dp, if (current) colors.primary else colors.outlineVariant),
@@ -431,13 +512,40 @@ private fun ChapterCell(c: MangaChapter, read: Boolean, current: Boolean, modifi
                 )
                 if (read) Icon(Icons.Rounded.CheckCircle, stringResource(R.string.manga_chapter_read), Modifier.size(14.dp), tint = colors.primary)
             }
-            Text(
-                if (c.publishAt > 0) dates.format(Date(c.publishAt)) else c.language.uppercase(),
-                style = MaterialTheme.typography.labelSmall,
-                color = colors.onSurfaceVariant,
-                maxLines = 1,
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    if (c.publishAt > 0) dates.format(Date(c.publishAt)) else c.language.uppercase(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colors.onSurfaceVariant,
+                    maxLines = 1,
+                    modifier = Modifier.weight(1f),
+                )
+                download?.let { DownloadMark(it) }
+            }
+        }
+        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+            DropdownMenuItem(text = { Text(actionLabel) }, onClick = { menuOpen = false; act() })
+        }
+    }
+}
+
+/** Small download state mark in a chapter cell. */
+@Composable
+private fun DownloadMark(d: MangaDownloadEntity) {
+    val tint = MaterialTheme.colorScheme.primary
+    val m = Modifier.size(14.dp)
+    when (d.state) {
+        MangaDownloadState.RUNNING.name -> {
+            val running = stringResource(R.string.manga_download_state_running)
+            CircularProgressIndicator(
+                progress = { if (d.pageCount > 0) d.pagesDone.toFloat() / d.pageCount else 0f },
+                modifier = m.semantics { contentDescription = running },
+                strokeWidth = 2.dp,
             )
         }
+        MangaDownloadState.DONE.name -> Icon(Icons.Rounded.DownloadDone, stringResource(R.string.manga_download_state_done), m, tint = tint)
+        MangaDownloadState.FAILED.name -> Icon(Icons.Rounded.ErrorOutline, stringResource(R.string.manga_download_state_failed), m, tint = MaterialTheme.colorScheme.error)
+        else -> Icon(Icons.Rounded.Download, stringResource(R.string.manga_download_state_queued), m, tint = tint)
     }
 }
 
