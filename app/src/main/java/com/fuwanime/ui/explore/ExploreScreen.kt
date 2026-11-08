@@ -101,6 +101,12 @@ import com.fuwanime.ui.motion.rememberStaggerState
 import com.fuwanime.ui.motion.staggerIn
 import com.fuwanime.util.fuwaViewModel
 import kotlin.math.roundToInt
+import com.fuwanime.ui.manga.ContentMode
+import com.fuwanime.ui.manga.ContentSwitch
+import com.fuwanime.ui.manga.MangaExploreState
+import com.fuwanime.ui.manga.MangaExploreViewModel
+import com.fuwanime.ui.manga.MangaFilterBar
+import com.fuwanime.ui.manga.MangaResultsGrid
 
 val AllGenres = listOf(
     "Action", "Adventure", "Comedy", "Drama", "Fantasy", "Isekai", "Romance", "School",
@@ -110,11 +116,20 @@ val AllGenres = listOf(
 )
 
 @Composable
-fun ExploreRoute(focusSearch: Boolean, onAnimeClick: OpenAnime) {
+fun ExploreRoute(
+    focusSearch: Boolean,
+    onAnimeClick: OpenAnime,
+    mode: ContentMode,
+    onModeChange: (ContentMode) -> Unit,
+    onMangaClick: (String) -> Unit,
+) {
     val vm: ExploreViewModel = fuwaViewModel { c, h -> ExploreViewModel(c.animeRepository, c.libraryRepository, h) }
+    val mangaVm: MangaExploreViewModel = fuwaViewModel { c, _ -> MangaExploreViewModel(c.mangaRepository) }
     val state by vm.state.collectAsStateWithLifecycle()
     val recent by vm.recentSearches.collectAsStateWithLifecycle()
-    ExploreScreen(state, recent, focusSearch, vm, onAnimeClick)
+    val manga by mangaVm.state.collectAsStateWithLifecycle()
+    LaunchedEffect(mode) { if (mode == ContentMode.MANGA) mangaVm.start() }
+    ExploreScreen(state, recent, focusSearch, vm, onAnimeClick, mode, onModeChange, manga, mangaVm, onMangaClick)
 }
 
 @Composable
@@ -124,18 +139,25 @@ private fun ExploreScreen(
     focusSearch: Boolean,
     vm: ExploreViewModel,
     onAnimeClick: OpenAnime,
+    mode: ContentMode,
+    onModeChange: (ContentMode) -> Unit,
+    manga: MangaExploreState,
+    mangaVm: MangaExploreViewModel,
+    onMangaClick: (String) -> Unit,
 ) {
+    val isManga = mode == ContentMode.MANGA
+    val query = if (isManga) manga.query else state.filters.query
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     var searchFocused by remember { mutableStateOf(false) }
     LaunchedEffect(focusSearch) { if (focusSearch) focusRequester.requestFocus() }
 
-    val showRecent = searchFocused && state.filters.query.isBlank() && recent.isNotEmpty()
+    val showRecent = !isManga && searchFocused && state.filters.query.isBlank() && recent.isNotEmpty()
     // The header (title, search, filters) slides away with the grid and returns on the first scroll up, so at large
     // font sizes the grid isn't left with a thin strip.
     var headerPx by remember { mutableIntStateOf(0) }
     var headerOffset by remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(state.filters, showRecent, searchFocused) { headerOffset = 0f }
+    LaunchedEffect(state.filters, manga.status, manga.tagIds, isManga, showRecent, searchFocused) { headerOffset = 0f }
     // Recent searches scroll below a header that must stay put: the search field is focused.
     val pinned by rememberUpdatedState(showRecent)
     val collapse = remember {
@@ -160,6 +182,8 @@ private fun ExploreScreen(
                 onRemove = { vm.removeRecent(it) },
                 onClear = { vm.clearRecent() },
             )
+        } else if (isManga) {
+            MangaResultsGrid(manga, mangaVm, onMangaClick, topPad = headerDp)
         } else {
             ResultsGrid(state, vm, onAnimeClick, topPad = headerDp)
         }
@@ -174,14 +198,15 @@ private fun ExploreScreen(
             style = MaterialTheme.typography.headlineMedium,
             modifier = Modifier.padding(start = 20.dp, top = 12.dp, bottom = 12.dp),
         )
+        ContentSwitch(mode, onModeChange, Modifier.padding(bottom = 12.dp))
         OutlinedTextField(
-            value = state.filters.query,
-            onValueChange = vm::onQueryChange,
-            placeholder = { Text(stringResource(R.string.browse_search_hint)) },
+            value = query,
+            onValueChange = if (isManga) mangaVm::onQueryChange else vm::onQueryChange,
+            placeholder = { Text(stringResource(if (isManga) R.string.manga_search_hint else R.string.browse_search_hint)) },
             leadingIcon = { Icon(Icons.Rounded.Search, null) },
             trailingIcon = {
-                if (state.filters.query.isNotEmpty()) {
-                    IconButton(onClick = { vm.onQueryChange("") }) { Icon(Icons.Rounded.Close, stringResource(R.string.browse_clear)) }
+                if (query.isNotEmpty()) {
+                    IconButton(onClick = { if (isManga) mangaVm.onQueryChange("") else vm.onQueryChange("") }) { Icon(Icons.Rounded.Close, stringResource(R.string.browse_clear)) }
                 }
             },
             singleLine = true,
@@ -194,7 +219,7 @@ private fun ExploreScreen(
             ),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = {
-                vm.submitSearch()
+                if (!isManga) vm.submitSearch()
                 focusManager.clearFocus()
             }),
             modifier = Modifier
@@ -206,8 +231,13 @@ private fun ExploreScreen(
 
         if (!showRecent) {
             Spacer(Modifier.height(14.dp))
-            FilterBar(state.filters, vm)
-            ResultsHeader(state.filters, vm, onRandom = state.results.takeIf { it.isNotEmpty() }?.let { r -> { pickRandom(r)?.let { onAnimeClick(it, "explore") } } })
+            if (isManga) {
+                MangaFilterBar(manga, mangaVm)
+                Spacer(Modifier.height(8.dp))
+            } else {
+                FilterBar(state.filters, vm)
+                ResultsHeader(state.filters, vm, onRandom = state.results.takeIf { it.isNotEmpty() }?.let { r -> { pickRandom(r)?.let { onAnimeClick(it, "explore") } } })
+            }
         }
     }
     }

@@ -16,6 +16,11 @@ import dev.chrisbanes.haze.HazeState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalConfiguration
@@ -100,6 +105,7 @@ import com.fuwanime.data.Episode
 import com.fuwanime.ui.detail.DetailRoute
 import com.fuwanime.ui.explore.ExploreRoute
 import com.fuwanime.ui.home.HomeRoute
+import com.fuwanime.ui.manga.ContentMode
 import com.fuwanime.ui.library.LibraryRoute
 import com.fuwanime.ui.legal.LegalRoute
 import com.fuwanime.ui.player.PlayerRoute
@@ -117,6 +123,9 @@ internal object Routes {
     const val SETTINGS = "settings"
     const val STATS = "stats"
     const val LEGAL = "legal/{type}"
+    const val MANGA_DETAIL = "manga/{mangaId}"
+
+    fun mangaDetail(id: String) = "manga/${Uri.encode(id)}"
 
     fun legal(type: String) = "legal/${Uri.encode(type)}"
 
@@ -210,6 +219,8 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
         nav.navigate(Routes.player(animeId, ep.id, ep.number, thumb, shared))
     }
     val reduceMotion = rememberReduceMotion()
+    var contentMode by rememberSaveable { mutableStateOf(ContentMode.ANIME) }
+    val openManga: (String) -> Unit = { nav.navigate(Routes.mangaDetail(it)) }
     // Fresh Explore entry (no restoreState) so the new genre/focus arguments take effect.
     val openExplore: (String?, Boolean) -> Unit = { genre, focus ->
         nav.navigate(Routes.explore(genre, focus)) {
@@ -310,6 +321,9 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
                                     onSettings = { nav.navigate(Routes.SETTINGS) },
                                     onSchedule = { nav.navigateTab(Routes.SCHEDULE) },
                                     onExplore = { g -> openExplore(g, false) },
+                                    mode = contentMode,
+                                    onModeChange = { contentMode = it },
+                                    onMangaClick = openManga,
                                 )
                             }
                         }
@@ -321,7 +335,30 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
                             ),
                         ) { entry ->
                             Scoped {
-                                ExploreRoute(focusSearch = entry.arguments?.getBoolean("focus") == true, onAnimeClick = openAnime)
+                                ExploreRoute(
+                                    focusSearch = entry.arguments?.getBoolean("focus") == true,
+                                    onAnimeClick = openAnime,
+                                    mode = contentMode,
+                                    onModeChange = { contentMode = it },
+                                    onMangaClick = openManga,
+                                )
+                            }
+                        }
+                        // Placeholder until the manga detail screen replaces it.
+                        composable(
+                            Routes.MANGA_DETAIL,
+                            arguments = listOf(navArgument("mangaId") { type = NavType.StringType }),
+                        ) { entry ->
+                            Scoped {
+                                Column(Modifier.statusBarsPadding()) {
+                                    IconButton(onClick = { nav.popBackStack() }) {
+                                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.mine_back))
+                                    }
+                                    Text(
+                                        stringResource(R.string.manga_detail_placeholder, entry.arguments?.getString("mangaId").orEmpty()),
+                                        Modifier.padding(horizontal = 20.dp),
+                                    )
+                                }
                             }
                         }
                         composable(Routes.SCHEDULE) { Scoped { ScheduleRoute(onAnimeClick = openAnime) } }

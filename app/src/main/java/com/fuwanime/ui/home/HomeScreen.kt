@@ -63,6 +63,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.fuwanime.ui.theme.PlusJakarta
@@ -121,6 +123,11 @@ import com.fuwanime.util.compactNumber
 import com.fuwanime.util.relativeTime
 import com.fuwanime.util.fuwaViewModel
 import kotlinx.coroutines.delay
+import com.fuwanime.ui.manga.ContentMode
+import com.fuwanime.ui.manga.ContentSwitch
+import com.fuwanime.ui.manga.MangaHomeState
+import com.fuwanime.ui.manga.MangaHomeViewModel
+import com.fuwanime.ui.manga.mangaHomeItems
 
 val QuickGenres = listOf(
     "Action", "Fantasy", "Romance", "Comedy", "Isekai", "Slice of Life",
@@ -135,7 +142,13 @@ fun HomeRoute(
     onSettings: () -> Unit,
     onSchedule: () -> Unit,
     onExplore: (genre: String?) -> Unit,
+    mode: ContentMode,
+    onModeChange: (ContentMode) -> Unit,
+    onMangaClick: (String) -> Unit,
 ) {
+    val mangaVm: MangaHomeViewModel = fuwaViewModel { c, _ -> MangaHomeViewModel(c.mangaRepository, c.mangaLibrary) }
+    val manga by mangaVm.state.collectAsStateWithLifecycle()
+    LaunchedEffect(mode) { if (mode == ContentMode.MANGA) mangaVm.start() }
     val vm: HomeViewModel = fuwaViewModel { c, _ ->
         HomeViewModel(c.animeRepository, c.libraryRepository, c.updateRepository, c.settingsStore, c.networkStatus, c.backupRepository)
     }
@@ -166,6 +179,11 @@ fun HomeRoute(
         onSettings = onSettings,
         onSchedule = onSchedule,
         onExplore = onExplore,
+        mode = mode,
+        onModeChange = onModeChange,
+        manga = manga,
+        onMangaRefresh = mangaVm::refresh,
+        onMangaClick = onMangaClick,
     )
 }
 
@@ -188,13 +206,29 @@ private fun HomeScreen(
     onSettings: () -> Unit,
     onSchedule: () -> Unit,
     onExplore: (String?) -> Unit,
+    mode: ContentMode,
+    onModeChange: (ContentMode) -> Unit,
+    manga: MangaHomeState,
+    onMangaRefresh: () -> Unit,
+    onMangaClick: (String) -> Unit,
 ) {
     val listState = rememberLazyListState()
     val feed = state.feed
     var showUpdateSheet by remember { mutableStateOf(false) }
 
-    PullToRefreshBox(isRefreshing = feed.refreshing, onRefresh = onRefresh, modifier = Modifier.fillMaxSize()) {
+    val isManga = mode == ContentMode.MANGA
+    var topBarPx by remember { mutableIntStateOf(0) }
+    val topBarDp = with(LocalDensity.current) { topBarPx.toDp() }
+    PullToRefreshBox(
+        isRefreshing = if (isManga) manga.refreshing else feed.refreshing,
+        onRefresh = if (isManga) onMangaRefresh else onRefresh,
+        modifier = Modifier.fillMaxSize(),
+    ) {
         LazyColumn(state = listState, contentPadding = PaddingValues(bottom = 24.dp + LocalNavBarPadding.current), modifier = Modifier.fillMaxSize()) {
+            if (isManga) {
+                mangaHomeItems(manga, topBarDp, onMangaRefresh, onMangaClick)
+                return@LazyColumn
+            }
             item(key = "hero") {
                 val heroLoading = feed.loading && state.hero.isEmpty()
                 Crossfade(heroLoading, animationSpec = tween(Motion.Medium), label = "hero") { loading ->
@@ -304,8 +338,11 @@ private fun HomeScreen(
         }
 
         HomeTopBar(
-            solid = remember { derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 600 } }.value,
-            syncing = feed.syncing,
+            solid = isManga || remember { derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 600 } }.value,
+            syncing = if (isManga) manga.refreshing else feed.syncing,
+            mode = mode,
+            onModeChange = onModeChange,
+            modifier = Modifier.onSizeChanged { topBarPx = it.height },
             onSearch = onSearch,
             onSettings = onSettings,
         )
@@ -452,13 +489,13 @@ private fun Section(
 }
 
 @Composable
-private fun HomeTopBar(solid: Boolean, syncing: Boolean, onSearch: () -> Unit, onSettings: () -> Unit) {
+private fun HomeTopBar(solid: Boolean, syncing: Boolean, mode: ContentMode, onModeChange: (ContentMode) -> Unit, modifier: Modifier = Modifier, onSearch: () -> Unit, onSettings: () -> Unit) {
     val bg by animateColorAsState(
         if (solid) MaterialTheme.colorScheme.surface.copy(alpha = 0.96f) else Color.Transparent,
         label = "topbarBg",
     )
     val scrim = Brush.verticalGradient(listOf(Color.Black.copy(alpha = if (solid) 0f else 0.55f), Color.Transparent))
-    Column {
+    Column(modifier) {
         Row(
             Modifier
                 .fillMaxWidth()
@@ -474,6 +511,8 @@ private fun HomeTopBar(solid: Boolean, syncing: Boolean, onSearch: () -> Unit, o
             IconWithTooltip(stringResource(R.string.browse_search), Icons.Rounded.Search, onSearch, tint = tint)
             IconWithTooltip(stringResource(R.string.browse_settings), Icons.Rounded.Settings, onSettings, tint = tint)
         }
+        // Over hero artwork the segmented button has no backing of its own, so it gets a surface band to stay legible in both themes.
+        ContentSwitch(mode, onModeChange, Modifier.background(if (solid) bg else MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)).padding(vertical = 8.dp))
         RefreshHairline(syncing)
     }
 }

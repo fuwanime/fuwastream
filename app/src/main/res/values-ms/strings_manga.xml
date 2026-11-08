@@ -1,3 +1,16 @@
 <resources>
     <string name="manga_error_not_found">Manga tidak dijumpai.</string>
+    <string name="manga_switch_cd">Jenis kandungan</string>
+    <string name="manga_mode_anime">Anime</string>
+    <string name="manga_mode_manga">Manga</string>
+    <string name="manga_status_ongoing">Sedang berjalan</string>
+    <string name="manga_status_completed">Tamat</string>
+    <string name="manga_status_hiatus">Hiatus</string>
+    <string name="manga_status_cancelled">Dibatalkan</string>
+    <string name="manga_home_continue">Teruskan membaca</string>
+    <string name="manga_home_popular">Popular</string>
+    <string name="manga_home_latest">Kemas kini terkini</string>
+    <string name="manga_filter_all">Semua</string>
+    <string name="manga_search_hint">Cari manga</string>
+    <string name="manga_detail_placeholder">Butiran manga: %1$s</string>
 </resources>
