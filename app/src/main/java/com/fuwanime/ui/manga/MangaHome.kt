@@ -93,7 +93,15 @@ class MangaHomeViewModel(private val repo: MangaRepository, library: MangaLibrar
 }
 
 /** Manga mode of Beranda: the items of the Home list. [topPad] clears the top bar and the mode switch. */
-fun LazyListScope.mangaHomeItems(state: MangaHomeState, topPad: Dp, onRetry: () -> Unit, onMangaClick: (String) -> Unit, onRead: (mangaId: String, chapterId: String) -> Unit) {
+fun LazyListScope.mangaHomeItems(
+    state: MangaHomeState,
+    topPad: Dp,
+    onRetry: () -> Unit,
+    onMangaClick: (String) -> Unit,
+    onRead: (mangaId: String, chapterId: String) -> Unit,
+    /** Row between the Indonesian shelves and the global ones (genre shortcuts). */
+    middle: (@Composable () -> Unit)? = null,
+) {
     item(key = "mTop") { Spacer(Modifier.height(topPad)) }
     if (state.continueReading.isNotEmpty()) {
         item(key = "mContinue") {
@@ -107,6 +115,7 @@ fun LazyListScope.mangaHomeItems(state: MangaHomeState, topPad: Dp, onRetry: () 
     }
     shelf(R.string.manga_home_popular_id, "mIndonesia", state.indonesia, onRetry, onMangaClick)
     shelf(R.string.manga_home_komiku, "mKomiku", state.komiku, onRetry, onMangaClick)
+    if (middle != null) item(key = "mMiddle") { middle() }
     shelf(R.string.manga_home_popular, "mPopular", state.popular, onRetry, onMangaClick)
     shelf(R.string.manga_home_latest, "mLatest", state.latest, onRetry, onMangaClick)
 }
