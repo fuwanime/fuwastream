@@ -5,8 +5,8 @@
     <string name="manga_status_hiatus">休刊中</string>
     <string name="manga_status_cancelled">已中止</string>
     <string name="manga_home_continue">继续阅读</string>
-    <string name="manga_home_popular">热门</string>
-    <string name="manga_home_latest">最新更新</string>
+    <string name="manga_home_popular">全球热门</string>
+    <string name="manga_home_latest">最近更新</string>
     <string name="manga_filter_all">全部</string>
     <string name="manga_search_hint">搜索漫画</string>
     <string name="manga_detail_start">开始阅读</string>
@@ -43,13 +43,20 @@
     <string name="manga_settings_data_saver">阅读时节省流量</string>
     <string name="manga_settings_data_saver_desc">使用 MangaDex 的较小图片</string>
     <string name="manga_restore_summary">漫画：收藏 %1$d 部，阅读记录 %2$d 条。</string>
-    <string name="manga_home_popular_id">印尼语热门</string>
+    <string name="manga_home_popular_id">印尼热门</string>
     <string name="manga_credit_shinigami">数据与图片来自 Shinigami</string>
     <string name="manga_credit_both">信息来自 MangaDex · 章节来自 Shinigami</string>
     <string name="manga_reader_source_shinigami">来源：Shinigami</string>
-    <string name="manga_home_komiku">热门漫画（Komiku）</string>
+    <string name="manga_home_komiku">经典与完结</string>
     <string name="manga_settings_mature">成人内容</string>
     <string name="manga_settings_mature_desc">显示来自 MangaDex 的成人题材漫画（如《烙印战士》《浪客行》）</string>
     <string name="manga_credit_komiku">数据与图片来自 Komiku</string>
     <string name="manga_reader_source_komiku">来源：Komiku</string>
+    <string name="manga_home_genres">按类型浏览</string>
+    <string name="manga_genre_action">动作</string>
+    <string name="manga_genre_romance">恋爱</string>
+    <string name="manga_genre_horror">恐怖</string>
+    <string name="manga_genre_comedy">喜剧</string>
+    <string name="manga_genre_fantasy">奇幻</string>
+    <string name="manga_genre_isekai">异世界</string>
 </resources>

@@ -5,8 +5,8 @@
     <string name="manga_status_hiatus">On hiatus</string>
     <string name="manga_status_cancelled">Cancelled</string>
     <string name="manga_home_continue">Continue reading</string>
-    <string name="manga_home_popular">Popular</string>
-    <string name="manga_home_latest">Latest updates</string>
+    <string name="manga_home_popular">Trending worldwide</string>
+    <string name="manga_home_latest">Just updated</string>
     <string name="manga_filter_all">All</string>
     <string name="manga_search_hint">Search manga</string>
     <string name="manga_detail_start">Start reading</string>
@@ -44,13 +44,20 @@
     <string name="manga_settings_data_saver">Save data while reading</string>
     <string name="manga_settings_data_saver_desc">Smaller images from MangaDex</string>
     <string name="manga_restore_summary">Manga: %1$d favorites, %2$d reading history.</string>
-    <string name="manga_home_popular_id">Popular in Indonesian</string>
+    <string name="manga_home_popular_id">Popular in Indonesia</string>
     <string name="manga_credit_shinigami">Data &amp; images from Shinigami</string>
     <string name="manga_credit_both">Info from MangaDex · chapters from Shinigami</string>
     <string name="manga_reader_source_shinigami">Source: Shinigami</string>
-    <string name="manga_home_komiku">Popular comics (Komiku)</string>
+    <string name="manga_home_komiku">Classics &amp; complete</string>
     <string name="manga_settings_mature">Mature content</string>
     <string name="manga_settings_mature_desc">Show mature-themed manga (e.g. Berserk, Vagabond) from MangaDex</string>
     <string name="manga_credit_komiku">Data &amp; images from Komiku</string>
     <string name="manga_reader_source_komiku">Source: Komiku</string>
+    <string name="manga_home_genres">Browse genres</string>
+    <string name="manga_genre_action">Action</string>
+    <string name="manga_genre_romance">Romance</string>
+    <string name="manga_genre_horror">Horror</string>
+    <string name="manga_genre_comedy">Comedy</string>
+    <string name="manga_genre_fantasy">Fantasy</string>
+    <string name="manga_genre_isekai">Isekai</string>
 </resources>

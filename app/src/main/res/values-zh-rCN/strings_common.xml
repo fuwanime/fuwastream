@@ -76,4 +76,7 @@
     <plurals name="common_days_ago">
         <item quantity="other">%1$d天前</item>
     </plurals>
+    <string name="common_genre">类型</string>
+    <string name="common_genre_count">类型 · %1$d</string>
+    <string name="common_genre_clear">清除</string>
 </resources>

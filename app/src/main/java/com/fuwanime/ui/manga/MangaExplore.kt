@@ -1,5 +1,9 @@
 package com.fuwanime.ui.manga
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import com.fuwanime.ui.components.GenreSheet
+import com.fuwanime.ui.components.GenreChip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -161,20 +165,24 @@ class MangaExploreViewModel(private val repo: MangaRepository) : ViewModel() {
     }
 }
 
-/** Status and tag chips under the search field. */
+/** One filter row under the search field: the genre picker (a sheet) and the publication status. */
 @Composable
 fun MangaFilterBar(state: MangaExploreState, vm: MangaExploreViewModel) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            item { TagChip(stringResource(R.string.manga_filter_all), onClick = { vm.setStatus(null) }, selected = state.status == null) }
-            item { TagChip(stringResource(R.string.manga_status_ongoing), onClick = { vm.setStatus(MangaStatus.ONGOING) }, selected = state.status == MangaStatus.ONGOING) }
-            item { TagChip(stringResource(R.string.manga_status_completed), onClick = { vm.setStatus(MangaStatus.COMPLETED) }, selected = state.status == MangaStatus.COMPLETED) }
-        }
-        if (state.tags.isNotEmpty()) {
-            LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(state.tags, key = { it.id }) { t -> TagChip(t.name, onClick = { vm.toggleTag(t.id) }, selected = t.id in state.tagIds) }
-            }
-        }
+    var genresOpen by remember { mutableStateOf(false) }
+    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        item { GenreChip(state.tagIds.size) { genresOpen = true } }
+        item { TagChip(stringResource(R.string.manga_filter_all), onClick = { vm.setStatus(null) }, selected = state.status == null) }
+        item { TagChip(stringResource(R.string.manga_status_ongoing), onClick = { vm.setStatus(MangaStatus.ONGOING) }, selected = state.status == MangaStatus.ONGOING) }
+        item { TagChip(stringResource(R.string.manga_status_completed), onClick = { vm.setStatus(MangaStatus.COMPLETED) }, selected = state.status == MangaStatus.COMPLETED) }
+    }
+    if (genresOpen) {
+        GenreSheet(
+            genres = state.tags.map { it.id to it.name },
+            selected = state.tagIds,
+            onToggle = vm::toggleTag,
+            onClear = { state.tagIds.forEach(vm::toggleTag) },
+            onDismiss = { genresOpen = false },
+        )
     }
 }
 

@@ -1,5 +1,7 @@
 package com.fuwanime.ui.explore
 
+import com.fuwanime.ui.components.GenreSheet
+import com.fuwanime.ui.components.GenreChip
 import com.fuwanime.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
@@ -240,17 +242,22 @@ private fun RecentSearches(items: List<String>, topPad: Dp, onPick: (String) -> 
 
 @Composable
 private fun FilterBar(filters: ExploreFilters, vm: ExploreViewModel) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(TypeFilter.entries, key = { it.name }) { t ->
-                TagChip(stringResource(t.label), onClick = { vm.setType(t) }, selected = t == filters.type)
-            }
+    // One row: the genre picker (a sheet) then the content types, instead of a second endless row of genres.
+    var genresOpen by remember { mutableStateOf(false) }
+    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        item(key = "genre") { GenreChip(filters.genres.size) { genresOpen = true } }
+        items(TypeFilter.entries, key = { it.name }) { t ->
+            TagChip(stringResource(t.label), onClick = { vm.setType(t) }, selected = t == filters.type)
         }
-        LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(AllGenres, key = { it }) { g ->
-                TagChip(g, onClick = { vm.toggleGenre(g) }, selected = g in filters.genres)
-            }
-        }
+    }
+    if (genresOpen) {
+        GenreSheet(
+            genres = AllGenres.map { it to it },
+            selected = filters.genres,
+            onToggle = vm::toggleGenre,
+            onClear = { filters.genres.forEach(vm::toggleGenre) },
+            onDismiss = { genresOpen = false },
+        )
     }
 }
 
