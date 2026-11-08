@@ -70,4 +70,5 @@
     <string name="manga_lang_en">English</string>
     <string name="manga_lang_raw">Raw</string>
     <string name="manga_credit_merged">Data &amp; images from %1$s</string>
+    <string name="manga_detail_finding_sources">Looking for chapters on every source…</string>
 </resources>

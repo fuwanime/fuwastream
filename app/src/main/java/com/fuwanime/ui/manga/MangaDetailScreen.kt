@@ -10,6 +10,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.ui.semantics.semantics
 import java.text.DateFormat
@@ -257,7 +258,17 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
                     val chapters = inApp
                     when {
                         state.chaptersError != null -> item(key = "chErr") { ErrorState(state.chaptersError!!, vm::load) }
-                        chapters == null -> Unit
+                        // Searching the other sources and loading their chapter lists can take a few seconds.
+                        chapters == null -> item(key = "chLoading") {
+                            Row(
+                                Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 24.dp).semantics(mergeDescendants = true) {},
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                                Spacer(Modifier.width(12.dp))
+                                Text(stringResource(R.string.manga_detail_finding_sources), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
                         chapters.isEmpty() -> item(key = "chEmpty") {
                             MessageState(Icons.AutoMirrored.Rounded.MenuBook, stringResource(R.string.manga_detail_no_chapters))
                         }
