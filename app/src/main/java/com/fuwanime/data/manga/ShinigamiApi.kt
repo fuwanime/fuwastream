@@ -33,6 +33,7 @@ data class ShTermDto(@Json(name = "name") val name: String = "")
 data class ShTaxonomyDto(
     @Json(name = "Genre") val genre: List<ShTermDto> = emptyList(),
     @Json(name = "Author") val author: List<ShTermDto> = emptyList(),
+    @Json(name = "Format") val format: List<ShTermDto> = emptyList(),
 )
 
 @JsonClass(generateAdapter = true)
@@ -88,6 +89,7 @@ fun ShMangaDto.toManga() = Manga(
     },
     year = releaseYear?.toIntOrNull(),
     author = taxonomy?.author.orEmpty().map { it.name }.filter { it.isNotBlank() }.joinToString(", ").ifBlank { null },
+    type = taxonomy?.format?.firstOrNull()?.name?.takeIf { it.isNotBlank() },
 )
 
 // Pages are only known when the chapter is opened; 1 marks the chapter as readable in the app.

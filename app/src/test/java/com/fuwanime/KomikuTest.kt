@@ -34,6 +34,7 @@ class KomikuTest {
         assertEquals("km:berserk", m.id)
         assertEquals("Berserk", m.title)
         assertEquals("Kentaro Miura", m.author)
+        assertEquals("Manga", m.type)
         assertEquals(MangaStatus.ONGOING, m.status)
         assertTrue(m.tags.containsAll(listOf("Action", "Horror")))
         assertTrue(m.description.startsWith("Berserk mengisahkan"))

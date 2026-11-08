@@ -37,6 +37,7 @@ class ShinigamiTest {
         assertEquals(2019, m.year)
         assertEquals(listOf("Action", "Adventure", "Fantasy"), m.tags.take(3))
         assertEquals("Wuer Manhua, Ye Xiao", m.author)
+        assertEquals("Manhua", m.type)
     }
 
     @Test fun chapterMapsToPrefixedReadableChapter() {

@@ -10,6 +10,9 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,6 +30,13 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.ArrowDropDown
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material3.Button
@@ -176,6 +186,7 @@ fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
     }
     val state by vm.state.collectAsStateWithLifecycle()
     var barsVisible by rememberSaveable { mutableStateOf(true) }
+    var pickerOpen by rememberSaveable { mutableStateOf(false) }
 
     // Immersive reading: system bars follow the reader's own bars.
     val activity = LocalContext.current.findActivity()
@@ -233,10 +244,24 @@ fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
                         IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.mine_back), tint = Color.White) }
                         Column(Modifier.weight(1f)) {
                             Text(state.manga?.title.orEmpty(), color = Color.White, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(label, color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelMedium, maxLines = 1)
+                            // Chapter picker: the current chapter with a drop-down arrow, opening the full list.
+                            Row(
+                                Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClickLabel = stringResource(R.string.manga_reader_pick)) { pickerOpen = true }.padding(vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(label, color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.labelLarge, maxLines = 1)
+                                Icon(Icons.Rounded.ArrowDropDown, null, tint = Color.White)
+                            }
+                        }
+                        IconButton(onClick = { previous?.let { vm.open(it.id) } }, enabled = previous != null) {
+                            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, stringResource(R.string.manga_reader_prev), tint = if (previous != null) Color.White else Color.White.copy(alpha = 0.3f))
+                        }
+                        IconButton(onClick = { next?.let { vm.open(it.id) } }, enabled = next != null) {
+                            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, stringResource(R.string.manga_reader_next), tint = if (next != null) Color.White else Color.White.copy(alpha = 0.3f))
                         }
                     }
                 }
+                if (pickerOpen) ChapterPicker(readable, chapter.id, onPick = { pickerOpen = false; if (it != chapter.id) vm.open(it) }, onDismiss = { pickerOpen = false })
                 AnimatedVisibility(barsVisible, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.BottomCenter)) {
                     Row(
                         Modifier.fillMaxWidth().background(Color.Black.copy(alpha = 0.75f)).navigationBarsPadding().padding(4.dp),
@@ -262,6 +287,42 @@ fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
         if (state.error != null || state.chapter == null || state.pages == null) {
             IconButton(onClick = onBack, modifier = Modifier.statusBarsPadding().padding(4.dp)) {
                 Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.mine_back), tint = Color.White)
+            }
+        }
+    }
+}
+
+/** Every readable chapter in a sheet, opened at the current one (ticked); a tap jumps there. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ChapterPicker(chapters: List<MangaChapter>, currentId: String, onPick: (String) -> Unit, onDismiss: () -> Unit) {
+    val at = chapters.indexOfFirst { it.id == currentId }.coerceAtLeast(0)
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = (at - 3).coerceAtLeast(0))
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Text(
+            stringResource(R.string.manga_reader_pick),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+        )
+        LazyColumn(state = listState, modifier = Modifier.navigationBarsPadding()) {
+            items(chapters, key = { it.id }) { c ->
+                val current = c.id == currentId
+                Row(
+                    Modifier.fillMaxWidth().clickable { onPick(c.id) }.padding(horizontal = 20.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        listOfNotNull(chapterLabel(c), c.title?.takeIf { it.isNotBlank() && c.number != null }).joinToString(" · "),
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = if (current) FontWeight.Bold else FontWeight.Normal,
+                        color = if (current) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (current) Icon(Icons.Rounded.Check, null, tint = MaterialTheme.colorScheme.primary)
+                }
             }
         }
     }
