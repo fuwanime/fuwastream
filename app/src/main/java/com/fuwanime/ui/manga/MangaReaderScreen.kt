@@ -83,7 +83,6 @@ import com.fuwanime.data.manga.MangaChapter
 import com.fuwanime.data.manga.mergeChapters
 import com.fuwanime.data.manga.readerLanguage
 import com.fuwanime.data.manga.withChapter
-import java.util.Locale
 import com.fuwanime.data.manga.MangaLibrary
 import com.fuwanime.data.manga.MangaRepository
 import com.fuwanime.data.manga.nextChapter
@@ -100,6 +99,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 
 /**
@@ -145,17 +145,20 @@ class MangaReaderViewModel(
         _state.value = _state.value.copy(chapter = null, pages = null, error = null, requestedId = chapterId)
         viewModelScope.launch {
             try {
+                val dataSaver = settings.mangaDataSaver.first()
+                // Pages don't depend on the chapter list; fetch them while the sources are merged.
+                // runCatching: a failed async child would otherwise cancel this coroutine and crash past the catch below.
+                val pagesJob = async { runCatching { repo.pages(chapterId, dataSaver) } }
                 val manga = _state.value.manga ?: repo.detail(mangaId)
                 // Same merged list as the detail page (cached there), kept to the language of the opened chapter.
                 val chapters = _state.value.chapters.ifEmpty {
                     val all = repo.mergedChapters(manga)
-                    val merged = readerLanguage(all, chapterId, Locale.getDefault().language)?.let { mergeChapters(all, it) } ?: all
+                    val merged = readerLanguage(all, chapterId, repo.language())?.let { mergeChapters(all, it) } ?: all
                     all.firstOrNull { it.id == chapterId }?.let { withChapter(merged, it) } ?: merged
                 }
                 val saved = library.historyFor(mangaId).first().firstOrNull { it.chapterId == chapterId }
                 val chapter = readerChapter(chapters, chapterId, saved?.chapterLabel)
-                val dataSaver = settings.mangaDataSaver.first()
-                val pages = repo.pages(chapterId, dataSaver)
+                val pages = pagesJob.await().getOrThrow()
                 _state.value = ReaderState(manga, chapters, chapter, pages, readerStartIndex(saved?.page, pages.size), requestedId = chapterId, generation = _state.value.generation)
             } catch (e: CancellationException) {
                 throw e

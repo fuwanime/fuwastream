@@ -130,7 +130,8 @@ fun availableLanguages(chapters: List<MangaChapter>): List<ChapterLang> {
 }
 
 fun defaultLanguage(available: List<ChapterLang>, appLanguage: String): ChapterLang? = when {
-    appLanguage == "id" && ChapterLang.ID in available -> ChapterLang.ID
+    // Older Android reports Indonesian as the legacy code "in".
+    (appLanguage == "id" || appLanguage == "in") && ChapterLang.ID in available -> ChapterLang.ID
     ChapterLang.EN in available -> ChapterLang.EN
     else -> available.firstOrNull()
 }
@@ -159,7 +160,7 @@ fun mergeChapters(all: List<MangaChapter>, lang: ChapterLang): List<MangaChapter
         group.filter { it.readable() }.ifEmpty { group }.sortedWith(compareBy<MangaChapter> { sourceRank(it.id) }.thenByDescending { it.publishAt }).first()
     }
     // Oneshots have no number to match on; take them from one source only so they don't show twice.
-    val bestOneshotRank = oneshots.minOfOrNull { sourceRank(it.id) }
+    val bestOneshotRank = oneshots.filter { it.readable() }.ifEmpty { oneshots }.minOfOrNull { sourceRank(it.id) }
     val (parsable, odd) = picked.partition { it.number?.toBigDecimalOrNull() != null }
     return parsable.sortedBy { it.number!!.toBigDecimal() } +
         (odd + oneshots.filter { sourceRank(it.id) == bestOneshotRank }).sortedBy { it.publishAt }

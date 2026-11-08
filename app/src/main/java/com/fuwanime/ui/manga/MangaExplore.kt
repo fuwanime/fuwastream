@@ -170,7 +170,7 @@ class MangaExploreViewModel(private val repo: MangaRepository) : ViewModel() {
             // Indonesian sources come first; genre and status are MangaDex-only filters, so they turn them off.
             val indonesian = when {
                 a.tags.isNotEmpty() || a.status != null -> emptyList()
-                a.q.isNotBlank() -> repo.searchIndonesia(a.q).filter { a.type == null || it.type.equals(a.type.label, ignoreCase = true) }
+                a.q.isNotBlank() -> repo.searchIndonesia(a.q).filter { a.type == null || it.type == null || it.type.equals(a.type.label, ignoreCase = true) }
                 a.type != null -> runCatching { repo.popularIndonesia(1, a.type).items }.getOrDefault(emptyList()) +
                     runCatching { repo.popularKomiku(1, a.type).items }.getOrDefault(emptyList())
                 else -> emptyList()

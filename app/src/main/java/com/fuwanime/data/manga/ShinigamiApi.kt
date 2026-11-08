@@ -111,7 +111,8 @@ private fun norm(s: String) = s.lowercase().filter { it.isLetterOrDigit() }
 /** True when a Shinigami title (or one of its comma-separated alternative titles) is the same as [title]. */
 fun sameTitle(title: String, shTitle: String, shAlternatives: List<String>): Boolean {
     val want = norm(title).ifEmpty { return false }
-    return norm(shTitle) == want || shAlternatives.any { norm(it) == want }
+    // Alt titles are comma-split fragments; a short one ("Love") would match unrelated titles.
+    return norm(shTitle) == want || (want.length >= 5 && shAlternatives.any { norm(it) == want })
 }
 
 fun ShMangaDto.alternatives(): List<String> = alternativeTitle.orEmpty().split(',').map { it.trim() }.filter { it.isNotEmpty() }

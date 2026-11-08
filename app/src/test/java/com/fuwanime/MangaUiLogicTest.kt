@@ -8,6 +8,9 @@ import com.fuwanime.data.manga.MangaStatus
 import com.fuwanime.data.manga.MangaTag
 import com.fuwanime.ui.manga.dedupeByTitle
 import com.fuwanime.data.manga.withChapter
+import com.fuwanime.data.manga.ChapterLang
+import com.fuwanime.ui.manga.readKeys
+import com.fuwanime.ui.manga.historyLanguage
 import com.fuwanime.ui.manga.chapterRanges
 import com.fuwanime.ui.manga.genreTagId
 import com.fuwanime.ui.manga.rangeLabel
@@ -35,6 +38,17 @@ class MangaUiLogicTest {
         val shown = listOf(ch("sh:1", "1"), ch("sh:50", "50"))
         val all = shown + ch("md50", "50.0")
         assertEquals("sh:50", resumeTarget(shown, listOf(h("md50", 10)), all)?.id)
+    }
+
+    @Test fun readKeysMarkSameNumberFromAnotherSource() {
+        val all = listOf(ch("md50", "50"), ch("sh:50", "50.0"), ch("sh:51", "51"))
+        assertEquals(setOf("50"), readKeys(listOf(h("md50", 1)), all))
+    }
+
+    @Test fun historyLanguageIsThatOfLatestReadChapter() {
+        val all = listOf(MangaChapter("e150", "150", null, "en", null, 5, null, 0), MangaChapter("i1", "1", null, "id", null, 5, null, 0))
+        assertEquals(ChapterLang.EN, historyLanguage(listOf(h("i1", 1), h("e150", 9)), all))
+        assertNull(historyLanguage(listOf(h("gone", 9)), all))
     }
 
     @Test fun withChapterSwapsInTheOpenedSource() {

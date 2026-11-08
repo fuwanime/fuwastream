@@ -138,6 +138,14 @@ class MangaMappingTest {
         assertNull(defaultLanguage(emptyList(), "id"))
     }
 
+    @Test fun defaultLanguageTreatsLegacyInAsIndonesian() =
+        assertEquals(ChapterLang.ID, defaultLanguage(listOf(ChapterLang.ID, ChapterLang.EN), "in"))
+
+    @Test fun oneshotFromLowerSourceKeptWhenBestIsUnreadable() {
+        val r = mergeChapters(listOf(ch("sh:o", null, "id", pages = 0), ch("md-o", null, "id")), ChapterLang.ID)
+        assertEquals(listOf("md-o"), r.map { it.id })
+    }
+
     @Test fun effectiveLanguageFallsBackWhenChosenGone() {
         assertEquals(ChapterLang.EN, effectiveLanguage(ChapterLang.EN, listOf(ChapterLang.ID, ChapterLang.EN), "id"))
         assertEquals(ChapterLang.ID, effectiveLanguage(ChapterLang.RAW, listOf(ChapterLang.ID, ChapterLang.EN), "id"))

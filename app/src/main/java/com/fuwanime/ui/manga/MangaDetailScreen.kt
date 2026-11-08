@@ -13,13 +13,14 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
 import androidx.compose.ui.semantics.semantics
 import java.text.DateFormat
-import java.util.Locale
 import com.fuwanime.data.manga.ChapterLang
 import com.fuwanime.data.manga.availableLanguages
 import com.fuwanime.data.manga.effectiveLanguage
 import com.fuwanime.data.manga.mergeChapters
 import com.fuwanime.data.manga.sourceRank
 import com.fuwanime.data.manga.numberKey
+import com.fuwanime.data.manga.languageGroup
+import androidx.compose.ui.platform.LocalConfiguration
 import java.util.Date
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -90,6 +91,18 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+
+/** Chapter numbers read so far, whichever source the read copy came from. */
+fun readKeys(history: List<MangaHistoryEntity>, all: List<MangaChapter>): Set<String> {
+    val byId = all.associateBy { it.id }
+    return history.mapNotNullTo(HashSet()) { e -> byId[e.chapterId]?.let(::numberKey) }
+}
+
+/** The language of the most recently read chapter that is still listed, or null. */
+fun historyLanguage(history: List<MangaHistoryEntity>, all: List<MangaChapter>): ChapterLang? {
+    val byId = all.associateBy { it.id }
+    return history.sortedByDescending { it.updatedAt }.firstNotNullOfOrNull { byId[it.chapterId] }?.let { languageGroup(it.language) }
+}
 
 /**
  * The chapter "Lanjut"/"Mulai baca" opens: the last one read if it is still listed, or the listed chapter with the same
@@ -173,13 +186,18 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
                 val readIds = state.history.mapTo(HashSet()) { it.chapterId }
                 val available = remember(state.chapters) { state.chapters?.let(::availableLanguages).orEmpty() }
                 var chosen by rememberSaveable(mangaId) { mutableStateOf<ChapterLang?>(null) }
-                val lang = effectiveLanguage(chosen, available, Locale.getDefault().language)
+                val appLang = LocalConfiguration.current.locales[0].language
+                // Until a chip is tapped, follow the language last read (else the app language).
+                val lang = effectiveLanguage(chosen ?: historyLanguage(state.history, state.chapters.orEmpty()), available, appLang)
                 // Everything is read in the app: chapters that only exist on an external site (or have no pages) are left out.
                 val inApp = remember(state.chapters, lang) {
                     state.chapters?.let { all -> lang?.let { mergeChapters(all, it) }.orEmpty().filter { it.externalUrl == null && it.pages > 0 } }
                 }
                 val target = inApp?.let { resumeTarget(it, state.history, state.chapters.orEmpty()) }
-                val resumed = target != null && target.id in readIds
+                // Read marks also cover the same chapter number read from another source.
+                val readNumbers = remember(state.history, state.chapters) { readKeys(state.history, state.chapters.orEmpty()) }
+                fun isRead(c: MangaChapter) = c.id in readIds || numberKey(c) in readNumbers
+                val resumed = target != null && isRead(target)
                 val sources = remember(state.chapters) {
                     state.chapters.orEmpty().map { sourceRank(it.id) }.distinct().sorted().map { SOURCE_NAMES[it] }
                 }
@@ -230,7 +248,7 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
                     }
                     item(key = "chaptersTitle") {
                         Text(
-                            state.chapters?.count { it.externalUrl == null && it.pages > 0 }?.let { pluralStringResource(R.plurals.manga_detail_chapters_count, it, it) } ?: stringResource(R.string.manga_detail_chapters),
+                            inApp?.size?.let { pluralStringResource(R.plurals.manga_detail_chapters_count, it, it) } ?: stringResource(R.string.manga_detail_chapters),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 4.dp),
@@ -265,7 +283,7 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
                             items(shown.chunked(3), key = { it.first().id }) { row ->
                                 Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     row.forEach { c ->
-                                        ChapterCell(c, read = c.id in readIds, current = resumed && c.id == target?.id, Modifier.weight(1f)) { onRead(readId, c.id) }
+                                        ChapterCell(c, read = isRead(c), current = resumed && c.id == target?.id, Modifier.weight(1f)) { onRead(readId, c.id) }
                                     }
                                     repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
                                 }
