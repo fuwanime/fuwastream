@@ -99,8 +99,59 @@ class MangaMappingTest {
         assertEquals(listOf("B/data/H/F1.png"), pageUrls("B", "H", d, s, false))
     }
 
-    @Test fun chapterLanguage() {
-        assertEquals("id", chapterLanguageFor("id"))
-        listOf("ms", "en", "zh").forEach { assertEquals("en", chapterLanguageFor(it)) }
+    @Test fun mergePrefersShinigamiThenKomikuThenMangaDex() {
+        val r = mergeChapters(listOf(ch("md1", "1", "id"), ch("km:1", "1", "id"), ch("sh:1", "1", "id"), ch("km:2", "2", "id"), ch("md2", "2", "id")), ChapterLang.ID)
+        assertEquals(listOf("sh:1", "km:2"), r.map { it.id })
+    }
+
+    @Test fun mergePrefersReadableOverBetterSource() {
+        val r = mergeChapters(listOf(ch("sh:1", "1", "id", pages = 0), ch("md1", "1", "id")), ChapterLang.ID)
+        assertEquals(listOf("md1"), r.map { it.id })
+    }
+
+    @Test fun mergeTreatsEquivalentNumbersAsOne() =
+        assertEquals(1, mergeChapters(listOf(ch("a", "5", "id"), ch("sh:b", "5.0", "id"), ch("km:c", "05", "id")), ChapterLang.ID).size)
+
+    @Test fun mergeKeepsOnlyRequestedLanguageInOrder() {
+        val r = mergeChapters(listOf(ch("e10", "10", "en"), ch("i1", "1", "id"), ch("e2", "2", "en"), ch("o", null, "en", at = 5), ch("j1", "1", "ja")), ChapterLang.EN)
+        assertEquals(listOf("e2", "e10", "o"), r.map { it.id })
+    }
+
+    @Test fun mergeTakesOneshotsFromBestSourceOnly() {
+        val r = mergeChapters(listOf(ch("sh:o", null, "id", at = 1), ch("md-o", null, "id", at = 2), ch("md1", "1", "id")), ChapterLang.ID)
+        assertEquals(listOf("md1", "sh:o"), r.map { it.id })
+    }
+
+    @Test fun languageGroups() {
+        assertEquals(ChapterLang.ID, languageGroup("id"))
+        listOf("en", "pt-br").forEach { assertEquals(ChapterLang.EN, languageGroup(it)) }
+        listOf("ja", "ko", "zh", "zh-hk").forEach { assertEquals(ChapterLang.RAW, languageGroup(it)) }
+    }
+
+    @Test fun availableLanguagesIgnoreUnreadable() =
+        assertEquals(listOf(ChapterLang.ID), availableLanguages(listOf(ch("a", "1", "id"), ch("b", "1", "en", ext = "https://x"), ch("c", "1", "ja", pages = 0))))
+
+    @Test fun defaultLanguageFollowsAppThenFallsBack() {
+        assertEquals(ChapterLang.ID, defaultLanguage(listOf(ChapterLang.ID, ChapterLang.EN), "id"))
+        assertEquals(ChapterLang.EN, defaultLanguage(listOf(ChapterLang.ID, ChapterLang.EN), "en"))
+        assertEquals(ChapterLang.RAW, defaultLanguage(listOf(ChapterLang.RAW), "id"))
+        assertNull(defaultLanguage(emptyList(), "id"))
+    }
+
+    @Test fun effectiveLanguageFallsBackWhenChosenGone() {
+        assertEquals(ChapterLang.EN, effectiveLanguage(ChapterLang.EN, listOf(ChapterLang.ID, ChapterLang.EN), "id"))
+        assertEquals(ChapterLang.ID, effectiveLanguage(ChapterLang.RAW, listOf(ChapterLang.ID, ChapterLang.EN), "id"))
+    }
+
+    @Test fun readerLanguageUsesOpenedChapterElseDefault() {
+        val all = listOf(ch("a", "1", "id"), ch("b", "1", "en"))
+        assertEquals(ChapterLang.EN, readerLanguage(all, "b", "id"))
+        assertEquals(ChapterLang.ID, readerLanguage(all, "gone", "id"))
+    }
+
+    @Test fun mangaTypeMapsToSources() {
+        assertEquals(listOf("ko"), MangaType.MANHWA.mangaDex)
+        assertEquals(listOf("zh", "zh-hk"), MangaType.MANHUA.mangaDex)
+        assertEquals("manhua", MangaType.MANHUA.slug)
     }
 }
