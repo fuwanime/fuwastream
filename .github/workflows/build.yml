@@ -107,6 +107,8 @@ jobs:
           sudo udevadm trigger --name-match=kvm
 
       - uses: reactivecircus/android-emulator-runner@v2
+        env:
+          GH_TOKEN: ${{ github.token }}
         with:
           api-level: 34
           arch: x86_64

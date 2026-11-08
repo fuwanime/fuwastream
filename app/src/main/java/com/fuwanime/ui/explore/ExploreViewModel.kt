@@ -1,5 +1,7 @@
 package com.fuwanime.ui.explore
 
+import com.fuwanime.R
+import androidx.annotation.StringRes
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -8,7 +10,8 @@ import com.fuwanime.data.AnimeRepository
 import com.fuwanime.data.LibraryRepository
 import com.fuwanime.data.SortOrder
 import com.fuwanime.data.remote.AnimeApiService
-import com.fuwanime.util.friendlyMessage
+import com.fuwanime.util.UiText
+import com.fuwanime.util.friendlyText
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,17 +22,19 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-enum class StatusFilter(val label: String) { ALL("Semua"), ONGOING("Tayang"), FINISHED("Tamat") }
+enum class StatusFilter(@StringRes val label: Int) {
+    ALL(R.string.browse_all), ONGOING(R.string.common_status_airing), FINISHED(R.string.common_status_finished),
+}
 
 /** [apiType] is the API's `type` value; null means no type filter. */
-enum class TypeFilter(val label: String, val apiType: String?) {
-    ALL("Semua", null),
-    SERIES("Series", "SERIES"),
-    MOVIE("Film", "MOVIE"),
-    LIVE_ACTION("Live Action", "LIVE ACTION"),
-    ONA("ONA", "ONA"),
-    OVA("OVA", "OVA"),
-    SPECIAL("Special", "SPECIAL");
+enum class TypeFilter(@StringRes val label: Int, val apiType: String?) {
+    ALL(R.string.browse_all, null),
+    SERIES(R.string.browse_type_series, "SERIES"),
+    MOVIE(R.string.browse_type_movie, "MOVIE"),
+    LIVE_ACTION(R.string.browse_type_live_action, "LIVE ACTION"),
+    ONA(R.string.browse_type_ona, "ONA"),
+    OVA(R.string.browse_type_ova, "OVA"),
+    SPECIAL(R.string.browse_type_special, "SPECIAL");
 
     fun matches(type: String): Boolean =
         apiType == null || type.trim().replace('-', ' ').equals(apiType, ignoreCase = true)
@@ -37,13 +42,13 @@ enum class TypeFilter(val label: String, val apiType: String?) {
 
 data class ExploreFilters(
     val query: String = "",
-    val genre: String? = null,
+    /** Every selected genre must match (AND). */
+    val genres: Set<String> = emptySet(),
     val status: StatusFilter = StatusFilter.ALL,
     val type: TypeFilter = TypeFilter.ALL,
     val sort: SortOrder = SortOrder.POPULAR,
 ) {
-    val activeCount: Int get() = listOfNotNull(
-        genre,
+    val activeCount: Int get() = genres.size + listOfNotNull(
         status.takeIf { it != StatusFilter.ALL },
         type.takeIf { it != TypeFilter.ALL },
     ).size
@@ -55,7 +60,7 @@ data class ExploreUiState(
     val loading: Boolean = false,
     val loadingMore: Boolean = false,
     val endReached: Boolean = false,
-    val error: String? = null,
+    val error: UiText? = null,
 )
 
 class ExploreViewModel(
@@ -65,7 +70,7 @@ class ExploreViewModel(
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(
-        ExploreUiState(filters = ExploreFilters(genre = savedState.get<String>("genre")?.takeIf { it.isNotBlank() })),
+        ExploreUiState(filters = ExploreFilters(genres = setOfNotNull(savedState.get<String>("genre")?.takeIf { it.isNotBlank() }))),
     )
     val state: StateFlow<ExploreUiState> = _state.asStateFlow()
 
@@ -101,11 +106,11 @@ class ExploreViewModel(
     fun removeRecent(query: String) = viewModelScope.launch { library.removeSearch(query) }
     fun clearRecent() = viewModelScope.launch { library.clearSearches() }
 
-    fun setGenre(genre: String?) = updateFilters { it.copy(genre = genre) }
+    fun toggleGenre(genre: String) = updateFilters { it.copy(genres = if (genre in it.genres) it.genres - genre else it.genres + genre) }
     fun setStatus(status: StatusFilter) = updateFilters { it.copy(status = status) }
     fun setType(type: TypeFilter) = updateFilters { it.copy(type = type) }
     fun setSort(sort: SortOrder) = updateFilters { it.copy(sort = sort) }
-    fun clearFilters() = updateFilters { it.copy(genre = null, status = StatusFilter.ALL, type = TypeFilter.ALL) }
+    fun clearFilters() = updateFilters { it.copy(genres = emptySet(), status = StatusFilter.ALL, type = TypeFilter.ALL) }
 
     private fun updateFilters(change: (ExploreFilters) -> ExploreFilters) {
         val before = _state.value.filters
@@ -136,7 +141,7 @@ class ExploreViewModel(
             repeat(MAX_PAGES_PER_BATCH) {
                 val f = _state.value.filters
                 val page = repo.explore(nextPage, f.sort, f.query, f.type.apiType).getOrElse { e ->
-                    _state.update { it.copy(loading = false, loadingMore = false, error = e.friendlyMessage()) }
+                    _state.update { it.copy(loading = false, loadingMore = false, error = e.friendlyText()) }
                     return@launch
                 }
                 nextPage++
@@ -156,8 +161,7 @@ class ExploreViewModel(
     private fun refilter(fillPage: Boolean): Int {
         val f = _state.value.filters
         val filtered = raw.filter { a ->
-            (f.genre == null || a.genres.any { it.equals(f.genre, ignoreCase = true) } ||
-                (f.genre.equals("Isekai", true) && a.synopsis.contains("isekai", true))) &&
+            matchesGenres(a, f.genres) &&
                 when (f.status) {
                     StatusFilter.ALL -> true
                     StatusFilter.ONGOING -> a.isOngoing

@@ -1,0 +1,22 @@
+<resources>
+    <string name="system_channel_new_episodes_name">Episode baru</string>
+    <string name="system_channel_new_episodes_desc">Notifikasi episode baru untuk anime favorit</string>
+    <string name="system_new_episode_text">Episode %1$s sudah tayang!</string>
+    <plurals name="system_new_episodes_summary">
+        <item quantity="other">%1$d episode baru</item>
+    </plurals>
+    <string name="system_shortcut_search_short">Cari</string>
+    <string name="system_shortcut_search_long">Cari anime</string>
+    <string name="system_shortcut_schedule_short">Jadwal</string>
+    <string name="system_shortcut_schedule_long">Jadwal tayang</string>
+    <string name="system_shortcut_continue_long">Lanjutkan %1$s</string>
+    <string name="widget_continue_name">Lanjutkan menonton</string>
+    <string name="widget_continue_desc">Lanjutkan anime yang terakhir ditonton</string>
+    <string name="system_widget_continue">Lanjutkan</string>
+    <string name="system_widget_empty">Belum ada tontonan</string>
+    <string name="system_widget_explore">Jelajahi</string>
+    <string name="system_widget_episode">Ep %1$s</string>
+    <string name="system_download_title">%1$s • Episode %2$s</string>
+    <string name="system_download_no_source">Belum ada sumber video untuk episode ini.</string>
+    <string name="system_download_no_storage">Penyimpanan tidak tersedia.</string>
+</resources>

@@ -1,15 +1,28 @@
 package com.fuwanime
 
+import kotlinx.coroutines.flow.first
+import com.fuwanime.data.backup.BackupWorker
+import com.fuwanime.data.backup.BackupRepository
 import android.app.Application
-import coil.ImageLoader
-import coil.ImageLoaderFactory
-import coil.disk.DiskCache
-import coil.memory.MemoryCache
+import coil3.ImageLoader
+import coil3.PlatformContext
+import coil3.SingletonImageLoader
+import coil3.disk.DiskCache
+import coil3.memory.MemoryCache
+import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+import coil3.request.crossfade
+import okio.Path.Companion.toOkioPath
 import com.fuwanime.data.AnimeRepository
 import com.fuwanime.data.DownloadRepository
 import com.fuwanime.data.LibraryRepository
 import com.fuwanime.data.local.FuwaDatabase
 import com.fuwanime.data.local.SettingsStore
+import com.fuwanime.data.meta.AniListApi
+import com.fuwanime.data.meta.AniSkipApi
+import com.fuwanime.data.meta.AnimeLinkRepository
+import com.fuwanime.data.meta.SkipRepository
+import com.fuwanime.playback.PlaybackHolder
+import java.util.concurrent.TimeUnit
 import com.fuwanime.data.remote.AnimeApiService
 import com.fuwanime.data.remote.ForceCache
 import com.fuwanime.data.remote.NetworkStatus
@@ -19,11 +32,14 @@ import com.fuwanime.data.notify.EpisodeNotifyWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import com.fuwanime.widget.HomeSurfaces
 import okhttp3.Cache
 import okhttp3.OkHttpClient
 
+// Code contributor: Andra
 /** Manual DI: one instance of each dependency for the whole process. */
-class AppContainer(app: Application) {
+class AppContainer(private val app: Application) {
     val httpClient: OkHttpClient = AnimeApiService.createHttpClient()
 
     /** Connectivity plus "showing cached data since"; drives the offline indicators. */
@@ -48,14 +64,34 @@ class AppContainer(app: Application) {
 
     val downloadRepository = DownloadRepository(app, database.downloadDao(), animeRepository, appScope)
 
+    /** Re-renders the "Lanjutkan" shortcut and widget after history changes. */
+    fun refreshHomeSurfaces() {
+        appScope.launch { HomeSurfaces.refresh(app, libraryRepository) }
+    }
+
     /** In-app update checker against GitHub Releases. */
     val updateRepository = UpdateRepository(settingsStore)
 
     /** Video requests get the same UA as the API but none of its JSON headers. */
     val videoHttpClient: OkHttpClient = httpClient.newBuilder().apply { interceptors().clear() }.build()
+
+    val playbackHolder by lazy { PlaybackHolder(app, videoHttpClient) }
+
+    /** AniList and AniSkip: no catalog User-Agent or JSON headers, and short timeouts so enrichment gives up fast. */
+    val metaHttpClient: OkHttpClient by lazy {
+        httpClient.newBuilder().apply { interceptors().clear() }
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(10, TimeUnit.SECONDS)
+            .build()
+    }
+    val animeLinkRepository by lazy { AnimeLinkRepository(database.animeLinkDao(), AniListApi.create(metaHttpClient)) }
+    val skipRepository by lazy { SkipRepository(AniSkipApi.create(metaHttpClient)) }
+
+    /** Daily backup file in a folder the user picked; survives an uninstall. */
+    val backupRepository by lazy { BackupRepository(app, libraryRepository, settingsStore) }
 }
 
-class FuwaApp : Application(), ImageLoaderFactory {
+class FuwaApp : Application(), SingletonImageLoader.Factory {
     lateinit var container: AppContainer
         private set
 
@@ -63,18 +99,22 @@ class FuwaApp : Application(), ImageLoaderFactory {
         super.onCreate()
         container = AppContainer(this)
         EpisodeNotifyWorker.schedule(this)
+        container.appScope.launch {
+            val backup = container.settingsStore.backup.first()
+            if (backup.treeUri != null && backup.auto) BackupWorker.schedule(this@FuwaApp)
+        }
     }
 
-    override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this)
-        .okHttpClient { container.httpClient }
-        .memoryCache { MemoryCache.Builder(this).maxSizePercent(0.25).build() }
+    // Coil 3 ignores HTTP cache headers by default, matching the old respectCacheHeaders(false).
+    override fun newImageLoader(context: PlatformContext): ImageLoader = ImageLoader.Builder(context)
+        .components { add(OkHttpNetworkFetcherFactory(callFactory = { container.httpClient })) }
+        .memoryCache { MemoryCache.Builder().maxSizePercent(context, 0.25).build() }
         .diskCache {
             DiskCache.Builder()
-                .directory(cacheDir.resolve("image_cache"))
+                .directory(cacheDir.resolve("image_cache").toOkioPath())
                 .maxSizeBytes(256L * 1024 * 1024)
                 .build()
         }
         .crossfade(true)
-        .respectCacheHeaders(false)
         .build()
 }

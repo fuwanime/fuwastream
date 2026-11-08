@@ -1,5 +1,7 @@
 package com.fuwanime.ui.player
 
+import com.fuwanime.util.text
+import com.fuwanime.ui.components.IconWithTooltip
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
@@ -7,6 +9,9 @@ import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.media.AudioManager
 import android.net.ConnectivityManager
+import android.net.Uri
+import android.os.Build
+import android.os.PowerManager
 import android.util.Log
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -18,6 +23,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -83,6 +90,16 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.widthIn
+import com.fuwanime.data.Anime
+import com.fuwanime.data.SeasonEntry
+import androidx.compose.ui.layout.ContentScale
+import coil3.compose.AsyncImage
+import androidx.compose.ui.geometry.Offset
+import com.fuwanime.data.meta.SkipSegment
+import com.fuwanime.data.meta.SegmentKind
+import androidx.compose.ui.geometry.Size
+import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -93,6 +110,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -100,9 +118,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -116,15 +137,14 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import androidx.compose.animation.core.tween
@@ -134,6 +154,8 @@ import com.fuwanime.ui.motion.LocalNavScope
 import com.fuwanime.ui.motion.sharedKey
 import com.fuwanime.ui.motion.Motion
 import com.fuwanime.FuwaApp
+import com.fuwanime.R
+import com.fuwanime.util.UiText
 import com.fuwanime.util.formatBytes
 import com.fuwanime.data.DownloadState
 import com.fuwanime.data.DownloadItem
@@ -145,12 +167,11 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarHost
-import androidx.media3.datasource.DefaultDataSource
 import com.fuwanime.data.Episode
 import com.fuwanime.data.OpMark
 import com.fuwanime.data.StreamSource
 import com.fuwanime.data.local.AppSettings
-import com.fuwanime.data.remote.AnimeApiService
+import com.fuwanime.data.local.VideoResize
 import com.fuwanime.ui.components.NetImage
 import com.fuwanime.util.formatDuration
 import com.fuwanime.util.fuwaViewModel
@@ -162,27 +183,17 @@ private const val TAG = "FuwaPlayer"
 
 private val Speeds = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f)
 
-@OptIn(UnstableApi::class)
-private fun buildPlayer(context: Context): ExoPlayer {
-    val client = (context.applicationContext as FuwaApp).container.videoHttpClient
-    val http = OkHttpDataSource.Factory(client).setUserAgent(AnimeApiService.USER_AGENT)
-    // DefaultDataSource routes file:// (offline downloads) locally and everything else through OkHttp.
-    val dataSource = DefaultDataSource.Factory(context, http)
-    return ExoPlayer.Builder(context)
-        .setMediaSourceFactory(DefaultMediaSourceFactory(dataSource))
-        // Request audio focus: music/podcast from another app pauses instead of overlapping.
-        .setAudioAttributes(
-            androidx.media3.common.AudioAttributes.Builder()
-                .setUsage(C.USAGE_MEDIA)
-                .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
-                .build(),
-            /* handleAudioFocus = */ true,
-        )
-        .setSeekBackIncrementMs(10_000)
-        .setSeekForwardIncrementMs(10_000)
-        .setHandleAudioBecomingNoisy(true)
-        .build()
-}
+private fun mediaItem(url: String, np: NowPlaying): MediaItem = MediaItem.Builder()
+    .setUri(url)
+    .setMediaMetadata(
+        MediaMetadata.Builder()
+            .setTitle(np.title)
+            .setArtist(np.artist)
+            .setSubtitle(np.subtitle.ifBlank { null })
+            .setArtworkUri(np.artworkUrl.takeIf { it.isNotBlank() }?.let(Uri::parse))
+            .build(),
+    )
+    .build()
 
 private fun Context.isMeteredNetwork(): Boolean =
     (getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager)?.isActiveNetworkMetered == true
@@ -192,6 +203,12 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
     is ContextWrapper -> baseContext.findActivity()
     else -> null
 }
+
+/** A downloaded file plays from a local source, which has no quality tag or server of its own. */
+private fun StreamSource.isLocal() = url.startsWith("file:")
+
+@Composable
+private fun StreamSource.label(): String = if (isLocal()) stringResource(R.string.watch_quality_offline, quality) else quality
 
 /** Snapshot of ExoPlayer state, polled for the Compose controls. */
 private class PlaybackState {
@@ -203,7 +220,7 @@ private class PlaybackState {
     var duration by mutableLongStateOf(0L)
     var videoWidth by mutableIntStateOf(16)
     var videoHeight by mutableIntStateOf(9)
-    var error by mutableStateOf<String?>(null)
+    var error by mutableStateOf<UiText?>(null)
 
     /**
      * Seek requested before the stream became seekable. The MKV files keep their seek index (Cues)
@@ -236,6 +253,8 @@ fun PlayerRoute(
     /** Key of the image (episode thumbnail or detail backdrop) that flies into the video area. */
     sharedKey: String? = null,
     onBack: () -> Unit,
+    /** Opens another anime's Detail (the next season at the end of this one). */
+    onOpenAnime: (Anime) -> Unit = {},
 ) {
     val appContext = LocalContext.current.applicationContext
     val vm: PlayerViewModel = fuwaViewModel { c, h ->
@@ -243,19 +262,24 @@ fun PlayerRoute(
             c.animeRepository, c.libraryRepository, c.downloadRepository, c.settingsStore, c.appScope,
             isMetered = { appContext.isMeteredNetwork() },
             saved = h,
+            refreshHomeSurfaces = c::refreshHomeSurfaces,
+            links = c.animeLinkRepository,
+            skips = c.skipRepository,
         )
     }
     val state by vm.state.collectAsStateWithLifecycle()
     val download by vm.download.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
+    val res = LocalContext.current.resources
     LaunchedEffect(state.message) {
         state.message?.let {
             vm.messageShown()
-            snackbar.showSnackbar(it)
+            snackbar.showSnackbar(it.resolve(res))
         }
     }
     val settings by vm.settings.collectAsStateWithLifecycle()
     val opMark by vm.opMark.collectAsStateWithLifecycle()
+    val segmentsState by vm.segments.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val activity = remember(context) { context.findActivity() }
     val view = LocalView.current
@@ -263,13 +287,13 @@ fun PlayerRoute(
     val inPip = pip?.isInPip?.value == true
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
-    val player = remember { buildPlayer(context) }
+    val holder = remember(context) { (context.applicationContext as FuwaApp).container.playbackHolder }
+    val player = remember { holder.acquire() }
     val initialEpisodeId = remember { state.episode.id }
     // The nav-arg thumbnail, which is what flew in; the stream may report a different URL for the same image.
     val initialThumbnail = remember { state.episode.thumbnail }
     val playback = remember { PlaybackState() }
     var speed by remember { mutableFloatStateOf(1f) }
-    var resizeMode by remember { mutableIntStateOf(AspectRatioFrameLayout.RESIZE_MODE_FIT) }
     var sleep by remember { mutableStateOf(SleepOption.OFF) }
     var sleepAtMs by remember { mutableStateOf<Long?>(null) }
     /** Set when a timed sleep fired; blocks autoplay until the user presses play again. */
@@ -290,7 +314,7 @@ fun PlayerRoute(
                 playback.buffering = s == Player.STATE_BUFFERING
                 playback.ended = s == Player.STATE_ENDED
                 if (s == Player.STATE_READY) playback.error = null
-                if (s == Player.STATE_ENDED) vm.saveProgress(player.duration, player.duration)
+                if (s == Player.STATE_ENDED) vm.onPlayerExit(player.duration, player.duration)
             }
 
             override fun onTimelineChanged(timeline: Timeline, reason: Int) {
@@ -325,11 +349,11 @@ fun PlayerRoute(
                 // A smaller file often plays where the bigger one failed; only surface the error when nothing is left.
                 if (shouldFallBack(error.errorCode) && vm.fallBack(player.effectivePosition(playback).coerceAtLeast(0))) return
                 playback.error = when (error.errorCode) {
-                    PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED -> "Koneksi terputus saat memutar video."
+                    PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED -> UiText(R.string.watch_err_connection)
                     PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT ->
-                        "Server video lambat merespons. Coba lagi atau pilih kualitas lain."
-                    PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> "Sumber video tidak bisa diakses. Coba kualitas lain."
-                    else -> "Video gagal diputar. Coba kualitas lain."
+                        UiText(R.string.watch_err_timeout)
+                    PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> UiText(R.string.watch_err_http)
+                    else -> UiText(R.string.watch_err_play)
                 }
             }
         }
@@ -337,7 +361,7 @@ fun PlayerRoute(
         onDispose {
             vm.saveProgress(player.currentPosition, player.duration)
             player.removeListener(listener)
-            player.release()
+            holder.release(player)
             view.keepScreenOn = false
         }
     }
@@ -351,7 +375,7 @@ fun PlayerRoute(
             player.stop()
             return@LaunchedEffect
         }
-        player.setMediaItem(MediaItem.fromUri(source.url), state.startPositionMs.coerceAtLeast(0))
+        player.setMediaItem(mediaItem(source.url, nowPlaying(res, state.episode, state.anime)), state.startPositionMs.coerceAtLeast(0))
         player.prepare()
         player.playWhenReady = !sleepExpired
     }
@@ -361,6 +385,10 @@ fun PlayerRoute(
             playback.position = player.effectivePosition(playback).coerceAtLeast(0)
             playback.buffered = player.bufferedPosition.coerceAtLeast(0)
             playback.duration = player.duration.takeIf { it != C.TIME_UNSET } ?: 0L
+            // Only once the loaded item is this episode's source does the duration belong to it.
+            if (segmentSourceReady(playback.firstFrame, player.currentMediaItem?.localConfiguration?.uri?.toString(), state.source?.url)) {
+                vm.onDurationKnown(state.episode.id, playback.duration)
+            }
             delay(250)
         }
     }
@@ -369,7 +397,10 @@ fun PlayerRoute(
     LaunchedEffect(player, state.episode.id) {
         while (true) {
             delay(5_000)
-            if (player.isPlaying) vm.saveProgress(player.currentPosition, player.duration)
+            if (player.isPlaying) {
+                vm.saveProgress(player.currentPosition, player.duration)
+                vm.addWatchTime(5_000)
+            }
         }
     }
 
@@ -381,7 +412,7 @@ fun PlayerRoute(
         player.pause()
         sleep = SleepOption.OFF
         sleepAtMs = null
-        snackbar.showSnackbar("Timer tidur: video dijeda")
+        snackbar.showSnackbar(res.getString(R.string.watch_sleep_paused))
     }
     // "Akhir episode" is one-shot: it covers the episode it was set on.
     LaunchedEffect(state.episode.id) {
@@ -389,17 +420,23 @@ fun PlayerRoute(
     }
 
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
-        vm.saveProgress(player.currentPosition, player.duration)
-        player.pause()
+        vm.onPlayerExit(player.currentPosition, player.duration)
+        // Closing the PiP window stops the activity while it still reports PiP mode.
+        val wasInPip = inPip || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && activity?.isInPictureInPictureMode == true)
+        val screenOn = (context.getSystemService(Context.POWER_SERVICE) as PowerManager).isInteractive
+        if (stopAction(wasInPip, screenOn, settings.backgroundAudio) == StopAction.PAUSE) player.pause()
     }
 
     // --- PiP + fullscreen -----------------------------------------------------------------
     DisposableEffect(pip, playback.isPlaying, settings.autoPip, playback.videoWidth, playback.videoHeight) {
-        pip?.setAutoEnter(playback.isPlaying && settings.autoPip, playback.videoWidth, playback.videoHeight)
+        pip?.setAutoEnter(playback.isPlaying && settings.autoPip, playback.videoWidth, playback.videoHeight, playback.isPlaying)
         onDispose { pip?.setAutoEnter(false) }
     }
 
-    val fullscreen = landscape && !inPip
+    /** The user's fullscreen choice since the last rotation; null follows the orientation. */
+    var manualFullscreen by rememberSaveable { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(landscape) { manualFullscreen = null }
+    val fullscreen = isFullscreen(landscape, manualFullscreen, inPip)
     DisposableEffect(fullscreen) {
         val window = activity?.window
         if (window != null) {
@@ -421,6 +458,7 @@ fun PlayerRoute(
         }
     }
     fun setFullscreen(enable: Boolean) {
+        manualFullscreen = enable
         activity?.requestedOrientation =
             if (enable) ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
     }
@@ -435,9 +473,11 @@ fun PlayerRoute(
             playback = playback,
             state = state,
             settings = settings,
-            resizeMode = resizeMode,
+            resize = settings.videoResize,
+            onResize = vm::setVideoResize,
             speed = speed,
             opMark = opMark,
+            segments = segmentsFor(segmentsState, state.episode.id),
             sleep = sleep,
             sleepExpired = sleepExpired,
             // Only the episode that was tapped has a thumbnail to fly in; later episodes just fade.
@@ -446,7 +486,8 @@ fun PlayerRoute(
             autoSkipHandledFor = autoSkipHandledFor,
             onAutoSkipped = { autoSkipHandledFor = it },
             fullscreen = fullscreen,
-            inPip = inPip,
+            // Hide the controls as soon as the shrink starts, not after it lands.
+            inPip = inPip || pip?.isEnteringPip?.value == true,
             onBack = { if (fullscreen) setFullscreen(false) else onBack() },
             onToggleFullscreen = { setFullscreen(!fullscreen) },
             onOpenSettings = { showSettings = true },
@@ -454,6 +495,7 @@ fun PlayerRoute(
             pipSupported = pip?.isSupported == true,
             onNext = vm::playNext,
             onPrevious = vm::playPrevious,
+            onOpenAnime = onOpenAnime,
             onRetry = {
                 if (state.error != null) vm.retry()
                 else {
@@ -498,7 +540,7 @@ fun PlayerRoute(
             sources = state.sources,
             current = state.source,
             speed = speed,
-            resizeMode = resizeMode,
+            resize = settings.videoResize,
             positionMs = playback.position,
             opMark = opMark,
             sleep = sleep,
@@ -511,7 +553,7 @@ fun PlayerRoute(
                 speed = it
                 player.setPlaybackSpeed(it)
             },
-            onResize = { resizeMode = it },
+            onResize = vm::setVideoResize,
             onMarkOpStart = {
                 autoSkipHandledFor = state.episode.id
                 vm.markOpStart(player.effectivePosition(playback))
@@ -537,9 +579,11 @@ private fun VideoSurface(
     playback: PlaybackState,
     state: PlayerUiState,
     settings: AppSettings,
-    resizeMode: Int,
+    resize: VideoResize,
+    onResize: (VideoResize) -> Unit,
     speed: Float,
     opMark: OpMark?,
+    segments: List<SkipSegment>,
     sleep: SleepOption,
     sleepExpired: Boolean,
     thumbnailKey: String?,
@@ -555,6 +599,7 @@ private fun VideoSurface(
     onEnterPip: () -> Unit,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
+    onOpenAnime: (Anime) -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier,
 ) {
@@ -568,6 +613,16 @@ private fun VideoSurface(
     var boosting by remember { mutableStateOf(false) }
     val baseSpeed by rememberUpdatedState(speed)
     var locked by remember { mutableStateOf(false) }
+    /** Where the last auto-skip jumped from, while its "Batalkan" chip shows. */
+    var undoSkipTo by remember { mutableStateOf<Long?>(null) }
+    /** Mode just picked by a pinch, shown briefly in the middle of the video. */
+    var resizeHint by remember { mutableStateOf<VideoResize?>(null) }
+    LaunchedEffect(resizeHint) {
+        if (resizeHint != null) {
+            delay(1_000)
+            resizeHint = null
+        }
+    }
     var showUnlock by remember { mutableStateOf(false) }
     LaunchedEffect(fullscreen) { if (!fullscreen) locked = false }
     BackHandler(enabled = locked) { showUnlock = true }
@@ -602,7 +657,9 @@ private fun VideoSurface(
                     this.player = player
                 }
             },
-            update = { it.resizeMode = resizeMode },
+            update = {
+                it.resizeMode = if (resize == VideoResize.ZOOM) AspectRatioFrameLayout.RESIZE_MODE_ZOOM else AspectRatioFrameLayout.RESIZE_MODE_FIT
+            },
             modifier = Modifier.fillMaxSize(),
         )
 
@@ -630,6 +687,32 @@ private fun VideoSurface(
         Box(
             Modifier
                 .fillMaxSize()
+                // Two-finger pinch switches Pas/Isi layar. It runs first (Initial pass) and consumes the gesture once
+                // a second finger lands, so tap, double-tap seek, hold-2x and the level drags never fire with it.
+                .pointerInput(resize, locked) {
+                    if (locked) return@pointerInput
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                        var startDistance = 0f
+                        do {
+                            val event = awaitPointerEvent(PointerEventPass.Initial)
+                            val pressed = event.changes.filter { it.pressed }
+                            if (pressed.size >= 2) {
+                                val distance = (pressed[0].position - pressed[1].position).getDistance()
+                                if (startDistance == 0f) {
+                                    startDistance = distance
+                                } else if (distance > 0f) {
+                                    pinchResize(resize, distance / startDistance)?.let {
+                                        onResize(it)
+                                        resizeHint = it
+                                        startDistance = distance
+                                    }
+                                }
+                                event.changes.forEach { it.consume() }
+                            }
+                        } while (event.changes.any { it.pressed })
+                    }
+                }
                 .pointerInput(seekStepMs) {
                     detectTapGestures(
                         onPress = {
@@ -704,6 +787,7 @@ private fun VideoSurface(
             SeekBubble(forward, secs, Modifier.align(if (forward) Alignment.CenterEnd else Alignment.CenterStart))
         }
         gestureLevel?.let { (icon, level) -> LevelIndicator(icon, level, Modifier.align(Alignment.Center)) }
+        resizeHint?.let { ResizeHint(it, Modifier.align(Alignment.Center)) }
         if (boosting) {
             Surface(
                 color = Color.Black.copy(alpha = 0.6f),
@@ -725,7 +809,7 @@ private fun VideoSurface(
             Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
                 CircularProgressIndicator(color = Color.White, strokeWidth = 3.dp)
                 Spacer(Modifier.height(12.dp))
-                Text("Menyiapkan Episode ${state.episode.number}…", color = Color.White, style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.watch_msg_preparing_episode, state.episode.number), color = Color.White, style = MaterialTheme.typography.bodyMedium)
             }
         }
 
@@ -739,6 +823,7 @@ private fun VideoSurface(
                 player = player,
                 playback = playback,
                 state = state,
+                markers = segments.map { it.startMs to it.endMs } + listOfNotNull(opMark?.takeIf { it.isValid }?.let { it.startMs to it.endMs }),
                 fullscreen = fullscreen,
                 pipSupported = pipSupported,
                 onLock = {
@@ -757,12 +842,39 @@ private fun VideoSurface(
         }
 
         val skip = if (!state.loading && playback.error == null && !playback.ended) {
-            skipActionAt(playback.position, playback.duration, opMark, jumpAhead = settings.jumpAheadButton)
+            skipActionAt(playback.position, playback.duration, opMark, jumpAhead = settings.jumpAheadButton, segments = segments)
         } else null
-        LaunchedEffect((skip as? SkipAction.SkipOp)?.targetMs, state.episode.id) {
+        val autoTarget = (skip as? SkipAction.SkipOp)?.targetMs ?: (skip as? SkipSegmentAction)?.takeIf { it.kind == SegmentKind.OP }?.targetMs
+        LaunchedEffect(autoTarget, state.episode.id) {
             if (skip != null && shouldAutoSkip(settings.autoSkipOp, skip, state.episode.id, autoSkipHandledFor)) {
                 onAutoSkipped(state.episode.id)
+                undoSkipTo = player.effectivePosition(playback)
                 player.seekSafely(skip.targetMs, playback)
+            }
+        }
+        LaunchedEffect(undoSkipTo) {
+            if (undoSkipTo != null) {
+                delay(5_000)
+                undoSkipTo = null
+            }
+        }
+        undoSkipTo?.let { from ->
+            Surface(
+                color = Color.Black.copy(alpha = 0.7f),
+                contentColor = Color.White,
+                shape = RoundedCornerShape(50),
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = if (fullscreen) 32.dp else 12.dp, bottom = if (controlsVisible) 72.dp else 16.dp),
+            ) {
+                Row(Modifier.padding(start = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.watch_intro_skipped), style = MaterialTheme.typography.labelLarge)
+                    TextButton(onClick = {
+                        // Back to where the opening started; autoSkipHandledFor already stops a second skip.
+                        player.seekSafely(from, playback)
+                        undoSkipTo = null
+                    }) { Text(stringResource(R.string.watch_undo), color = MaterialTheme.colorScheme.primary) }
+                }
             }
         }
         if (skip != null && skipButtonVisible(controlsVisible, fullscreen, locked)) {
@@ -778,11 +890,11 @@ private fun VideoSurface(
             ) {
                 Icon(Icons.Rounded.FastForward, null, Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text(if (skip is SkipAction.SkipOp) "Lewati OP" else "+85 dtk")
+                Text(stringResource(skipLabel(skip)))
             }
         }
 
-        val error = state.error ?: playback.error
+        val error = (state.error ?: playback.error)?.text()
         if (error != null && !state.loading) {
             Column(
                 Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.8f)).padding(24.dp),
@@ -794,8 +906,8 @@ private fun VideoSurface(
                 Text(error, color = Color.White, style = MaterialTheme.typography.bodyMedium)
                 Spacer(Modifier.height(16.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = onBack) { Text("Kembali", color = Color.White) }
-                    Button(onClick = onRetry) { Text("Coba lagi") }
+                    OutlinedButton(onClick = onBack) { Text(stringResource(R.string.watch_back), color = Color.White) }
+                    Button(onClick = onRetry) { Text(stringResource(R.string.common_retry)) }
                 }
             }
         }
@@ -803,6 +915,8 @@ private fun VideoSurface(
         if (playback.ended && !state.loading) {
             EndOverlay(
                 next = state.next,
+                nextSeason = offerNextSeason(state.anime, state.next, state.nextSeason),
+                onOpenSeason = onOpenAnime,
                 autoPlay = autoPlayAllowed(settings.autoPlayNext, sleep, sleepExpired),
                 onNext = onNext,
                 onReplay = {
@@ -833,6 +947,8 @@ private fun Controls(
     player: ExoPlayer,
     playback: PlaybackState,
     state: PlayerUiState,
+    /** Skippable ranges (AniSkip segments, the user's OP mark) drawn on the seekbar. */
+    markers: List<Pair<Long, Long>>,
     fullscreen: Boolean,
     pipSupported: Boolean,
     onLock: () -> Unit,
@@ -863,7 +979,7 @@ private fun Controls(
                 .then(if (fullscreen) Modifier.padding(horizontal = 24.dp, vertical = 8.dp) else Modifier),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Kembali", tint = Color.White) }
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.watch_back), tint = Color.White) }
             Column(Modifier.weight(1f)) {
                 Text(
                     state.anime?.title.orEmpty(),
@@ -873,18 +989,18 @@ private fun Controls(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    "Episode ${state.episode.number}" + (state.source?.quality?.let { " • $it" } ?: ""),
+                    stringResource(R.string.watch_episode_label, state.episode.number) + (state.source?.let { " • " + it.label() } ?: ""),
                     color = Color.White.copy(alpha = 0.75f),
                     style = MaterialTheme.typography.labelSmall,
                 )
             }
             if (fullscreen) {
-                IconButton(onClick = onLock) { Icon(Icons.Rounded.Lock, "Kunci layar", tint = Color.White) }
+                IconWithTooltip(stringResource(R.string.watch_lock_screen), Icons.Rounded.Lock, onLock, tint = Color.White)
             }
             if (pipSupported) {
-                IconButton(onClick = onEnterPip) { Icon(Icons.Rounded.PictureInPictureAlt, "Picture-in-Picture", tint = Color.White) }
+                IconWithTooltip("Picture-in-Picture", Icons.Rounded.PictureInPictureAlt, onEnterPip, tint = Color.White)
             }
-            IconButton(onClick = { onOpenSettings(); onInteract() }) { Icon(Icons.Rounded.Settings, "Pengaturan video", tint = Color.White) }
+            IconWithTooltip(stringResource(R.string.watch_video_settings), Icons.Rounded.Settings, { onOpenSettings(); onInteract() }, tint = Color.White)
         }
 
         // Center transport
@@ -893,8 +1009,8 @@ private fun Controls(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(if (fullscreen) 36.dp else 20.dp),
         ) {
-            TransportButton(Icons.Rounded.SkipPrevious, "Episode sebelumnya", enabled = state.previous != null, onClick = { onPrevious(); onInteract() })
-            TransportButton(Icons.Rounded.FastRewind, "Mundur 10 detik", onClick = { player.seekSafely(player.effectivePosition(playback) - 10_000, playback); onInteract() })
+            TransportButton(Icons.Rounded.SkipPrevious, stringResource(R.string.watch_prev_episode), enabled = state.previous != null, onClick = { onPrevious(); onInteract() })
+            TransportButton(Icons.Rounded.FastRewind, stringResource(R.string.watch_rewind_10), onClick = { player.seekSafely(player.effectivePosition(playback) - 10_000, playback); onInteract() })
             Surface(
                 shape = CircleShape,
                 color = Color.White.copy(alpha = 0.18f),
@@ -909,14 +1025,14 @@ private fun Controls(
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         if (playback.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        if (playback.isPlaying) "Jeda" else "Putar",
+                        stringResource(if (playback.isPlaying) R.string.watch_pause else R.string.watch_play),
                         tint = Color.White,
                         modifier = Modifier.size(38.dp),
                     )
                 }
             }
-            TransportButton(Icons.Rounded.FastForward, "Maju 10 detik", onClick = { player.seekSafely(player.effectivePosition(playback) + 10_000, playback); onInteract() })
-            TransportButton(Icons.Rounded.SkipNext, "Episode berikutnya", enabled = state.next != null, onClick = { onNext(); onInteract() })
+            TransportButton(Icons.Rounded.FastForward, stringResource(R.string.watch_forward_10), onClick = { player.seekSafely(player.effectivePosition(playback) + 10_000, playback); onInteract() })
+            TransportButton(Icons.Rounded.SkipNext, stringResource(R.string.watch_next_episode), enabled = state.next != null, onClick = { onNext(); onInteract() })
         }
 
         // Bottom: time + seek bar
@@ -933,13 +1049,12 @@ private fun Controls(
                     style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.weight(1f).padding(start = 4.dp),
                 )
-                IconButton(onClick = onToggleFullscreen) {
-                    Icon(
-                        if (fullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
-                        if (fullscreen) "Keluar layar penuh" else "Layar penuh",
-                        tint = Color.White,
-                    )
-                }
+                IconWithTooltip(
+                    stringResource(if (fullscreen) R.string.watch_exit_fullscreen else R.string.watch_fullscreen),
+                    if (fullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
+                    onToggleFullscreen,
+                    tint = Color.White,
+                )
             }
             Box(Modifier.fillMaxWidth().height(24.dp), contentAlignment = Alignment.Center) {
                 LinearProgressIndicator(
@@ -950,6 +1065,16 @@ private fun Controls(
                     drawStopIndicator = {},
                     gapSize = 0.dp,
                 )
+                if (markers.isNotEmpty()) {
+                    val markerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                    Canvas(Modifier.fillMaxWidth().padding(horizontal = 10.dp).height(4.dp)) {
+                        markers.forEach { (start, end) ->
+                            val x0 = size.width * (start.toFloat() / duration).coerceIn(0f, 1f)
+                            val x1 = size.width * (end.toFloat() / duration).coerceIn(0f, 1f)
+                            drawRect(markerColor, topLeft = Offset(x0, 0f), size = Size(x1 - x0, size.height))
+                        }
+                    }
+                }
                 Slider(
                     value = scrubbing ?: (playback.position.toFloat() / duration).coerceIn(0f, 1f),
                     onValueChange = {
@@ -990,7 +1115,7 @@ private fun LockedLayer(showUnlock: Boolean, onTap: () -> Unit, onUnlock: () -> 
             ) {
                 Icon(Icons.Rounded.LockOpen, null)
                 Spacer(Modifier.width(8.dp))
-                Text("Buka kunci")
+                Text(stringResource(R.string.watch_unlock))
             }
         }
     }
@@ -1015,8 +1140,20 @@ private fun SeekBubble(forward: Boolean, seconds: Int, modifier: Modifier) {
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(if (forward) Icons.Rounded.FastForward else Icons.Rounded.FastRewind, null, tint = Color.White)
-            Text("${if (forward) "+" else "-"}$seconds detik", color = Color.White, style = MaterialTheme.typography.labelLarge)
+            Text(pluralStringResource(if (forward) R.plurals.watch_seek_forward else R.plurals.watch_seek_back, seconds, seconds), color = Color.White, style = MaterialTheme.typography.labelLarge)
         }
+    }
+}
+
+@Composable
+private fun ResizeHint(resize: VideoResize, modifier: Modifier) {
+    Surface(color = Color.Black.copy(alpha = 0.6f), shape = RoundedCornerShape(16.dp), modifier = modifier) {
+        Text(
+            stringResource(if (resize == VideoResize.ZOOM) R.string.watch_fill else R.string.watch_fit),
+            color = Color.White,
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+        )
     }
 }
 
@@ -1038,7 +1175,14 @@ private fun LevelIndicator(icon: ImageVector, level: Float, modifier: Modifier) 
 }
 
 @Composable
-private fun EndOverlay(next: Episode?, autoPlay: Boolean, onNext: () -> Unit, onReplay: () -> Unit) {
+private fun EndOverlay(
+    next: Episode?,
+    nextSeason: SeasonEntry?,
+    onOpenSeason: (Anime) -> Unit,
+    autoPlay: Boolean,
+    onNext: () -> Unit,
+    onReplay: () -> Unit,
+) {
     var remaining by remember(next?.id) { mutableIntStateOf(if (autoPlay && next != null) 6 else -1) }
     LaunchedEffect(next?.id, autoPlay) {
         if (!autoPlay || next == null) {
@@ -1058,26 +1202,49 @@ private fun EndOverlay(next: Episode?, autoPlay: Boolean, onNext: () -> Unit, on
         verticalArrangement = Arrangement.Center,
     ) {
         if (next != null) {
-            Text("Selanjutnya", color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelLarge)
-            Text("Episode ${next.number}", color = Color.White, style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.watch_up_next), color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelLarge)
+            Text(stringResource(R.string.watch_episode_label, next.number), color = Color.White, style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(16.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (remaining > 0) {
-                    OutlinedButton(onClick = { remaining = -1 }) { Text("Batal", color = Color.White) }
+                    OutlinedButton(onClick = { remaining = -1 }) { Text(stringResource(R.string.watch_cancel), color = Color.White) }
                 }
                 Button(onClick = onNext) {
                     Icon(Icons.Rounded.PlayArrow, null)
                     Spacer(Modifier.width(4.dp))
-                    Text(if (remaining > 0) "Putar ($remaining)" else "Putar sekarang")
+                    Text(if (remaining > 0) stringResource(R.string.watch_play_countdown, remaining) else stringResource(R.string.watch_play_now))
+                }
+            }
+        } else if (nextSeason != null) {
+            Surface(
+                onClick = { onOpenSeason(nextSeason.anime) },
+                color = Color.White.copy(alpha = 0.08f),
+                contentColor = Color.White,
+                shape = RoundedCornerShape(16.dp),
+            ) {
+                Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    AsyncImage(
+                        model = nextSeason.anime.poster,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.size(width = 56.dp, height = 80.dp).clip(RoundedCornerShape(8.dp)),
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        stringResource(R.string.watch_next_season, nextSeason.label.ifBlank { stringResource(R.string.watch_next_season_fallback) }, nextSeason.anime.title),
+                        style = MaterialTheme.typography.titleSmall,
+                        maxLines = 3,
+                        modifier = Modifier.widthIn(max = 260.dp),
+                    )
                 }
             }
         } else {
-            Text("Kamu sudah di episode terbaru", color = Color.White, style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.watch_latest_reached), color = Color.White, style = MaterialTheme.typography.titleMedium)
         }
         TextButton(onClick = onReplay) {
             Icon(Icons.Rounded.Replay, null, tint = Color.White)
             Spacer(Modifier.width(4.dp))
-            Text("Putar ulang", color = Color.White)
+            Text(stringResource(R.string.watch_replay), color = Color.White)
         }
     }
 }
@@ -1102,7 +1269,7 @@ private fun EpisodeInfo(
                 Text(state.anime?.title.orEmpty(), style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    "Episode ${state.episode.number}",
+                    stringResource(R.string.watch_episode_label, state.episode.number),
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.primary,
                 )
@@ -1118,7 +1285,7 @@ private fun EpisodeInfo(
                         Icon(Icons.Rounded.SkipPrevious, null, Modifier.size(20.dp))
                         Spacer(Modifier.width(6.dp))
                         Text(
-                            state.previous?.let { "Ep ${it.number}" } ?: "Sebelumnya",
+                            state.previous?.let { stringResource(R.string.watch_ep_short, it.number) } ?: stringResource(R.string.watch_previous),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -1130,7 +1297,7 @@ private fun EpisodeInfo(
                         modifier = Modifier.weight(1f),
                     ) {
                         Text(
-                            state.next?.let { "Ep ${it.number}" } ?: "Berikutnya",
+                            state.next?.let { stringResource(R.string.watch_ep_short, it.number) } ?: stringResource(R.string.watch_next),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -1144,13 +1311,13 @@ private fun EpisodeInfo(
         }
         if (state.sources.size > 1) {
             item {
-                Text("Kualitas", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(start = 20.dp, bottom = 8.dp))
+                Text(stringResource(R.string.watch_quality), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(start = 20.dp, bottom = 8.dp))
                 LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(state.sources, key = { it.url }) { s ->
                         FilterChip(
                             selected = s.url == state.source?.url,
                             onClick = { onSelectSource(s) },
-                            label = { Text(s.quality) },
+                            label = { Text(s.label()) },
                             leadingIcon = if (s.url == state.source?.url) {
                                 { Icon(Icons.Rounded.Check, null, Modifier.size(16.dp)) }
                             } else null,
@@ -1162,7 +1329,7 @@ private fun EpisodeInfo(
         if (state.nearby.isNotEmpty()) {
             item {
                 Text(
-                    "Episode",
+                    stringResource(R.string.watch_episodes_title),
                     style = MaterialTheme.typography.titleSmall,
                     modifier = Modifier.padding(start = 20.dp, top = 24.dp, bottom = 8.dp),
                 )
@@ -1178,16 +1345,16 @@ private fun EpisodeInfo(
                             Modifier.width(150.dp).clip(MaterialTheme.shapes.small).clickable(enabled = !current) { onPlay(ep) },
                         ) {
                             Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(MaterialTheme.shapes.small)) {
-                                NetImage(ep.thumbnail, Modifier.fillMaxSize(), "Episode ${ep.number}")
+                                NetImage(ep.thumbnail, Modifier.fillMaxSize(), stringResource(R.string.watch_episode_label, ep.number))
                                 if (current) {
                                     Box(
                                         Modifier.fillMaxSize().background(MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)),
                                         contentAlignment = Alignment.Center,
-                                    ) { Text("Diputar", color = Color.White, fontWeight = FontWeight.Bold) }
+                                    ) { Text(stringResource(R.string.watch_now_playing), color = Color.White, fontWeight = FontWeight.Bold) }
                                 }
                             }
                             Text(
-                                "Episode ${ep.number}",
+                                stringResource(R.string.watch_episode_label, ep.number),
                                 style = MaterialTheme.typography.labelLarge,
                                 color = if (current) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.padding(top = 6.dp),
@@ -1207,14 +1374,14 @@ private fun PlayerSettingsSheet(
     sources: List<StreamSource>,
     current: StreamSource?,
     speed: Float,
-    resizeMode: Int,
+    resize: VideoResize,
     positionMs: Long,
     opMark: OpMark?,
     sleep: SleepOption,
     onDismiss: () -> Unit,
     onSource: (StreamSource) -> Unit,
     onSpeed: (Float) -> Unit,
-    onResize: (Int) -> Unit,
+    onResize: (VideoResize) -> Unit,
     onMarkOpStart: () -> Unit,
     onMarkOpEnd: () -> Unit,
     onClearOpMark: () -> Unit,
@@ -1222,12 +1389,12 @@ private fun PlayerSettingsSheet(
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
-            item { SheetTitle("Kualitas") }
+            item { SheetTitle(stringResource(R.string.watch_quality)) }
             items(sources, key = { it.url }) { s ->
                 ListItem(
-                    headlineContent = { Text(s.quality) },
-                    supportingContent = if (s.server.isNotBlank()) {
-                        { Text("Server ${s.server}") }
+                    headlineContent = { Text(s.label()) },
+                    supportingContent = if (s.isLocal() || s.server.isNotBlank()) {
+                        { Text(if (s.isLocal()) stringResource(R.string.watch_server_device) else stringResource(R.string.watch_server, s.server)) }
                     } else null,
                     trailingContent = if (s.url == current?.url) {
                         { Icon(Icons.Rounded.Check, null, tint = MaterialTheme.colorScheme.primary) }
@@ -1237,7 +1404,7 @@ private fun PlayerSettingsSheet(
                 )
             }
             item {
-                SheetTitle("Kecepatan")
+                SheetTitle(stringResource(R.string.watch_speed))
                 LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(Speeds) { sp ->
                         FilterChip(selected = sp == speed, onClick = { onSpeed(sp) }, label = { Text("${sp}x".replace(".0x", "x")) })
@@ -1245,36 +1412,36 @@ private fun PlayerSettingsSheet(
                 }
             }
             item {
-                SheetTitle("Tampilan")
+                SheetTitle(stringResource(R.string.watch_display))
                 Row(Modifier.padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(
-                        selected = resizeMode == AspectRatioFrameLayout.RESIZE_MODE_FIT,
-                        onClick = { onResize(AspectRatioFrameLayout.RESIZE_MODE_FIT) },
-                        label = { Text("Pas layar") },
+                        selected = resize == VideoResize.FIT,
+                        onClick = { onResize(VideoResize.FIT) },
+                        label = { Text(stringResource(R.string.watch_fit)) },
                     )
                     FilterChip(
-                        selected = resizeMode == AspectRatioFrameLayout.RESIZE_MODE_ZOOM,
-                        onClick = { onResize(AspectRatioFrameLayout.RESIZE_MODE_ZOOM) },
-                        label = { Text("Isi layar") },
+                        selected = resize == VideoResize.ZOOM,
+                        onClick = { onResize(VideoResize.ZOOM) },
+                        label = { Text(stringResource(R.string.watch_fill)) },
                         leadingIcon = { Icon(Icons.Rounded.AspectRatio, null, Modifier.size(16.dp)) },
                     )
                 }
             }
             item {
-                SheetTitle("Timer tidur")
+                SheetTitle(stringResource(R.string.watch_sleep_timer))
                 LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(SleepOption.entries) { option ->
-                        FilterChip(selected = option == sleep, onClick = { onSleep(option) }, label = { Text(option.label) })
+                        FilterChip(selected = option == sleep, onClick = { onSleep(option) }, label = { Text(option.minutes?.let { pluralStringResource(R.plurals.watch_sleep_minutes, it, it) } ?: stringResource(option.label)) })
                     }
                 }
             }
             item {
-                SheetTitle("Opening (OP)")
+                SheetTitle(stringResource(R.string.watch_opening))
                 Text(
                     if (opMark?.isValid == true) {
-                        "Tertanda ${formatDuration(opMark.startMs)} – ${formatDuration(opMark.endMs)} untuk semua episode anime ini."
+                        stringResource(R.string.watch_op_marked, formatDuration(opMark.startMs), formatDuration(opMark.endMs))
                     } else {
-                        "Tandai awal dan akhir OP sekali, tombol Lewati OP muncul di episode lain."
+                        stringResource(R.string.watch_op_hint)
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1284,11 +1451,11 @@ private fun PlayerSettingsSheet(
                     Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    OutlinedButton(onClick = onMarkOpStart) { Text("Awal di ${formatDuration(positionMs)}") }
-                    OutlinedButton(onClick = onMarkOpEnd) { Text("Akhir di ${formatDuration(positionMs)}") }
+                    OutlinedButton(onClick = onMarkOpStart) { Text(stringResource(R.string.watch_op_start, formatDuration(positionMs))) }
+                    OutlinedButton(onClick = onMarkOpEnd) { Text(stringResource(R.string.watch_op_end, formatDuration(positionMs))) }
                 }
                 if (opMark != null) {
-                    TextButton(onClick = onClearOpMark, modifier = Modifier.padding(horizontal = 12.dp)) { Text("Hapus tanda OP") }
+                    TextButton(onClick = onClearOpMark, modifier = Modifier.padding(horizontal = 12.dp)) { Text(stringResource(R.string.watch_op_clear)) }
                 }
             }
         }
@@ -1319,7 +1486,7 @@ private fun DownloadRow(
         download?.state == DownloadState.DONE -> OutlinedButton(onClick = { confirmDelete = true }, modifier = Modifier.fillMaxWidth()) {
             Icon(Icons.Rounded.DownloadDone, null, tint = MaterialTheme.colorScheme.tertiary)
             Spacer(Modifier.width(8.dp))
-            Text("Tersimpan offline • ${download.entity.quality}")
+            Text(stringResource(R.string.watch_saved_offline_quality, download.entity.quality))
         }
 
         download?.inProgress == true -> Column(Modifier.fillMaxWidth()) {
@@ -1328,15 +1495,20 @@ private fun DownloadRow(
                 Spacer(Modifier.width(8.dp))
                 Text(
                     when (download.state) {
-                        DownloadState.QUEUED -> "Menunggu antrean…"
-                        DownloadState.PAUSED -> "Dijeda, menunggu jaringan…"
-                        else -> "Mengunduh ${(download.progress * 100).toInt()}% • ${formatBytes(download.downloadedBytes)}" +
-                            if (download.totalBytes > 0) " / ${formatBytes(download.totalBytes)}" else ""
+                        DownloadState.QUEUED -> stringResource(R.string.watch_download_queued)
+                        DownloadState.PAUSED -> stringResource(R.string.watch_download_paused)
+                        else -> {
+                            val res = LocalContext.current.resources
+                            val percent = (download.progress * 100).toInt()
+                            val done = formatBytes(res, download.downloadedBytes)
+                            if (download.totalBytes > 0) stringResource(R.string.watch_download_progress_total, percent, done, formatBytes(res, download.totalBytes))
+                            else stringResource(R.string.watch_download_progress, percent, done)
+                        }
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.weight(1f),
                 )
-                TextButton(onClick = onDelete) { Text("Batal") }
+                TextButton(onClick = onDelete) { Text(stringResource(R.string.watch_cancel)) }
             }
             LinearProgressIndicator(
                 progress = { download.progress },
@@ -1353,7 +1525,7 @@ private fun DownloadRow(
             ) {
                 Icon(Icons.Rounded.Download, null)
                 Spacer(Modifier.width(8.dp))
-                Text(if (download?.state == DownloadState.FAILED) "Download gagal, coba lagi" else "Download untuk ditonton offline")
+                Text(stringResource(if (download?.state == DownloadState.FAILED) R.string.watch_download_failed_retry else R.string.watch_download_offline))
             }
             DropdownMenu(menuOpen, onDismissRequest = { menuOpen = false }) {
                 state.sources.forEach { s ->
@@ -1373,10 +1545,10 @@ private fun DownloadRow(
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("Hapus download?") },
-            text = { Text("File episode ini akan dihapus dari perangkat.") },
-            confirmButton = { TextButton(onClick = { confirmDelete = false; onDelete() }) { Text("Hapus") } },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Batal") } },
+            title = { Text(stringResource(R.string.watch_delete_download_title)) },
+            text = { Text(stringResource(R.string.watch_delete_download_msg)) },
+            confirmButton = { TextButton(onClick = { confirmDelete = false; onDelete() }) { Text(stringResource(R.string.watch_delete)) } },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.watch_cancel)) } },
         )
     }
 }

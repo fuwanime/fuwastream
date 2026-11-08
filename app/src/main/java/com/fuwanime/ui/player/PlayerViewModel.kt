@@ -1,6 +1,12 @@
 package com.fuwanime.ui.player
 
 import androidx.lifecycle.SavedStateHandle
+import com.fuwanime.data.SeasonEntry
+import com.fuwanime.data.meta.AnimeLinkRepository
+import com.fuwanime.data.meta.SkipRepository
+import com.fuwanime.data.meta.SkipSegment
+import com.fuwanime.ui.detail.nextInFranchise
+import com.fuwanime.ui.detail.watchOrder
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import android.net.Uri
@@ -16,7 +22,10 @@ import com.fuwanime.data.nextLowerThan
 import com.fuwanime.data.StreamSource
 import com.fuwanime.data.local.AppSettings
 import com.fuwanime.data.local.SettingsStore
-import com.fuwanime.util.friendlyMessage
+import com.fuwanime.data.local.VideoResize
+import com.fuwanime.R
+import com.fuwanime.util.UiText
+import com.fuwanime.util.friendlyText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -41,7 +50,7 @@ data class PlayerUiState(
     /** Position to seek to once the current source is prepared. */
     val startPositionMs: Long = 0,
     val loading: Boolean = true,
-    val error: String? = null,
+    val error: UiText? = null,
     val next: Episode? = null,
     val previous: Episode? = null,
     /** Episodes of the current page, for the portrait episode strip. */
@@ -49,7 +58,9 @@ data class PlayerUiState(
     /** Playing a downloaded file; no network needed. */
     val offline: Boolean = false,
     /** One-shot message for the snackbar (download started/failed). */
-    val message: String? = null,
+    val message: UiText? = null,
+    /** The franchise entry after this one ("S2" after "S1"), offered when the last episode ends. */
+    val nextSeason: SeasonEntry? = null,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -62,6 +73,10 @@ class PlayerViewModel(
     /** Whether the active network is metered (mobile data), for the mobile-data quality setting. */
     private val isMetered: () -> Boolean,
     saved: SavedStateHandle,
+    /** Updates the "Lanjutkan" shortcut and widget once the user leaves an episode. */
+    private val refreshHomeSurfaces: () -> Unit = {},
+    private val links: AnimeLinkRepository? = null,
+    private val skips: SkipRepository? = null,
 ) : ViewModel() {
 
     private val animeId: String = checkNotNull(saved["animeId"])
@@ -100,13 +115,41 @@ class PlayerViewModel(
     /** Sources of the current episode that already failed, so fallback never loops. */
     private val failedUrls = mutableSetOf<String>()
 
+    /** AniSkip segments paired with the episode they belong to; read through [segmentsFor]. */
+    private val _segments = MutableStateFlow("" to emptyList<SkipSegment>())
+    val segments: StateFlow<Pair<String, List<SkipSegment>>> = _segments.asStateFlow()
+    private var segmentsDoneFor: String? = null
+    private var segmentsTriedAt: Long? = null
+    private var segmentsJob: Job? = null
+
     init {
-        if (_state.value.anime == null) {
-            viewModelScope.launch {
-                repo.detail(animeId).onSuccess { a -> _state.update { it.copy(anime = a) } }
+        // The franchise list (for "Tonton selanjutnya") comes with the detail; it also fills in a missing anime.
+        viewModelScope.launch {
+            repo.detailWithSeasons(animeId).onSuccess { d ->
+                _state.update {
+                    it.copy(anime = it.anime ?: d.anime, nextSeason = nextInFranchise(animeId, watchOrder(d.anime, d.seasons)))
+                }
             }
         }
         play(_state.value.episode)
+    }
+
+    /** Fetches AniSkip segments once per episode, once the real duration is known (AniSkip matches on it). */
+    fun onDurationKnown(episodeId: String, durationMs: Long) {
+        val episode = _state.value.episode
+        val now = System.currentTimeMillis()
+        if (!shouldTrySegments(episodeId, episode.id, durationMs, segmentsDoneFor, segmentsJob?.isActive == true, segmentsTriedAt, now)) return
+        val number = episodeNumberForSkip(episode.number) ?: return
+        val links = links ?: return
+        val skips = skips ?: return
+        segmentsTriedAt = now
+        segmentsJob = viewModelScope.launch {
+            // Opened straight from Lanjutkan/widget, the anime may never have been linked on a Detail screen.
+            val mal = links.malIdFor(animeId) ?: _state.value.anime?.let { links.link(it); links.malIdFor(animeId) } ?: return@launch
+            segmentsDoneFor = episodeId
+            val segs = skips.segments(mal, number, durationMs)
+            if (_state.value.episode.id == episodeId) _segments.value = episodeId to segs
+        }
     }
 
     fun play(episode: Episode) {
@@ -122,11 +165,11 @@ class PlayerViewModel(
             val resumeAt = library.savedPosition(episode.id)
             if (playOffline(episode, resumeAt)) return@launch
             val stream = repo.stream(episode.id).getOrElse { e ->
-                _state.update { it.copy(loading = false, error = e.friendlyMessage()) }
+                _state.update { it.copy(loading = false, error = e.friendlyText()) }
                 return@launch
             }
             if (stream.sources.isEmpty()) {
-                _state.update { it.copy(loading = false, error = "Belum ada sumber video untuk episode ini.") }
+                _state.update { it.copy(loading = false, error = UiText(R.string.watch_err_no_source)) }
                 return@launch
             }
             val merged = stream.episode?.let { info ->
@@ -157,7 +200,7 @@ class PlayerViewModel(
     private suspend fun playOffline(episode: Episode, resumeAt: Long): Boolean {
         val saved = downloads.completed(episode.id) ?: return false
         val e = saved.entity
-        val local = StreamSource(Uri.fromFile(File(e.filePath)).toString(), "${e.quality} • Offline", "Perangkat")
+        val local = StreamSource(Uri.fromFile(File(e.filePath)).toString(), e.quality, "")
         _state.update {
             it.copy(
                 // Offline there may be no detail response, so rebuild the essentials from the download row.
@@ -184,8 +227,8 @@ class PlayerViewModel(
         viewModelScope.launch {
             val wifiOnly = settings.value.downloadWifiOnly
             downloads.enqueue(anime, s.episode, source, wifiOnly)
-                .onSuccess { postMessage(if (wifiOnly) "Download dimulai (menunggu Wi-Fi)" else "Download ${source.quality} dimulai") }
-                .onFailure { postMessage("Gagal download: ${it.friendlyMessage()}") }
+                .onSuccess { postMessage(if (wifiOnly) UiText(R.string.watch_msg_download_wifi) else UiText(R.string.watch_msg_download_started, listOf(source.quality))) }
+                .onFailure { postMessage(UiText(R.string.common_download_failed, listOf(it.friendlyText()))) }
         }
     }
 
@@ -193,11 +236,11 @@ class PlayerViewModel(
         val id = _state.value.episode.id
         viewModelScope.launch {
             downloads.delete(id)
-            postMessage("Download dihapus")
+            postMessage(UiText(R.string.watch_msg_download_deleted))
         }
     }
 
-    private fun postMessage(text: String) = _state.update { it.copy(message = text) }
+    private fun postMessage(text: UiText) = _state.update { it.copy(message = text) }
     fun messageShown() = _state.update { it.copy(message = null) }
 
     private suspend fun loadNeighbours(episode: Episode) {
@@ -229,7 +272,7 @@ class PlayerViewModel(
             it.copy(
                 source = lower,
                 startPositionMs = positionMs,
-                message = "Gagal memutar ${current.quality}, beralih ke ${lower.quality}",
+                message = UiText(R.string.watch_msg_quality_fallback, listOf(current.quality, lower.quality)),
             )
         }
         return true
@@ -237,6 +280,10 @@ class PlayerViewModel(
 
     fun markOpStart(positionMs: Long) = saveOpMark(markOp(opMark.value, positionMs, isStart = true))
     fun markOpEnd(positionMs: Long) = saveOpMark(markOp(opMark.value, positionMs, isStart = false))
+    fun setVideoResize(mode: VideoResize) {
+        viewModelScope.launch { settingsStore.setVideoResize(mode) }
+    }
+
     fun clearOpMark() {
         viewModelScope.launch { settingsStore.clearOpMark(animeId) }
     }
@@ -255,11 +302,25 @@ class PlayerViewModel(
 
     fun retry() = play(_state.value.episode)
 
-    fun saveProgress(positionMs: Long, durationMs: Long) {
+    fun saveProgress(positionMs: Long, durationMs: Long): Job? {
         val s = _state.value
-        val anime = s.anime ?: return
+        val anime = s.anime ?: return null
         // Ignore the first few seconds so merely opening an episode doesn't clutter history.
-        if (durationMs <= 0 || positionMs < 5_000) return
-        appScope.launch { library.saveProgress(anime, s.episode, positionMs, durationMs) }
+        if (durationMs <= 0 || positionMs < 5_000) return null
+        return appScope.launch { library.saveProgress(anime, s.episode, positionMs, durationMs) }
+    }
+
+    /** Leaving the episode (stopped, ended): save, then let launcher surfaces show it. */
+    fun onPlayerExit(positionMs: Long, durationMs: Long) {
+        val save = saveProgress(positionMs, durationMs)
+        appScope.launch {
+            save?.join() // so the widget reads this episode, not the previous one
+            refreshHomeSurfaces()
+        }
+    }
+
+    /** Real playing time for statistics, independent of playback speed. */
+    fun addWatchTime(ms: Long) {
+        appScope.launch { library.addWatchTime(ms) }
     }
 }

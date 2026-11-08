@@ -1,5 +1,6 @@
 package com.fuwanime.data.local
 
+import com.squareup.moshi.JsonClass
 import android.content.Context
 import androidx.room.Dao
 import androidx.room.Database
@@ -14,6 +15,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
+@JsonClass(generateAdapter = true)
 @Entity(tableName = "favorites")
 data class FavoriteEntity(
     @PrimaryKey val animeId: String,
@@ -28,6 +30,7 @@ data class FavoriteEntity(
 )
 
 /** One row per episode the user has started; the newest row per anime drives "Lanjutkan Nonton". */
+@JsonClass(generateAdapter = true)
 @Entity(tableName = "watch_history", indices = [Index("animeId"), Index("updatedAt")])
 data class WatchHistoryEntity(
     @PrimaryKey val episodeId: String,
@@ -52,6 +55,7 @@ data class WatchHistoryEntity(
     }
 }
 
+@JsonClass(generateAdapter = true)
 @Entity(tableName = "search_history")
 data class SearchHistoryEntity(
     @PrimaryKey val query: String,
@@ -88,6 +92,9 @@ interface FavoriteDao {
     @Upsert
     suspend fun upsert(entity: FavoriteEntity)
 
+    @Upsert
+    suspend fun upsertAll(entities: List<FavoriteEntity>)
+
     @Query("DELETE FROM favorites WHERE animeId = :animeId")
     suspend fun delete(animeId: String)
 
@@ -107,6 +114,9 @@ interface WatchHistoryDao {
     )
     fun observeLatestPerAnime(limit: Int): Flow<List<WatchHistoryEntity>>
 
+    @Query("SELECT * FROM watch_history")
+    fun observeAll(): Flow<List<WatchHistoryEntity>>
+
     @Query("SELECT * FROM watch_history WHERE animeId = :animeId")
     fun observeForAnime(animeId: String): Flow<List<WatchHistoryEntity>>
 
@@ -115,6 +125,12 @@ interface WatchHistoryDao {
 
     @Upsert
     suspend fun upsert(entity: WatchHistoryEntity)
+
+    @Upsert
+    suspend fun upsertAll(entities: List<WatchHistoryEntity>)
+
+    @Query("SELECT * FROM watch_history")
+    suspend fun all(): List<WatchHistoryEntity>
 
     @Query("DELETE FROM watch_history WHERE animeId = :animeId")
     suspend fun deleteAnime(animeId: String)
@@ -130,6 +146,12 @@ interface SearchHistoryDao {
 
     @Upsert
     suspend fun upsert(entity: SearchHistoryEntity)
+
+    @Upsert
+    suspend fun upsertAll(entities: List<SearchHistoryEntity>)
+
+    @Query("SELECT * FROM search_history")
+    suspend fun all(): List<SearchHistoryEntity>
 
     @Query("DELETE FROM search_history WHERE `query` = :query")
     suspend fun delete(query: String)
@@ -160,8 +182,8 @@ interface DownloadDao {
 }
 
 @Database(
-    entities = [FavoriteEntity::class, WatchHistoryEntity::class, SearchHistoryEntity::class, DownloadEntity::class],
-    version = 2,
+    entities = [FavoriteEntity::class, WatchHistoryEntity::class, SearchHistoryEntity::class, DownloadEntity::class, WatchDailyEntity::class, AnimeLinkEntity::class],
+    version = 4,
     exportSchema = false,
 )
 abstract class FuwaDatabase : RoomDatabase() {
@@ -169,11 +191,13 @@ abstract class FuwaDatabase : RoomDatabase() {
     abstract fun watchHistoryDao(): WatchHistoryDao
     abstract fun searchHistoryDao(): SearchHistoryDao
     abstract fun downloadDao(): DownloadDao
+    abstract fun watchDailyDao(): WatchDailyDao
+    abstract fun animeLinkDao(): AnimeLinkDao
 
     companion object {
         fun create(context: Context): FuwaDatabase =
             Room.databaseBuilder(context, FuwaDatabase::class.java, "fuwanime.db")
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .build()
 
         /** v2 adds offline downloads; existing favourites and history are kept. */
@@ -187,6 +211,26 @@ abstract class FuwaDatabase : RoomDatabase() {
                         "PRIMARY KEY(`episodeId`))",
                 )
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_downloads_animeId` ON `downloads` (`animeId`)")
+            }
+        }
+
+        /** v3 adds daily watch time for statistics; nothing existing changes. */
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `watch_daily` (`day` INTEGER NOT NULL, `watchedMs` INTEGER NOT NULL, PRIMARY KEY(`day`))",
+                )
+            }
+        }
+
+        /** v4 adds the AniList/MAL link cache; nothing existing changes. */
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `anime_link` (`animeId` TEXT NOT NULL, `state` TEXT NOT NULL, `anilistId` INTEGER, " +
+                        "`malId` INTEGER, `score` INTEGER, `tags` TEXT NOT NULL, `nextEpisode` INTEGER, `nextAiringAt` INTEGER, " +
+                        "`fetchedAt` INTEGER NOT NULL, PRIMARY KEY(`animeId`))",
+                )
             }
         }
     }

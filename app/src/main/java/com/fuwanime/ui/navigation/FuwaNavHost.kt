@@ -1,5 +1,30 @@
 package com.fuwanime.ui.navigation
 
+import androidx.compose.ui.res.stringResource
+import com.fuwanime.R
+import androidx.annotation.StringRes
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.expandHorizontally
+import com.fuwanime.ui.components.frostedStyle
+import com.fuwanime.ui.components.LocalNavBarPadding
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.HazeState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.NavigationRailItemDefaults
+import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.NavigationRail
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.Row
 import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedContentScope
@@ -14,8 +39,6 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -31,7 +54,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -42,6 +64,7 @@ import com.fuwanime.ui.components.OfflinePill
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.graphics.Color
@@ -82,8 +105,9 @@ import com.fuwanime.ui.legal.LegalRoute
 import com.fuwanime.ui.player.PlayerRoute
 import com.fuwanime.ui.schedule.ScheduleRoute
 import com.fuwanime.ui.settings.SettingsRoute
+import com.fuwanime.ui.stats.StatsRoute
 
-private object Routes {
+internal object Routes {
     const val HOME = "home"
     const val EXPLORE = "explore?genre={genre}&focus={focus}"
     const val SCHEDULE = "schedule"
@@ -91,6 +115,7 @@ private object Routes {
     const val DETAIL = "detail/{animeId}?from={from}"
     const val PLAYER = "player/{animeId}/{episodeId}?number={number}&thumb={thumb}&shared={shared}"
     const val SETTINGS = "settings"
+    const val STATS = "stats"
     const val LEGAL = "legal/{type}"
 
     fun legal(type: String) = "legal/${Uri.encode(type)}"
@@ -108,11 +133,11 @@ private object Routes {
             "&thumb=${Uri.encode(thumb)}&shared=${Uri.encode(shared.orEmpty())}"
 }
 
-private enum class Tab(val route: String, val label: String, val icon: ImageVector, val selectedIcon: ImageVector) {
-    HOME(Routes.HOME, "Beranda", Icons.Outlined.Home, Icons.Rounded.Home),
-    EXPLORE(Routes.EXPLORE, "Jelajah", Icons.Outlined.Explore, Icons.Rounded.Explore),
-    SCHEDULE(Routes.SCHEDULE, "Jadwal", Icons.Outlined.CalendarMonth, Icons.Rounded.CalendarMonth),
-    LIBRARY(Routes.LIBRARY, "Koleksi", Icons.Outlined.VideoLibrary, Icons.Rounded.VideoLibrary),
+private enum class Tab(val route: String, @StringRes val label: Int, val icon: ImageVector, val selectedIcon: ImageVector) {
+    HOME(Routes.HOME, R.string.common_tab_home, Icons.Outlined.Home, Icons.Rounded.Home),
+    EXPLORE(Routes.EXPLORE, R.string.common_tab_explore, Icons.Outlined.Explore, Icons.Rounded.Explore),
+    SCHEDULE(Routes.SCHEDULE, R.string.common_tab_schedule, Icons.Outlined.CalendarMonth, Icons.Rounded.CalendarMonth),
+    LIBRARY(Routes.LIBRARY, R.string.common_tab_library, Icons.Outlined.VideoLibrary, Icons.Rounded.VideoLibrary),
 }
 
 /** Detail and player sit on top of the tabs; moving to or from them is a fade under a shared element. */
@@ -167,19 +192,11 @@ private fun NavHostController.navigateTab(route: String) = navigate(route) {
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-fun FuwaNavHost(initialAnimeId: String? = null, onInitialAnimeConsumed: () -> Unit = {}) {
+fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: () -> Unit = {}) {
     val nav = rememberNavController()
     val backStack by nav.currentBackStackEntryAsState()
     val destination = backStack?.destination
     val currentTab = Tab.entries.firstOrNull { tab -> destination?.hierarchy?.any { it.route == tab.route } == true }
-
-    // Deep link from a "new episode" notification: jump straight to the detail screen.
-    LaunchedEffect(initialAnimeId) {
-        if (initialAnimeId != null) {
-            nav.navigate(Routes.detail(initialAnimeId))
-            onInitialAnimeConsumed()
-        }
-    }
 
     val container = (LocalContext.current.applicationContext as FuwaApp).container
     val animeRepository = container.animeRepository
@@ -201,44 +218,70 @@ fun FuwaNavHost(initialAnimeId: String? = null, onInitialAnimeConsumed: () -> Un
         }
     }
 
-    Scaffold(
-        contentWindowInsets = WindowInsets(0),
-        bottomBar = {
+    // Deep links from a notification, shortcut or widget.
+    LaunchedEffect(initialTarget) {
+        when (val target = initialTarget ?: return@LaunchedEffect) {
+            is LaunchTarget.Anime -> nav.navigate(Routes.detail(target.id))
+            LaunchTarget.Search -> openExplore(null, true)
+            LaunchTarget.Schedule -> nav.navigateTab(Routes.SCHEDULE)
+            is LaunchTarget.Resume -> resumeRoute(container.libraryRepository.historyEntry(target.episodeId))?.let { nav.navigate(it) }
+        }
+        onInitialTargetConsumed()
+    }
+
+    // Wide screens get a rail beside the content; phones get a bar floating over it, frosted, with lists padded by
+    // LocalNavBarPadding so their last items scroll clear of it.
+    val rail = useNavRail(LocalConfiguration.current.screenWidthDp)
+    val hazeState = remember { HazeState() }
+    val density = LocalDensity.current
+    var barHeight by remember { mutableStateOf(0.dp) }
+    val colors = MaterialTheme.colorScheme
+    val itemColors = NavigationBarItemDefaults.colors(
+        selectedIconColor = colors.primary,
+        selectedTextColor = colors.onSurface,
+        indicatorColor = colors.secondaryContainer,
+        unselectedIconColor = NavInactive,
+        unselectedTextColor = NavInactive,
+    )
+    val railColors = NavigationRailItemDefaults.colors(
+        selectedIconColor = colors.primary,
+        selectedTextColor = colors.onSurface,
+        indicatorColor = colors.secondaryContainer,
+        unselectedIconColor = NavInactive,
+        unselectedTextColor = NavInactive,
+    )
+    fun onTab(tab: Tab) {
+        if (tab == Tab.EXPLORE) nav.navigateTab(Routes.explore()) else nav.navigateTab(tab.route)
+    }
+    // The Scaffold this replaced set the content colour; without it, plain Text falls back to black.
+    CompositionLocalProvider(LocalContentColor provides colors.onBackground) {
+    Row(Modifier.fillMaxSize().background(colors.background)) {
+        if (rail) {
             AnimatedVisibility(
                 visible = currentTab != null,
-                enter = slideInVertically { it },
-                exit = slideOutVertically { it },
+                // Animate the width too, so the content beside the rail moves smoothly instead of jumping 80dp.
+                enter = expandHorizontally(expandFrom = Alignment.Start) + slideInHorizontally { -it },
+                exit = shrinkHorizontally(shrinkTowards = Alignment.Start) + slideOutHorizontally { -it },
             ) {
-                val colors = MaterialTheme.colorScheme
-                NavigationBar(
-                    // Hairline on top separates the bar from posters scrolling under it.
-                    modifier = Modifier.drawBehind { drawLine(NavHairline, Offset.Zero, Offset(size.width, 0f), 1.dp.toPx()) },
-                    containerColor = colors.background.copy(alpha = 0.94f),
-                ) {
-                    val itemColors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = colors.primary,
-                        selectedTextColor = colors.onSurface,
-                        indicatorColor = colors.secondaryContainer,
-                        unselectedIconColor = NavInactive,
-                        unselectedTextColor = NavInactive,
-                    )
+                NavigationRail(containerColor = colors.surfaceContainerLow) {
                     Tab.entries.forEach { tab ->
                         val selected = tab == currentTab
-                        NavigationBarItem(
+                        NavigationRailItem(
                             selected = selected,
-                            onClick = {
-                                if (tab == Tab.EXPLORE) nav.navigateTab(Routes.explore()) else nav.navigateTab(tab.route)
-                            },
+                            onClick = { onTab(tab) },
                             icon = { Icon(if (selected) tab.selectedIcon else tab.icon, null) },
-                            label = { Text(tab.label, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium) },
-                            colors = itemColors,
+                            label = { NavLabel(stringResource(tab.label), selected) },
+                            colors = railColors,
                         )
                     }
                 }
             }
-        },
-    ) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) {
+        }
+        val systemNav = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+        val navPad = navContentPadding(rail, currentTab != null, barHeight.value, systemNav.value).dp
+        Box(Modifier.weight(1f).fillMaxHeight()) {
+          CompositionLocalProvider(LocalNavBarPadding provides navPad) {
+            Box(Modifier.fillMaxSize().hazeSource(hazeState)) {
             SharedTransitionLayout {
                 CompositionLocalProvider(LocalSharedScope provides this, LocalReduceMotion provides reduceMotion) {
                     NavHost(
@@ -286,16 +329,10 @@ fun FuwaNavHost(initialAnimeId: String? = null, onInitialAnimeConsumed: () -> Un
                             Scoped {
                                 LibraryRoute(
                                     onAnimeClick = openAnime,
-                                    onResume = { e ->
-                                        nav.navigate(
-                                            Routes.player(
-                                                e.animeId, e.episodeId, e.episodeNumber,
-                                                e.episodeThumbnail.ifBlank { e.animeCover },
-                                                shared = sharedEpisodeKey(e.episodeId, "library"),
-                                            ),
-                                        )
-                                    },
+                                    onResume = { e -> nav.navigate(playerRouteFor(e, "library")) },
                                     onPlayDownload = { d -> nav.navigate(Routes.player(d.animeId, d.episodeId, d.episodeNumber)) },
+                                    onStats = { nav.navigate(Routes.STATS) },
+                                    onSettings = { nav.navigate(Routes.SETTINGS) },
                                 )
                             }
                         }
@@ -331,9 +368,14 @@ fun FuwaNavHost(initialAnimeId: String? = null, onInitialAnimeConsumed: () -> Un
                                 PlayerRoute(
                                     sharedKey = entry.arguments?.getString("shared")?.takeIf { it.isNotBlank() },
                                     onBack = { nav.popBackStack() },
+                                    onOpenAnime = { a ->
+                                        nav.popBackStack()
+                                        openAnime(a, "player")
+                                    },
                                 )
                             }
                         }
+                        composable(Routes.STATS) { Scoped { StatsRoute(onBack = { nav.popBackStack() }, onExplore = { nav.navigateTab(Routes.explore()) }) } }
                         composable(Routes.SETTINGS) {
                             Scoped {
                                 SettingsRoute(
@@ -356,10 +398,50 @@ fun FuwaNavHost(initialAnimeId: String? = null, onInitialAnimeConsumed: () -> Un
                     }
                 }
             }
+            }
             // Floats over the tab content just above the bar, so showing it never shifts the layout.
             if (currentTab != null) {
-                OfflinePill(netState, reduceMotion, Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp))
+                OfflinePill(netState, reduceMotion, Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp + navPad))
+            }
+          }
+            if (!rail) {
+                // Unscoped overload: inside the Row, the RowScope one would be picked otherwise.
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = currentTab != null,
+                    enter = slideInVertically { it },
+                    exit = slideOutVertically { it },
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                ) {
+                    NavigationBar(
+                        modifier = Modifier
+                            .onSizeChanged { barHeight = with(density) { it.height.toDp() } }
+                            .hazeEffect(hazeState, frostedStyle())
+                            // Hairline on top separates the bar from posters scrolling under it.
+                            .drawBehind { drawLine(NavHairline, Offset.Zero, Offset(size.width, 0f), 1.dp.toPx()) },
+                        containerColor = Color.Transparent,
+                    ) {
+                        Tab.entries.forEach { tab ->
+                            val selected = tab == currentTab
+                            NavigationBarItem(
+                                selected = selected,
+                                onClick = { onTab(tab) },
+                                icon = { Icon(if (selected) tab.selectedIcon else tab.icon, null) },
+                                label = { NavLabel(stringResource(tab.label), selected) },
+                                colors = itemColors,
+                            )
+                        }
+                    }
+                }
             }
         }
+    }
+    }
+}
+
+@Composable
+private fun NavLabel(text: String, selected: Boolean) {
+    val d = LocalDensity.current
+    CompositionLocalProvider(LocalDensity provides Density(d.density, navLabelFontScale(d.fontScale))) {
+        Text(text, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, maxLines = 1)
     }
 }

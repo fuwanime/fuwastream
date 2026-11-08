@@ -7,6 +7,9 @@
 # Moshi models use generated adapters (@JsonClass(generateAdapter = true));
 # keep model class names so the generated *JsonAdapter lookups resolve.
 -keep class com.fuwanime.data.remote.** { *; }
+# Backup file models (also @JsonClass): the backup format must survive minification.
+-keep class com.fuwanime.data.backup.** { *; }
+-keep class com.fuwanime.data.local.*Entity* { *; }
 
 # Retrofit service interfaces are accessed via reflection.
 -keep,allowobfuscation interface com.fuwanime.data.remote.AnimeApiService

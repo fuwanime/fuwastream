@@ -1,6 +1,8 @@
 package com.fuwanime
 
 import android.Manifest
+import android.app.PictureInPictureUiState
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -20,23 +22,36 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fuwanime.data.local.ThemeMode
 import com.fuwanime.ui.legal.AgeGateScreen
 import com.fuwanime.ui.navigation.FuwaNavHost
+import com.fuwanime.ui.navigation.LaunchTarget
+import com.fuwanime.ui.navigation.Shortcuts
+import com.fuwanime.ui.navigation.TAB_EXPLORE_SEARCH
+import com.fuwanime.ui.navigation.TAB_SCHEDULE
+import com.fuwanime.ui.navigation.isFreshLaunch
+import com.fuwanime.ui.navigation.parseLaunchTarget
 import com.fuwanime.ui.player.LocalPipController
 import com.fuwanime.ui.player.PipController
 import com.fuwanime.ui.theme.FuwaTheme
+import com.fuwanime.util.localizedContext
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
     private lateinit var pip: PipController
 
-    /** Anime id from a notification tap, consumed once by the nav host. */
-    private val pendingAnimeId = mutableStateOf<String?>(null)
+    /** Where a notification, shortcut or widget tap wants to land; consumed once by the nav host. */
+    private val pendingTarget = mutableStateOf<LaunchTarget?>(null)
+
+    private fun Intent.launchTarget() = parseLaunchTarget(
+        getStringExtra(EXTRA_OPEN_ANIME_ID), getStringExtra(EXTRA_OPEN_TAB), getStringExtra(EXTRA_RESUME_EPISODE_ID),
+    )
+
+    override fun attachBaseContext(base: Context) = super.attachBaseContext(localizedContext(base))
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         pip = PipController(this)
-        pendingAnimeId.value = intent?.getStringExtra(EXTRA_OPEN_ANIME_ID)
+        if (intent != null && isFreshLaunch(savedInstanceState != null, intent.flags)) pendingTarget.value = intent.launchTarget()
         val store = (application as FuwaApp).container.settingsStore
         val settingsFlow = store.settings
         val ageFlow = store.ageConfirmed
@@ -70,8 +85,8 @@ class MainActivity : ComponentActivity() {
                 CompositionLocalProvider(LocalPipController provides pip) {
                     if (confirmed) {
                         FuwaNavHost(
-                            initialAnimeId = pendingAnimeId.value,
-                            onInitialAnimeConsumed = { pendingAnimeId.value = null },
+                            initialTarget = pendingTarget.value,
+                            onInitialTargetConsumed = { pendingTarget.value = null },
                         )
                     } else {
                         AgeGateScreen(
@@ -86,13 +101,24 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        // singleTask: taps on notifications while running arrive here.
-        intent.getStringExtra(EXTRA_OPEN_ANIME_ID)?.let { pendingAnimeId.value = it }
+        // singleTask: taps on notifications, shortcuts and the widget while running arrive here.
+        intent.launchTarget()?.let { pendingTarget.value = it }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        Shortcuts.publishFixed(this)
+        (application as FuwaApp).container.refreshHomeSurfaces()
     }
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
         pip.onUserLeaveHint()
+    }
+
+    override fun onPictureInPictureUiStateChanged(pipState: PictureInPictureUiState) {
+        super.onPictureInPictureUiStateChanged(pipState)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) pip.onPipUiState(pipState.isTransitioningToPip)
     }
 
     private fun requestNotificationPermissionIfNeeded() {
@@ -105,6 +131,9 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_OPEN_ANIME_ID = "open_anime_id"
+        /** [TAB_EXPLORE_SEARCH] or [TAB_SCHEDULE]. */
+        const val EXTRA_OPEN_TAB = "open_tab"
+        const val EXTRA_RESUME_EPISODE_ID = "resume_episode_id"
         private const val NOTIFICATION_REQUEST = 1001
     }
 }

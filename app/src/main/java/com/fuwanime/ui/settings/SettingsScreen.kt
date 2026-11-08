@@ -1,6 +1,34 @@
 package com.fuwanime.ui.settings
 
+import kotlinx.coroutines.flow.first
+import android.content.res.Resources
+import androidx.compose.ui.res.stringResource
+import com.fuwanime.R
+import com.fuwanime.data.local.BackupPrefs
+import com.fuwanime.data.backup.BackupWorker
+import com.fuwanime.data.backup.BackupRepository
+import com.fuwanime.data.backup.BackupOutcome
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material.icons.rounded.Restore
+import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.rounded.Backup
+import androidx.compose.material.icons.rounded.Autorenew
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
+import android.provider.DocumentsContract
+import android.net.Uri
+import android.content.Intent
+import androidx.compose.foundation.layout.fillMaxHeight
+import com.fuwanime.ui.components.readableWidth
+import com.fuwanime.ui.components.frostedStyle
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.HazeState
 import android.os.Build
+import android.app.Activity
+import androidx.compose.material.icons.rounded.Language
+import com.fuwanime.util.currentLanguageTag
+import com.fuwanime.util.setAppLanguage
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -27,6 +55,7 @@ import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.ManageSearch
 import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.PictureInPictureAlt
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.FastForward
@@ -82,7 +111,11 @@ class SettingsViewModel(
     val store: SettingsStore,
     private val library: LibraryRepository,
     private val downloads: DownloadRepository,
+    val backup: BackupRepository,
+    private val refreshHomeSurfaces: () -> Unit = {},
 ) : ViewModel() {
+    val backupPrefs: StateFlow<BackupPrefs?> = store.backup.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
     val settings: StateFlow<AppSettings> = store.settings.stateIn(viewModelScope, SharingStarted.Eagerly, AppSettings())
 
     fun update(block: suspend SettingsStore.() -> Unit) = viewModelScope.launch { store.block() }
@@ -94,6 +127,7 @@ class SettingsViewModel(
         downloads.clearAll()
         library.clearAll()
         store.clearUserData()
+        refreshHomeSurfaces()
         onDone()
     }
 }
@@ -102,35 +136,63 @@ class SettingsViewModel(
 @Composable
 fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit) {
     val vm: SettingsViewModel = fuwaViewModel { c, _ ->
-        SettingsViewModel(c.settingsStore, c.libraryRepository, c.downloadRepository)
+        SettingsViewModel(c.settingsStore, c.libraryRepository, c.downloadRepository, c.backupRepository, c::refreshHomeSurfaces)
     }
     val s by vm.settings.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var confirm by remember { mutableStateOf<Pair<String, () -> Unit>?>(null) }
+    val backupPrefs by vm.backupPrefs.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val res = context.resources
+    val say: (String) -> Unit = { msg -> scope.launch { snackbar.showSnackbar(msg) } }
+    val restore = rememberRestoreFlow(vm.backup, onRestored = {}, onMessage = say)
+    val pickFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        // Keep access across reboots; without this the daily worker loses the folder.
+        val granted = runCatching {
+            context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+        }.isSuccess
+        if (!granted) {
+            say(res.getString(R.string.mine_backup_folder_unusable))
+            return@rememberLauncherForActivityResult
+        }
+        scope.launch {
+            vm.store.setBackupTree(uri.toString())
+            if (vm.store.backup.first().auto) BackupWorker.schedule(context)
+            say(backupMessage(res, vm.backup.backupNow()))
+        }
+    }
 
+    val hazeState = remember { HazeState() }
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             LargeTopAppBar(
-                title = { Text("Pengaturan") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Kembali") } },
+                title = { Text(stringResource(R.string.mine_settings)) },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.mine_back)) } },
                 scrollBehavior = scrollBehavior,
+                // Transparent so the frosted layer shows the list scrolling underneath.
+                colors = TopAppBarDefaults.largeTopAppBarColors(containerColor = Color.Transparent, scrolledContainerColor = Color.Transparent),
+                modifier = Modifier.hazeEffect(hazeState, frostedStyle()),
             )
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = 32.dp)) {
-            item { Group("Tampilan") }
+        LazyColumn(
+            Modifier.fillMaxHeight().readableWidth().hazeSource(hazeState),
+            contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = 32.dp),
+        ) {
+            item { Group(stringResource(R.string.mine_group_display)) }
             item {
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                     Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                         Icon(Icons.Rounded.DarkMode, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(end = 16.dp, start = 8.dp))
-                        Text("Tema", style = MaterialTheme.typography.bodyLarge)
+                        Text(stringResource(R.string.mine_theme), style = MaterialTheme.typography.bodyLarge)
                     }
                     SingleChoiceSegmentedButtonRow(Modifier.padding(top = 12.dp)) {
-                        val modes = listOf(ThemeMode.SYSTEM to "Sistem", ThemeMode.LIGHT to "Terang", ThemeMode.DARK to "Gelap")
+                        val modes = listOf(ThemeMode.SYSTEM to stringResource(R.string.mine_theme_system), ThemeMode.LIGHT to stringResource(R.string.mine_theme_light), ThemeMode.DARK to stringResource(R.string.mine_theme_dark))
                         modes.forEachIndexed { i, (mode, label) ->
                             SegmentedButton(
                                 selected = s.themeMode == mode,
@@ -141,51 +203,65 @@ fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit) {
                     }
                 }
             }
+            item {
+                var languageTag by remember { mutableStateOf(currentLanguageTag(context)) }
+                // Language names stay in their own language on purpose.
+                val languages = listOf(null to stringResource(R.string.mine_language_system), "id" to "Bahasa Indonesia", "ms" to "Bahasa Melayu", "en" to "English", "zh-CN" to "中文（简体）")
+                ChoiceRow(Icons.Rounded.Language, stringResource(R.string.mine_language), languages.map { it.first }, languageTag, { tag -> languages.first { it.first == tag }.second }) { tag ->
+                    languageTag = tag
+                    (context as? Activity)?.let { setAppLanguage(it, tag) }
+                }
+            }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 item {
-                    SwitchRow(Icons.Rounded.Palette, "Warna dinamis", "Ikuti warna wallpaper (Material You)", s.dynamicColor) {
+                    SwitchRow(Icons.Rounded.Palette, stringResource(R.string.mine_dynamic_color), stringResource(R.string.mine_dynamic_color_desc), s.dynamicColor) {
                         vm.update { setDynamicColor(it) }
                     }
                 }
             }
             item {
-                SwitchRow(Icons.Rounded.Contrast, "Hitam pekat (AMOLED)", "Latar hitam murni saat mode gelap, hemat baterai", s.amoledBlack) {
+                SwitchRow(Icons.Rounded.Contrast, stringResource(R.string.mine_amoled), stringResource(R.string.mine_amoled_desc), s.amoledBlack) {
                     vm.update { setAmoledBlack(it) }
                 }
             }
 
-            item { Group("Pemutar") }
+            item { Group(stringResource(R.string.mine_group_player)) }
             item {
-                ChoiceRow(Icons.Rounded.HighQuality, "Kualitas default", listOf(360, 480, 720, 1080), s.preferredQuality, { "${it}p" }) {
+                ChoiceRow(Icons.Rounded.HighQuality, stringResource(R.string.mine_default_quality), listOf(360, 480, 720, 1080), s.preferredQuality, { "${it}p" }) {
                     vm.update { setPreferredQuality(it) }
                 }
             }
             item {
                 ChoiceRow(
                     Icons.Rounded.SignalCellularAlt,
-                    "Kualitas di data seluler",
+                    stringResource(R.string.mine_mobile_quality),
                     listOf(0, 360, 480, 720),
                     s.mobileDataQuality,
-                    { if (it == 0) "Ikuti default" else "${it}p" },
+                    { if (it == 0) res.getString(R.string.mine_follow_default) else "${it}p" },
                 ) {
                     vm.update { setMobileDataQuality(it) }
                 }
             }
             item {
-                SwitchRow(Icons.Rounded.SkipNext, "Putar otomatis episode berikutnya", "Hitung mundur 6 detik di akhir episode", s.autoPlayNext) {
+                SwitchRow(Icons.Rounded.SkipNext, stringResource(R.string.mine_autoplay), stringResource(R.string.mine_autoplay_desc), s.autoPlayNext) {
                     vm.update { setAutoPlayNext(it) }
                 }
             }
             item {
-                SwitchRow(Icons.Rounded.PictureInPictureAlt, "Picture-in-Picture otomatis", "Video mengecil saat kamu keluar aplikasi", s.autoPip) {
+                SwitchRow(Icons.Rounded.PictureInPictureAlt, stringResource(R.string.mine_auto_pip), stringResource(R.string.mine_auto_pip_desc), s.autoPip) {
                     vm.update { setAutoPip(it) }
+                }
+            }
+            item {
+                SwitchRow(Icons.Rounded.Headphones, stringResource(R.string.mine_bg_audio), stringResource(R.string.mine_bg_audio_desc), s.backgroundAudio) {
+                    vm.update { setBackgroundAudio(it) }
                 }
             }
             item {
                 SwitchRow(
                     Icons.Rounded.FastForward,
-                    "Lewati OP otomatis",
-                    "Untuk anime yang OP-nya sudah kamu tandai di pemutar",
+                    stringResource(R.string.mine_skip_op),
+                    stringResource(R.string.mine_skip_op_desc),
                     s.autoSkipOp,
                 ) {
                     vm.update { setAutoSkipOp(it) }
@@ -194,95 +270,118 @@ fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit) {
             item {
                 SwitchRow(
                     Icons.Rounded.FastForward,
-                    "Tombol +85 detik",
-                    "Lompat 85 detik di awal episode yang OP-nya belum ditandai",
+                    stringResource(R.string.mine_jump85),
+                    stringResource(R.string.mine_jump85_desc),
                     s.jumpAheadButton,
                 ) {
                     vm.update { setJumpAheadButton(it) }
                 }
             }
             item {
-                ChoiceRow(Icons.Rounded.TouchApp, "Ketuk dua kali untuk lompat", listOf(5, 10, 15, 30), s.doubleTapSeekSeconds, { "${it}s" }) {
+                ChoiceRow(Icons.Rounded.TouchApp, stringResource(R.string.mine_double_tap), listOf(5, 10, 15, 30), s.doubleTapSeekSeconds, { res.getString(R.string.mine_seconds_short, it) }) {
                     vm.update { setDoubleTapSeekSeconds(it) }
                 }
             }
 
-            item { Group("Notifikasi") }
+            item { Group(stringResource(R.string.mine_group_notifications)) }
             item {
                 SwitchRow(
                     Icons.Rounded.NotificationsActive,
-                    "Notifikasi episode baru",
-                    "Cek anime favorit yang masih tayang setiap 6 jam",
+                    stringResource(R.string.mine_notify_new),
+                    stringResource(R.string.mine_notify_new_desc),
                     s.notifyNewEpisodes,
                 ) {
                     vm.update { setNotifyNewEpisodes(it) }
                 }
             }
 
-            item { Group("Unduhan") }
+            item { Group(stringResource(R.string.mine_group_downloads)) }
             item {
-                ChoiceRow(Icons.Rounded.Download, "Kualitas download", listOf(360, 480, 720, 1080), s.downloadQuality, { "${it}p" }) {
+                ChoiceRow(Icons.Rounded.Download, stringResource(R.string.mine_download_quality), listOf(360, 480, 720, 1080), s.downloadQuality, { "${it}p" }) {
                     vm.update { setDownloadQuality(it) }
                 }
             }
             item {
-                SwitchRow(Icons.Rounded.Wifi, "Download hanya lewat Wi-Fi", "Hemat kuota, download menunggu sampai tersambung Wi-Fi", s.downloadWifiOnly) {
+                SwitchRow(Icons.Rounded.Wifi, stringResource(R.string.mine_wifi_only), stringResource(R.string.mine_wifi_only_desc), s.downloadWifiOnly) {
                     vm.update { setDownloadWifiOnly(it) }
                 }
             }
 
-            item { Group("Data") }
+            item { Group(stringResource(R.string.mine_group_backup)) }
+            backupPrefs?.let { b ->
+                item {
+                    ActionRow(Icons.Rounded.Folder, stringResource(R.string.mine_backup_folder), b.treeUri?.let { folderName(res, Uri.parse(it)) } ?: stringResource(R.string.mine_backup_folder_none)) {
+                        pickFolder.launch(null)
+                    }
+                }
+                if (b.treeUri != null) {
+                    item {
+                        SwitchRow(Icons.Rounded.Autorenew, stringResource(R.string.mine_backup_auto), stringResource(R.string.mine_backup_auto_desc), b.auto) { on ->
+                            scope.launch { vm.store.setBackupAuto(on) }
+                            if (on) BackupWorker.schedule(context) else BackupWorker.cancel(context)
+                        }
+                    }
+                }
+                item {
+                    ActionRow(Icons.Rounded.Backup, stringResource(R.string.mine_backup_now), backupStatusLabel(res, b)) {
+                        scope.launch { say(backupMessage(res, vm.backup.backupNow())) }
+                    }
+                }
+                item { ActionRow(Icons.Rounded.Restore, stringResource(R.string.mine_restore_file), stringResource(R.string.mine_restore_file_desc), restore) }
+            }
+
+            item { Group(stringResource(R.string.mine_group_data)) }
             item {
-                ActionRow(Icons.Rounded.DeleteSweep, "Hapus riwayat tontonan", "Progres semua episode akan hilang") {
-                    confirm = "Hapus semua riwayat tontonan?" to {
+                ActionRow(Icons.Rounded.DeleteSweep, stringResource(R.string.mine_clear_watch_history), stringResource(R.string.mine_clear_watch_history_desc)) {
+                    confirm = res.getString(R.string.mine_clear_watch_history_confirm) to {
                         vm.clearHistory()
-                        scope.launch { snackbar.showSnackbar("Riwayat dihapus") }
+                        scope.launch { snackbar.showSnackbar(res.getString(R.string.mine_history_cleared)) }
                     }
                 }
             }
             item {
-                ActionRow(Icons.Rounded.ManageSearch, "Hapus riwayat pencarian", null) {
+                ActionRow(Icons.Rounded.ManageSearch, stringResource(R.string.mine_clear_searches), null) {
                     vm.clearSearches()
-                    scope.launch { snackbar.showSnackbar("Riwayat pencarian dihapus") }
+                    scope.launch { snackbar.showSnackbar(res.getString(R.string.mine_searches_cleared)) }
                 }
             }
             item {
                 ActionRow(
                     Icons.Rounded.DeleteForever,
-                    "Hapus semua data",
-                    "Favorit, riwayat, pencarian, pengaturan, dan file unduhan",
+                    stringResource(R.string.mine_delete_all),
+                    stringResource(R.string.mine_delete_all_desc),
                 ) {
-                    confirm = "Hapus semua data di perangkat ini?" to {
+                    confirm = res.getString(R.string.mine_delete_all_confirm) to {
                         vm.deleteAllData {
-                            scope.launch { snackbar.showSnackbar("Semua data dihapus") }
+                            scope.launch { snackbar.showSnackbar(res.getString(R.string.mine_all_deleted)) }
                         }
                     }
                 }
             }
 
-            item { Group("Privasi & Legal") }
+            item { Group(stringResource(R.string.mine_group_legal)) }
             item {
-                ActionRow(Icons.Rounded.PrivacyTip, "Kebijakan Privasi", "Data apa yang disimpan dan apa yang tidak") {
+                ActionRow(Icons.Rounded.PrivacyTip, stringResource(R.string.mine_privacy_policy), stringResource(R.string.mine_privacy_policy_desc)) {
                     onOpenLegal("privacy")
                 }
             }
             item {
-                ActionRow(Icons.Rounded.Description, "Ketentuan Layanan", "Aturan penggunaan dan lisensi aplikasi") {
+                ActionRow(Icons.Rounded.Description, stringResource(R.string.mine_terms), stringResource(R.string.mine_terms_desc)) {
                     onOpenLegal("terms")
                 }
             }
             item {
-                ActionRow(Icons.Rounded.Person, "Info Pengembang", "Kontak, lisensi, dan kredit konten") {
+                ActionRow(Icons.Rounded.Person, stringResource(R.string.mine_developer_info), stringResource(R.string.mine_developer_info_desc)) {
                     onOpenLegal("about")
                 }
             }
 
-            item { Group("Tentang") }
+            item { Group(stringResource(R.string.mine_group_about)) }
             item {
-                ActionRow(Icons.Rounded.Info, "FuwaStream ${BuildConfig.VERSION_NAME}", "Fork komunitas dengan desain ulang Material 3", onClick = null)
+                ActionRow(Icons.Rounded.Info, stringResource(R.string.mine_version, BuildConfig.VERSION_NAME), stringResource(R.string.mine_version_desc), onClick = null)
             }
             item {
-                ActionRow(Icons.Rounded.AutoAwesome, "Konten disediakan pihak ketiga", "Aplikasi ini tidak meng-host video apa pun", onClick = null)
+                ActionRow(Icons.Rounded.AutoAwesome, stringResource(R.string.mine_third_party), stringResource(R.string.mine_third_party_desc), onClick = null)
             }
         }
     }
@@ -291,8 +390,8 @@ fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit) {
         AlertDialog(
             onDismissRequest = { confirm = null },
             title = { Text(title) },
-            confirmButton = { TextButton(onClick = { action(); confirm = null }) { Text("Hapus") } },
-            dismissButton = { TextButton(onClick = { confirm = null }) { Text("Batal") } },
+            confirmButton = { TextButton(onClick = { action(); confirm = null }) { Text(stringResource(R.string.mine_delete)) } },
+            dismissButton = { TextButton(onClick = { confirm = null }) { Text(stringResource(R.string.mine_cancel)) } },
         )
     }
 }
@@ -356,3 +455,14 @@ private fun <T> ChoiceRow(
         }
     }
 }
+
+private fun backupMessage(res: Resources, outcome: BackupOutcome): String = when (outcome) {
+    BackupOutcome.Written -> res.getString(R.string.mine_backup_written)
+    BackupOutcome.SkippedEmpty -> res.getString(R.string.mine_backup_skipped_empty)
+    BackupOutcome.NoFolder -> res.getString(R.string.mine_backup_no_folder)
+    is BackupOutcome.Failed -> backupErrorLabel(res, outcome.code)
+}
+
+/** "Download/Anime" from a tree id like "primary:Download/Anime". */
+private fun folderName(res: Resources, tree: Uri): String =
+    runCatching { DocumentsContract.getTreeDocumentId(tree).substringAfterLast(':') }.getOrNull()?.ifEmpty { null } ?: res.getString(R.string.mine_backup_folder_storage)

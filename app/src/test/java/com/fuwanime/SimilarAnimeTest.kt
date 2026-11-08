@@ -77,6 +77,6 @@ class SimilarAnimeTest {
         }
         AnimeRepository(api).similarCandidates(anime("t", "Action,Mystery,Psychological")).getOrThrow()
         // Mystery = 21, Psychological = 23 in the real genre list.
-        assertEquals(setOf("exploreByGenre(id=21)", "exploreByGenre(id=23)"), api.calls.toSet())
+        assertEquals(api.calls.toString(), setOf("exploreByGenre(id=21)", "exploreByGenre(id=23)"), api.calls.toSet())
     }
 }

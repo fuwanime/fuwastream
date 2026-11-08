@@ -9,7 +9,6 @@ import com.fuwanime.data.remote.EpisodeListData
 import com.fuwanime.data.remote.MovieListData
 import com.fuwanime.data.toEpisode
 import com.fuwanime.util.episodeShortLabel
-import com.fuwanime.util.relativeTime
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -62,17 +61,5 @@ class LatestReleaseTest {
         assertEquals("Ep 5", episodeShortLabel("Episode 5"))
         assertEquals("Ep 12.5", episodeShortLabel("episode 12.5"))
         assertEquals("", episodeShortLabel(""))
-    }
-
-    @Test
-    fun relativeTime_readsJakartaTimestamps() {
-        val at = Instant.parse("2026-10-26T13:10:10Z").toEpochMilli() // 20:10:10 WIB
-        val raw = "2026-10-26 20:10:10"
-        assertEquals("baru saja", relativeTime(raw, at + 30_000))
-        assertEquals("12 mnt lalu", relativeTime(raw, at + 12 * 60_000))
-        assertEquals("3 jam lalu", relativeTime(raw, at + 3 * 3_600_000))
-        assertEquals("2 hari lalu", relativeTime(raw, at + 2 * 86_400_000))
-        assertEquals("", relativeTime(raw, at - 10 * 60_000))
-        assertEquals("", relativeTime("kemarin", at))
     }
 }
