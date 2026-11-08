@@ -47,4 +47,9 @@
     <string name="manga_credit_shinigami">数据与图片来自 Shinigami</string>
     <string name="manga_credit_both">信息来自 MangaDex · 章节来自 Shinigami</string>
     <string name="manga_reader_source_shinigami">来源：Shinigami</string>
+    <string name="manga_home_komiku">热门漫画（Komiku）</string>
+    <string name="manga_settings_mature">成人内容</string>
+    <string name="manga_settings_mature_desc">显示来自 MangaDex 的成人题材漫画（如《烙印战士》《浪客行》）</string>
+    <string name="manga_credit_komiku">数据与图片来自 Komiku</string>
+    <string name="manga_reader_source_komiku">来源：Komiku</string>
 </resources>

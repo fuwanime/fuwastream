@@ -17,6 +17,10 @@ class MangaRepository(
     private val now: () -> Long = System::currentTimeMillis,
     /** Second source (Indonesian); ids starting with "sh:" are routed there. */
     private val shinigami: ShinigamiSource? = null,
+    /** Third source (Indonesian, large archive of older titles); ids starting with "km:". */
+    private val komiku: KomikuSource? = null,
+    /** "Konten dewasa" setting: also show MangaDex titles rated erotica (e.g. Berserk, Vagabond); never pornographic. */
+    private val mature: suspend () -> Boolean = { false },
 ) {
     private val atHomeCache = ConcurrentHashMap<String, Pair<Long, AtHomeDto>>()
     @Volatile private var tagCache: List<MangaTag>? = null
@@ -35,7 +39,7 @@ class MangaRepository(
                 byFollowed = if (order == MangaOrder.POPULAR) "desc" else null,
                 byLatest = if (order == MangaOrder.LATEST) "desc" else null,
                 byRelevance = if (order == MangaOrder.RELEVANCE) "desc" else null,
-                langs = CATALOG_LANGS, ratings = RATINGS, tags = tagIds,
+                langs = CATALOG_LANGS, ratings = ratings(), tags = tagIds,
                 status = listOfNotNull(status?.takeIf { it != MangaStatus.UNKNOWN }?.name?.lowercase()),
                 includes = listOf("cover_art"),
                 // Only titles with at least one uploaded chapter in id/en; others would open to an empty chapter list.
@@ -51,23 +55,32 @@ class MangaRepository(
 
     /** Shinigami search results for [query]; empty when the source is off or fails. */
     suspend fun searchIndonesia(query: String): List<Manga> =
-        runCatching { shinigami?.browse(null, query)?.items }.getOrNull().orEmpty()
+        runCatching { shinigami?.browse(null, query)?.items }.getOrNull().orEmpty() +
+            runCatching { komiku?.search(query) }.getOrNull().orEmpty()
 
-    /** The same title on Shinigami, for MangaDex titles with nothing readable in the app. */
-    suspend fun findOnShinigami(manga: Manga): Manga? = shinigami?.find(listOf(manga.title) + manga.altTitles)
+    /** Popular Komiku titles; [page] is 1-based, 10 per page. */
+    suspend fun popularKomiku(page: Int = 1): MangaPage = komiku?.browse("meta_value_num", page) ?: MangaPage(emptyList(), 0, 0)
+
+    /** The same title on an Indonesian source (Shinigami, then Komiku), for titles with nothing readable in the app. */
+    suspend fun findOnShinigami(manga: Manga): Manga? {
+        val names = listOf(manga.title) + manga.altTitles
+        return runCatching { shinigami?.find(names) }.getOrNull() ?: runCatching { komiku?.find(names) }.getOrNull()
+    }
 
     suspend fun detail(id: String): Manga {
         if (isShinigamiId(id)) return shinigami?.detail(id) ?: throw notFound()
+        if (isKomikuId(id)) return komiku?.detail(id) ?: throw notFound()
         val dto = call { api.manga(id, listOf("cover_art", "author")) }.data ?: throw notFound()
         return dto.toManga(appLanguage(), 512)
     }
 
     suspend fun chapters(id: String): List<MangaChapter> {
         if (isShinigamiId(id)) return shinigami?.chapters(id).orEmpty()
+        if (isKomikuId(id)) return komiku?.chapters(id).orEmpty()
         val all = ArrayList<MangaChapter>()
         var offset = 0
         while (true) {
-            val feed = call { api.feed(id, FEED_LIMIT, offset, CATALOG_LANGS, RATINGS, listOf("scanlation_group")) }
+            val feed = call { api.feed(id, FEED_LIMIT, offset, CATALOG_LANGS, ratings(), listOf("scanlation_group")) }
             all += feed.data.map { it.toChapter() }
             offset += FEED_LIMIT
             if (feed.data.isEmpty() || offset >= feed.total) break
@@ -77,6 +90,7 @@ class MangaRepository(
 
     suspend fun pages(chapterId: String, dataSaver: Boolean, forceRefresh: Boolean = false): List<String> {
         if (isShinigamiId(chapterId)) return shinigami?.pages(chapterId).orEmpty()
+        if (isKomikuId(chapterId)) return komiku?.pages(chapterId).orEmpty()
         val cached = atHomeCache[chapterId]?.takeIf { !forceRefresh && now() - it.first < BASE_URL_TTL_MS }
         val dto = cached?.second ?: call { api.atHome(chapterId) }.also { atHomeCache[chapterId] = now() to it }
         return pageUrls(dto.baseUrl, dto.chapter.hash, dto.chapter.data, dto.chapter.dataSaver, dataSaver)
@@ -91,6 +105,8 @@ class MangaRepository(
         if (e.code() == 404) throw notFound() else throw e
     }
 
+    private suspend fun ratings() = if (mature()) RATINGS_MATURE else RATINGS
+
     private fun notFound() = UiTextException(UiText(R.string.manga_error_not_found))
 
     private companion object {
@@ -99,5 +115,6 @@ class MangaRepository(
         const val BASE_URL_TTL_MS = 14 * 60_000L
         val CATALOG_LANGS = listOf("id", "en")
         val RATINGS = listOf("safe", "suggestive")
+        val RATINGS_MATURE = RATINGS + "erotica"
     }
 }

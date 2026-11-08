@@ -28,4 +28,10 @@ class LegalTextTest {
         assertTrue(LegalText.privacy(res).contains("SUMMARY\nFuwaStream has no accounts"))
         assertTrue(LegalText.about(res).contains("DEVELOPER\n${LegalText.DEVELOPER_NAME}"))
     }
+
+    @Test fun aboutCreditsCollaborator() {
+        val about = LegalText.about(testResources())
+        assertTrue(about.contains(LegalText.COLLABORATOR_EMAIL))
+        assertTrue(about.contains("Manga"))
+    }
 }

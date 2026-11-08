@@ -1,5 +1,6 @@
 package com.fuwanime.ui.settings
 
+import androidx.compose.material.icons.rounded.Explicit
 import androidx.compose.material.icons.rounded.DataSaverOn
 import kotlinx.coroutines.flow.first
 import android.content.res.Resources
@@ -313,6 +314,12 @@ fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit) {
                 val saver by vm.store.mangaDataSaver.collectAsStateWithLifecycle(false)
                 SwitchRow(Icons.Rounded.DataSaverOn, stringResource(R.string.manga_settings_data_saver), stringResource(R.string.manga_settings_data_saver_desc), saver) {
                     vm.update { setMangaDataSaver(it) }
+                }
+            }
+            item {
+                val mature by vm.store.mangaMature.collectAsStateWithLifecycle(false)
+                SwitchRow(Icons.Rounded.Explicit, stringResource(R.string.manga_settings_mature), stringResource(R.string.manga_settings_mature_desc), mature) {
+                    vm.update { setMangaMature(it) }
                 }
             }
 

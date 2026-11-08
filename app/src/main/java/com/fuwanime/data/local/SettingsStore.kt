@@ -72,6 +72,7 @@ internal object Keys {
     val backgroundAudio = booleanPreferencesKey("background_audio")
     val videoResize = stringPreferencesKey("video_resize")
     val mangaDataSaver = booleanPreferencesKey("manga_data_saver")
+    val mangaMature = booleanPreferencesKey("manga_mature")
     val backupTreeUri = stringPreferencesKey("backup_tree_uri")
     val backupAuto = booleanPreferencesKey("backup_auto")
     val backupLastMs = longPreferencesKey("backup_last_ms")
@@ -178,6 +179,10 @@ class SettingsStore(private val context: Context) {
     /** Smaller MangaDex "data-saver" images in the reader. */
     val mangaDataSaver: Flow<Boolean> = context.dataStore.data.map { it[Keys.mangaDataSaver] ?: false }
     suspend fun setMangaDataSaver(enabled: Boolean) = context.dataStore.edit { it[Keys.mangaDataSaver] = enabled }
+
+    /** Also list MangaDex titles rated "erotica" (mature themes such as Berserk); pornographic titles are never shown. */
+    val mangaMature: Flow<Boolean> = context.dataStore.data.map { it[Keys.mangaMature] ?: false }
+    suspend fun setMangaMature(enabled: Boolean) = context.dataStore.edit { it[Keys.mangaMature] = enabled }
 
     /** Opening marked by the user for an anime; the same range applies to all its episodes. */
     fun opMark(animeId: String): Flow<OpMark?> = context.dataStore.data.map { prefs ->
