@@ -70,4 +70,6 @@
     <string name="manga_lang_raw">Raw</string>
     <string name="manga_credit_merged">数据和图片来自 %1$s</string>
     <string name="manga_detail_finding_sources">正在从所有来源查找章节…</string>
+    <string name="manga_download_channel">漫画下载</string>
+    <string name="manga_download_notif">%1$s · %2$s</string>
 </resources>

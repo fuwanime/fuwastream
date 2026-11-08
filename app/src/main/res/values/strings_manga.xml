@@ -70,4 +70,6 @@
     <string name="manga_lang_raw">Raw</string>
     <string name="manga_credit_merged">Data &amp; gambar dari %1$s</string>
     <string name="manga_detail_finding_sources">Mencari chapter di semua sumber…</string>
+    <string name="manga_download_channel">Unduhan manga</string>
+    <string name="manga_download_notif">%1$s · %2$s</string>
 </resources>
