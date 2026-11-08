@@ -4,6 +4,7 @@ import com.fuwanime.data.local.MangaHistoryEntity
 import com.fuwanime.data.manga.MangaChapter
 import com.fuwanime.data.manga.pickChapters
 import com.fuwanime.data.manga.MangaTag
+import com.fuwanime.data.manga.withChapter
 import com.fuwanime.ui.manga.chapterRanges
 import com.fuwanime.ui.manga.genreTagId
 import com.fuwanime.ui.manga.rangeLabel
@@ -26,6 +27,18 @@ class MangaUiLogicTest {
 
     @Test fun resumeTargetFallsBackWhenChapterGone() =
         assertEquals("c2", resumeTarget(chapters, listOf(h("removed", 30)))?.id)
+
+    @Test fun resumeTargetFindsSameNumberFromAnotherSource() {
+        val shown = listOf(ch("sh:1", "1"), ch("sh:50", "50"))
+        val all = shown + ch("md50", "50.0")
+        assertEquals("sh:50", resumeTarget(shown, listOf(h("md50", 10)), all)?.id)
+    }
+
+    @Test fun withChapterSwapsInTheOpenedSource() {
+        val list = listOf(ch("sh:1", "1"), ch("sh:2", "2"), ch("sh:3", "3"))
+        assertEquals(listOf("sh:1", "md2", "sh:3"), withChapter(list, ch("md2", "2")).map { it.id })
+        assertEquals(listOf("sh:1", "sh:2", "sh:3"), withChapter(list, ch("x", "9")).map { it.id })
+    }
 
     @Test fun resumeTargetWithoutHistoryIsFirstReadable() = assertEquals("c2", resumeTarget(chapters, emptyList())?.id)
 

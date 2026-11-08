@@ -19,6 +19,7 @@ import com.fuwanime.data.manga.availableLanguages
 import com.fuwanime.data.manga.effectiveLanguage
 import com.fuwanime.data.manga.mergeChapters
 import com.fuwanime.data.manga.sourceRank
+import com.fuwanime.data.manga.numberKey
 import java.util.Date
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -90,11 +91,18 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-/** The chapter "Lanjut"/"Mulai baca" opens: the last one read if it is still listed, else the first readable. */
-fun resumeTarget(chapters: List<MangaChapter>, history: List<MangaHistoryEntity>): MangaChapter? {
-    val byId = chapters.associateBy { it.id }
-    return history.sortedByDescending { it.updatedAt }.firstNotNullOfOrNull { byId[it.chapterId]?.takeIf { c -> c.externalUrl == null && c.pages > 0 } }
-        ?: firstReadable(chapters)
+/**
+ * The chapter "Lanjut"/"Mulai baca" opens: the last one read if it is still listed, or the listed chapter with the same
+ * number (it may now come from a better source; [all] knows the old one's number), else the first readable.
+ */
+fun resumeTarget(chapters: List<MangaChapter>, history: List<MangaHistoryEntity>, all: List<MangaChapter> = chapters): MangaChapter? {
+    val readable = chapters.filter { it.externalUrl == null && it.pages > 0 }
+    val byId = readable.associateBy { it.id }
+    val byNumber = readable.associateBy { numberKey(it) }
+    val allById = all.associateBy { it.id }
+    return history.sortedByDescending { it.updatedAt }.firstNotNullOfOrNull { e ->
+        byId[e.chapterId] ?: allById[e.chapterId]?.let(::numberKey)?.let { byNumber[it] }
+    } ?: firstReadable(chapters)
 }
 
 data class MangaDetailState(
@@ -170,7 +178,7 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
                 val inApp = remember(state.chapters, lang) {
                     state.chapters?.let { all -> lang?.let { mergeChapters(all, it) }.orEmpty().filter { it.externalUrl == null && it.pages > 0 } }
                 }
-                val target = inApp?.let { resumeTarget(it, state.history) }
+                val target = inApp?.let { resumeTarget(it, state.history, state.chapters.orEmpty()) }
                 val resumed = target != null && target.id in readIds
                 val sources = remember(state.chapters) {
                     state.chapters.orEmpty().map { sourceRank(it.id) }.distinct().sorted().map { SOURCE_NAMES[it] }

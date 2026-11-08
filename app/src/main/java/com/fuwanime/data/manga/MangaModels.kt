@@ -142,11 +142,20 @@ fun effectiveLanguage(chosen: ChapterLang?, available: List<ChapterLang>, appLan
 fun readerLanguage(all: List<MangaChapter>, chapterId: String, appLanguage: String): ChapterLang? =
     all.firstOrNull { it.id == chapterId }?.let { languageGroup(it.language) } ?: defaultLanguage(availableLanguages(all), appLanguage)
 
+/** Chapter number as a comparable key: "5", "5.0" and "05" are the same chapter. */
+fun numberKey(c: MangaChapter): String? = c.number?.let { it.toBigDecimalOrNull()?.stripTrailingZeros()?.toPlainString() ?: it }
+
+/** [list] with the entry of [opened]'s number replaced by [opened], so Prev/Next still work when it lost the merge to another source. */
+fun withChapter(list: List<MangaChapter>, opened: MangaChapter): List<MangaChapter> {
+    val key = numberKey(opened) ?: return list
+    return list.map { if (numberKey(it) == key) opened else it }
+}
+
 /** One chapter per number in [lang], from all sources: readable first, then [sourceRank], then newest; in reading order. */
 fun mergeChapters(all: List<MangaChapter>, lang: ChapterLang): List<MangaChapter> {
     val inLang = all.filter { languageGroup(it.language) == lang }
     val (oneshots, numbered) = inLang.partition { it.number == null }
-    val picked = numbered.groupBy { it.number!!.toBigDecimalOrNull()?.stripTrailingZeros()?.toPlainString() ?: it.number }.values.map { group ->
+    val picked = numbered.groupBy { numberKey(it) }.values.map { group ->
         group.filter { it.readable() }.ifEmpty { group }.sortedWith(compareBy<MangaChapter> { sourceRank(it.id) }.thenByDescending { it.publishAt }).first()
     }
     // Oneshots have no number to match on; take them from one source only so they don't show twice.
