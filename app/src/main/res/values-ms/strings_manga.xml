@@ -69,4 +69,5 @@
     <string name="manga_lang_en">Inggeris</string>
     <string name="manga_lang_raw">Raw</string>
     <string name="manga_credit_merged">Data &amp; gambar daripada %1$s</string>
+    <string name="manga_detail_finding_sources">Mencari bab di semua sumber…</string>
 </resources>
