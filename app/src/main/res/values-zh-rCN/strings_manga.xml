@@ -83,4 +83,13 @@
     <string name="manga_download_state_running">下载中</string>
     <string name="manga_download_state_done">已下载</string>
     <string name="manga_download_state_failed">下载失败</string>
+    <string name="manga_library_downloads">下载</string>
+    <plurals name="manga_download_count">
+        <item quantity="other">%d 章</item>
+    </plurals>
+    <plurals name="manga_download_pending">
+        <item quantity="other">%d 个排队中</item>
+    </plurals>
+    <string name="manga_download_delete_all_title">删除《%1$s》的全部下载?</string>
+    <string name="manga_download_delete_all">删除</string>
 </resources>

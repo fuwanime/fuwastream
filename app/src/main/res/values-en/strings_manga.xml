@@ -85,4 +85,14 @@
     <string name="manga_download_state_running">Downloading</string>
     <string name="manga_download_state_done">Downloaded</string>
     <string name="manga_download_state_failed">Download failed</string>
+    <string name="manga_library_downloads">Downloads</string>
+    <plurals name="manga_download_count">
+        <item quantity="one">%d chapter</item>
+        <item quantity="other">%d chapters</item>
+    </plurals>
+    <plurals name="manga_download_pending">
+        <item quantity="other">%d queued</item>
+    </plurals>
+    <string name="manga_download_delete_all_title">Delete all downloads of %1$s?</string>
+    <string name="manga_download_delete_all">Delete</string>
 </resources>

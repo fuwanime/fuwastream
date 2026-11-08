@@ -83,4 +83,13 @@
     <string name="manga_download_state_running">Memuat turun</string>
     <string name="manga_download_state_done">Sudah dimuat turun</string>
     <string name="manga_download_state_failed">Gagal dimuat turun</string>
+    <string name="manga_library_downloads">Muat turun</string>
+    <plurals name="manga_download_count">
+        <item quantity="other">%d bab</item>
+    </plurals>
+    <plurals name="manga_download_pending">
+        <item quantity="other">%d dalam baris gilir</item>
+    </plurals>
+    <string name="manga_download_delete_all_title">Padam semua muat turun %1$s?</string>
+    <string name="manga_download_delete_all">Padam</string>
 </resources>
