@@ -36,6 +36,8 @@ data class AppSettings(
     /** Downloads default lower than streaming to save storage. */
     val downloadQuality: Int = 480,
     val downloadWifiOnly: Boolean = false,
+    /** Folder (tree URI) finished episodes move into; null keeps them in the app's private folder. */
+    val downloadFolder: String? = null,
     /** Periodic background check for new episodes of favorited, ongoing anime. */
     val notifyNewEpisodes: Boolean = true,
     /** Skip a marked opening without waiting for a tap. */
@@ -61,6 +63,7 @@ internal object Keys {
     val doubleTapSeekSeconds = intPreferencesKey("double_tap_seek_seconds")
     val downloadQuality = intPreferencesKey("download_quality")
     val downloadWifiOnly = booleanPreferencesKey("download_wifi_only")
+    val downloadFolder = stringPreferencesKey("download_folder")
     val notifyNewEpisodes = booleanPreferencesKey("notify_new_episodes")
     val autoSkipOp = booleanPreferencesKey("auto_skip_op")
     val jumpAheadButton = booleanPreferencesKey("jump_ahead_button")
@@ -169,6 +172,7 @@ class SettingsStore(private val context: Context) {
     suspend fun setDoubleTapSeekSeconds(seconds: Int) = context.dataStore.edit { it[Keys.doubleTapSeekSeconds] = seconds }
     suspend fun setDownloadQuality(height: Int) = context.dataStore.edit { it[Keys.downloadQuality] = height }
     suspend fun setDownloadWifiOnly(enabled: Boolean) = context.dataStore.edit { it[Keys.downloadWifiOnly] = enabled }
+    suspend fun setDownloadFolder(treeUri: String?) = context.dataStore.edit { if (treeUri == null) it.remove(Keys.downloadFolder) else it[Keys.downloadFolder] = treeUri }
     suspend fun setNotifyNewEpisodes(enabled: Boolean) = context.dataStore.edit { it[Keys.notifyNewEpisodes] = enabled }
     suspend fun setAutoSkipOp(enabled: Boolean) = context.dataStore.edit { it[Keys.autoSkipOp] = enabled }
     suspend fun setJumpAheadButton(enabled: Boolean) = context.dataStore.edit { it[Keys.jumpAheadButton] = enabled }
@@ -252,6 +256,7 @@ internal fun Preferences.toSettings(): AppSettings {
         doubleTapSeekSeconds = this[Keys.doubleTapSeekSeconds] ?: d.doubleTapSeekSeconds,
         downloadQuality = this[Keys.downloadQuality] ?: d.downloadQuality,
         downloadWifiOnly = this[Keys.downloadWifiOnly] ?: d.downloadWifiOnly,
+        downloadFolder = this[Keys.downloadFolder],
         notifyNewEpisodes = this[Keys.notifyNewEpisodes] ?: d.notifyNewEpisodes,
         autoSkipOp = this[Keys.autoSkipOp] ?: d.autoSkipOp,
         jumpAheadButton = this[Keys.jumpAheadButton] ?: d.jumpAheadButton,

@@ -73,7 +73,7 @@ class AppContainer(private val app: Application) {
     /** For writes that must outlive the screen that started them (e.g. saving progress on exit). */
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    val downloadRepository = DownloadRepository(app, database.downloadDao(), animeRepository, appScope)
+    val downloadRepository = DownloadRepository(app, database.downloadDao(), animeRepository, appScope, settingsStore)
 
     /** Re-renders the "Lanjutkan" shortcut and widget after history changes. */
     fun refreshHomeSurfaces() {

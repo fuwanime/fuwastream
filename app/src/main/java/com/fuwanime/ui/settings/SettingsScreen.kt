@@ -167,6 +167,26 @@ fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit) {
         }
     }
 
+    val pickDownloadFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        // The move happens later in the background, so access must survive restarts.
+        val granted = runCatching {
+            context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+        }.isSuccess
+        if (!granted) say(res.getString(R.string.mine_backup_folder_unusable))
+        else scope.launch { vm.store.setDownloadFolder(uri.toString()) }
+    }
+    var chooseLocation by remember { mutableStateOf(false) }
+    if (chooseLocation) {
+        AlertDialog(
+            onDismissRequest = { chooseLocation = false },
+            title = { Text(stringResource(R.string.mine_download_location)) },
+            text = { Text(stringResource(R.string.mine_download_location_desc)) },
+            confirmButton = { TextButton(onClick = { chooseLocation = false; pickDownloadFolder.launch(null) }) { Text(stringResource(R.string.mine_download_location_pick)) } },
+            dismissButton = { TextButton(onClick = { chooseLocation = false; scope.launch { vm.store.setDownloadFolder(null) } }) { Text(stringResource(R.string.mine_download_location_app)) } },
+        )
+    }
+
     val hazeState = remember { HazeState() }
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -307,6 +327,13 @@ fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit) {
                 SwitchRow(Icons.Rounded.Wifi, stringResource(R.string.mine_wifi_only), stringResource(R.string.mine_wifi_only_desc), s.downloadWifiOnly) {
                     vm.update { setDownloadWifiOnly(it) }
                 }
+            }
+            item {
+                ActionRow(
+                    Icons.Rounded.Folder,
+                    stringResource(R.string.mine_download_location),
+                    s.downloadFolder?.let { folderName(res, Uri.parse(it)) } ?: stringResource(R.string.mine_download_location_app),
+                ) { chooseLocation = true }
             }
 
             item { Group(stringResource(R.string.manga_settings_group)) }

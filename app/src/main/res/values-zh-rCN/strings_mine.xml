@@ -169,4 +169,8 @@
     <plurals name="mine_downloads_stored">
         <item quantity="other">已保存 %1$d 集 • %2$s</item>
     </plurals>
+    <string name="mine_download_location">下载位置</string>
+    <string name="mine_download_location_app">应用内(私有)</string>
+    <string name="mine_download_location_pick">选择文件夹…</string>
+    <string name="mine_download_location_desc">下载完成的剧集会移到你选的文件夹,可在相册中查看,卸载应用后仍保留。之前的下载不会移动。</string>
 </resources>
