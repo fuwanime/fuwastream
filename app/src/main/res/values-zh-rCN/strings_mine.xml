@@ -173,4 +173,9 @@
     <string name="mine_download_location_app">应用内(私有)</string>
     <string name="mine_download_location_pick">选择文件夹…</string>
     <string name="mine_download_location_desc">下载完成的剧集会移到你选的文件夹,可在相册中查看,卸载应用后仍保留。之前的下载不会移动。</string>
+    <string name="download_target_title">保存到哪里?</string>
+    <string name="download_target_folder">文件夹:%1$s</string>
+    <string name="download_target_remember">始终使用此选项</string>
+    <string name="mine_download_location_ask">每次询问</string>
+    <string name="mine_download_ask">每次下载时询问</string>
 </resources>

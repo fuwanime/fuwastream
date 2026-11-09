@@ -166,7 +166,7 @@ class DownloadRepository(
         try {
             val tree = Uri.parse(folder)
             val parent = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
-            val name = "${entity.animeTitle} - ${entity.episodeNumber} (${entity.quality}).mkv".replace(Regex("[\\/:*?\"<>|]"), "_")
+            val name = "${entity.animeTitle} - ${entity.episodeNumber} (${entity.quality}).mkv".replace(Regex("[\\\\/:*?\"<>|]"), "_")
             target = DocumentsContract.createDocument(context.contentResolver, parent, "video/x-matroska", name) ?: return@withContext
             val source = File(entity.filePath)
             context.contentResolver.openOutputStream(target)!!.use { out -> source.inputStream().use { it.copyTo(out) } }

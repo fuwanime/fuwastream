@@ -1,5 +1,6 @@
 package com.fuwanime.ui.manga
 
+import com.fuwanime.ui.components.rememberDownloadGate
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -220,9 +221,12 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
     val labelOf: (MangaChapter) -> String = { c ->
         c.number?.let { ctx.getString(R.string.manga_chapter_number, it) } ?: c.title?.takeIf { it.isNotBlank() } ?: ctx.getString(R.string.manga_chapter_oneshot)
     }
+    val gate = rememberDownloadGate()
     val queue: (List<MangaChapter>) -> Unit = { list ->
-        vm.download(list, labelOf) { n ->
-            if (n > 0) scope.launch { snackbar.showSnackbar(ctx.resources.getQuantityString(R.plurals.manga_download_queued, n, n)) }
+        gate {
+            vm.download(list, labelOf) { n ->
+                if (n > 0) scope.launch { snackbar.showSnackbar(ctx.resources.getQuantityString(R.plurals.manga_download_queued, n, n)) }
+            }
         }
     }
 

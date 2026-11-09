@@ -173,4 +173,9 @@
     <string name="mine_download_location_app">App (privat)</string>
     <string name="mine_download_location_pick">Pilih folder…</string>
     <string name="mine_download_location_desc">Video yang selesai diunduh dipindah ke folder pilihanmu, jadi bisa dibuka di galeri dan tetap ada walau aplikasi dihapus. Unduhan lama tidak ikut dipindah.</string>
+    <string name="download_target_title">Simpan ke mana?</string>
+    <string name="download_target_folder">Folder: %1$s</string>
+    <string name="download_target_remember">Selalu pakai pilihan ini</string>
+    <string name="mine_download_location_ask">Selalu tanya</string>
+    <string name="mine_download_ask">Tanya setiap kali mengunduh</string>
 </resources>
