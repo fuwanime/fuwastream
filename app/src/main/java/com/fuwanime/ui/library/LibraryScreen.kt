@@ -1,5 +1,7 @@
 package com.fuwanime.ui.library
 
+import com.fuwanime.ui.manga.MangaShelfViewModel
+import com.fuwanime.ui.manga.MangaDownloadRows
 import com.fuwanime.ui.manga.MangaLibraryTab
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.pluralStringResource
@@ -208,6 +210,8 @@ fun LibraryRoute(
 ) {
     val vm: LibraryViewModel = fuwaViewModel { c, _ -> LibraryViewModel(c.libraryRepository, c.downloadRepository, c.settingsStore, c::refreshHomeSurfaces) }
     val downloads by vm.downloads.collectAsStateWithLifecycle()
+    val mangaVm: MangaShelfViewModel = fuwaViewModel { c, _ -> MangaShelfViewModel(c.mangaLibrary, c.mangaDownloads) }
+    val mangaDownloads by mangaVm.downloads.collectAsStateWithLifecycle()
     val history by vm.history.collectAsStateWithLifecycle()
     val favorites by vm.favorites.collectAsStateWithLifecycle()
     val favoriteCards by vm.favoriteCards.collectAsStateWithLifecycle()
@@ -243,7 +247,7 @@ fun LibraryRoute(
         }
         week?.takeIf { !selecting }?.let { WeekCard(it, onStats) }
         SegmentedTabs(
-            listOf(R.string.mine_tab_history to history?.size, R.string.mine_tab_favorites to favorites?.size, R.string.manga_tab to null, R.string.mine_tab_downloads to downloads?.size)
+            listOf(R.string.mine_tab_history to history?.size, R.string.mine_tab_favorites to favorites?.size, R.string.manga_tab to null, R.string.mine_tab_downloads to downloads?.size?.plus(mangaDownloads?.size ?: 0))
                 .map { (label, count) -> stringResource(label).let { if (count != null && count > 0) stringResource(R.string.mine_tab_with_count, it, count) else it } },
             selected = pager.currentPage,
             onSelect = { scope.launch { pager.animateScrollToPage(it) } },
@@ -253,7 +257,13 @@ fun LibraryRoute(
                 0 -> HistoryList(history, onResume, onAnimeClick, onRemove = { vm.removeHistory(it) }, selection, vm::toggleSelect)
                 1 -> FavoriteGrid(favoriteCards, favoriteSort, vm::setFavoriteSort, onAnimeClick, selection, vm::toggleSelect)
                 2 -> MangaLibraryTab(onOpen = onMangaClick, onRead = onMangaRead)
-                else -> DownloadList(downloads, watched, onPlayDownload, onDelete = { vm.deleteDownload(it) }, onDeleteWatched = { vm.deleteWatched() })
+                else -> Column(Modifier.fillMaxSize()) {
+                    // Manga downloads sit above the anime ones, one row per title.
+                    MangaDownloadRows(mangaDownloads.orEmpty(), onOpen = onMangaClick, onDelete = mangaVm::deleteDownloads)
+                    Box(Modifier.weight(1f)) {
+                        DownloadList(downloads, watched, onPlayDownload, onDelete = { vm.deleteDownload(it) }, onDeleteWatched = { vm.deleteWatched() }, showEmpty = mangaDownloads.isNullOrEmpty())
+                    }
+                }
             }
         }
     }
@@ -488,9 +498,11 @@ private fun DownloadList(
     onPlay: (DownloadEntity) -> Unit,
     onDelete: (String) -> Unit,
     onDeleteWatched: () -> Unit,
+    showEmpty: Boolean = true,
 ) {
     if (items == null) return
     if (items.isEmpty()) {
+        if (!showEmpty) return
         MessageState(
             Icons.Rounded.DownloadForOffline,
             stringResource(R.string.mine_downloads_empty_title),
