@@ -77,21 +77,9 @@ fun MangaLibraryTab(onOpen: (mangaId: String) -> Unit, onRead: (mangaId: String,
     val vm: MangaShelfViewModel = fuwaViewModel { c, _ -> MangaShelfViewModel(c.mangaLibrary, c.mangaDownloads) }
     val reading by vm.continueReading.collectAsStateWithLifecycle()
     val favorites by vm.favorites.collectAsStateWithLifecycle()
-    val dls by vm.downloads.collectAsStateWithLifecycle()
     val r = reading ?: return
     val f = favorites ?: return
-    val d = dls ?: return
-    val ctx = LocalContext.current
-    var confirm by remember { mutableStateOf<DownloadedManga?>(null) }
-    confirm?.let { dm ->
-        AlertDialog(
-            onDismissRequest = { confirm = null },
-            title = { Text(stringResource(R.string.manga_download_delete_all_title, dm.title)) },
-            confirmButton = { TextButton(onClick = { vm.deleteDownloads(dm.mangaId); confirm = null }) { Text(stringResource(R.string.manga_download_delete_all)) } },
-            dismissButton = { TextButton(onClick = { confirm = null }) { Text(stringResource(android.R.string.cancel)) } },
-        )
-    }
-    if (r.isEmpty() && f.isEmpty() && d.isEmpty()) {
+    if (r.isEmpty() && f.isEmpty()) {
         MessageState(Icons.AutoMirrored.Rounded.MenuBook, stringResource(R.string.manga_library_empty_title), message = stringResource(R.string.manga_library_empty_body))
         return
     }
@@ -108,17 +96,33 @@ fun MangaLibraryTab(onOpen: (mangaId: String) -> Unit, onRead: (mangaId: String,
             item(key = "favTitle") { SectionTitle(stringResource(R.string.manga_library_favorites)) }
             items(f, key = { "f-" + it.mangaId }) { fav -> ShelfRow(fav.title, fav.coverUrl, subtitle = null, onClick = { onOpen(fav.mangaId) }) }
         }
-        if (d.isNotEmpty()) {
-            item(key = "dlTitle") { SectionTitle(stringResource(R.string.manga_library_downloads)) }
-            items(d, key = { "d-" + it.mangaId }) { dm ->
-                val parts = listOfNotNull(
-                    pluralStringResource(R.plurals.manga_download_count, dm.done, dm.done),
-                    Formatter.formatShortFileSize(ctx, dm.bytes),
-                    if (dm.pending > 0) pluralStringResource(R.plurals.manga_download_pending, dm.pending, dm.pending) else null,
-                )
-                ShelfRow(dm.title, dm.coverUrl, subtitle = parts.joinToString(" · "), onClick = { onOpen(dm.mangaId) }) {
-                    IconButton(onClick = { confirm = dm }) { Icon(Icons.Rounded.Delete, stringResource(R.string.manga_download_delete_all)) }
-                }
+    }
+}
+
+/** Downloaded manga for the Library's Unduhan tab: one row per title, never per chapter. */
+@Composable
+fun MangaDownloadRows(list: List<DownloadedManga>, onOpen: (mangaId: String) -> Unit, onDelete: (mangaId: String) -> Unit) {
+    if (list.isEmpty()) return
+    val ctx = LocalContext.current
+    var confirm by remember { mutableStateOf<DownloadedManga?>(null) }
+    confirm?.let { dm ->
+        AlertDialog(
+            onDismissRequest = { confirm = null },
+            title = { Text(stringResource(R.string.manga_download_delete_all_title, dm.title)) },
+            confirmButton = { TextButton(onClick = { onDelete(dm.mangaId); confirm = null }) { Text(stringResource(R.string.manga_download_delete_all)) } },
+            dismissButton = { TextButton(onClick = { confirm = null }) { Text(stringResource(android.R.string.cancel)) } },
+        )
+    }
+    Column(Modifier.padding(start = 16.dp, end = 8.dp, top = 8.dp)) {
+        SectionTitle(stringResource(R.string.manga_tab))
+        list.forEach { dm ->
+            val parts = listOfNotNull(
+                pluralStringResource(R.plurals.manga_download_count, dm.done, dm.done),
+                Formatter.formatShortFileSize(ctx, dm.bytes),
+                if (dm.pending > 0) pluralStringResource(R.plurals.manga_download_pending, dm.pending, dm.pending) else null,
+            )
+            ShelfRow(dm.title, dm.coverUrl, subtitle = parts.joinToString(" · "), onClick = { onOpen(dm.mangaId) }) {
+                IconButton(onClick = { confirm = dm }) { Icon(Icons.Rounded.Delete, stringResource(R.string.manga_download_delete_all)) }
             }
         }
     }
