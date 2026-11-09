@@ -140,11 +140,16 @@ class MangaDownloadRepository(private val context: Context, private val dao: Man
         val row = dao.get(chapterId)?.takeIf { it.state == MangaDownloadState.DONE.name } ?: return null
         return withContext(Dispatchers.IO) {
             chapterDir(root(), row.mangaId, chapterId).listFiles { f -> !f.name.endsWith(".part") }
-                ?.sortedBy { it.name }?.map { it.toURI().toString() }?.takeIf { it.isNotEmpty() }
+                ?.sortedBy { it.name }?.map { "file://" + it.absolutePath }?.takeIf { it.isNotEmpty() }
         }
     }
 
     suspend fun offline(mangaId: String): List<MangaChapter> = offlineChapters(dao.doneFor(mangaId))
+
+    /** The title as stored with its downloads, for opening it without network; null when nothing is downloaded. */
+    suspend fun offlineManga(mangaId: String): Manga? = dao.doneFor(mangaId).firstOrNull()?.let {
+        Manga(it.mangaId, it.mangaTitle, it.coverUrl, "", emptyList(), MangaStatus.UNKNOWN, null, null)
+    }
 
     companion object {
         const val WORK_NAME = "manga-downloads"

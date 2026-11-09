@@ -183,7 +183,10 @@ class MangaDetailViewModel(
         repo.clearMerged(id)
         viewModelScope.launch {
             val manga = try { repo.detail(id) } catch (e: CancellationException) { throw e } catch (e: Exception) {
-                remote.value = Remote(error = e.friendlyText()); return@launch
+                // Offline: a title with downloads still opens, listing the downloaded chapters.
+                val saved = downloadRepo.offlineManga(id)
+                remote.value = if (saved != null) Remote(manga = saved, chapters = downloadRepo.offline(id)) else Remote(error = e.friendlyText())
+                return@launch
             }
             remote.value = Remote(manga = manga)
             try {
@@ -192,7 +195,8 @@ class MangaDetailViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                remote.value = remote.value.copy(chaptersError = e.friendlyText())
+                val offline = downloadRepo.offline(id)
+                remote.value = if (offline.isNotEmpty()) remote.value.copy(chapters = offline) else remote.value.copy(chaptersError = e.friendlyText())
             }
         }
     }
