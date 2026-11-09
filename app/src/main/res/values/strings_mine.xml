@@ -169,4 +169,8 @@
     <plurals name="mine_downloads_stored">
         <item quantity="other">%1$d episode tersimpan • %2$s</item>
     </plurals>
+    <string name="mine_download_location">Lokasi unduhan</string>
+    <string name="mine_download_location_app">App (privat)</string>
+    <string name="mine_download_location_pick">Pilih folder…</string>
+    <string name="mine_download_location_desc">Video yang selesai diunduh dipindah ke folder pilihanmu, jadi bisa dibuka di galeri dan tetap ada walau aplikasi dihapus. Unduhan lama tidak ikut dipindah.</string>
 </resources>

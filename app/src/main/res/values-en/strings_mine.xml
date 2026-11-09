@@ -175,4 +175,8 @@
         <item quantity="one">%1$d episode saved • %2$s</item>
         <item quantity="other">%1$d episodes saved • %2$s</item>
     </plurals>
+    <string name="mine_download_location">Download location</string>
+    <string name="mine_download_location_app">App (private)</string>
+    <string name="mine_download_location_pick">Choose a folder…</string>
+    <string name="mine_download_location_desc">Finished episodes move into the folder you pick, so they show in your gallery and stay after uninstalling. Earlier downloads stay where they are.</string>
 </resources>

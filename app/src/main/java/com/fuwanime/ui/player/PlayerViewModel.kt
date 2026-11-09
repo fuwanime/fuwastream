@@ -200,7 +200,10 @@ class PlayerViewModel(
     private suspend fun playOffline(episode: Episode, resumeAt: Long): Boolean {
         val saved = downloads.completed(episode.id) ?: return false
         val e = saved.entity
-        val local = StreamSource(Uri.fromFile(File(e.filePath)).toString(), e.quality, "")
+        val local = StreamSource(
+            // Episodes moved to a picked folder are content:// documents; the rest are files in the app folder.
+            if (e.filePath.startsWith("content://")) e.filePath else Uri.fromFile(File(e.filePath)).toString(), e.quality, "",
+        )
         _state.update {
             it.copy(
                 // Offline there may be no detail response, so rebuild the essentials from the download row.
