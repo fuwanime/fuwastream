@@ -173,4 +173,9 @@
     <string name="mine_download_location_app">Aplikasi (peribadi)</string>
     <string name="mine_download_location_pick">Pilih folder…</string>
     <string name="mine_download_location_desc">Episod yang siap dimuat turun dipindah ke folder pilihan anda, jadi boleh dibuka di galeri dan kekal walaupun aplikasi dibuang. Muat turun lama tidak dipindah.</string>
+    <string name="download_target_title">Simpan di mana?</string>
+    <string name="download_target_folder">Folder: %1$s</string>
+    <string name="download_target_remember">Sentiasa guna pilihan ini</string>
+    <string name="mine_download_location_ask">Sentiasa tanya</string>
+    <string name="mine_download_ask">Tanya setiap kali muat turun</string>
 </resources>

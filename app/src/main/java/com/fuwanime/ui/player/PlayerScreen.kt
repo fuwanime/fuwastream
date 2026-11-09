@@ -1,5 +1,6 @@
 package com.fuwanime.ui.player
 
+import com.fuwanime.ui.components.rememberDownloadGate
 import com.fuwanime.util.text
 import com.fuwanime.ui.components.IconWithTooltip
 import android.app.Activity
@@ -256,6 +257,7 @@ fun PlayerRoute(
     /** Opens another anime's Detail (the next season at the end of this one). */
     onOpenAnime: (Anime) -> Unit = {},
 ) {
+    val gate = rememberDownloadGate()
     val appContext = LocalContext.current.applicationContext
     val vm: PlayerViewModel = fuwaViewModel { c, h ->
         PlayerViewModel(
@@ -523,7 +525,7 @@ fun PlayerRoute(
                     onPlay = vm::play,
                     onNext = vm::playNext,
                     onPrevious = vm::playPrevious,
-                    onDownload = vm::downloadCurrent,
+                    onDownload = { source -> gate { vm.downloadCurrent(source) } },
                     onDeleteDownload = vm::deleteDownload,
                 )
             }

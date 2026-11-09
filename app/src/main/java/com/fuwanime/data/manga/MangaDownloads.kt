@@ -1,6 +1,14 @@
 package com.fuwanime.data.manga
 
 import android.content.Context
+import android.net.Uri
+import android.provider.DocumentsContract
+import java.io.InputStream
+import java.io.OutputStream
+import java.util.zip.Deflater
+import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
+import java.util.zip.ZipOutputStream
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.ExistingWorkPolicy
@@ -93,6 +101,33 @@ suspend fun downloadPages(
     true
 }
 
+/** Packs page images into a CBZ (a zip of images, in page order); images are already compressed, so they are stored. */
+fun writeCbz(pages: List<File>, out: OutputStream) {
+    ZipOutputStream(out).use { zip ->
+        zip.setLevel(Deflater.NO_COMPRESSION)
+        pages.sortedBy { it.name }.forEach { f ->
+            zip.putNextEntry(ZipEntry(f.name))
+            f.inputStream().use { it.copyTo(zip) }
+            zip.closeEntry()
+        }
+    }
+}
+
+/** Unpacks a CBZ's images into [dir] (flat, names kept) and returns them in page order. */
+fun extractCbz(input: InputStream, dir: File): List<File> {
+    dir.mkdirs()
+    ZipInputStream(input).use { zip ->
+        while (true) {
+            val e = zip.nextEntry ?: break
+            // Only the file name: an entry like "../x" must not write outside [dir].
+            val name = e.name.substringAfterLast('/')
+            if (e.isDirectory || name.isEmpty()) continue
+            File(dir, name).outputStream().use { zip.copyTo(it) }
+        }
+    }
+    return dir.listFiles().orEmpty().filter { it.isFile }.sortedBy { it.name }
+}
+
 /** Queued and finished chapter downloads; the work runs in [MangaDownloadWorker], one chapter at a time. */
 class MangaDownloadRepository(private val context: Context, private val dao: MangaDownloadDao, private val settings: SettingsStore) {
     val all: Flow<List<MangaDownloadEntity>> = dao.observeAll()
@@ -127,17 +162,68 @@ class MangaDownloadRepository(private val context: Context, private val dao: Man
     suspend fun delete(chapterId: String) {
         val row = dao.get(chapterId) ?: return
         dao.delete(chapterId)
-        withContext(Dispatchers.IO) { chapterDir(root(), row.mangaId, chapterId).deleteRecursively() }
+        withContext(Dispatchers.IO) {
+            chapterDir(root(), row.mangaId, chapterId).deleteRecursively()
+            row.fileUri?.let(::deleteDocument)
+        }
     }
 
     suspend fun deleteFor(mangaId: String) {
+        val rows = dao.allFor(mangaId)
         dao.deleteFor(mangaId)
-        withContext(Dispatchers.IO) { File(File(root(), "manga"), safeName(mangaId)).deleteRecursively() }
+        withContext(Dispatchers.IO) {
+            File(File(root(), "manga"), safeName(mangaId)).deleteRecursively()
+            rows.mapNotNull { it.fileUri }.forEach(::deleteDocument)
+        }
+    }
+
+    private fun deleteDocument(uri: String) {
+        val u = Uri.parse(uri)
+        if (u.scheme == "file") File(u.path!!).delete()
+        else runCatching { DocumentsContract.deleteDocument(context.contentResolver, u) }
+    }
+
+    /**
+     * Packs a finished chapter into one CBZ, "<title> - <chapter>.cbz": in the picked download folder when one is set,
+     * else next to the app's other manga files; then removes the loose pages. Any failure keeps the pages, so nothing is lost.
+     */
+    suspend fun packCbz(row: MangaDownloadEntity) = withContext(Dispatchers.IO) {
+        val folder = settings.settings.first().downloadFolder
+        val dir = chapterDir(root(), row.mangaId, row.chapterId)
+        val pages = dir.listFiles { f -> !f.name.endsWith(".part") }.orEmpty().toList()
+        if (pages.isEmpty()) return@withContext
+        var target: Uri? = null
+        try {
+            val name = "${row.mangaTitle} - ${row.chapterLabel}.cbz".replace(Regex("[\\\\/:*?\"<>|]"), "_")
+            target = if (folder != null) {
+                val tree = Uri.parse(folder)
+                val parent = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
+                DocumentsContract.createDocument(context.contentResolver, parent, "application/vnd.comicbook+zip", name) ?: return@withContext
+            } else {
+                Uri.fromFile(File(dir.parentFile, safeName(row.chapterId) + ".cbz"))
+            }
+            context.contentResolver.openOutputStream(target)!!.use { writeCbz(pages, it) }
+            dao.setFile(row.chapterId, target.toString(), pages.sumOf { it.length() })
+            dir.deleteRecursively()
+        } catch (e: Exception) {
+            target?.let { deleteDocument(it.toString()) }
+        }
     }
 
     /** `file://` URIs of a finished download's pages in order, or null when it is not downloaded. */
     suspend fun localPages(chapterId: String): List<String>? {
         val row = dao.get(chapterId)?.takeIf { it.state == MangaDownloadState.DONE.name } ?: return null
+        row.fileUri?.let { uri ->
+            // A CBZ in the user's folder: unpack once into the cache and read from there.
+            return withContext(Dispatchers.IO) {
+                runCatching {
+                    val dir = File(File(context.cacheDir, "cbz"), safeName(chapterId))
+                    val files = dir.listFiles()?.filter { it.isFile }?.sortedBy { it.name }?.takeIf { it.isNotEmpty() }
+                        ?: context.contentResolver.openInputStream(Uri.parse(uri))!!.use { extractCbz(it, dir) }
+                    files.map { "file://" + it.absolutePath }.takeIf { it.isNotEmpty() }
+                }.getOrNull()
+            }
+        }
         return withContext(Dispatchers.IO) {
             chapterDir(root(), row.mangaId, chapterId).listFiles { f -> !f.name.endsWith(".part") }
                 ?.sortedBy { it.name }?.map { "file://" + it.absolutePath }?.takeIf { it.isNotEmpty() }

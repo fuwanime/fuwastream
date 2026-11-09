@@ -1,5 +1,8 @@
 package com.fuwanime.ui.settings
 
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.Checkbox
 import androidx.compose.material.icons.rounded.Explicit
 import androidx.compose.material.icons.rounded.DataSaverOn
 import kotlinx.coroutines.flow.first
@@ -181,7 +184,16 @@ fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit) {
         AlertDialog(
             onDismissRequest = { chooseLocation = false },
             title = { Text(stringResource(R.string.mine_download_location)) },
-            text = { Text(stringResource(R.string.mine_download_location_desc)) },
+            text = {
+                Column {
+                    Text(stringResource(R.string.mine_download_location_desc))
+                    val ask = s.downloadAsk
+                    Row(Modifier.fillMaxWidth().clickable { scope.launch { vm.store.setDownloadAsk(!ask) } }, verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = ask, onCheckedChange = { scope.launch { vm.store.setDownloadAsk(it) } })
+                        Text(stringResource(R.string.mine_download_ask))
+                    }
+                }
+            },
             confirmButton = { TextButton(onClick = { chooseLocation = false; pickDownloadFolder.launch(null) }) { Text(stringResource(R.string.mine_download_location_pick)) } },
             dismissButton = { TextButton(onClick = { chooseLocation = false; scope.launch { vm.store.setDownloadFolder(null) } }) { Text(stringResource(R.string.mine_download_location_app)) } },
         )
@@ -332,7 +344,11 @@ fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit) {
                 ActionRow(
                     Icons.Rounded.Folder,
                     stringResource(R.string.mine_download_location),
-                    s.downloadFolder?.let { folderName(res, Uri.parse(it)) } ?: stringResource(R.string.mine_download_location_app),
+                    when {
+                        s.downloadAsk -> stringResource(R.string.mine_download_location_ask)
+                        s.downloadFolder != null -> folderName(res, Uri.parse(s.downloadFolder!!))
+                        else -> stringResource(R.string.mine_download_location_app)
+                    },
                 ) { chooseLocation = true }
             }
 
@@ -507,5 +523,5 @@ private fun backupMessage(res: Resources, outcome: BackupOutcome): String = when
 }
 
 /** "Download/Anime" from a tree id like "primary:Download/Anime". */
-private fun folderName(res: Resources, tree: Uri): String =
+internal fun folderName(res: Resources, tree: Uri): String =
     runCatching { DocumentsContract.getTreeDocumentId(tree).substringAfterLast(':') }.getOrNull()?.ifEmpty { null } ?: res.getString(R.string.mine_backup_folder_storage)
