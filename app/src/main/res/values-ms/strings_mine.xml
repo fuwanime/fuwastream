@@ -169,4 +169,8 @@
     <plurals name="mine_downloads_stored">
         <item quantity="other">%1$d episod disimpan • %2$s</item>
     </plurals>
+    <string name="mine_download_location">Lokasi muat turun</string>
+    <string name="mine_download_location_app">Aplikasi (peribadi)</string>
+    <string name="mine_download_location_pick">Pilih folder…</string>
+    <string name="mine_download_location_desc">Episod yang siap dimuat turun dipindah ke folder pilihan anda, jadi boleh dibuka di galeri dan kekal walaupun aplikasi dibuang. Muat turun lama tidak dipindah.</string>
 </resources>
