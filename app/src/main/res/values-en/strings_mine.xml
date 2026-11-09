@@ -179,4 +179,9 @@
     <string name="mine_download_location_app">App (private)</string>
     <string name="mine_download_location_pick">Choose a folder…</string>
     <string name="mine_download_location_desc">Finished episodes move into the folder you pick, so they show in your gallery and stay after uninstalling. Earlier downloads stay where they are.</string>
+    <string name="download_target_title">Save where?</string>
+    <string name="download_target_folder">Folder: %1$s</string>
+    <string name="download_target_remember">Always use this choice</string>
+    <string name="mine_download_location_ask">Always ask</string>
+    <string name="mine_download_ask">Ask every time I download</string>
 </resources>
