@@ -96,7 +96,6 @@ fun MangaLibraryTab(onOpen: (mangaId: String) -> Unit, onRead: (mangaId: String,
             item(key = "favTitle") { SectionTitle(stringResource(R.string.manga_library_favorites)) }
             items(f, key = { "f-" + it.mangaId }) { fav -> ShelfRow(fav.title, fav.coverUrl, subtitle = null, onClick = { onOpen(fav.mangaId) }) }
         }
-        }
     }
 }
 
