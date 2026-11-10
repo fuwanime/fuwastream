@@ -351,8 +351,9 @@ private fun ResultsGrid(state: ExploreUiState, vm: ExploreViewModel, onAnimeClic
     val branch = when {
         state.loading && state.results.isEmpty() -> ResultsBranch.LOADING
         state.error != null && state.results.isEmpty() -> ResultsBranch.ERROR
-        state.results.isEmpty() && !state.loadingMore -> ResultsBranch.EMPTY
+        state.results.isEmpty() && !state.loadingMore && !state.kuramanimeLoading -> ResultsBranch.EMPTY
         else -> ResultsBranch.RESULTS
+    }        else -> ResultsBranch.RESULTS
     }
     Crossfade(branch, animationSpec = tween(Motion.Medium), label = "exploreResults") { shown ->
     when (shown) {
@@ -388,6 +389,13 @@ private fun ResultsGrid(state: ExploreUiState, vm: ExploreViewModel, onAnimeClic
                     modifier = Modifier.animateItem().staggerIn(stagger, anime.id, index),
                     sharedOrigin = "explore",
                 )
+            }
+            if (state.kuramanimeLoading) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    Box(Modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+                    }
+                }
             }
             if (state.loadingMore || (!state.endReached && state.error == null)) {
                 item(span = { GridItemSpan(maxLineSpan) }) {

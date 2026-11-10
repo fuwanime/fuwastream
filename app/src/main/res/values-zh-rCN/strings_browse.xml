@@ -53,4 +53,5 @@
     <string name="browse_schedule_new_season">本季新番</string>
     <string name="browse_schedule_continuing">续播</string>
     <string name="browse_schedule_section">%1$s（%2$d）</string>
+    <string name="source_kuramanime">Kuramanime</string>
 </resources>
