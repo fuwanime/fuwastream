@@ -95,14 +95,14 @@ adb shell input keyevent KEYCODE_BACK; sleep 2
 
 # Open the first hero title and start playback.
 adb shell input swipe 540 500 540 1600 300; sleep 2
-tap "Tonton Sekarang" && shot 08-detail 10; alive
+tap "Tonton" && shot 08-detail 10; alive
 adb shell input swipe 540 1600 540 700 400
 shot 09-detail-episodes 3; alive
 tap "Download" && shot 09b-detail-download 10; alive
 # Downloads ask where to save; keep this episode in the app.
 tap "App (privat)" >/dev/null 2>&1 || true; sleep 2
 adb shell input swipe 540 700 540 1600 400; sleep 2
-tap "Tonton Ep*" && shot 10-player 20; alive
+{ tap "Tonton EP*" || tap "Tonton Ep*"; } && shot 10-player 20; alive
 adb shell input tap 540 300
 shot 11-player-controls 1; alive
 # Seek checks. Controls auto-hide, so re-show them before each interaction.
@@ -146,13 +146,14 @@ PY
 ); adb shell input tap 180 $(( ${y:-500} + 220 )); }
 
 relaunch; tap "Tonton" && shot 20-anime-detail 10; alive
-adb shell input swipe 540 1700 540 600 400; shot 20b-anime-episodes 3; alive
-tap "Tonton*" || tap "Lanjutkan*"; shot 21-player 20; alive
+tap "Tonton EP*" || tap "Tonton*" || tap "Lanjutkan*"; shot 21-player 20; alive
 adb shell input tap 540 400; shot 21b-player-controls 1; alive
+adb shell input keyevent KEYCODE_BACK; sleep 2
+adb shell input swipe 540 1700 540 600 400; shot 20b-anime-episodes 3; alive
 
 relaunch; tap "Manga" && shot 22-manga-tab 15; alive
 adb shell input swipe 540 1500 540 800 400; shot 22b-manga-shelves 4; alive
-relaunch; tap "Manga"; sleep 12; tap_below "Populer Indonesia"; shot 23-manga-detail 12; alive
+relaunch; tap "Manga"; sleep 12; tap "Demonic Emperor" || tap_below "Populer di Indonesia"; shot 23-manga-detail 12; alive
 adb shell input swipe 540 1600 540 700 400; shot 23b-manga-chapters 3; alive
 tap "Unduh*" && shot 23c-download-dialog 3; alive
 adb shell input keyevent KEYCODE_BACK; sleep 1
