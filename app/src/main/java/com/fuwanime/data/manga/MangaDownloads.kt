@@ -1,6 +1,8 @@
 package com.fuwanime.data.manga
 
 import android.content.Context
+import com.fuwanime.data.cleanFileName
+import com.fuwanime.data.subFolder
 import android.net.Uri
 import android.provider.DocumentsContract
 import java.io.InputStream
@@ -194,10 +196,10 @@ class MangaDownloadRepository(private val context: Context, private val dao: Man
         if (pages.isEmpty()) return@withContext
         var target: Uri? = null
         try {
-            val name = "${row.mangaTitle} - ${row.chapterLabel}.cbz".replace(Regex("[\\\\/:*?\"<>|]"), "_")
+            val name = cleanFileName("${row.mangaTitle} - ${row.chapterLabel}.cbz")
             target = if (folder != null) {
-                val tree = Uri.parse(folder)
-                val parent = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
+                // One folder per title, like downloaded anime.
+                val parent = subFolder(context.contentResolver, Uri.parse(folder), cleanFileName(row.mangaTitle)) ?: return@withContext
                 DocumentsContract.createDocument(context.contentResolver, parent, "application/vnd.comicbook+zip", name) ?: return@withContext
             } else {
                 Uri.fromFile(File(dir.parentFile, safeName(row.chapterId) + ".cbz"))

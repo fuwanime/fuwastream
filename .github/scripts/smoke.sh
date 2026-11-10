@@ -17,12 +17,14 @@ shot() {
   echo "captured $1"
 }
 
-# Taps the first on-screen node whose text or content-desc contains $1.
-tap() {
+dump_ui() {
   adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1
   adb pull /sdcard/ui.xml /tmp/ui.xml >/dev/null 2>&1
-  local xy
-  xy=$(python3 - "$1" <<'PY'
+}
+
+# Centre of the first node in the last dump whose text or content-desc is $1 (or starts with it, for "x*").
+find_xy() {
+  python3 - "$1" <<'PY'
 import re, sys, xml.etree.ElementTree as ET
 needle = sys.argv[1].lower()
 for n in ET.parse('/tmp/ui.xml').iter('node'):
@@ -33,7 +35,18 @@ for n in ET.parse('/tmp/ui.xml').iter('node'):
         print((x1 + x2) // 2, (y1 + y2) // 2)
         break
 PY
-)
+}
+
+# Taps the first on-screen node whose text or content-desc contains $1.
+tap() {
+  dump_ui
+  # A slow emulator shows "Pixel Launcher isn't responding" over the app; wait it out or every tap misses.
+  if grep -q "isn't responding" /tmp/ui.xml; then
+    local w; w=$(find_xy "wait")
+    [ -n "$w" ] && adb shell input tap $w
+    sleep 3; dump_ui
+  fi
+  local xy; xy=$(find_xy "$1")
   if [ -z "$xy" ]; then echo "not found: $1"; return 1; fi
   adb shell input tap $xy
   echo "tapped '$1' at $xy"
@@ -54,7 +67,8 @@ adb shell cmd locale set-app-locales "$PKG" --locales id || true
 adb shell input keyevent KEYCODE_HOME; sleep 3; shot 00-launcher 1
 adb shell am start -W -n "$PKG/com.fuwanime.MainActivity"
 # Fresh installs show the one-time 13+ gate; capture it, then clear it before walking the app.
-shot 01a-age-gate 6
+sleep 6; tap "Wait" >/dev/null 2>&1 || true
+shot 01a-age-gate 1
 tap "Saya berusia 13 tahun atau lebih — Lanjutkan" || true
 shot 01-home 15; alive
 adb shell input swipe 540 1600 540 500 400
@@ -81,12 +95,14 @@ adb shell input keyevent KEYCODE_BACK; sleep 2
 
 # Open the first hero title and start playback.
 adb shell input swipe 540 500 540 1600 300; sleep 2
-tap "Tonton Sekarang" && shot 08-detail 10; alive
+tap "Tonton" && shot 08-detail 10; alive
 adb shell input swipe 540 1600 540 700 400
 shot 09-detail-episodes 3; alive
 tap "Download" && shot 09b-detail-download 10; alive
+# Downloads ask where to save; keep this episode in the app.
+tap "App (privat)" >/dev/null 2>&1 || true; sleep 2
 adb shell input swipe 540 700 540 1600 400; sleep 2
-tap "Tonton Ep*" && shot 10-player 20; alive
+{ tap "Tonton EP*" || tap "Tonton Ep*"; } && shot 10-player 20; alive
 adb shell input tap 540 300
 shot 11-player-controls 1; alive
 # Seek checks. Controls auto-hide, so re-show them before each interaction.
@@ -130,16 +146,20 @@ PY
 ); adb shell input tap 180 $(( ${y:-500} + 220 )); }
 
 relaunch; tap "Tonton" && shot 20-anime-detail 10; alive
-adb shell input swipe 540 1700 540 600 400; shot 20b-anime-episodes 3; alive
-tap "Tonton*" || tap "Lanjutkan*"; shot 21-player 20; alive
+tap "Tonton EP*" || tap "Tonton*" || tap "Lanjutkan*"; shot 21-player 20; alive
 adb shell input tap 540 400; shot 21b-player-controls 1; alive
+adb shell input keyevent KEYCODE_BACK; sleep 2
+adb shell input swipe 540 1700 540 600 400; shot 20b-anime-episodes 3; alive
 
 relaunch; tap "Manga" && shot 22-manga-tab 15; alive
 adb shell input swipe 540 1500 540 800 400; shot 22b-manga-shelves 4; alive
-relaunch; tap "Manga"; sleep 12; tap_below "Populer Indonesia"; shot 23-manga-detail 12; alive
+relaunch; tap "Manga"; sleep 12; tap "Demonic Emperor" || tap_below "Populer di Indonesia"; shot 23-manga-detail 12; alive
 adb shell input swipe 540 1600 540 700 400; shot 23b-manga-chapters 3; alive
-tap "Mulai baca" && shot 24-manga-reader 15; alive
+tap "Unduh*" && shot 23c-download-dialog 3; alive
+adb shell input keyevent KEYCODE_BACK; sleep 1
+tap "Mulai baca" || tap "Ch. 1"; shot 24-manga-reader 15; alive
 adb shell input swipe 540 1700 540 300 300; shot 24b-manga-reader-scroll 5; alive
+relaunch; tap "Manga"; sleep 10; tap "Manhwa" && shot 22c-manga-manhwa 12; alive
 relaunch; tap "Manga"; sleep 10; tap "Cari manga" && adb shell input text "berserk" && shot 25-manga-search 12; alive
 relaunch; tap "Koleksi"; sleep 3; tap "Statistik*" && shot 26-stats 6; alive
 
