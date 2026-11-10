@@ -17,12 +17,14 @@ shot() {
   echo "captured $1"
 }
 
-# Taps the first on-screen node whose text or content-desc contains $1.
-tap() {
+dump_ui() {
   adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1
   adb pull /sdcard/ui.xml /tmp/ui.xml >/dev/null 2>&1
-  local xy
-  xy=$(python3 - "$1" <<'PY'
+}
+
+# Centre of the first node in the last dump whose text or content-desc is $1 (or starts with it, for "x*").
+find_xy() {
+  python3 - "$1" <<'PY'
 import re, sys, xml.etree.ElementTree as ET
 needle = sys.argv[1].lower()
 for n in ET.parse('/tmp/ui.xml').iter('node'):
@@ -33,7 +35,18 @@ for n in ET.parse('/tmp/ui.xml').iter('node'):
         print((x1 + x2) // 2, (y1 + y2) // 2)
         break
 PY
-)
+}
+
+# Taps the first on-screen node whose text or content-desc contains $1.
+tap() {
+  dump_ui
+  # A slow emulator shows "Pixel Launcher isn't responding" over the app; wait it out or every tap misses.
+  if grep -q "isn't responding" /tmp/ui.xml; then
+    local w; w=$(find_xy "wait")
+    [ -n "$w" ] && adb shell input tap $w
+    sleep 3; dump_ui
+  fi
+  local xy; xy=$(find_xy "$1")
   if [ -z "$xy" ]; then echo "not found: $1"; return 1; fi
   adb shell input tap $xy
   echo "tapped '$1' at $xy"
@@ -54,7 +67,8 @@ adb shell cmd locale set-app-locales "$PKG" --locales id || true
 adb shell input keyevent KEYCODE_HOME; sleep 3; shot 00-launcher 1
 adb shell am start -W -n "$PKG/com.fuwanime.MainActivity"
 # Fresh installs show the one-time 13+ gate; capture it, then clear it before walking the app.
-shot 01a-age-gate 6
+sleep 6; tap "Wait" >/dev/null 2>&1 || true
+shot 01a-age-gate 1
 tap "Saya berusia 13 tahun atau lebih — Lanjutkan" || true
 shot 01-home 15; alive
 adb shell input swipe 540 1600 540 500 400
