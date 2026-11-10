@@ -12,6 +12,7 @@ import com.fuwanime.data.SortOrder
 import com.fuwanime.data.remote.AnimeApiService
 import com.fuwanime.util.UiText
 import com.fuwanime.util.friendlyText
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -61,6 +62,7 @@ data class ExploreUiState(
     val loadingMore: Boolean = false,
     val endReached: Boolean = false,
     val error: UiText? = null,
+    val kuramanimeLoading: Boolean = false,
 )
 
 class ExploreViewModel(
@@ -82,6 +84,8 @@ class ExploreViewModel(
     private var nextPage = 0
     private var loadJob: Job? = null
     private var debounceJob: Job? = null
+    private var kuramanimeJob: Job? = null
+    private var kuramanimeRaw = emptyList<Anime>()
 
     init {
         reload()
@@ -127,8 +131,27 @@ class ExploreViewModel(
         raw.clear()
         seen.clear()
         nextPage = 0
-        _state.update { it.copy(results = emptyList(), loading = true, endReached = false, error = null) }
+        _state.update { it.copy(results = emptyList(), loading = true, endReached = false, error = null, kuramanimeResults = emptyList()) }
         loadMore()
+        searchKuramanime(_state.value.filters.query)
+    }
+
+    /** Kuramanime as an additive anime source: search when typing, popular browse when query is empty. */
+    private fun searchKuramanime(query: String) {
+        kuramanimeJob?.cancel()
+        val q = query.trim()
+        kuramanimeJob = viewModelScope.launch {
+            _state.update { it.copy(kuramanimeLoading = true) }
+            val result = try {
+                if (q.length >= 2) repo.kuramanimeSearch(q) else repo.kuramanimeBrowse("popular", 1)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+            val items = result.getOrDefault(emptyList()).take(if (q.length >= 2) 30 else 18)
+            _state.update { it.copy(kuramanimeResults = items, kuramanimeLoading = false) }
+        }
     }
 
     fun loadMore() {
@@ -170,11 +193,23 @@ class ExploreViewModel(
                 // Server-filtered pages already match; keyword searches are type-filtered here.
                 f.type.matches(a.type)
         }
-        _state.update { it.copy(results = filtered) }
-        if (fillPage) {
-            if (filtered.size < MIN_BATCH && !_state.value.endReached) loadMore()
+        val krFiltered = kuramanimeRaw.filter { a ->
+            (f.query.trim().length >= 2 || matchesGenres(a, f.genres)) &&
+                when (f.status) {
+                    StatusFilter.ALL -> true
+                    StatusFilter.ONGOING -> a.isOngoing
+                    StatusFilter.FINISHED -> !a.isOngoing && !a.isUpcoming
+                } &&
+                f.type.matches(a.type)
         }
-        return filtered.size
+        val merged = (filtered + krFiltered)
+            .distinctBy { it.id }
+            .distinctBy { it.title.trim().lowercase() }
+        _state.update { it.copy(results = merged) }
+        if (fillPage) {
+            if (merged.size < MIN_BATCH && !_state.value.endReached) loadMore()
+        }
+        return merged.size
     }
 
     private companion object {

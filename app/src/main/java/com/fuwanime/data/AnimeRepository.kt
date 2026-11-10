@@ -5,6 +5,8 @@ import com.fuwanime.util.UiText
 import com.fuwanime.util.UiTextException
 import androidx.annotation.StringRes
 import com.fuwanime.data.remote.AnimeApiService
+import com.fuwanime.data.remote.KuramanimeSource
+import com.fuwanime.data.remote.isKuramanimeId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -25,7 +27,11 @@ enum class SortOrder(val apiValue: String, @StringRes val label: Int) {
  * (e.g. a poster tapped on Home) while the full payload loads.
  */
 /** [cachedApi] answers from the disk cache only (see ForceCache); it backs the cache-first read on Beranda. */
-class AnimeRepository(private val api: AnimeApiService, private val cachedApi: AnimeApiService = api) {
+class AnimeRepository(
+    private val api: AnimeApiService,
+    private val cachedApi: AnimeApiService = api,
+    private val kuramanime: KuramanimeSource? = null,
+) {
 
     private val animeCache = ConcurrentHashMap<String, Anime>()
 
@@ -120,12 +126,18 @@ class AnimeRepository(private val api: AnimeApiService, private val cachedApi: A
 
     /** Detail plus the franchise list ("S1", "Movie", …) that only the detail response carries. */
     suspend fun detailWithSeasons(id: String): Result<AnimeDetail> = io {
-        val data = api.detail(id).data
-        val anime = data?.movie?.toAnime() ?: throw UiTextException(UiText(R.string.common_error_anime_not_found))
-        val seasons = data.season.orEmpty()
-            .filter { it.id.isNotBlank() }
-            .map { SeasonEntry(it.toAnime(), it.season?.trim().orEmpty()) }
-        AnimeDetail(animeCache.merge(id, anime, ::mergeAnime)!!, seasons)
+        if (isKuramanimeId(id)) {
+            val kr = kuramanime ?: throw UiTextException(UiText(R.string.common_error_anime_not_found))
+            val anime = kr.detail(id)
+            AnimeDetail(animeCache.merge(id, anime, ::mergeAnime)!!, emptyList())
+        } else {
+            val data = api.detail(id).data
+            val anime = data?.movie?.toAnime() ?: throw UiTextException(UiText(R.string.common_error_anime_not_found))
+            val seasons = data.season.orEmpty()
+                .filter { it.id.isNotBlank() }
+                .map { SeasonEntry(it.toAnime(), it.season?.trim().orEmpty()) }
+            AnimeDetail(animeCache.merge(id, anime, ::mergeAnime)!!, seasons)
+        }
     }
 
     suspend fun detail(id: String): Result<Anime> = detailWithSeasons(id).map { it.anime }
@@ -134,7 +146,13 @@ class AnimeRepository(private val api: AnimeApiService, private val cachedApi: A
         if (!forceRefresh) {
             episodePages[animeId]?.get(page)?.let { return@io it }
         }
-        val episodes = api.episodes(animeId, page = page).data?.episode.orEmpty().map { it.toEpisode() }
+        val episodes = if (isKuramanimeId(animeId)) {
+            // Kuramanime lists all episodes in one page; return newest-first on page 0 to match app convention.
+            if (page != 0) emptyList()
+            else (kuramanime?.episodes(animeId).orEmpty()).sortedByDescending { it.sortKey }
+        } else {
+            api.episodes(animeId, page = page).data?.episode.orEmpty().map { it.toEpisode() }
+        }
         episodeLock.withLock {
             episodePages.getOrPut(animeId) { ConcurrentHashMap() }[page] = episodes
         }
@@ -143,7 +161,13 @@ class AnimeRepository(private val api: AnimeApiService, private val cachedApi: A
 
     /** Server-side substring match on the episode number, e.g. "10" -> 10, 100–109, 110, 210… */
     suspend fun searchEpisodes(animeId: String, query: String): Result<List<Episode>> = io {
-        api.episodes(animeId, page = 0, search = query.trim()).data?.episode.orEmpty().map { it.toEpisode() }
+        if (isKuramanimeId(animeId)) {
+            val q = query.trim()
+            val all = episodePages[animeId]?.get(0) ?: kuramanime?.episodes(animeId).orEmpty().sortedByDescending { it.sortKey }
+            all.filter { it.number.contains(q, ignoreCase = true) || it.title.contains(q, ignoreCase = true) }
+        } else {
+            api.episodes(animeId, page = 0, search = query.trim()).data?.episode.orEmpty().map { it.toEpisode() }
+        }
     }
 
     fun pageOf(animeId: String, episodeId: String): Int? =
@@ -171,6 +195,13 @@ class AnimeRepository(private val api: AnimeApiService, private val cachedApi: A
 
     /** For episodes opened from history: estimate the page from the episode number, then verify. */
     private suspend fun locatePage(animeId: String, episode: Episode): Int? {
+        if (isKuramanimeId(animeId)) {
+            val page = pageOf(animeId, episode.id)
+            if (page != null) return page
+            // ensure page 0 loaded
+            episodePage(animeId, 0).getOrNull()
+            return pageOf(animeId, episode.id)
+        }
         val latest = episodePage(animeId, 0).getOrNull()?.firstOrNull()?.sortKey ?: return null
         pageOf(animeId, episode.id)?.let { return it }
         val target = episode.sortKey
@@ -184,14 +215,43 @@ class AnimeRepository(private val api: AnimeApiService, private val cachedApi: A
     }
 
     suspend fun stream(episodeId: String): Result<EpisodeStream> = io {
-        val data = api.stream(episodeId).data ?: throw UiTextException(UiText(R.string.common_error_stream_unavailable))
-        val servers = data.server.orEmpty().filter { it.link.isNotBlank() }
-        // Prefer direct files; other types are embed pages the native player can't open.
-        val direct = servers.filter { it.type.equals("direct", ignoreCase = true) }
-        val sources = (direct.ifEmpty { servers }).map { it.toSource() }
-            .distinctBy { it.url }
-            .sortedByDescending { it.height }
-        EpisodeStream(episode = data.episode?.toEpisode(), sources = sources)
+        if (isKuramanimeId(episodeId)) {
+            val kr = kuramanime ?: throw UiTextException(UiText(R.string.common_error_stream_unavailable))
+            val stream = kr.stream(episodeId)
+            if (stream.sources.isEmpty()) throw UiTextException(UiText(R.string.common_error_stream_unavailable))
+            stream
+        } else {
+            val data = api.stream(episodeId).data ?: throw UiTextException(UiText(R.string.common_error_stream_unavailable))
+            val servers = data.server.orEmpty().filter { it.link.isNotBlank() }
+            // Prefer direct files; other types are embed pages the native player can't open.
+            val direct = servers.filter { it.type.equals("direct", ignoreCase = true) }
+            val sources = (direct.ifEmpty { servers }).map { it.toSource() }
+                .distinctBy { it.url }
+                .sortedByDescending { it.height }
+            EpisodeStream(episode = data.episode?.toEpisode(), sources = sources)
+        }
+    }
+
+    // --- Kuramanime browse/search (additive source) ---
+
+    suspend fun kuramanimeBrowse(order: String = "popular", page: Int = 1): Result<List<Anime>> = io {
+        val kr = kuramanime ?: return@io emptyList()
+        remember(kr.browse(order, page).items)
+    }
+
+    suspend fun kuramanimeLatest(page: Int = 1): Result<List<Anime>> = io {
+        val kr = kuramanime ?: return@io emptyList()
+        remember(kr.latest(page).items)
+    }
+
+    suspend fun kuramanimeSearch(query: String): Result<List<Anime>> = io {
+        val kr = kuramanime ?: return@io emptyList()
+        remember(kr.search(query))
+    }
+
+    suspend fun kuramanimeSchedule(day: String): Result<List<Anime>> = io {
+        val kr = kuramanime ?: return@io emptyList()
+        remember(kr.schedule(day))
     }
 
     private suspend fun <T> io(block: suspend () -> T): Result<T> = withContext(Dispatchers.IO) {

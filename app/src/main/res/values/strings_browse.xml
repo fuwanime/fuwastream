@@ -53,4 +53,5 @@
     <string name="browse_schedule_new_season">Baru musim ini</string>
     <string name="browse_schedule_continuing">Lanjutan</string>
     <string name="browse_schedule_section">%1$s (%2$d)</string>
+    <string name="source_kuramanime">Kuramanime</string>
 </resources>
