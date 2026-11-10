@@ -1,10 +1,31 @@
-<img src="docs/readme/hero.webp" width="100%" alt="fuwastream: nonton anime dan baca manga di Android, tanpa iklan. Layar Beranda anime di samping layar baca manga.">
+<div align="center">
 
-**FuwaStream** adalah aplikasi Android gratis untuk nonton anime dan baca manga dalam satu tempat: tanpa iklan, tanpa akun, dan tetap bisa dipakai saat offline.
+<img src="docs/brand/banner.webp" alt="FuwaStream: teman nonton anime dan baca manga di Android" width="100%">
 
-**[Download APK terbaru](https://github.com/fuwanime/fuwastream/releases/latest)** &nbsp;·&nbsp; [Gabung komunitas WhatsApp](https://chat.whatsapp.com/BD9q9veoNaAIhkdneKD4us) &nbsp;·&nbsp; [Laporkan bug](https://github.com/fuwanime/fuwastream/issues) &nbsp;·&nbsp; Android 7.0 ke atas
+<br>
 
-<img src="docs/readme/stats.webp" width="100%" alt="64.000+ judul manga, 3 sumber manga jadi satu, 4 bahasa aplikasi, 0 iklan">
+**Nonton anime dan baca manga dalam satu aplikasi Android yang rapi, cepat, dan tanpa iklan.**
+
+<p>
+  <a href="https://github.com/fuwanime/fuwastream/releases/latest"><img src="https://img.shields.io/github/v/release/fuwanime/fuwastream?style=for-the-badge&label=Download&labelColor=0B0A0F&color=D4BBFF&logo=android&logoColor=D4BBFF" alt="Download rilis terbaru"></a>
+  <img src="https://img.shields.io/badge/Android-7.0%2B-0B0A0F?style=for-the-badge&labelColor=0B0A0F&color=1F1C27&logo=android&logoColor=FFB0C9" alt="Android 7.0 ke atas">
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-1F1C27?style=for-the-badge&labelColor=0B0A0F" alt="Lisensi GPL-3.0"></a>
+</p>
+
+<p>
+  <a href="https://github.com/fuwanime/fuwastream/stargazers"><img src="https://img.shields.io/github/stars/fuwanime/fuwastream?style=flat-square&labelColor=0B0A0F&color=FFB0C9" alt="GitHub Stars"></a>
+  <a href="https://github.com/fuwanime/fuwastream/network/members"><img src="https://img.shields.io/github/forks/fuwanime/fuwastream?style=flat-square&labelColor=0B0A0F&color=8FD3F2" alt="GitHub Forks"></a>
+  <a href="https://github.com/fuwanime/fuwastream/issues"><img src="https://img.shields.io/github/issues/fuwanime/fuwastream?style=flat-square&labelColor=0B0A0F&color=D4BBFF" alt="Issues terbuka"></a>
+  <img src="https://img.shields.io/badge/Bahasa-ID%20%C2%B7%20MS%20%C2%B7%20EN%20%C2%B7%20ZH-0B0A0F?style=flat-square&labelColor=0B0A0F&color=1F1C27" alt="Bahasa Indonesia, Melayu, Inggris, Mandarin">
+</p>
+
+[**Download APK**](https://github.com/fuwanime/fuwastream/releases/latest) &nbsp;·&nbsp; [**Gabung Komunitas**](https://chat.whatsapp.com/BD9q9veoNaAIhkdneKD4us) &nbsp;·&nbsp; [**Laporkan Bug**](https://github.com/fuwanime/fuwastream/issues)
+
+<br>
+
+<img src="docs/brand/stats.svg" width="100%" alt="64.000+ judul manga, 3 sumber manga jadi satu, 4 bahasa aplikasi, 0 iklan">
+
+</div>
 
 ## Tonton
 
