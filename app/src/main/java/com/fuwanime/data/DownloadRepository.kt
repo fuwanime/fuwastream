@@ -101,7 +101,8 @@ class DownloadRepository(
                     if (current.inProgress || current.state == DownloadState.DONE) return@runCatching
                     removeFiles(existing)
                 }
-                val relative = "fuwanime/${safeName(show.id)}_${safeName(episode.id)}_${safeName(source.quality)}.mkv"
+                // One folder per anime, files named by episode so they list in order.
+                val relative = "fuwanime/${cleanFileName(show.title).ifEmpty { safeName(show.id) }}/${episodeFileName(show.title, episode.number, source.quality)}"
                 val dir = context.getExternalFilesDir(Environment.DIRECTORY_MOVIES)
                     ?: error(localizedContext(context).getString(R.string.system_download_no_storage))
                 val target = File(dir, relative)
@@ -164,9 +165,8 @@ class DownloadRepository(
         if (isContent(entity.filePath) || !moving.add(entity.episodeId)) return@withContext
         var target: Uri? = null
         try {
-            val tree = Uri.parse(folder)
-            val parent = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
-            val name = "${entity.animeTitle} - ${entity.episodeNumber} (${entity.quality}).mkv".replace(Regex("[\\\\/:*?\"<>|]"), "_")
+            val parent = subFolder(context.contentResolver, Uri.parse(folder), cleanFileName(entity.animeTitle)) ?: return@withContext
+            val name = episodeFileName(entity.animeTitle, entity.episodeNumber, entity.quality)
             target = DocumentsContract.createDocument(context.contentResolver, parent, "video/x-matroska", name) ?: return@withContext
             val source = File(entity.filePath)
             context.contentResolver.openOutputStream(target)!!.use { out -> source.inputStream().use { it.copyTo(out) } }
