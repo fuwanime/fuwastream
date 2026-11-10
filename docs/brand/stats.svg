@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="132" viewBox="0 0 960 132" role="img" aria-label="64.000+ judul manga, 3 sumber manga, 4 bahasa, 0 iklan">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#16131F"/>
+      <stop offset="1" stop-color="#0B0A0F"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#D4BBFF"/>
+      <stop offset="1" stop-color="#FFB0C9"/>
+    </linearGradient>
+  </defs>
+  <rect width="960" height="132" rx="20" fill="url(#bg)"/>
+  <rect x="1" y="1" width="958" height="130" rx="19" fill="none" stroke="#2E2840"/>
+  <g font-family="'Plus Jakarta Sans','Segoe UI',Roboto,Helvetica,Arial,sans-serif" text-anchor="middle">
+    <g transform="translate(120 0)">
+      <text y="66" font-size="38" font-weight="800" fill="url(#accent)">64.000+</text>
+      <text y="96" font-size="15" fill="#A99BC2">judul manga</text>
+    </g>
+    <g transform="translate(360 0)">
+      <text y="66" font-size="38" font-weight="800" fill="url(#accent)">3</text>
+      <text y="96" font-size="15" fill="#A99BC2">sumber manga jadi satu</text>
+    </g>
+    <g transform="translate(600 0)">
+      <text y="66" font-size="38" font-weight="800" fill="url(#accent)">4</text>
+      <text y="96" font-size="15" fill="#A99BC2">bahasa aplikasi</text>
+    </g>
+    <g transform="translate(840 0)">
+      <text y="66" font-size="38" font-weight="800" fill="url(#accent)">0</text>
+      <text y="96" font-size="15" fill="#A99BC2">iklan</text>
+    </g>
+  </g>
+  <g stroke="#2E2840" stroke-width="1">
+    <line x1="240" y1="32" x2="240" y2="100"/>
+    <line x1="480" y1="32" x2="480" y2="100"/>
+    <line x1="720" y1="32" x2="720" y2="100"/>
+  </g>
+</svg>
