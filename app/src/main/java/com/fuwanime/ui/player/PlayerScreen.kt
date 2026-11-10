@@ -608,7 +608,7 @@ private fun VideoSurface(
     val context = LocalContext.current
     val activity = remember(context) { context.findActivity() }
     val scope = rememberCoroutineScope()
-    var controlsVisible by remember { mutableStateOf(true) }
+    var controlsVisible by remember { mutableStateOf(false) }
     var hideJob by remember { mutableStateOf<Job?>(null) }
     var seekFeedback by remember { mutableStateOf<Pair<Boolean, Int>?>(null) } // (forward, seconds)
     var gestureLevel by remember { mutableStateOf<Pair<ImageVector, Float>?>(null) }
@@ -636,8 +636,9 @@ private fun VideoSurface(
             if (player.isPlaying) controlsVisible = false
         }
     }
-    LaunchedEffect(playback.isPlaying) {
-        if (!playback.isPlaying) controlsVisible = true
+    // Controls come up on their own only when playback stops (paused, ended); while it buffers, the spinner alone shows.
+    LaunchedEffect(playback.isPlaying, playback.buffering) {
+        if (!playback.isPlaying && !playback.buffering) controlsVisible = true
         scheduleHide()
     }
 
