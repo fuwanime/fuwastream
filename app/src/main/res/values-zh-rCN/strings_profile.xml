@@ -1,0 +1,26 @@
+<resources>
+    <!-- Profile & gamification -->
+    <string name="profile_title">我的资料</string>
+    <string name="profile_edit">编辑资料</string>
+    <string name="profile_name">昵称</string>
+    <string name="profile_bio">简介</string>
+    <string name="profile_save">保存</string>
+    <string name="profile_cancel">取消</string>
+    <string name="profile_change_banner">更换横幅</string>
+    <string name="profile_my_level">我的等级</string>
+    <string name="profile_total_xp">总经验：%1$d</string>
+    <string name="profile_next_rank">下一段位：%1$s</string>
+    <string name="profile_xp_to_next">距离下一级还需 %1$d XP</string>
+    <string name="profile_recent">最近观看</string>
+    <string name="profile_recent_empty">还没有观看记录。</string>
+    <string name="profile_episode_n">第 %1$s 集</string>
+    <string name="profile_level_up">升级到 %1$d 级 — 新段位：%2$s！</string>
+    <string name="mine_group_account">账号</string>
+    <string name="auth_menu">登录 / 注册</string>
+    <string name="quest_title">任务面板</string>
+    <string name="quest_reset_info">每 3 天重置 — 在重置前完成吧！</string>
+    <string name="quest_claim">领取</string>
+    <string name="quest_claimed">已领取 ✓</string>
+    <string name="borders_title">头像边框收藏</string>
+    <string name="borders_info">通过任务获得边框。点击即可使用。</string>
+</resources>
