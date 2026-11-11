@@ -1,0 +1,18 @@
+<resources>
+    <!-- Local auth -->
+    <string name="auth_login_subtitle">Masuk ke akunmu</string>
+    <string name="auth_register_subtitle">Buat akun baru — tersimpan di perangkat ini</string>
+    <string name="auth_name">Nama tampilan</string>
+    <string name="auth_email">Email</string>
+    <string name="auth_password">Kata sandi</string>
+    <string name="auth_login">Masuk</string>
+    <string name="auth_register">Daftar</string>
+    <string name="auth_or">atau</string>
+    <string name="auth_google_removed">Hanya email &amp; kata sandi — tanpa login Google.</string>
+    <string name="auth_switch_register">Belum punya akun? Daftar</string>
+    <string name="auth_switch_login">Sudah punya akun? Masuk</string>
+    <string name="auth_local_note">Akun disimpan hanya di perangkat ini, tidak dikirim ke server mana pun.</string>
+    <string name="auth_already_logged">Kamu sudah masuk</string>
+    <string name="auth_continue">Lanjut</string>
+    <string name="auth_logout">Keluar</string>
+</resources>
