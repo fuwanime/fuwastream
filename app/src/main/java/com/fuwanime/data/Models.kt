@@ -31,6 +31,22 @@ data class Anime(
     val backdrop: String get() = cover.ifBlank { poster }
 }
 
+/** Explicit mature genres offered by the anime catalogs; broad demographics such as Seinen/Harem are not included. */
+val MATURE_ANIME_GENRES = listOf("Ecchi", "Erotica", "Hentai")
+
+private val MATURE_ANIME_GENRE_KEYS = setOf(
+    "ecchi", "erotica", "hentai", "adult", "mature", "smut",
+    "sexual content", "explicit sexual content", "18+", "r18", "r 18", "rx",
+)
+
+/** True only for an explicitly mature genre/rating, never merely Harem, Seinen, Yaoi, or Yuri. */
+fun isMatureAnimeGenre(label: String): Boolean {
+    val key = label.trim().lowercase().replace('_', ' ').replace('-', ' ').replace(Regex("\\s+"), " ")
+    return key in MATURE_ANIME_GENRE_KEYS || key.startsWith("r18 ") || key.startsWith("rx ")
+}
+
+fun Anime.hasMatureGenre(): Boolean = genres.any(::isMatureAnimeGenre)
+
 @Immutable
 data class Episode(
     val id: String,

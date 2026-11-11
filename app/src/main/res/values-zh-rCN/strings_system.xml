@@ -19,4 +19,7 @@
     <string name="system_download_title">%1$s • 第 %2$s 集</string>
     <string name="system_download_no_source">此剧集暂无视频源。</string>
     <string name="system_download_no_storage">存储空间不可用。</string>
+    <string name="system_channel_app_updates_name">应用更新</string>
+    <string name="system_channel_app_updates_desc">FuwaStream 有新版本时通知</string>
+    <string name="system_app_update_title">有新版本 %1$s</string>
 </resources>

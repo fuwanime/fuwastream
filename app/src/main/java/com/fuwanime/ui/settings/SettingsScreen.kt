@@ -67,6 +67,7 @@ import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.SignalCellularAlt
 import androidx.compose.material.icons.rounded.TouchApp
+import androidx.compose.material.icons.rounded.SystemUpdateAlt
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -326,6 +327,16 @@ fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit) {
                     s.notifyNewEpisodes,
                 ) {
                     vm.update { setNotifyNewEpisodes(it) }
+                }
+            }
+            item {
+                SwitchRow(
+                    Icons.Rounded.SystemUpdateAlt,
+                    stringResource(R.string.mine_notify_app_updates),
+                    stringResource(R.string.mine_notify_app_updates_desc),
+                    s.notifyAppUpdates,
+                ) {
+                    vm.update { setNotifyAppUpdates(it) }
                 }
             }
 

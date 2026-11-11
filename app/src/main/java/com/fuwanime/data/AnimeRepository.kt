@@ -31,6 +31,8 @@ class AnimeRepository(
     private val api: AnimeApiService,
     private val cachedApi: AnimeApiService = api,
     private val kuramanime: KuramanimeSource? = null,
+    /** Global "Mature content" preference; false hides anime carrying explicit mature genres. */
+    private val mature: suspend () -> Boolean = { false },
 ) {
 
     private val animeCache = ConcurrentHashMap<String, Anime>()
@@ -45,6 +47,9 @@ class AnimeRepository(
     fun prime(anime: Anime) {
         if (anime.id.isNotBlank()) animeCache.putIfAbsent(anime.id, anime)
     }
+
+    private suspend fun visible(list: List<Anime>): List<Anime> =
+        if (mature()) list else list.filterNot { it.hasMatureGenre() }
 
     /** Lower-case genre name -> id for the genre endpoint; fetched once. */
     @Volatile
@@ -80,7 +85,7 @@ class AnimeRepository(
                 source.explore(page = page, sort = sort.apiValue, keyword = keyword.trim())
             }
             val items = response.data?.movie.orEmpty()
-            remember(items.map { it.toAnime() }.distinctBy { it.id })
+            remember(visible(items.map { it.toAnime() }.distinctBy { it.id }))
         }
 
     /**
@@ -108,7 +113,7 @@ class AnimeRepository(
                     .flatten()
             }
         }
-        remember(items.map { it.toAnime() }.distinctBy { it.id })
+        remember(visible(items.map { it.toAnime() }.distinctBy { it.id }))
     }
 
     suspend fun latestReleases(limit: Int = 20, cacheOnly: Boolean = false): Result<List<LatestRelease>> = io {
@@ -117,11 +122,12 @@ class AnimeRepository(
             .map { it.toLatestRelease() }
             .distinctBy { it.anime.id }
         remember(releases.map { it.anime })
-        releases.map { r -> r.copy(anime = animeCache[r.anime.id] ?: r.anime) }
+        val merged = releases.map { r -> r.copy(anime = animeCache[r.anime.id] ?: r.anime) }
+        if (mature()) merged else merged.filterNot { it.anime.hasMatureGenre() }
     }
 
     suspend fun schedule(day: String, cacheOnly: Boolean = false): Result<List<Anime>> = io {
-        remember((if (cacheOnly) cachedApi else api).schedule(day.lowercase()).data?.movie.orEmpty().map { it.toAnime() })
+        remember(visible((if (cacheOnly) cachedApi else api).schedule(day.lowercase()).data?.movie.orEmpty().map { it.toAnime() }))
     }
 
     /** Detail plus the franchise list ("S1", "Movie", …) that only the detail response carries. */
@@ -236,22 +242,22 @@ class AnimeRepository(
 
     suspend fun kuramanimeBrowse(order: String = "popular", page: Int = 1): Result<List<Anime>> = io {
         val kr = kuramanime ?: return@io emptyList()
-        remember(kr.browse(order, page).items)
+        remember(visible(kr.browse(order, page).items))
     }
 
     suspend fun kuramanimeLatest(page: Int = 1): Result<List<Anime>> = io {
         val kr = kuramanime ?: return@io emptyList()
-        remember(kr.latest(page).items)
+        remember(visible(kr.latest(page).items))
     }
 
     suspend fun kuramanimeSearch(query: String): Result<List<Anime>> = io {
         val kr = kuramanime ?: return@io emptyList()
-        remember(kr.search(query))
+        remember(visible(kr.search(query)))
     }
 
     suspend fun kuramanimeSchedule(day: String): Result<List<Anime>> = io {
         val kr = kuramanime ?: return@io emptyList()
-        remember(kr.schedule(day))
+        remember(visible(kr.schedule(day)))
     }
 
     private suspend fun <T> io(block: suspend () -> T): Result<T> = withContext(Dispatchers.IO) {

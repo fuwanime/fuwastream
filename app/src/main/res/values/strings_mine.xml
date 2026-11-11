@@ -99,6 +99,8 @@
     <string name="mine_seconds_short">%1$ds</string>
     <string name="mine_notify_new">Notifikasi episode baru</string>
     <string name="mine_notify_new_desc">Cek anime favorit yang masih tayang setiap 6 jam</string>
+    <string name="mine_notify_app_updates">Notifikasi pembaruan aplikasi</string>
+    <string name="mine_notify_app_updates_desc">Beri tahu saat versi baru FuwaStream tersedia (dicek saat aplikasi dibuka dan berkala)</string>
     <string name="mine_download_quality">Kualitas download</string>
     <string name="mine_wifi_only">Download hanya lewat Wi-Fi</string>
     <string name="mine_wifi_only_desc">Hemat kuota, download menunggu sampai tersambung Wi-Fi</string>

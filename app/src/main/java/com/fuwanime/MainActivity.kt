@@ -31,6 +31,7 @@ import com.fuwanime.ui.navigation.parseLaunchTarget
 import com.fuwanime.ui.player.LocalPipController
 import com.fuwanime.ui.player.PipController
 import com.fuwanime.ui.theme.FuwaTheme
+import com.fuwanime.data.notify.AppUpdateWorker
 import com.fuwanime.util.localizedContext
 import kotlinx.coroutines.launch
 
@@ -108,6 +109,7 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         Shortcuts.publishFixed(this)
+        AppUpdateWorker.runNow(this)
         (application as FuwaApp).container.refreshHomeSurfaces()
     }
 

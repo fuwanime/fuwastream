@@ -19,4 +19,7 @@
     <string name="system_download_title">%1$s • Episod %2$s</string>
     <string name="system_download_no_source">Belum ada sumber video untuk episod ini.</string>
     <string name="system_download_no_storage">Storan tidak tersedia.</string>
+    <string name="system_channel_app_updates_name">Kemas kini aplikasi</string>
+    <string name="system_channel_app_updates_desc">Pemberitahuan apabila versi baharu FuwaStream tersedia</string>
+    <string name="system_app_update_title">Kemas kini %1$s tersedia</string>
 </resources>

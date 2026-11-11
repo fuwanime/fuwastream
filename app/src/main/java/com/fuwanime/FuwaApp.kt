@@ -39,6 +39,7 @@ import com.fuwanime.data.remote.NetworkStatus
 import com.fuwanime.data.remote.apiCacheClient
 import com.fuwanime.data.UpdateRepository
 import com.fuwanime.data.notify.EpisodeNotifyWorker
+import com.fuwanime.data.notify.AppUpdateWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -62,15 +63,16 @@ class AppContainer(private val app: Application) {
         runCatching { Cache(app.cacheDir.resolve("api_cache"), 50L * 1024 * 1024) }.getOrNull(),
         networkStatus,
     )
+    private val database = FuwaDatabase.create(app)
+    val settingsStore = SettingsStore(app)
+    val libraryRepository = LibraryRepository(database)
+    val mangaLibrary = MangaLibrary(database)
     val animeRepository = AnimeRepository(
         AnimeApiService.create(apiHttpClient),
         AnimeApiService.create(apiHttpClient.newBuilder().addInterceptor(ForceCache).build()),
-        kuramanime = KuramanimeSource(httpClient),
+        kuramanime = KuramanimeSource(httpClient, mature = { settingsStore.matureContent.first() }),
+        mature = { settingsStore.matureContent.first() },
     )
-    private val database = FuwaDatabase.create(app)
-    val libraryRepository = LibraryRepository(database)
-    val mangaLibrary = MangaLibrary(database)
-    val settingsStore = SettingsStore(app)
 
     /** For writes that must outlive the screen that started them (e.g. saving progress on exit). */
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -148,6 +150,7 @@ class FuwaApp : Application(), SingletonImageLoader.Factory {
         super.onCreate()
         container = AppContainer(this)
         EpisodeNotifyWorker.schedule(this)
+        AppUpdateWorker.schedule(this)
         container.appScope.launch {
             val backup = container.settingsStore.backup.first()
             if (backup.treeUri != null && backup.auto) BackupWorker.schedule(this@FuwaApp)

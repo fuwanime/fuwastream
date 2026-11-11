@@ -38,7 +38,37 @@ data class MangaChapter(
     val pages: Int,
     val externalUrl: String?,
     val publishAt: Long,
+    /** When MangaDex made the chapter readable; 0 when the source does not report it. */
+    val readableAt: Long = 0,
 )
+
+/** A newly published chapter of an ongoing manga, for the release notifications. */
+data class MangaRelease(
+    val mangaId: String,
+    val title: String,
+    val chapterId: String,
+    val chapter: String?,
+    val publishAt: Long,
+)
+
+/**
+ * Reads the owning manga off a chapter from the global `/chapter` feed (`includes[]=manga`); null when absent or
+ * not ongoing. [now] drops chapters that are not readable yet, so a scheduled upload cannot become a notification.
+ */
+fun ChapterDto.mangaRelease(now: Long): MangaRelease? {
+    val rel = relationships.firstOrNull { it.type == "manga" && it.id.isNotBlank() } ?: return null
+    val status = rel.attributes?.status
+    if (status != null && !status.equals("ongoing", true)) return null
+    val titles = loc(rel.attributes?.title)
+    val title = titles["en"] ?: titles["ja-ro"] ?: titles.values.firstOrNull() ?: return null
+    val ch = toChapter()
+    val availableAt = ch.readableAt.takeIf { it > 0 } ?: ch.publishAt
+    if (availableAt > now) return null
+    return MangaRelease(rel.id, title, ch.id, ch.number, availableAt)
+}
+
+/** One entry per manga; a readableAt-desc feed makes the first occurrence the newest chapter. */
+fun latestPerManga(releases: List<MangaRelease>): List<MangaRelease> = releases.distinctBy { it.mangaId }
 
 data class MangaTag(val id: String, val name: String, val group: String)
 
@@ -87,6 +117,7 @@ fun ChapterDto.toChapter() = MangaChapter(
     pages = attributes.pages,
     externalUrl = attributes.externalUrl,
     publishAt = parsePublishAt(attributes.publishAt),
+    readableAt = parsePublishAt(attributes.readableAt),
 )
 
 // SimpleDateFormat (not java.time): no core library desugaring below API 26. Not thread-safe, so one per call.
