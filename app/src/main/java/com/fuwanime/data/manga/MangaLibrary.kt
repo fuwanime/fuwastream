@@ -11,9 +11,13 @@ fun continueReading(history: List<MangaHistoryEntity>): List<MangaHistoryEntity>
     history.groupBy { it.mangaId }.values.map { rows -> rows.maxBy { it.updatedAt } }.sortedByDescending { it.updatedAt }
 
 /** Local manga favourites and reading progress. */
-class MangaLibrary(db: FuwaDatabase) {
+class MangaLibrary(private val db: FuwaDatabase) {
     private val favoriteDao = db.mangaFavoriteDao()
     private val historyDao = db.mangaHistoryDao()
+
+    /** Optional quest/profile hooks, set by AppContainer after construction (nullable to keep old callers working). */
+    var questRepository: com.fuwanime.data.QuestRepository? = null
+    var profileRepository: com.fuwanime.data.ProfileRepository? = null
 
     val favorites: Flow<List<MangaFavoriteEntity>> = favoriteDao.observeAll()
 
@@ -32,6 +36,11 @@ class MangaLibrary(db: FuwaDatabase) {
         historyDao.upsert(
             MangaHistoryEntity(chapter.id, manga.id, manga.title, manga.coverUrl, chapterLabel, page, pageCount, System.currentTimeMillis()),
         )
+        if (pageCount > 0 && page >= pageCount * 0.9) {
+            // A chapter mostly read counts toward the reading quests.
+            questRepository?.increment(com.fuwanime.data.QuestKind.READ)
+            profileRepository?.bumpQuestCounter("chapters")
+        }
     }
 
     suspend fun removeManga(mangaId: String) = historyDao.deleteManga(mangaId)
