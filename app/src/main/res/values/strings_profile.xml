@@ -1,0 +1,26 @@
+<resources>
+    <!-- Profile & gamification -->
+    <string name="profile_title">Profil Saya</string>
+    <string name="profile_edit">Edit Profil</string>
+    <string name="profile_name">Nama</string>
+    <string name="profile_bio">Biodata</string>
+    <string name="profile_save">Simpan</string>
+    <string name="profile_cancel">Batal</string>
+    <string name="profile_change_banner">Ganti Banner</string>
+    <string name="profile_my_level">Level Saya</string>
+    <string name="profile_total_xp">TOTAL XP: %1$d</string>
+    <string name="profile_next_rank">Peringkat Berikutnya: %1$s</string>
+    <string name="profile_xp_to_next">%1$d XP menuju level berikutnya</string>
+    <string name="profile_recent">Terakhir Ditonton</string>
+    <string name="profile_recent_empty">Belum ada riwayat tontonan.</string>
+    <string name="profile_episode_n">Episode %1$s</string>
+    <string name="profile_level_up">Naik ke level %1$d — gelar baru: %2$s!</string>
+    <string name="mine_group_account">Akun</string>
+    <string name="auth_menu">Masuk / Daftar</string>
+    <string name="quest_title">Papan Quest</string>
+    <string name="quest_reset_info">Direset setiap 3 hari — selesaikan sebelum reset!</string>
+    <string name="quest_claim">Klaim</string>
+    <string name="quest_claimed">Selesai ✓</string>
+    <string name="borders_title">Koleksi Border Avatar</string>
+    <string name="borders_info">Border didapat dari quest. Ketuk untuk memakai.</string>
+</resources>
