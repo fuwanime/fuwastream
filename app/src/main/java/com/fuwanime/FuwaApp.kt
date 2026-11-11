@@ -19,6 +19,10 @@ import okio.Path.Companion.toOkioPath
 import com.fuwanime.data.AnimeRepository
 import com.fuwanime.data.DownloadRepository
 import com.fuwanime.data.LibraryRepository
+import com.fuwanime.data.ProfileRepository
+import com.fuwanime.data.AccountRepository
+import com.fuwanime.data.QuestKind
+import com.fuwanime.data.QuestRepository
 import com.fuwanime.data.manga.MangaLibrary
 import com.fuwanime.data.local.FuwaDatabase
 import com.fuwanime.data.local.SettingsStore
@@ -66,7 +70,14 @@ class AppContainer(private val app: Application) {
     private val database = FuwaDatabase.create(app)
     val settingsStore = SettingsStore(app)
     val libraryRepository = LibraryRepository(database)
+    val profileRepository = ProfileRepository(database)
+    val accountRepository = AccountRepository(database)
+    val questRepository = QuestRepository(database, profileRepository)
     val mangaLibrary = MangaLibrary(database)
+    init {
+        mangaLibrary.questRepository = questRepository
+        mangaLibrary.profileRepository = profileRepository
+    }
     val animeRepository = AnimeRepository(
         AnimeApiService.create(apiHttpClient),
         AnimeApiService.create(apiHttpClient.newBuilder().addInterceptor(ForceCache).build()),
@@ -78,10 +89,23 @@ class AppContainer(private val app: Application) {
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     val downloadRepository = DownloadRepository(app, database.downloadDao(), animeRepository, appScope, settingsStore)
+    init {
+        downloadRepository.questHooks = { kind -> appScope.launch { questRepository.increment(kind) } }
+    }
 
     /** Re-renders the "Lanjutkan" shortcut and widget after history changes. */
     fun refreshHomeSurfaces() {
         appScope.launch { HomeSurfaces.refresh(app, libraryRepository) }
+    }
+
+    init {
+        // Quest hooks: favorite/search/download events feed the 3-day quest board.
+        libraryRepository.questHooks = { kind ->
+            appScope.launch { questRepository.increment(kind) }
+        }
+        libraryRepository.profileBumper = { field ->
+            appScope.launch { profileRepository.bumpQuestCounter(field) }
+        }
     }
 
     /** In-app update checker against GitHub Releases. */
