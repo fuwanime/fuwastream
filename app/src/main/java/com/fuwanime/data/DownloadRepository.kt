@@ -54,6 +54,9 @@ class DownloadRepository(
 ) {
     private val manager = context.getSystemService(DownloadManager::class.java)
 
+    /** Optional quest hook; set by AppContainer. */
+    var questHooks: ((com.fuwanime.data.QuestKind) -> Unit)? = null
+
     /** All downloads with live progress; polls the system once a second while anything is in flight. */
     val downloads: Flow<List<DownloadItem>> = dao.observeAll()
         .flatMapLatest { rows ->
@@ -134,6 +137,7 @@ class DownloadRepository(
                         createdAt = System.currentTimeMillis(),
                     ),
                 )
+                questHooks?.invoke(QuestKind.DOWNLOAD)
             }
         }
 
