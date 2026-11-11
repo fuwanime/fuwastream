@@ -93,6 +93,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.foundation.layout.widthIn
 import com.fuwanime.data.Anime
+import com.fuwanime.data.RankTags
 import com.fuwanime.data.SeasonEntry
 import androidx.compose.ui.layout.ContentScale
 import coil3.compose.AsyncImage
@@ -267,11 +268,14 @@ fun PlayerRoute(
             refreshHomeSurfaces = c::refreshHomeSurfaces,
             links = c.animeLinkRepository,
             skips = c.skipRepository,
+            profile = c.profileRepository,
+            quests = c.questRepository,
         )
     }
     val state by vm.state.collectAsStateWithLifecycle()
     val download by vm.download.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
+    val routeScope = rememberCoroutineScope()
     val res = LocalContext.current.resources
     LaunchedEffect(state.message) {
         state.message?.let {
@@ -402,6 +406,9 @@ fun PlayerRoute(
             if (player.isPlaying) {
                 vm.saveProgress(player.currentPosition, player.duration)
                 vm.addWatchTime(5_000)
+                vm.addWatchXpCheckingLevelUp(5_000) { newLevel ->
+                    routeScope.launch { snackbar.showSnackbar(res.getString(R.string.profile_level_up, newLevel, RankTags.tagForLevel(newLevel).title)) }
+                }
             }
         }
     }
