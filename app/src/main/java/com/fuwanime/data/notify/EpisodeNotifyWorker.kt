@@ -46,8 +46,9 @@ class EpisodeNotifyWorker(context: Context, params: WorkerParameters) : Coroutin
         val notified = mutableListOf<String>()
         for (fav in favorites) {
             runCatching {
+                // Always hit the network: the repository caches episode pages for the UI.
                 val newest = container.animeRepository
-                    .episodePage(fav.animeId, 0).getOrNull()
+                    .episodePage(fav.animeId, 0, forceRefresh = true).getOrNull()
                     ?.maxByOrNull { it.sortKey } ?: return@runCatching
                 if (newest.sortKey == Double.MAX_VALUE) return@runCatching
 

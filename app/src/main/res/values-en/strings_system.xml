@@ -20,4 +20,7 @@
     <string name="system_download_title">%1$s • Episode %2$s</string>
     <string name="system_download_no_source">No video source for this episode yet.</string>
     <string name="system_download_no_storage">Storage is unavailable.</string>
+    <string name="system_channel_app_updates_name">App updates</string>
+    <string name="system_channel_app_updates_desc">Notifications when a new FuwaStream version is available</string>
+    <string name="system_app_update_title">Update %1$s is available</string>
 </resources>

@@ -40,6 +40,22 @@ interface MangaDexApi {
         @Query("includes[]") includes: List<String>,
     ): FeedDto
 
+    /**
+     * Newest chapters across all manga, each with its manga included; feeds the release notifications.
+     *
+     * Ordered by `readableAt`, not `publishAt`: some old uploads carry a far-future `publishAt`
+     * (e.g. 2037-12-31), which would pin the first pages of the feed to those chapters forever and
+     * hide every real release behind them.
+     */
+    @GET("chapter")
+    suspend fun latestChapters(
+        @Query("limit") limit: Int,
+        @Query("order[readableAt]") byReadableAt: String = "desc",
+        @Query("translatedLanguage[]") langs: List<String>,
+        @Query("contentRating[]") ratings: List<String>,
+        @Query("includes[]") includes: List<String> = listOf("manga"),
+    ): FeedDto
+
     @GET("at-home/server/{chapterId}")
     suspend fun atHome(@Path("chapterId") chapterId: String): AtHomeDto
 

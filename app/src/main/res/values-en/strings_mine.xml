@@ -99,6 +99,8 @@
     <string name="mine_seconds_short">%1$ds</string>
     <string name="mine_notify_new">New episode notifications</string>
     <string name="mine_notify_new_desc">Checks airing favorites every 6 hours</string>
+    <string name="mine_notify_app_updates">App update notifications</string>
+    <string name="mine_notify_app_updates_desc">Notify when a new FuwaStream version is available (checked on app open and periodically)</string>
     <string name="mine_download_quality">Download quality</string>
     <string name="mine_wifi_only">Download on Wi-Fi only</string>
     <string name="mine_wifi_only_desc">Saves data; downloads wait until you are on Wi-Fi</string>

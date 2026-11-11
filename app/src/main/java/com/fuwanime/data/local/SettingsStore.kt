@@ -42,6 +42,8 @@ data class AppSettings(
     val downloadAsk: Boolean = true,
     /** Periodic background check for new episodes of favorited, ongoing anime. */
     val notifyNewEpisodes: Boolean = true,
+    /** Notify when a newer app version is published on GitHub Releases. */
+    val notifyAppUpdates: Boolean = true,
     /** Skip a marked opening without waiting for a tap. */
     val autoSkipOp: Boolean = false,
     /** Generic "+85 dtk" jump for anime whose opening is not marked yet. */
@@ -73,6 +75,8 @@ internal object Keys {
     val mobileDataQuality = intPreferencesKey("mobile_data_quality")
     val updateLastCheckMs = longPreferencesKey("update_last_check_ms")
     val updateDismissedTag = stringPreferencesKey("update_dismissed_tag")
+    val notifyAppUpdates = booleanPreferencesKey("notify_app_updates")
+    val updateNotifiedTag = stringPreferencesKey("update_notified_tag")
     /** Age confirmation is a consent record, kept when user data is wiped. */
     val ageConfirmed = booleanPreferencesKey("age_confirmed")
     val backgroundAudio = booleanPreferencesKey("background_audio")
@@ -178,6 +182,7 @@ class SettingsStore(private val context: Context) {
     suspend fun setDownloadAsk(enabled: Boolean) = context.dataStore.edit { it[Keys.downloadAsk] = enabled }
     suspend fun setDownloadFolder(treeUri: String?) = context.dataStore.edit { if (treeUri == null) it.remove(Keys.downloadFolder) else it[Keys.downloadFolder] = treeUri }
     suspend fun setNotifyNewEpisodes(enabled: Boolean) = context.dataStore.edit { it[Keys.notifyNewEpisodes] = enabled }
+    suspend fun setNotifyAppUpdates(enabled: Boolean) = context.dataStore.edit { it[Keys.notifyAppUpdates] = enabled }
     suspend fun setAutoSkipOp(enabled: Boolean) = context.dataStore.edit { it[Keys.autoSkipOp] = enabled }
     suspend fun setJumpAheadButton(enabled: Boolean) = context.dataStore.edit { it[Keys.jumpAheadButton] = enabled }
     suspend fun setMobileDataQuality(height: Int) = context.dataStore.edit { it[Keys.mobileDataQuality] = height }
@@ -188,9 +193,16 @@ class SettingsStore(private val context: Context) {
     val mangaDataSaver: Flow<Boolean> = context.dataStore.data.map { it[Keys.mangaDataSaver] ?: false }
     suspend fun setMangaDataSaver(enabled: Boolean) = context.dataStore.edit { it[Keys.mangaDataSaver] = enabled }
 
-    /** Also list MangaDex titles rated "erotica" (mature themes such as Berserk); pornographic titles are never shown. */
-    val mangaMature: Flow<Boolean> = context.dataStore.data.map { it[Keys.mangaMature] ?: false }
-    suspend fun setMangaMature(enabled: Boolean) = context.dataStore.edit { it[Keys.mangaMature] = enabled }
+    /**
+     * Global mature-content switch. The existing `manga_mature` storage key is retained so users and backups keep
+     * their preference; it now also controls explicit anime genres (Ecchi/Erotica/Hentai).
+     */
+    val matureContent: Flow<Boolean> = context.dataStore.data.map { it[Keys.mangaMature] ?: false }
+    suspend fun setMatureContent(enabled: Boolean) = context.dataStore.edit { it[Keys.mangaMature] = enabled }
+
+    /** Compat alias used by existing manga UI. */
+    val mangaMature: Flow<Boolean> get() = matureContent
+    suspend fun setMangaMature(enabled: Boolean) = setMatureContent(enabled)
 
     /** Opening marked by the user for an anime; the same range applies to all its episodes. */
     fun opMark(animeId: String): Flow<OpMark?> = context.dataStore.data.map { prefs ->
@@ -246,6 +258,11 @@ class SettingsStore(private val context: Context) {
         context.dataStore.data.map { it[Keys.updateDismissedTag] }.firstOrNull()
 
     suspend fun dismissUpdate(tag: String) = context.dataStore.edit { it[Keys.updateDismissedTag] = tag }
+
+    suspend fun updateNotifiedTag(): String? =
+        context.dataStore.data.map { it[Keys.updateNotifiedTag] }.firstOrNull()
+
+    suspend fun setUpdateNotifiedTag(tag: String) = context.dataStore.edit { it[Keys.updateNotifiedTag] = tag }
 }
 
 internal fun Preferences.toSettings(): AppSettings {
@@ -263,6 +280,7 @@ internal fun Preferences.toSettings(): AppSettings {
         downloadFolder = this[Keys.downloadFolder],
         downloadAsk = this[Keys.downloadAsk] ?: d.downloadAsk,
         notifyNewEpisodes = this[Keys.notifyNewEpisodes] ?: d.notifyNewEpisodes,
+        notifyAppUpdates = this[Keys.notifyAppUpdates] ?: d.notifyAppUpdates,
         autoSkipOp = this[Keys.autoSkipOp] ?: d.autoSkipOp,
         jumpAheadButton = this[Keys.jumpAheadButton] ?: d.jumpAheadButton,
         mobileDataQuality = this[Keys.mobileDataQuality] ?: d.mobileDataQuality,

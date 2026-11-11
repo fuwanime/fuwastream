@@ -99,6 +99,8 @@
     <string name="mine_seconds_short">%1$d秒</string>
     <string name="mine_notify_new">新剧集通知</string>
     <string name="mine_notify_new_desc">每 6 小时检查一次正在播出的收藏动画</string>
+    <string name="mine_notify_app_updates">应用更新通知</string>
+    <string name="mine_notify_app_updates_desc">FuwaStream 有新版本时通知（打开应用时及定期检查）</string>
     <string name="mine_download_quality">下载画质</string>
     <string name="mine_wifi_only">仅在 Wi-Fi 下下载</string>
     <string name="mine_wifi_only_desc">节省流量，下载会等到连接 Wi-Fi 后进行</string>

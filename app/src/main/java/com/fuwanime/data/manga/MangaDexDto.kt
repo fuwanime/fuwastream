@@ -42,6 +42,8 @@ data class RelationshipDto(
 data class RelationshipAttributesDto(
     @Json(name = "fileName") val fileName: String? = null,
     @Json(name = "name") val name: String? = null,
+    @Json(name = "title") val title: Any? = null,
+    @Json(name = "status") val status: String? = null,
 )
 
 @JsonClass(generateAdapter = true)
@@ -80,6 +82,8 @@ data class ChapterAttributesDto(
     @Json(name = "pages") val pages: Int = 0,
     @Json(name = "externalUrl") val externalUrl: String? = null,
     @Json(name = "publishAt") val publishAt: String? = null,
+    /** When the chapter actually became readable; unlike [publishAt] it is not far in the future. */
+    @Json(name = "readableAt") val readableAt: String? = null,
 )
 
 @JsonClass(generateAdapter = true)

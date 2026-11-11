@@ -138,6 +138,16 @@ class MangaRepository(
         return all
     }
 
+    /** Newest app-language chapter per recently updated ongoing manga, newest first; feeds the release notifications. */
+    suspend fun latestOngoingChapters(limit: Int = 100): List<MangaRelease> {
+        val feed = call {
+            api.latestChapters(limit = limit, langs = FEED_LANGS, ratings = ratings(), includes = listOf("manga"))
+        }
+        // Chapters scheduled for later must not seed a baseline before the user can read them.
+        val now = System.currentTimeMillis()
+        return latestPerManga(feed.data.mapNotNull { it.mangaRelease(now) })
+    }
+
     suspend fun pages(chapterId: String, dataSaver: Boolean, forceRefresh: Boolean = false): List<String> {
         if (isShinigamiId(chapterId)) return shinigami?.pages(chapterId).orEmpty()
         if (isKomikuId(chapterId)) return komiku?.pages(chapterId).orEmpty()

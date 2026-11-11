@@ -39,15 +39,25 @@ object KuramanimeId {
 
 data class KrAnimePage(val items: List<Anime>, val hasMore: Boolean)
 
-class KuramanimeSource(private val client: OkHttpClient) {
+class KuramanimeSource(
+    private val client: OkHttpClient,
+    private val mature: suspend () -> Boolean = { false },
+) {
 
     private val random = SecureRandom()
 
-    private suspend fun get(url: String, extraHeaders: Map<String, String> = emptyMap()): String =
+    private suspend fun get(
+        url: String,
+        extraHeaders: Map<String, String> = emptyMap(),
+        filterMatureCatalog: Boolean = false,
+    ): String =
         withContext(Dispatchers.IO) {
             val req = Request.Builder().url(url).header("User-Agent", UA)
                 .header("Accept", "text/html,application/xhtml+xml,application/json,*/*")
                 .header("Referer", BASE)
+            // Kuramanime cards do not expose genres. Let its own catalog filter remove Hentai
+            // before parsing; detail/episode URLs stay accessible from existing history/favorites.
+            if (filterMatureCatalog && !mature()) req.header("Cookie", "show_genre=only_not_hentai")
             extraHeaders.forEach { (k, v) -> req.header(k, v) }
             client.newCall(req.build()).execute().use { r ->
                 if (!r.isSuccessful) throw IOException("Kuramanime HTTP ${r.code}")
@@ -68,7 +78,7 @@ class KuramanimeSource(private val client: OkHttpClient) {
         }
 
     suspend fun browse(order: String = "popular", page: Int = 1): KrAnimePage {
-        val html = get("$BASE/anime?order_by=$order&page=$page")
+        val html = get("$BASE/anime?order_by=$order&page=$page", filterMatureCatalog = true)
         val items = parseGrid(html)
         return KrAnimePage(items, items.isNotEmpty())
     }
@@ -78,14 +88,17 @@ class KuramanimeSource(private val client: OkHttpClient) {
     suspend fun search(query: String): List<Anime> {
         val q = query.trim()
         if (q.isEmpty()) return emptyList()
-        val html = get("$BASE/anime?search=" + URLEncoder.encode(q, "UTF-8") + "&order_by=popular&page=1")
+        val html = get(
+            "$BASE/anime?search=" + URLEncoder.encode(q, "UTF-8") + "&order_by=popular&page=1",
+            filterMatureCatalog = true,
+        )
         return parseGrid(html)
     }
 
     /** Tries search first; falls back to resolving direct slug-like url patterns is not needed. */
     suspend fun schedule(day: String): List<Anime> {
         // day: monday..sunday (English lowercase) — kuramanime uses same names
-        val html = get("$BASE/schedule?scheduled_day=$day")
+        val html = get("$BASE/schedule?scheduled_day=$day", filterMatureCatalog = true)
         return parseGrid(html)
     }
 
