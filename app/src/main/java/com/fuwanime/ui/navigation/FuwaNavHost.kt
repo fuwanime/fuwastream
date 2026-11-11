@@ -108,12 +108,14 @@ import com.fuwanime.ui.motion.LocalSharedScope
 import com.fuwanime.ui.motion.Motion
 import com.fuwanime.ui.motion.rememberReduceMotion
 import com.fuwanime.data.Episode
+import com.fuwanime.ui.auth.AuthRoute
 import com.fuwanime.ui.detail.DetailRoute
 import com.fuwanime.ui.explore.ExploreRoute
 import com.fuwanime.ui.home.HomeRoute
 import com.fuwanime.ui.library.LibraryRoute
 import com.fuwanime.ui.legal.LegalRoute
 import com.fuwanime.ui.player.PlayerRoute
+import com.fuwanime.ui.profile.ProfileRoute
 import com.fuwanime.ui.schedule.ScheduleRoute
 import com.fuwanime.ui.settings.SettingsRoute
 import com.fuwanime.ui.stats.StatsRoute
@@ -127,6 +129,8 @@ internal object Routes {
     const val PLAYER = "player/{animeId}/{episodeId}?number={number}&thumb={thumb}&shared={shared}"
     const val SETTINGS = "settings"
     const val STATS = "stats"
+    const val PROFILE = "profile"
+    const val AUTH = "auth"
     const val LEGAL = "legal/{type}"
     const val MANGA_TAB = "manga_tab"
     const val MANGA_DETAIL = "manga/{mangaId}"
@@ -386,6 +390,7 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
                                     onResume = { e -> nav.navigate(playerRouteFor(e, "library")) },
                                     onPlayDownload = { d -> nav.navigate(Routes.player(d.animeId, d.episodeId, d.episodeNumber)) },
                                     onStats = { nav.navigate(Routes.STATS) },
+                                    onProfile = { nav.navigate(Routes.PROFILE) },
                                     onSettings = { nav.navigate(Routes.SETTINGS) },
                                     onMangaClick = openManga,
                                     onMangaRead = { m, c -> nav.navigate(Routes.mangaReader(m, c)) },
@@ -432,11 +437,15 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
                             }
                         }
                         composable(Routes.STATS) { Scoped { StatsRoute(onBack = { nav.popBackStack() }, onExplore = { nav.navigateTab(Routes.explore()) }) } }
+                        composable(Routes.PROFILE) { Scoped { ProfileRoute(onBack = { nav.popBackStack() }) } }
+                        composable(Routes.AUTH) { Scoped { AuthRoute(onDone = { nav.popBackStack() }) } }
                         composable(Routes.SETTINGS) {
                             Scoped {
                                 SettingsRoute(
                                     onBack = { nav.popBackStack() },
                                     onOpenLegal = { type -> nav.navigate(Routes.legal(type)) },
+                                    onOpenProfile = { nav.navigate(Routes.PROFILE) },
+                                    onOpenAuth = { nav.navigate(Routes.AUTH) },
                                 )
                             }
                         }
