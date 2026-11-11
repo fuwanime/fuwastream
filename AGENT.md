@@ -163,3 +163,71 @@ Always verify before declaring work complete.
 # Run smoke test on active Android emulator (requires ADB)
 bash .github/scripts/smoke.sh app/build/outputs/apk/debug/app-debug.apk
 ```
+
+---
+
+## 5. Versioning & Release System (SemVer)
+
+FuwaStream strictly adheres to Semantic Versioning (`vMAJOR.MINOR.PATCH`).
+
+### SemVer Rules
+
+| Bump Type | Version Step | Update Category | When to Use in FuwaStream |
+| :--- | :--- | :--- | :--- |
+| **`major`** | `+1.0.0` (e.g. `2.1.0` ➔ `3.0.0`) | **Update Besar** | Breaking changes, massive UI/UX redesign, complete architecture overhaul, or Room database schema rebuild without forward compatibility. |
+| **`minor`** | `+0.1.0` (e.g. `2.1.0` ➔ `2.2.0`) | **Update Feature** | Adding new providers (e.g. Kuramanime, Komiku), new user features (e.g. Manga Reader, Watch Stats, PiP), or new screens without breaking existing data. |
+| **`patch`** | `+0.0.1` (e.g. `2.1.0` ➔ `2.1.1`) | **Bug Fix** | Repairing broken scrapers/regex, fixing player seeking glitches, resolving crashes/ANRs, minor UI tweaks, or updating translation strings. |
+
+### Release Decision Matrix (Auto-Selection Guide)
+
+When preparing an update or asked to publish a release, select the bump type using this decision tree:
+
+```
+[What kind of changes are being released?]
+  │
+  ├── Has breaking changes, major schema rewrite, or total app redesign?
+  │     └── ➔ Select MAJOR (+1.0.0, e.g. v3.0.0)
+  │
+  ├── Adds a new feature, new anime/manga source, or new navigation screen?
+  │     └── ➔ Select MINOR (+0.1.0, e.g. v2.2.0)
+  │
+  └── Fixes bugs, repairs scrapers, resolves crashes, or updates translations?
+        └── ➔ Select PATCH (+0.0.1, e.g. v2.1.1)
+```
+
+### Triggering Releases
+
+Release publishing is strictly decoupled from regular CI:
+- Push / PR to `main`: Runs tests and generates build verification artifacts (`build.yml`). **Never** publishes to GitHub Releases.
+- Publishing Releases: Handled exclusively by `.github/workflows/release.yml`.
+
+#### Option A: Via GitHub CLI / Actions Dispatch (Recommended)
+Agents and maintainers can trigger the workflow directly without creating manual git tags:
+
+```bash
+# 1. Bug Fix (+0.0.1: e.g. 2.1.0 -> 2.1.1)
+gh workflow run release.yml -R fuwanime/fuwastream -f bump_type=patch
+
+# 2. New Feature (+0.1.0: e.g. 2.1.0 -> 2.2.0)
+gh workflow run release.yml -R fuwanime/fuwastream -f bump_type=minor
+
+# 3. Major Update (+1.0.0: e.g. 2.1.0 -> 3.0.0)
+gh workflow run release.yml -R fuwanime/fuwastream -f bump_type=major
+
+# 4. Custom Specific Version
+gh workflow run release.yml -R fuwanime/fuwastream -f bump_type=custom -f custom_version=3.0.0
+```
+
+#### Option B: Via Git Tag Push
+Pushing an annotated SemVer tag (`v*.*.*`) automatically triggers `release.yml`:
+
+```bash
+# Create and push annotated tag
+git tag -a v3.0.0 -m "FuwaStream 3.0.0: <Release Summary>"
+git push upstream v3.0.0
+```
+
+### In-App Update Invariants
+- In-app update checker (`app/src/main/java/com/fuwanime/data/UpdateRepository.kt`) compares versions numerically using `isNewerRelease()`.
+- Valid SemVer tags (`vX.Y.Z`) are always recognized as newer than legacy `build-N` releases.
+- Release titles must follow `FuwaStream X.Y.Z` with tag `vX.Y.Z` and attached artifacts `FuwaStream-X.Y.Z.apk` / `FuwaStream-X.Y.Z.aab`.
