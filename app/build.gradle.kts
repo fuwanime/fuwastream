@@ -22,7 +22,7 @@ android {
     // F-Droid & CI pass VERSION_CODE/VERSION_NAME as env vars. Fallback to fixed
     // values when not set (deterministic, not epoch minutes).
     versionCode = System.getenv("VERSION_CODE")?.toIntOrNull() ?: 2
-    versionName = System.getenv("VERSION_NAME") ?: "2.0.0"
+    versionName = System.getenv("VERSION_NAME") ?: "2.1.0"
     // The in-app update checker looks at the repo this APK was built from (a fork checks its own releases).
     buildConfigField("String", "UPDATE_REPO", "\"${System.getenv("GITHUB_REPOSITORY") ?: "fuwanime/fuwastream"}\"")
   }
