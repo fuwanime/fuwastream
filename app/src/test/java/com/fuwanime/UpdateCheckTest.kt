@@ -21,7 +21,9 @@ class UpdateCheckTest {
     }
 
     @Test
-    fun mixedOrUnknownTags_areNotOffered() {
+    fun semverMigration_offersSemVerOverBuildTags() {
+        assertTrue(isNewerRelease("v2.1.0", "build-91"))
+        assertTrue(isNewerRelease("v2.0.1", "build-51"))
         assertFalse(isNewerRelease("build-60", "v2.1.0"))
         assertFalse(isNewerRelease("nightly", "build-51"))
     }

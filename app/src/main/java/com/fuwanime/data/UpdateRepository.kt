@@ -7,20 +7,34 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * True only when [candidate] is a later release of the same kind as [current]: "build-N" by number, "vX.Y.Z" by
- * version. Anything else (older, equal, mixed or unknown tags) is not offered as an update.
+ * True when [candidate] is a newer release than [current].
+ * - "build-N" vs "build-M": numeric comparison.
+ * - "vX.Y.Z" vs "vA.B.C": SemVer numerical comparison.
+ * - "vX.Y.Z" vs "build-N": always offered as an update (SemVer migration).
+ * - Downgrades, identical tags, or unknown tag formats return false.
  */
 fun isNewerRelease(candidate: String, current: String): Boolean {
     fun build(tag: String) = tag.removePrefix("build-").takeIf { tag.startsWith("build-") }?.toIntOrNull()
     fun version(tag: String) = tag.takeIf { it.startsWith("v") }?.drop(1)?.split('.')?.map { it.toIntOrNull() ?: return null }
-    build(candidate)?.let { c -> return build(current)?.let { c > it } ?: false }
-    val c = version(candidate) ?: return false
-    val v = version(current) ?: return false
-    for (i in 0 until maxOf(c.size, v.size)) {
-        val a = c.getOrElse(i) { 0 }
-        val b = v.getOrElse(i) { 0 }
-        if (a != b) return a > b
+
+    val cBuild = build(candidate)
+    val curBuild = build(current)
+    if (cBuild != null && curBuild != null) return cBuild > curBuild
+
+    val cVer = version(candidate)
+    val curVer = version(current)
+    if (cVer != null && curVer != null) {
+        for (i in 0 until maxOf(cVer.size, curVer.size)) {
+            val a = cVer.getOrElse(i) { 0 }
+            val b = curVer.getOrElse(i) { 0 }
+            if (a != b) return a > b
+        }
+        return false
     }
+
+    // SemVer transition: any valid SemVer release (vX.Y.Z) is newer than legacy build-N releases.
+    if (cVer != null && curBuild != null) return true
+
     return false
 }
 
