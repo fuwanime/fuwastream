@@ -131,7 +131,8 @@ class ExploreViewModel(
         raw.clear()
         seen.clear()
         nextPage = 0
-        _state.update { it.copy(results = emptyList(), loading = true, endReached = false, error = null, kuramanimeResults = emptyList()) }
+        kuramanimeRaw = emptyList()
+        _state.update { it.copy(results = emptyList(), loading = true, endReached = false, error = null) }
         loadMore()
         searchKuramanime(_state.value.filters.query)
     }
@@ -149,8 +150,9 @@ class ExploreViewModel(
             } catch (e: Exception) {
                 Result.failure(e)
             }
-            val items = result.getOrDefault(emptyList()).take(if (q.length >= 2) 30 else 18)
-            _state.update { it.copy(kuramanimeResults = items, kuramanimeLoading = false) }
+            kuramanimeRaw = result.getOrDefault(emptyList()).take(if (q.length >= 2) 30 else 18)
+            _state.update { it.copy(kuramanimeLoading = false) }
+            refilter(fillPage = false)
         }
     }
 

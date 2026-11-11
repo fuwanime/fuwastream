@@ -353,7 +353,6 @@ private fun ResultsGrid(state: ExploreUiState, vm: ExploreViewModel, onAnimeClic
         state.error != null && state.results.isEmpty() -> ResultsBranch.ERROR
         state.results.isEmpty() && !state.loadingMore && !state.kuramanimeLoading -> ResultsBranch.EMPTY
         else -> ResultsBranch.RESULTS
-    }        else -> ResultsBranch.RESULTS
     }
     Crossfade(branch, animationSpec = tween(Motion.Medium), label = "exploreResults") { shown ->
     when (shown) {
