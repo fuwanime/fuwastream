@@ -141,11 +141,11 @@ APK debug ada di `app/build/outputs/apk/debug/app-debug.apk`.
 
 | Pemicu GitHub Actions | Hasil |
 |---|---|
-| Push ke `main` | Test dan APK release, terbit di [Releases](https://github.com/fuwanime/fuwastream/releases) sebagai `build-N` |
-| Tag `v*` | Rilis dengan nama versi tersebut |
-| Manual · `smoke` / `qa` | Uji di emulator dengan screenshot dan rekaman layar |
-| Manual · `profile` | Membuat ulang *baseline profile* |
-
+| Push ke `main` / PR | Menjalankan unit test dan kompilasi APK/AAB sebagai artefak verifikasi CI |
+| Rilis SemVer manual (`workflow_dispatch`) | Bump versi SemVer (Major/Minor/Patch) dan publikasi rilis di [Releases](https://github.com/fuwanime/fuwastream/releases) |
+| Tag `v*.*.*` | Build rilis dan publikasi otomatis sesuai tag SemVer |
+| Manual · `smoke` / `qa` | Uji di emulator Android dengan tangkapan layar dan rekaman |
+| Manual · `profile` | Membuat ulang *baseline profile* untuk optimasi performa *cold start* |
 </details>
 
 <details>
@@ -176,8 +176,8 @@ com.fuwanime
 
 | Nama | Peran |
 | :--- | :--- |
-| **YuzakiNetwork (Haruka Fuyune)** | Pendiri dan admin proyek: brand dan ikon, legal dan kepatuhan, rilis dan build CI, notifikasi episode, pengecek update, anime serupa, unduhan massal, filter tipe konten |
-| **Andra** | Kolaborator dan kontributor: UI/UX (redesign, aksesibilitas, Statistik, Koleksi, multi-bahasa), Manga (MangaDex, Shinigami, Komiku, gabung sumber, reader, unduhan), Infrastruktur (CI dan QA, database dan backup, cache offline, DNS-over-HTTPS), Pemutar (Media3, PiP, audio latar, AniSkip) |
+| **YuzakiNetwork (Haruka Fuyune)** | Pendiri dan admin proyek:<br>• **Brand dan identitas visual**: Desain ikon peluncur geometris (*petal-play*), *mask preview*, ikon 512px, dan *wordmark* FuwaStream.<br>• **Legal, privasi, dan kepatuhan**: Dokumen kepatuhan Play Store, Kebijakan Privasi, Ketentuan Layanan, *age-gate* 13+, dan fungsi hapus semua data.<br>• **Fitur anime dan katalog**: Pengecek *update* otomatis dengan *in-app changelog*, notifikasi episode baru, rekomendasi anime serupa (dengan *fallback cache*), filter tipe konten di Jelajah (Series, Film, ONA, OVA, Special), dan unduhan massal awal.<br>• **Infrastruktur dan build**: Konfigurasi awal proyek, lisensi GPL-3.0, *build* bundle AAB, alur smoke test di branch qa-smoke, dan formula *versionCode* deterministik untuk F-Droid. |
+| **Andra** | Kolaborator dan kontributor:<br>• **UI/UX dan desain sinematik**: *Redesign* antarmuka sinematik Material 3 (Beranda *ambient blur*, Jelajah *multi-chip* dan *collapsing header*, detail sinematik dengan *poster tinting*), tab Koleksi dengan badge "N baru" dan multi-pilih, grafik waktu tonton 7 hari, kartu rekap statistik, serta adaptasi tema Material You (terang, gelap, AMOLED).<br>• **Aksesibilitas dan multi-bahasa**: Dukungan penuh TalkBack (*merged nodes* dan label deskriptif), batas skala font 1.3x tanpa teks terpotong, tata letak layar lebar (*navigation rail*), serta pelokalan 4 bahasa (Indonesia, Melayu, Inggris, Mandarin).<br>• **Ekosistem manga**: Integrasi multi-sumber (MangaDex, Shinigami, Komiku 8.000+ judul), penggabung daftar chapter lintas sumber dengan filter bahasa (ID, EN, Raw) dan kategori (Manga, Manhwa, Manhua), *vertical reader* dengan DNS-over-HTTPS (DoH) untuk membuka blokir ISP, serta antrean unduh chapter *offline*.<br>• **Pemutar video (Media3 ExoPlayer)**: Audio latar belakang (*MediaSessionService*) saat layar mati atau di latar belakang, Picture-in-Picture (PiP) adaptif, integrasi AniSkip (otomatis/tombol +85 dtk), *gesture* layar penuh, dan tampilan bersih saat *buffering*.<br>• **Data, offline, dan penyimpanan**: Arsitektur *cache-first* (tahan *offline*), pencadangan dan pemulihan data lokal (Format v2), pemilihan folder unduhan eksternal via Storage Access Framework (SAF), serta widget *Glance* dan *Dynamic Shortcuts* di layar utama.<br>• **Infrastruktur, CI, dan QA**: *Suite smoke test* dan skenario QA komprehensif di emulator Android, generator Baseline Profile otomatis di CI, alur rilis SemVer terstandarisasi, dan dokumentasi aset resolusi tinggi. |
 
 Mau ikut membantu? Fork repository ini, buat branch, jalankan `gradle testDebugUnitTest`, lalu kirim Pull Request dengan penjelasan singkat dan cara mengujinya. Ide fitur dan laporan bug masuk ke [Issues](https://github.com/fuwanime/fuwastream/issues).
 
