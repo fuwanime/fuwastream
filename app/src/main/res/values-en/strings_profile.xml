@@ -1,0 +1,26 @@
+<resources>
+    <!-- Profile & gamification -->
+    <string name="profile_title">My Profile</string>
+    <string name="profile_edit">Edit Profile</string>
+    <string name="profile_name">Name</string>
+    <string name="profile_bio">Bio</string>
+    <string name="profile_save">Save</string>
+    <string name="profile_cancel">Cancel</string>
+    <string name="profile_change_banner">Change Banner</string>
+    <string name="profile_my_level">My Level</string>
+    <string name="profile_total_xp">TOTAL XP: %1$d</string>
+    <string name="profile_next_rank">Next rank: %1$s</string>
+    <string name="profile_xp_to_next">%1$d XP to the next level</string>
+    <string name="profile_recent">Recently Watched</string>
+    <string name="profile_recent_empty">No watch history yet.</string>
+    <string name="profile_episode_n">Episode %1$s</string>
+    <string name="profile_level_up">Level up to %1$d — new rank: %2$s!</string>
+    <string name="mine_group_account">Account</string>
+    <string name="auth_menu">Sign in / Register</string>
+    <string name="quest_title">Quest Board</string>
+    <string name="quest_reset_info">Resets every 3 days — finish them before the reset!</string>
+    <string name="quest_claim">Claim</string>
+    <string name="quest_claimed">Claimed ✓</string>
+    <string name="borders_title">Avatar Border Collection</string>
+    <string name="borders_info">Borders are earned from quests. Tap to equip.</string>
+</resources>
