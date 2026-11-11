@@ -1,0 +1,26 @@
+<resources>
+    <!-- Profile & gamification -->
+    <string name="profile_title">Profil Saya</string>
+    <string name="profile_edit">Edit Profil</string>
+    <string name="profile_name">Nama</string>
+    <string name="profile_bio">Bio</string>
+    <string name="profile_save">Simpan</string>
+    <string name="profile_cancel">Batal</string>
+    <string name="profile_change_banner">Tukar Banner</string>
+    <string name="profile_my_level">Level Saya</string>
+    <string name="profile_total_xp">JUMLAH XP: %1$d</string>
+    <string name="profile_next_rank">Pangkat seterusnya: %1$s</string>
+    <string name="profile_xp_to_next">%1$d XP ke level seterusnya</string>
+    <string name="profile_recent">Terakhir Ditonton</string>
+    <string name="profile_recent_empty">Tiada sejarah tontonan lagi.</string>
+    <string name="profile_episode_n">Episod %1$s</string>
+    <string name="profile_level_up">Naik ke level %1$d — pangkat baru: %2$s!</string>
+    <string name="mine_group_account">Akaun</string>
+    <string name="auth_menu">Log masuk / Daftar</string>
+    <string name="quest_title">Papan Quest</string>
+    <string name="quest_reset_info">Ditukar setiap 3 hari — siapkan sebelum ditukar!</string>
+    <string name="quest_claim">Tuntut</string>
+    <string name="quest_claimed">Dituntut ✓</string>
+    <string name="borders_title">Koleksi Sempadan Avatar</string>
+    <string name="borders_info">Sempadan diperoleh dari quest. Ketuk untuk digunakan.</string>
+</resources>
