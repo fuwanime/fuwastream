@@ -50,10 +50,15 @@ class LibraryRepository(private val db: FuwaDatabase) {
                     addedAt = System.currentTimeMillis(),
                 ),
             )
+            questHooks?.invoke(QuestKind.FAVORITE)
         } else {
             favorites.delete(anime.id)
         }
     }
+
+    /** Optional hook into the quest board; set by AppContainer. */
+    var questHooks: ((QuestKind) -> Unit)? = null
+    var profileBumper: ((String) -> Unit)? = null
 
     val allHistory: Flow<List<WatchHistoryEntity>> = history.observeAll()
 
@@ -101,7 +106,10 @@ class LibraryRepository(private val db: FuwaDatabase) {
 
     suspend fun addSearch(query: String) {
         val q = query.trim()
-        if (q.length >= 2) searches.upsert(SearchHistoryEntity(q, System.currentTimeMillis()))
+        if (q.length >= 2) {
+            searches.upsert(SearchHistoryEntity(q, System.currentTimeMillis()))
+            questHooks?.invoke(QuestKind.SEARCH)
+        }
     }
 
     suspend fun removeSearch(query: String) = searches.delete(query)
