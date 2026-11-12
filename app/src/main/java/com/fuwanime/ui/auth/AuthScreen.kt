@@ -87,7 +87,7 @@ fun AuthRoute(onDone: () -> Unit) {
             Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("✅", style = MaterialTheme.typography.displayMedium)
                 Text(stringResource(R.string.auth_already_logged), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Button(onClick = onDone, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEC4899))) { Text(stringResource(R.string.auth_continue)) }
+                Button(onClick = onDone, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F1F1F), contentColor = Color.White)) { Text(stringResource(R.string.auth_continue)) }
                 TextButton(onClick = {
                     vm.logout()
                     mode = AuthMode.LOGIN
@@ -99,7 +99,7 @@ fun AuthRoute(onDone: () -> Unit) {
 
     Box(
         Modifier.fillMaxSize().background(
-            Brush.verticalGradient(listOf(Color(0xFF1E1B2E), Color(0xFF2A1B33), Color(0xFF160F1F))),
+            Brush.verticalGradient(listOf(Color.Black, Color(0xFF050505), Color.Black)),
         ).verticalScroll(rememberScrollState()),
         contentAlignment = Alignment.Center,
     ) {
@@ -109,7 +109,7 @@ fun AuthRoute(onDone: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Box(
-                Modifier.size(72.dp).clip(RoundedCornerShape(20.dp)).background(Brush.linearGradient(listOf(Color(0xFFEC4899), Color(0xFF8B5CF6)))),
+                Modifier.size(72.dp).clip(RoundedCornerShape(20.dp)).background(Brush.linearGradient(listOf(Color(0xFF2E2E2E), Color(0xFF171717)))),
                 contentAlignment = Alignment.Center,
             ) {
                 Text("F", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold, color = Color.White)
@@ -118,7 +118,7 @@ fun AuthRoute(onDone: () -> Unit) {
             Text(
                 if (mode == AuthMode.LOGIN) stringResource(R.string.auth_login_subtitle) else stringResource(R.string.auth_register_subtitle),
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFFB8AFC9),
+                color = Color(0xFF9A9A9A),
             )
 
             var email by remember { mutableStateOf("") }
@@ -149,7 +149,7 @@ fun AuthRoute(onDone: () -> Unit) {
                 leadingIcon = { Icon(Icons.Rounded.Lock, null) },
             )
 
-            message?.let { Text(it, color = Color(0xFFFB7185), style = MaterialTheme.typography.bodySmall) }
+            message?.let { Text(it, color = Color(0xFFB0B0B0), style = MaterialTheme.typography.bodySmall) }
 
             Button(
                 onClick = {
@@ -157,28 +157,28 @@ fun AuthRoute(onDone: () -> Unit) {
                     if (mode == AuthMode.LOGIN) vm.login(email, password, cb) else vm.register(email, password, name, cb)
                 },
                 modifier = Modifier.fillMaxWidth().height(50.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEC4899)),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F1F1F), contentColor = Color.White),
                 shape = RoundedCornerShape(14.dp),
             ) {
                 Text(if (mode == AuthMode.LOGIN) stringResource(R.string.auth_login) else stringResource(R.string.auth_register), fontWeight = FontWeight.Bold)
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Spacer(Modifier.weight(1f).height(1.dp).background(Color(0xFF3A3350)))
-                Text(stringResource(R.string.auth_or), color = Color(0xFF8A8494), modifier = Modifier.padding(horizontal = 12.dp))
-                Spacer(Modifier.weight(1f).height(1.dp).background(Color(0xFF3A3350)))
+                Spacer(Modifier.weight(1f).height(1.dp).background(Color(0xFF2A2A2A)))
+                Text(stringResource(R.string.auth_or), color = Color(0xFF7A7A7A), modifier = Modifier.padding(horizontal = 12.dp))
+                Spacer(Modifier.weight(1f).height(1.dp).background(Color(0xFF2A2A2A)))
             }
 
-            Text(stringResource(R.string.auth_google_removed), style = MaterialTheme.typography.labelMedium, color = Color(0xFF8A8494))
+            Text(stringResource(R.string.auth_google_removed), style = MaterialTheme.typography.labelMedium, color = Color(0xFF7A7A7A))
 
             TextButton(onClick = { mode = if (mode == AuthMode.LOGIN) AuthMode.REGISTER else AuthMode.LOGIN; message = null }) {
                 Text(
                     if (mode == AuthMode.LOGIN) stringResource(R.string.auth_switch_register) else stringResource(R.string.auth_switch_login),
-                    color = Color(0xFFEC4899),
+                    color = Color.White,
                 )
             }
 
-            Text(stringResource(R.string.auth_local_note), style = MaterialTheme.typography.labelSmall, color = Color(0xFF8A8494))
+            Text(stringResource(R.string.auth_local_note), style = MaterialTheme.typography.labelSmall, color = Color(0xFF7A7A7A))
         }
     }
 }
