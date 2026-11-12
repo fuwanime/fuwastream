@@ -140,7 +140,7 @@ class SettingsViewModel(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit) {
+fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit, onOpenProfile: () -> Unit) {
     val vm: SettingsViewModel = fuwaViewModel { c, _ ->
         SettingsViewModel(c.settingsStore, c.libraryRepository, c.downloadRepository, c.backupRepository, c::refreshHomeSurfaces)
     }
@@ -219,6 +219,7 @@ fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit) {
             Modifier.fillMaxHeight().readableWidth().hazeSource(hazeState),
             contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = 32.dp),
         ) {
+            item { ActionRow(Icons.Rounded.Person, stringResource(R.string.profile_title), stringResource(R.string.profile_settings_desc), onOpenProfile) }
             item { Group(stringResource(R.string.mine_group_display)) }
             item {
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {

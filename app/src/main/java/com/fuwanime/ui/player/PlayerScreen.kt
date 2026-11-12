@@ -267,12 +267,16 @@ fun PlayerRoute(
             refreshHomeSurfaces = c::refreshHomeSurfaces,
             links = c.animeLinkRepository,
             skips = c.skipRepository,
+            profile = c.profileRepository,
         )
     }
     val state by vm.state.collectAsStateWithLifecycle()
     val download by vm.download.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val res = LocalContext.current.resources
+    LaunchedEffect(vm) {
+        vm.levelUps.collect { level -> snackbar.showSnackbar(res.getString(R.string.profile_level_up, level)) }
+    }
     LaunchedEffect(state.message) {
         state.message?.let {
             vm.messageShown()

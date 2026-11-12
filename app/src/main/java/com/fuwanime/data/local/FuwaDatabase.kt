@@ -182,8 +182,8 @@ interface DownloadDao {
 }
 
 @Database(
-    entities = [FavoriteEntity::class, WatchHistoryEntity::class, SearchHistoryEntity::class, DownloadEntity::class, WatchDailyEntity::class, AnimeLinkEntity::class, MangaFavoriteEntity::class, MangaHistoryEntity::class, MangaDownloadEntity::class],
-    version = 7,
+    entities = [FavoriteEntity::class, WatchHistoryEntity::class, SearchHistoryEntity::class, DownloadEntity::class, WatchDailyEntity::class, AnimeLinkEntity::class, MangaFavoriteEntity::class, MangaHistoryEntity::class, MangaDownloadEntity::class, ProfileEntity::class, QuestEntity::class, CountedEntity::class, BorderEntity::class],
+    version = 8,
     exportSchema = false,
 )
 abstract class FuwaDatabase : RoomDatabase() {
@@ -196,11 +196,12 @@ abstract class FuwaDatabase : RoomDatabase() {
     abstract fun mangaFavoriteDao(): MangaFavoriteDao
     abstract fun mangaHistoryDao(): MangaHistoryDao
     abstract fun mangaDownloadDao(): MangaDownloadDao
+    abstract fun profileDao(): ProfileDao
 
     companion object {
         fun create(context: Context): FuwaDatabase =
             Room.databaseBuilder(context, FuwaDatabase::class.java, "fuwanime.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                 .build()
 
         /** v2 adds offline downloads; existing favourites and history are kept. */
@@ -234,6 +235,16 @@ abstract class FuwaDatabase : RoomDatabase() {
                         "`malId` INTEGER, `score` INTEGER, `tags` TEXT NOT NULL, `nextEpisode` INTEGER, `nextAiringAt` INTEGER, " +
                         "`fetchedAt` INTEGER NOT NULL, PRIMARY KEY(`animeId`))",
                 )
+            }
+        }
+
+        /** v8 adds the local profile, quest progress, once-only counters and unlocked borders; nothing existing changes. */
+        internal val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `user_profile` (`id` INTEGER NOT NULL, `name` TEXT NOT NULL, `xp` INTEGER NOT NULL, `equippedBorder` TEXT, PRIMARY KEY(`id`))")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `quest_progress` (`id` TEXT NOT NULL, `progress` INTEGER NOT NULL, `claimed` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `counted_items` (`key` TEXT NOT NULL, PRIMARY KEY(`key`))")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `unlocked_borders` (`id` TEXT NOT NULL, PRIMARY KEY(`id`))")
             }
         }
 
