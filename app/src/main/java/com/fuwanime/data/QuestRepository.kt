@@ -51,17 +51,17 @@ object AvatarBorders {
 
     val ALL = listOf(
         Border("none", "Tanpa Border", 0xFF6B6478, 0x00000000),
-        Border("silver", "Silver", 0xFFC0C6D4, 0x66C0C6D4),
-        Border("gold", "Gold", 0xFFFBBF24, 0x66FBBF24),
-        Border("rose", "Rose", 0xFFEC4899, 0x66EC4899),
-        Border("violet", "Violet", 0xFF8B5CF6, 0x668B5CF6),
-        Border("emerald", "Emerald", 0xFF34D399, 0x6634D399),
-        Border("azure", "Azure", 0xFF38BDF8, 0x6638BDF8),
-        Border("ember", "Ember", 0xFFF97316, 0x66F97316),
-        Border("crimson", "Crimson", 0xFFEF4444, 0x66EF4444),
-        Border("aurora", "Aurora", 0xFF4ADE80, 0x664ADE80),
-        Border("nebula", "Nebula", 0xFFA78BFA, 0x66A78BFA),
-        Border("royal", "Royal", 0xFFEAB308, 0x66EAB308),
+        Border("silver", "Silver", 0xFFB0B0B0, 0x66B0B0B0),
+        Border("gold", "Gold", 0xFFB0B0B0, 0x66B0B0B0),
+        Border("rose", "Rose", 0xFFB0B0B0, 0x66B0B0B0),
+        Border("violet", "Violet", 0xFFB0B0B0, 0x66B0B0B0),
+        Border("emerald", "Emerald", 0xFFB0B0B0, 0x66B0B0B0),
+        Border("azure", "Azure", 0xFFB0B0B0, 0x66B0B0B0),
+        Border("ember", "Ember", 0xFFB0B0B0, 0x66B0B0B0),
+        Border("crimson", "Crimson", 0xFFB0B0B0, 0x66B0B0B0),
+        Border("aurora", "Aurora", 0xFFB0B0B0, 0x66B0B0B0),
+        Border("nebula", "Nebula", 0xFFB0B0B0, 0x66B0B0B0),
+        Border("royal", "Royal", 0xFFB0B0B0, 0x66B0B0B0),
     )
 
     fun byId(id: String): Border = ALL.firstOrNull { it.id == id } ?: ALL[0]
