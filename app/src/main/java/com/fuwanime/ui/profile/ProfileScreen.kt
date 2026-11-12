@@ -201,7 +201,7 @@ private fun ProfileContent(
             } else {
                 Box(
                     Modifier.fillMaxSize().background(
-                        Brush.linearGradient(listOf(Color(0xFFEC4899), Color(0xFF7C3AED), Color(0xFF1E1B2E))),
+                        Brush.verticalGradient(listOf(Color(0xFF1C1C1C), Color(0xFF0A0A0A))),
                     ),
                 )
             }
@@ -261,7 +261,7 @@ private fun ProfileContent(
                         .offset(x = 4.dp, y = 4.dp)
                         .size(32.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFFEC4899))
+                        .background(Color(0xFF2E2E2E))
                         .border(2.dp, MaterialTheme.colorScheme.background, CircleShape)
                         .clickable(onClick = onPickAvatar),
                     contentAlignment = Alignment.Center,
@@ -277,7 +277,7 @@ private fun ProfileContent(
                 if (profile.bio.isNotBlank()) Text(profile.bio, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Button(
                     onClick = onEdit,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEC4899)),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F1F1F), contentColor = Color.White),
                     shape = RoundedCornerShape(14.dp),
                 ) {
                     Icon(Icons.Rounded.Edit, null, Modifier.size(16.dp))
@@ -294,14 +294,14 @@ private fun ProfileContent(
         ) {
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Rounded.WorkspacePremium, null, tint = Color(0xFFFBBF24))
+                    Icon(Icons.Rounded.WorkspacePremium, null, tint = Color(0xFFB0B0B0))
                     Text(stringResource(R.string.profile_my_level), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.weight(1f))
-                    Text(stringResource(R.string.profile_total_xp, profile.totalXp), color = Color(0xFFEC4899), fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.profile_total_xp, profile.totalXp), color = Color.White, fontWeight = FontWeight.Bold)
                 }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     Box(
-                        Modifier.size(64.dp).clip(CircleShape).background(Brush.linearGradient(listOf(Color(0xFF8B5CF6), Color(0xFFEC4899)))),
+                        Modifier.size(64.dp).clip(CircleShape).background(Brush.linearGradient(listOf(Color(0xFF3A3A3A), Color(0xFF161616)))),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text("${progress.level}", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = Color.White)
@@ -313,9 +313,9 @@ private fun ProfileContent(
                 }
                 // Progress bar
                 Box(Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh)) {
-                    Box(Modifier.fillMaxWidth(progress.fraction.coerceIn(0.02f, 1f)).height(10.dp).clip(RoundedCornerShape(5.dp)).background(Brush.horizontalGradient(listOf(Color(0xFFEC4899), Color(0xFF8B5CF6)))))
+                    Box(Modifier.fillMaxWidth(progress.fraction.coerceIn(0.02f, 1f)).height(10.dp).clip(RoundedCornerShape(5.dp)).background(Brush.horizontalGradient(listOf(Color(0xFF6E6E6E), Color(0xFF2E2E2E)))))
                 }
-                Text("${(progress.fraction * 100).toInt()}%", style = MaterialTheme.typography.labelMedium, color = Color(0xFFEC4899), modifier = Modifier.align(Alignment.End))
+                Text("${(progress.fraction * 100).toInt()}%", style = MaterialTheme.typography.labelMedium, color = Color.White, modifier = Modifier.align(Alignment.End))
             }
         }
         // Quest board (resets every 3 days)
@@ -326,7 +326,7 @@ private fun ProfileContent(
         ) {
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Rounded.EmojiEvents, null, tint = Color(0xFFFBBF24))
+                    Icon(Icons.Rounded.EmojiEvents, null, tint = Color(0xFFB0B0B0))
                     Column(Modifier.weight(1f)) {
                         Text(stringResource(R.string.quest_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Text(stringResource(R.string.quest_reset_info), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -346,17 +346,17 @@ private fun ProfileContent(
                                 Text("${q.progress}/${q.target} · +${q.xpReward} XP", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             if (q.claimed) {
-                                Text(stringResource(R.string.quest_claimed), style = MaterialTheme.typography.labelMedium, color = Color(0xFF4ADE80), fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.quest_claimed), style = MaterialTheme.typography.labelMedium, color = Color(0xFFB0B0B0), fontWeight = FontWeight.Bold)
                             } else if (q.done) {
                                 Button(
                                     onClick = { onClaim(q) },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEC4899)),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F1F1F), contentColor = Color.White),
                                     shape = RoundedCornerShape(999.dp),
                                     contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 6.dp),
                                 ) { Text(stringResource(R.string.quest_claim), fontWeight = FontWeight.Bold) }
                             } else {
                                 Box(Modifier.size(70.dp, 8.dp).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh)) {
-                                    Box(Modifier.fillMaxWidth((q.progress.toFloat() / q.target).coerceIn(0f, 1f)).height(8.dp).clip(RoundedCornerShape(4.dp)).background(Brush.horizontalGradient(listOf(Color(0xFFEC4899), Color(0xFF8B5CF6)))))
+                                    Box(Modifier.fillMaxWidth((q.progress.toFloat() / q.target).coerceIn(0f, 1f)).height(8.dp).clip(RoundedCornerShape(4.dp)).background(Brush.horizontalGradient(listOf(Color(0xFF6E6E6E), Color(0xFF2E2E2E)))))
                                 }
                             }
                         }
@@ -425,7 +425,7 @@ private fun ProfileContent(
         ) {
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Rounded.History, null, tint = Color(0xFF4ADE80))
+                    Icon(Icons.Rounded.History, null, tint = Color(0xFFB0B0B0))
                     Text(stringResource(R.string.profile_recent), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 }
                 if (recent.isEmpty()) {
@@ -450,7 +450,7 @@ private fun ProfileContent(
 /** The rank tag pill shown next to the name. */
 @Composable
 fun RankTagBadge(tag: RankTags.Tag, modifier: Modifier = Modifier) {
-    val color = Color(tag.color)
+    val color = Color(0xFFB0B0B0) // monokrom: semua gelar tampil abu-abu netral
     Box(
         modifier
             .clip(RoundedCornerShape(999.dp))
@@ -478,7 +478,7 @@ private fun EditProfileSheet(initialName: String, initialBio: String, onDismiss:
                 OutlinedTextField(bio, { bio = it }, label = { Text(stringResource(R.string.profile_bio)) }, minLines = 3, maxLines = 5)
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.align(Alignment.End)) {
                     Button(onClick = onDismiss, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) { Text(stringResource(R.string.profile_cancel)) }
-                    Button(onClick = { onSave(name, bio) }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEC4899))) { Text(stringResource(R.string.profile_save)) }
+                    Button(onClick = { onSave(name, bio) }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F1F1F), contentColor = Color.White)) { Text(stringResource(R.string.profile_save)) }
                 }
             }
         }
