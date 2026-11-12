@@ -117,7 +117,6 @@ class SettingsViewModel(
     val store: SettingsStore,
     private val library: LibraryRepository,
     private val downloads: DownloadRepository,
-    private val profile: com.fuwanime.data.ProfileRepository,
     val backup: BackupRepository,
     private val refreshHomeSurfaces: () -> Unit = {},
 ) : ViewModel() {
@@ -133,7 +132,6 @@ class SettingsViewModel(
     fun deleteAllData(onDone: () -> Unit = {}) = viewModelScope.launch {
         downloads.clearAll()
         library.clearAll()
-        profile.wipeAll()
         store.clearUserData()
         refreshHomeSurfaces()
         onDone()
@@ -144,7 +142,7 @@ class SettingsViewModel(
 @Composable
 fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit, onOpenProfile: () -> Unit) {
     val vm: SettingsViewModel = fuwaViewModel { c, _ ->
-        SettingsViewModel(c.settingsStore, c.libraryRepository, c.downloadRepository, c.profileRepository, c.backupRepository, c::refreshHomeSurfaces)
+        SettingsViewModel(c.settingsStore, c.libraryRepository, c.downloadRepository, c.backupRepository, c::refreshHomeSurfaces)
     }
     val s by vm.settings.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()

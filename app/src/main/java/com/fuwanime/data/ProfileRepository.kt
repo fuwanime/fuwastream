@@ -121,11 +121,6 @@ class ProfileRepository(private val db: FuwaDatabase) {
         return Claimed(def.rewardXp, def.borderId)
     }
 
-    /** Wipes profile, quests, counters and borders; used by "Hapus semua data". */
-    suspend fun wipeAll() = db.withTransaction {
-        dao.clearProfile(); dao.clearQuests(); dao.clearCounted(); dao.clearBorders()
-    }
-
     private suspend fun ensureRows() {
         dao.ensureProfile()
         ProfileRules.quests.forEach { dao.ensureQuest(it.id) }
