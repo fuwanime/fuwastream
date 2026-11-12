@@ -12,56 +12,56 @@ object RankTags {
     data class Tag(val title: String, val color: Long)
 
     val ALL = listOf(
-        Tag("Pemula", 0xFF9E9E9E),           // 1
-        Tag("Kadet", 0xFF8FD3F2),            // 2
-        Tag("Newbie", 0xFF7DD3A8),           // 3
-        Tag("Novice", 0xFF4ADE80),           // 4
-        Tag("Penjelajah", 0xFF38BDF8),       // 5
-        Tag("Petualang", 0xFF60A5FA),        // 6
-        Tag("Penjaga", 0xFFA78BFA),          // 7
-        Tag("Elite", 0xFFEC4899),            // 8
-        Tag("Maha Guru", 0xFFF472B6),        // 9
-        Tag("Menteri", 0xFFFB7185),          // 10
-        Tag("Raja", 0xFFFBBF24),             // 11
-        Tag("Dewa", 0xFFF97316),             // 12
-        Tag("Legenda", 0xFFEF4444),          // 13
-        Tag("Sepuh", 0xFFEAB308),            // 14
-        Tag("Kiyora Sejati", 0xFFEC4899),    // 15
-        Tag("Pemburu Musim", 0xFF22D3EE),    // 16
-        Tag("Kolektor OP", 0xFF818CF8),      // 17
-        Tag("Raja Maraton", 0xFF2DD4BF),     // 18
-        Tag("Pengejar Episode", 0xFF34D399), // 19
-        Tag("Tuan Waktu", 0xFFA3E635),       // 20
-        Tag("Siluman Subtitle", 0xFFFDE047), // 21
-        Tag("Kaisar Nonton", 0xFFFBBF24),    // 22
-        Tag("Dewa Baca", 0xFFFB923C),        // 23
-        Tag("Sang Kritikus", 0xFFF87171),    // 24
-        Tag("Arsitek Watchlist", 0xFFE879F9),// 25
-        Tag("Pengamat Jadwal", 0xFFC084FC),  // 26
-        Tag("Ksatria Chapter", 0xFF60A5FA),  // 27
-        Tag("Naga Offline", 0xFF4ADE80),     // 28
-        Tag("Penyimpan Unduhan", 0xFF2DD4BF),// 29
-        Tag("Maestro Kualitas", 0xFF38BDF8), // 30
-        Tag("Meteor", 0xFFF472B6),           // 31
-        Tag("Komet", 0xFFFB7185),            // 32
-        Tag("Galaksi", 0xFFA78BFA),          // 33
-        Tag("Nebula", 0xFF818CF8),           // 34
-        Tag("Supernova", 0xFFF97316),        // 35
-        Tag("Kuasar", 0xFF34D399),           // 36
-        Tag("Pulsar", 0xFF22D3EE),           // 37
-        Tag("Hollow", 0xFF94A3B8),           // 38
-        Tag("Eclipse", 0xFF64748B),          // 39
-        Tag("Samurai Salju", 0xFFE0F2FE),    // 40
-        Tag("Shogun", 0xFFD62755),           // 41
-        Tag("Onmyoji", 0xFF9F7AEA),          // 42
-        Tag("Yokai", 0xFF2F855A),            // 43
-        Tag("Ryu", 0xFFDD6B20),              // 44
-        Tag("Kami", 0xFFD69E2E),             // 45
-        Tag("Amaterasu", 0xFFF6AD55),        // 46
-        Tag("Tsukuyomi", 0xFFB794F4),        // 47
-        Tag("Susanoo", 0xFF63B3ED),          // 48
-        Tag("Tenshi", 0xFFFEEBC8),           // 49
-        Tag("Absolut", 0xFFFF2D95),          // 50
+        Tag("Pemula", 0xFFB0B0B0),           // 1
+        Tag("Kadet", 0xFFB0B0B0),            // 2
+        Tag("Newbie", 0xFFB0B0B0),           // 3
+        Tag("Novice", 0xFFB0B0B0),           // 4
+        Tag("Penjelajah", 0xFFB0B0B0),       // 5
+        Tag("Petualang", 0xFFB0B0B0),        // 6
+        Tag("Penjaga", 0xFFB0B0B0),          // 7
+        Tag("Elite", 0xFFB0B0B0),            // 8
+        Tag("Maha Guru", 0xFFB0B0B0),        // 9
+        Tag("Menteri", 0xFFB0B0B0),          // 10
+        Tag("Raja", 0xFFB0B0B0),             // 11
+        Tag("Dewa", 0xFFB0B0B0),             // 12
+        Tag("Legenda", 0xFFB0B0B0),          // 13
+        Tag("Sepuh", 0xFFB0B0B0),            // 14
+        Tag("Fuwa Sejati", 0xFFB0B0B0),    // 15
+        Tag("Pemburu Musim", 0xFFB0B0B0),    // 16
+        Tag("Kolektor OP", 0xFFB0B0B0),      // 17
+        Tag("Raja Maraton", 0xFFB0B0B0),     // 18
+        Tag("Pengejar Episode", 0xFFB0B0B0), // 19
+        Tag("Tuan Waktu", 0xFFB0B0B0),       // 20
+        Tag("Siluman Subtitle", 0xFFB0B0B0), // 21
+        Tag("Kaisar Nonton", 0xFFB0B0B0),    // 22
+        Tag("Dewa Baca", 0xFFB0B0B0),        // 23
+        Tag("Sang Kritikus", 0xFFB0B0B0),    // 24
+        Tag("Arsitek Watchlist", 0xFFB0B0B0),// 25
+        Tag("Pengamat Jadwal", 0xFFB0B0B0),  // 26
+        Tag("Ksatria Chapter", 0xFFB0B0B0),  // 27
+        Tag("Naga Offline", 0xFFB0B0B0),     // 28
+        Tag("Penyimpan Unduhan", 0xFFB0B0B0),// 29
+        Tag("Maestro Kualitas", 0xFFB0B0B0), // 30
+        Tag("Meteor", 0xFFB0B0B0),           // 31
+        Tag("Komet", 0xFFB0B0B0),            // 32
+        Tag("Galaksi", 0xFFB0B0B0),          // 33
+        Tag("Nebula", 0xFFB0B0B0),           // 34
+        Tag("Supernova", 0xFFB0B0B0),        // 35
+        Tag("Kuasar", 0xFFB0B0B0),           // 36
+        Tag("Pulsar", 0xFFB0B0B0),           // 37
+        Tag("Hollow", 0xFFB0B0B0),           // 38
+        Tag("Eclipse", 0xFFB0B0B0),          // 39
+        Tag("Samurai Salju", 0xFFB0B0B0),    // 40
+        Tag("Shogun", 0xFFB0B0B0),           // 41
+        Tag("Onmyoji", 0xFFB0B0B0),          // 42
+        Tag("Yokai", 0xFFB0B0B0),            // 43
+        Tag("Ryu", 0xFFB0B0B0),              // 44
+        Tag("Kami", 0xFFB0B0B0),             // 45
+        Tag("Amaterasu", 0xFFB0B0B0),        // 46
+        Tag("Tsukuyomi", 0xFFB0B0B0),        // 47
+        Tag("Susanoo", 0xFFB0B0B0),          // 48
+        Tag("Tenshi", 0xFFB0B0B0),           // 49
+        Tag("Absolut", 0xFFB0B0B0),          // 50
     )
 
     fun tagForLevel(level: Int): Tag = ALL[(level - 1).coerceIn(0, ALL.size - 1)]
