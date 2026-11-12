@@ -53,7 +53,6 @@ import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.PrivacyTip
 import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material.icons.rounded.Download
@@ -119,14 +118,10 @@ class SettingsViewModel(
     private val library: LibraryRepository,
     private val downloads: DownloadRepository,
     private val profile: com.fuwanime.data.ProfileRepository,
-    private val account: com.fuwanime.data.AccountRepository,
     val backup: BackupRepository,
     private val refreshHomeSurfaces: () -> Unit = {},
 ) : ViewModel() {
     val backupPrefs: StateFlow<BackupPrefs?> = store.backup.stateIn(viewModelScope, SharingStarted.Eagerly, null)
-
-    val loggedIn: StateFlow<Boolean> = account.isLoggedIn.stateIn(viewModelScope, SharingStarted.Eagerly, false)
-    fun logout() = viewModelScope.launch { account.logout() }
 
     val settings: StateFlow<AppSettings> = store.settings.stateIn(viewModelScope, SharingStarted.Eagerly, AppSettings())
 
@@ -138,8 +133,7 @@ class SettingsViewModel(
     fun deleteAllData(onDone: () -> Unit = {}) = viewModelScope.launch {
         downloads.clearAll()
         library.clearAll()
-        profile.clearAll()
-        // TODO: AccountRepository belum punya clearAll(); tambahkan lalu panggil di sini.
+        profile.wipeAll()
         store.clearUserData()
         refreshHomeSurfaces()
         onDone()
@@ -148,12 +142,11 @@ class SettingsViewModel(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit, onOpenProfile: () -> Unit = {}, onOpenAuth: () -> Unit = {}) {
+fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit, onOpenProfile: () -> Unit) {
     val vm: SettingsViewModel = fuwaViewModel { c, _ ->
-        SettingsViewModel(c.settingsStore, c.libraryRepository, c.downloadRepository, c.profileRepository, c.accountRepository, c.backupRepository, c::refreshHomeSurfaces)
+        SettingsViewModel(c.settingsStore, c.libraryRepository, c.downloadRepository, c.profileRepository, c.backupRepository, c::refreshHomeSurfaces)
     }
     val s by vm.settings.collectAsStateWithLifecycle()
-    val loggedIn by vm.loggedIn.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -228,30 +221,7 @@ fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit, onOpenProfi
             Modifier.fillMaxHeight().readableWidth().hazeSource(hazeState),
             contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = 32.dp),
         ) {
-            item { Group(stringResource(R.string.mine_group_account)) }
-            item {
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .clickable(onClick = onOpenProfile)
-                        .padding(horizontal = 24.dp, vertical = 12.dp),
-                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                ) {
-                    Icon(Icons.Rounded.Person, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(end = 16.dp))
-                    Text(stringResource(R.string.profile_title), style = MaterialTheme.typography.bodyLarge)
-                }
-                // Sudah login/daftar -> menu Masuk/Daftar disembunyikan, diganti Keluar.
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .clickable { if (loggedIn) vm.logout() else onOpenAuth() }
-                        .padding(horizontal = 24.dp, vertical = 12.dp),
-                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                ) {
-                    Icon(Icons.Rounded.AccountCircle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(end = 16.dp))
-                    Text(stringResource(if (loggedIn) R.string.auth_logout else R.string.auth_menu), style = MaterialTheme.typography.bodyLarge)
-                }
-            }
+            item { ActionRow(Icons.Rounded.Person, stringResource(R.string.profile_title), stringResource(R.string.profile_settings_desc), onOpenProfile) }
             item { Group(stringResource(R.string.mine_group_display)) }
             item {
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {

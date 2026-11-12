@@ -2,8 +2,6 @@ package com.fuwanime.data.local
 
 import com.squareup.moshi.JsonClass
 import android.content.Context
-import com.fuwanime.data.QuestEntity
-import com.fuwanime.data.QuestDao
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Entity
@@ -184,8 +182,8 @@ interface DownloadDao {
 }
 
 @Database(
-    entities = [FavoriteEntity::class, WatchHistoryEntity::class, SearchHistoryEntity::class, DownloadEntity::class, WatchDailyEntity::class, AnimeLinkEntity::class, MangaFavoriteEntity::class, MangaHistoryEntity::class, MangaDownloadEntity::class, ProfileEntity::class, AccountEntity::class, QuestEntity::class],
-    version = 10,
+    entities = [FavoriteEntity::class, WatchHistoryEntity::class, SearchHistoryEntity::class, DownloadEntity::class, WatchDailyEntity::class, AnimeLinkEntity::class, MangaFavoriteEntity::class, MangaHistoryEntity::class, MangaDownloadEntity::class, ProfileEntity::class, QuestEntity::class, CountedEntity::class, BorderEntity::class],
+    version = 8,
     exportSchema = false,
 )
 abstract class FuwaDatabase : RoomDatabase() {
@@ -199,55 +197,12 @@ abstract class FuwaDatabase : RoomDatabase() {
     abstract fun mangaHistoryDao(): MangaHistoryDao
     abstract fun mangaDownloadDao(): MangaDownloadDao
     abstract fun profileDao(): ProfileDao
-    abstract fun accountDao(): AccountDao
-    abstract fun questDao(): QuestDao
 
     companion object {
         fun create(context: Context): FuwaDatabase =
             Room.databaseBuilder(context, FuwaDatabase::class.java, "fuwanime.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                 .build()
-
-        /** v8 adds the local profile (name, bio, avatar, banner, XP and rank tag). */
-        internal val MIGRATION_7_8 = object : Migration(7, 8) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL(
-                    "CREATE TABLE IF NOT EXISTS `profile` (`id` INTEGER NOT NULL, `name` TEXT NOT NULL, `bio` TEXT NOT NULL, " +
-                        "`avatarPath` TEXT NOT NULL, `bannerPath` TEXT NOT NULL, `totalXp` INTEGER NOT NULL, " +
-                        "`highestTagIndex` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
-                )
-            }
-        }
-
-        /** v10 adds borders + quest counters to profile and the quest board table. */
-        internal val MIGRATION_9_10 = object : Migration(9, 10) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE `profile` ADD COLUMN `ownedBorders` TEXT NOT NULL DEFAULT ''")
-                db.execSQL("ALTER TABLE `profile` ADD COLUMN `equippedBorder` TEXT NOT NULL DEFAULT 'none'")
-                db.execSQL("ALTER TABLE `profile` ADD COLUMN `qEpisodes` INTEGER NOT NULL DEFAULT 0")
-                db.execSQL("ALTER TABLE `profile` ADD COLUMN `qChapters` INTEGER NOT NULL DEFAULT 0")
-                db.execSQL("ALTER TABLE `profile` ADD COLUMN `qFavorites` INTEGER NOT NULL DEFAULT 0")
-                db.execSQL("ALTER TABLE `profile` ADD COLUMN `qSearches` INTEGER NOT NULL DEFAULT 0")
-                db.execSQL("ALTER TABLE `profile` ADD COLUMN `qDownloads` INTEGER NOT NULL DEFAULT 0")
-                db.execSQL("ALTER TABLE `profile` ADD COLUMN `qMinutes` INTEGER NOT NULL DEFAULT 0")
-                db.execSQL(
-                    "CREATE TABLE IF NOT EXISTS `quests` (`id` TEXT NOT NULL, `templateId` TEXT NOT NULL, `title` TEXT NOT NULL, " +
-                        "`target` INTEGER NOT NULL, `progress` INTEGER NOT NULL, `xpReward` INTEGER NOT NULL, `borderReward` TEXT NOT NULL, " +
-                        "`cycleStart` INTEGER NOT NULL, `done` INTEGER NOT NULL, `claimed` INTEGER NOT NULL, PRIMARY KEY(`id`))",
-                )
-            }
-        }
-
-        /** v9 adds the device-local account (login/register without a server). */
-        internal val MIGRATION_8_9 = object : Migration(8, 9) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL(
-                    "CREATE TABLE IF NOT EXISTS `account` (`id` INTEGER NOT NULL, `email` TEXT NOT NULL, `displayName` TEXT NOT NULL, " +
-                        "`passwordHash` TEXT NOT NULL, `salt` TEXT NOT NULL, `provider` TEXT NOT NULL, `loggedIn` INTEGER NOT NULL, " +
-                        "`createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
-                )
-            }
-        }
 
         /** v2 adds offline downloads; existing favourites and history are kept. */
         private val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -280,6 +235,16 @@ abstract class FuwaDatabase : RoomDatabase() {
                         "`malId` INTEGER, `score` INTEGER, `tags` TEXT NOT NULL, `nextEpisode` INTEGER, `nextAiringAt` INTEGER, " +
                         "`fetchedAt` INTEGER NOT NULL, PRIMARY KEY(`animeId`))",
                 )
+            }
+        }
+
+        /** v8 adds the local profile, quest progress, once-only counters and unlocked borders; nothing existing changes. */
+        internal val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `user_profile` (`id` INTEGER NOT NULL, `name` TEXT NOT NULL, `xp` INTEGER NOT NULL, `equippedBorder` TEXT, PRIMARY KEY(`id`))")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `quest_progress` (`id` TEXT NOT NULL, `progress` INTEGER NOT NULL, `claimed` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `counted_items` (`key` TEXT NOT NULL, PRIMARY KEY(`key`))")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `unlocked_borders` (`id` TEXT NOT NULL, PRIMARY KEY(`id`))")
             }
         }
 
