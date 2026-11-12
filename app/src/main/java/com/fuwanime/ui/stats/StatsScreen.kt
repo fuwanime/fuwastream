@@ -340,12 +340,12 @@ private fun BarChart(title: String, labels: List<String>, minutes: List<Int>) {
     }
 }
 
-private val RecapBg = Color(0xFF0B0A0F)
-private val RecapBgEnd = Color(0xFF1A1721)
-private val RecapPrimary = Color(0xFFD4BBFF)
-private val RecapPink = Color(0xFFFFB0C9)
-private val RecapText = Color(0xFFE8E0EE)
-private val RecapMuted = Color(0xFFA39DAE)
+private val RecapBg = Color(0xFF000000)
+private val RecapBgEnd = Color(0xFF0D0D0D)
+private val RecapPrimary = Color(0xFFE0E0E0)
+private val RecapPink = Color(0xFFB0B0B0)
+private val RecapText = Color(0xFFE8E8E8)
+private val RecapMuted = Color(0xFF9A9A9A)
 
 /** Shareable 4:5 card in the banner style; fixed palette so it looks the same in light mode. */
 @Composable
@@ -415,7 +415,7 @@ private fun StatsLevelCard(profileVm: com.fuwanime.ui.profile.ProfileViewModel? 
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Box(
                 Modifier.size(48.dp).clip(RoundedCornerShape(14.dp)).background(
-                    Brush.linearGradient(listOf(Color(0xFF8B5CF6), Color(0xFFEC4899))),
+                    Brush.linearGradient(listOf(Color(0xFF3A3A3A), Color(0xFF161616))),
                 ),
                 contentAlignment = Alignment.Center,
             ) {
@@ -429,13 +429,13 @@ private fun StatsLevelCard(profileVm: com.fuwanime.ui.profile.ProfileViewModel? 
                 Text(
                     stringResource(R.string.profile_total_xp, p.totalXp),
                     style = MaterialTheme.typography.labelMedium,
-                    color = Color(0xFFEC4899),
+                    color = Color.White,
                     fontWeight = FontWeight.Bold,
                 )
             }
         }
         Box(Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh)) {
-            Box(Modifier.fillMaxWidth(progress.fraction.coerceIn(0.02f, 1f)).height(10.dp).clip(RoundedCornerShape(5.dp)).background(Brush.horizontalGradient(listOf(Color(0xFFEC4899), Color(0xFF8B5CF6)))))
+            Box(Modifier.fillMaxWidth(progress.fraction.coerceIn(0.02f, 1f)).height(10.dp).clip(RoundedCornerShape(5.dp)).background(Brush.horizontalGradient(listOf(Color(0xFF6E6E6E), Color(0xFF2E2E2E)))))
         }
         Row(Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.profile_xp_to_next, progress.xpForNext - progress.xpIntoLevel), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
