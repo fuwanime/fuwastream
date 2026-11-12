@@ -1,5 +1,7 @@
 package com.fuwanime.ui.manga
 
+import com.fuwanime.data.ProfileRepository
+import com.fuwanime.data.ProfileRules
 import com.fuwanime.data.manga.isKomikuId
 import com.fuwanime.data.manga.isShinigamiId
 import android.app.Activity
@@ -139,6 +141,7 @@ class MangaReaderViewModel(
     private val downloads: MangaDownloadRepository,
     /** Outlives the screen, so the save on exit isn't cancelled with viewModelScope. */
     private val appScope: kotlinx.coroutines.CoroutineScope,
+    private val profile: ProfileRepository? = null,
 ) : ViewModel() {
     private val _state = MutableStateFlow(ReaderState())
     val state: StateFlow<ReaderState> = _state.asStateFlow()
@@ -194,7 +197,11 @@ class MangaReaderViewModel(
     /** Takes the chapter explicitly: on a chapter switch the old one is saved after the state has moved on. */
     fun saveProgress(chapter: MangaChapter, page: Int, pageCount: Int, chapterLabel: String) {
         val manga = _state.value.manga ?: return
-        appScope.launch { library.saveProgress(manga, chapter, chapterLabel, page, pageCount) }
+        appScope.launch {
+            library.saveProgress(manga, chapter, chapterLabel, page, pageCount)
+            // Fires on every page turn; the quest counts each chapter id only once.
+            if (ProfileRules.chapterRead(page, pageCount)) profile?.onChapterRead(chapter.id)
+        }
     }
 }
 
@@ -208,7 +215,7 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
 @Composable
 fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
     val vm: MangaReaderViewModel = fuwaViewModel(key = "reader-$mangaId-$chapterId") { c, _ ->
-        MangaReaderViewModel(mangaId, chapterId, c.mangaRepository, c.mangaLibrary, c.settingsStore, c.mangaDownloads, c.appScope)
+        MangaReaderViewModel(mangaId, chapterId, c.mangaRepository, c.mangaLibrary, c.settingsStore, c.mangaDownloads, c.appScope, c.profileRepository)
     }
     val state by vm.state.collectAsStateWithLifecycle()
     var barsVisible by rememberSaveable { mutableStateOf(true) }
