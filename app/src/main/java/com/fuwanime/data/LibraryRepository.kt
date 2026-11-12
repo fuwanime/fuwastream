@@ -28,6 +28,7 @@ class LibraryRepository(private val db: FuwaDatabase) {
     private val links = db.animeLinkDao()
     private val mangaFavorites = db.mangaFavoriteDao()
     private val mangaHistory = db.mangaHistoryDao()
+    private val profile = db.profileDao()
 
     val favoriteList: Flow<List<FavoriteEntity>> = favorites.observeAll()
 
@@ -50,15 +51,10 @@ class LibraryRepository(private val db: FuwaDatabase) {
                     addedAt = System.currentTimeMillis(),
                 ),
             )
-            questHooks?.invoke(QuestKind.FAVORITE)
         } else {
             favorites.delete(anime.id)
         }
     }
-
-    /** Optional hook into the quest board; set by AppContainer. */
-    var questHooks: ((QuestKind) -> Unit)? = null
-    var profileBumper: ((String) -> Unit)? = null
 
     val allHistory: Flow<List<WatchHistoryEntity>> = history.observeAll()
 
@@ -106,10 +102,7 @@ class LibraryRepository(private val db: FuwaDatabase) {
 
     suspend fun addSearch(query: String) {
         val q = query.trim()
-        if (q.length >= 2) {
-            searches.upsert(SearchHistoryEntity(q, System.currentTimeMillis()))
-            questHooks?.invoke(QuestKind.SEARCH)
-        }
+        if (q.length >= 2) searches.upsert(SearchHistoryEntity(q, System.currentTimeMillis()))
     }
 
     suspend fun removeSearch(query: String) = searches.delete(query)
@@ -124,6 +117,10 @@ class LibraryRepository(private val db: FuwaDatabase) {
         links.clear()
         mangaFavorites.clear()
         mangaHistory.clear()
+        profile.clearProfile()
+        profile.clearQuests()
+        profile.clearCounted()
+        profile.clearBorders()
     }
 
     data class Snapshot(

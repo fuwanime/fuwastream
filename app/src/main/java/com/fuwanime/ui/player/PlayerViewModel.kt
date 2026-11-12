@@ -1,5 +1,9 @@
 package com.fuwanime.ui.player
 
+import com.fuwanime.data.ProfileRepository
+import com.fuwanime.data.ProfileRules
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 import androidx.lifecycle.SavedStateHandle
 import com.fuwanime.data.SeasonEntry
 import com.fuwanime.data.meta.AnimeLinkRepository
@@ -17,17 +21,12 @@ import com.fuwanime.data.closestTo
 import com.fuwanime.data.AnimeRepository
 import com.fuwanime.data.Episode
 import com.fuwanime.data.LibraryRepository
-import com.fuwanime.data.ProfileRepository
-import com.fuwanime.data.QuestKind
-import com.fuwanime.data.QuestRepository
-import com.fuwanime.data.XpCurve
 import com.fuwanime.data.OpMark
 import com.fuwanime.data.nextLowerThan
 import com.fuwanime.data.StreamSource
 import com.fuwanime.data.local.AppSettings
 import com.fuwanime.data.local.SettingsStore
 import com.fuwanime.data.local.VideoResize
-import com.fuwanime.data.local.WatchHistoryEntity
 import com.fuwanime.R
 import com.fuwanime.util.UiText
 import com.fuwanime.util.friendlyText
@@ -83,7 +82,6 @@ class PlayerViewModel(
     private val links: AnimeLinkRepository? = null,
     private val skips: SkipRepository? = null,
     private val profile: ProfileRepository? = null,
-    private val quests: QuestRepository? = null,
 ) : ViewModel() {
 
     private val animeId: String = checkNotNull(saved["animeId"])
@@ -101,6 +99,9 @@ class PlayerViewModel(
         ),
     )
     val state: StateFlow<PlayerUiState> = _state.asStateFlow()
+
+    /** New level numbers, shown as a snackbar while watching. */
+    val levelUps: Flow<Int> = profile?.levelUps ?: emptyFlow()
 
     val settings: StateFlow<AppSettings> =
         settingsStore.settings.stateIn(viewModelScope, SharingStarted.Eagerly, AppSettings())
@@ -313,15 +314,15 @@ class PlayerViewModel(
     fun retry() = play(_state.value.episode)
 
     fun saveProgress(positionMs: Long, durationMs: Long): Job? {
-        val s = state.value
-        if (durationMs > 0 && positionMs >= durationMs * WatchHistoryEntity.FINISHED_THRESHOLD) {
-            // Counted once per save batch; the quest board dedupes by template per cycle anyway.
-            countEpisodeWatched()
-        }
+        val s = _state.value
         val anime = s.anime ?: return null
         // Ignore the first few seconds so merely opening an episode doesn't clutter history.
         if (durationMs <= 0 || positionMs < 5_000) return null
-        return appScope.launch { library.saveProgress(anime, s.episode, positionMs, durationMs) }
+        return appScope.launch {
+            library.saveProgress(anime, s.episode, positionMs, durationMs)
+            // saveProgress runs every 5 s; the quest counts each episode id only once, so repeats are no-ops.
+            if (ProfileRules.episodeWatched(positionMs, durationMs)) profile?.onEpisodeWatched(s.episode.id)
+        }
     }
 
     /** Leaving the episode (stopped, ended): save, then let launcher surfaces show it. */
@@ -337,25 +338,7 @@ class PlayerViewModel(
     fun addWatchTime(ms: Long) {
         appScope.launch {
             library.addWatchTime(ms)
-            profile?.addWatchXp(ms)
-            // Quest "watch 60 minutes": accumulate minutes.
-            quests?.addMinutes((ms / 60_000L).toInt())
-        }
-    }
-
-    /** Counts a finished episode toward watch quests; called when an episode ends. */
-    fun countEpisodeWatched() {
-        appScope.launch {
-            profile?.bumpQuestCounter("episodes")
-            quests?.increment(QuestKind.WATCH)
-        }
-    }
-
-    /** Adds XP and reports whether this batch crossed into a new level ("naik level"). */
-    fun addWatchXpCheckingLevelUp(ms: Long, onLevelUp: (Int) -> Unit) {
-        appScope.launch {
-            val levelUp = profile?.addWatchXpCheckingLevelUp(ms) ?: false
-            if (levelUp) profile?.let { onLevelUp(XpCurve.levelFor(it.totalXp())) }
+            profile?.recordWatch(ms)
         }
     }
 }

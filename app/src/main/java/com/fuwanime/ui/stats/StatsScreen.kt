@@ -40,7 +40,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -90,7 +89,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.fuwanime.data.LibraryRepository
-import com.fuwanime.data.local.ProfileEntity
 import com.fuwanime.ui.components.MessageState
 import com.fuwanime.ui.components.TagChip
 import com.fuwanime.ui.theme.PlusJakarta
@@ -184,9 +182,6 @@ fun StatsRoute(onBack: () -> Unit, onExplore: () -> Unit) {
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = padding.calculateTopPadding(), bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            item {
-                StatsLevelCard()
-            }
             item {
                 Column(Modifier.semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(stringResource(R.string.mine_stats_total), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -340,12 +335,12 @@ private fun BarChart(title: String, labels: List<String>, minutes: List<Int>) {
     }
 }
 
-private val RecapBg = Color(0xFF000000)
-private val RecapBgEnd = Color(0xFF0D0D0D)
-private val RecapPrimary = Color(0xFFE0E0E0)
-private val RecapPink = Color(0xFFB0B0B0)
-private val RecapText = Color(0xFFE8E8E8)
-private val RecapMuted = Color(0xFF9A9A9A)
+private val RecapBg = Color(0xFF0B0A0F)
+private val RecapBgEnd = Color(0xFF1A1721)
+private val RecapPrimary = Color(0xFFD4BBFF)
+private val RecapPink = Color(0xFFFFB0C9)
+private val RecapText = Color(0xFFE8E0EE)
+private val RecapMuted = Color(0xFFA39DAE)
 
 /** Shareable 4:5 card in the banner style; fixed palette so it looks the same in light mode. */
 @Composable
@@ -388,59 +383,4 @@ private fun RecapCard(stats: WatchStats, monthYear: String) {
 @Composable
 private fun RecapLine(text: String) {
     Text(text, color = RecapText, fontSize = 17.sp, fontFamily = PlusJakarta, fontWeight = FontWeight.Bold)
-}
-
-/** Level + rank card at the top of the stats page: XP progress and the current rank tag. */
-@Composable
-private fun StatsLevelCard(profileVm: com.fuwanime.ui.profile.ProfileViewModel? = null) {
-    val c = androidx.compose.ui.platform.LocalContext.current.applicationContext as com.fuwanime.FuwaApp
-    val repo = c.container.profileRepository
-    val pState by repo.profile
-        .map { it as ProfileEntity? }
-        .collectAsStateWithLifecycle(initialValue = null)
-    val p = pState ?: return
-    val progress = com.fuwanime.data.XpCurve.progress(p.totalXp)
-    val tag = com.fuwanime.data.RankTags.safe(p.highestTagIndex)
-    val nextTag = com.fuwanime.data.RankTags.safe(com.fuwanime.data.RankTags.indexForLevel(progress.level + 1))
-    val tagColor = androidx.compose.ui.graphics.Color(tag.color)
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerLow)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(18.dp))
-            .padding(18.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Box(
-                Modifier.size(48.dp).clip(RoundedCornerShape(14.dp)).background(
-                    Brush.linearGradient(listOf(Color(0xFF3A3A3A), Color(0xFF161616))),
-                ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text("${progress.level}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = Color.White)
-            }
-            Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(stringResource(R.string.profile_my_level), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    com.fuwanime.ui.profile.RankTagBadge(tag)
-                }
-                Text(
-                    stringResource(R.string.profile_total_xp, p.totalXp),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                )
-            }
-        }
-        Box(Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh)) {
-            Box(Modifier.fillMaxWidth(progress.fraction.coerceIn(0.02f, 1f)).height(10.dp).clip(RoundedCornerShape(5.dp)).background(Brush.horizontalGradient(listOf(Color(0xFF6E6E6E), Color(0xFF2E2E2E)))))
-        }
-        Row(Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.profile_xp_to_next, progress.xpForNext - progress.xpIntoLevel), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.weight(1f))
-            Text("${(progress.fraction * 100).toInt()}% · ${nextTag.title}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
 }

@@ -115,6 +115,7 @@ import com.fuwanime.ui.library.LibraryRoute
 import com.fuwanime.ui.legal.LegalRoute
 import com.fuwanime.ui.player.PlayerRoute
 import com.fuwanime.ui.schedule.ScheduleRoute
+import com.fuwanime.ui.profile.ProfileRoute
 import com.fuwanime.ui.settings.SettingsRoute
 import com.fuwanime.ui.stats.StatsRoute
 
@@ -127,6 +128,7 @@ internal object Routes {
     const val PLAYER = "player/{animeId}/{episodeId}?number={number}&thumb={thumb}&shared={shared}"
     const val SETTINGS = "settings"
     const val STATS = "stats"
+    const val PROFILE = "profile"
     const val LEGAL = "legal/{type}"
     const val MANGA_TAB = "manga_tab"
     const val MANGA_DETAIL = "manga/{mangaId}"
@@ -437,9 +439,11 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
                                 SettingsRoute(
                                     onBack = { nav.popBackStack() },
                                     onOpenLegal = { type -> nav.navigate(Routes.legal(type)) },
+                                    onOpenProfile = { nav.navigate(Routes.PROFILE) },
                                 )
                             }
                         }
+                        composable(Routes.PROFILE) { Scoped { ProfileRoute(onBack = { nav.popBackStack() }) } }
                         composable(
                             Routes.LEGAL,
                             arguments = listOf(navArgument("type") { type = NavType.StringType; defaultValue = "privacy" }),

@@ -1,209 +1,142 @@
 package com.fuwanime.data
 
+import androidx.compose.runtime.Immutable
 import androidx.room.withTransaction
+import com.fuwanime.data.local.BorderEntity
+import com.fuwanime.data.local.CountedEntity
 import com.fuwanime.data.local.FuwaDatabase
-import com.fuwanime.data.local.ProfileDao
-import com.fuwanime.data.local.ProfileEntity
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.combine
 
-/** Rank tags unlocked by level — 50 tiers. */
-object RankTags {
-    data class Tag(val title: String, val color: Long)
-
-    val ALL = listOf(
-        Tag("Pemula", 0xFFB0B0B0),           // 1
-        Tag("Kadet", 0xFFB0B0B0),            // 2
-        Tag("Newbie", 0xFFB0B0B0),           // 3
-        Tag("Novice", 0xFFB0B0B0),           // 4
-        Tag("Penjelajah", 0xFFB0B0B0),       // 5
-        Tag("Petualang", 0xFFB0B0B0),        // 6
-        Tag("Penjaga", 0xFFB0B0B0),          // 7
-        Tag("Elite", 0xFFB0B0B0),            // 8
-        Tag("Maha Guru", 0xFFB0B0B0),        // 9
-        Tag("Menteri", 0xFFB0B0B0),          // 10
-        Tag("Raja", 0xFFB0B0B0),             // 11
-        Tag("Dewa", 0xFFB0B0B0),             // 12
-        Tag("Legenda", 0xFFB0B0B0),          // 13
-        Tag("Sepuh", 0xFFB0B0B0),            // 14
-        Tag("Fuwa Sejati", 0xFFB0B0B0),    // 15
-        Tag("Pemburu Musim", 0xFFB0B0B0),    // 16
-        Tag("Kolektor OP", 0xFFB0B0B0),      // 17
-        Tag("Raja Maraton", 0xFFB0B0B0),     // 18
-        Tag("Pengejar Episode", 0xFFB0B0B0), // 19
-        Tag("Tuan Waktu", 0xFFB0B0B0),       // 20
-        Tag("Siluman Subtitle", 0xFFB0B0B0), // 21
-        Tag("Kaisar Nonton", 0xFFB0B0B0),    // 22
-        Tag("Dewa Baca", 0xFFB0B0B0),        // 23
-        Tag("Sang Kritikus", 0xFFB0B0B0),    // 24
-        Tag("Arsitek Watchlist", 0xFFB0B0B0),// 25
-        Tag("Pengamat Jadwal", 0xFFB0B0B0),  // 26
-        Tag("Ksatria Chapter", 0xFFB0B0B0),  // 27
-        Tag("Naga Offline", 0xFFB0B0B0),     // 28
-        Tag("Penyimpan Unduhan", 0xFFB0B0B0),// 29
-        Tag("Maestro Kualitas", 0xFFB0B0B0), // 30
-        Tag("Meteor", 0xFFB0B0B0),           // 31
-        Tag("Komet", 0xFFB0B0B0),            // 32
-        Tag("Galaksi", 0xFFB0B0B0),          // 33
-        Tag("Nebula", 0xFFB0B0B0),           // 34
-        Tag("Supernova", 0xFFB0B0B0),        // 35
-        Tag("Kuasar", 0xFFB0B0B0),           // 36
-        Tag("Pulsar", 0xFFB0B0B0),           // 37
-        Tag("Hollow", 0xFFB0B0B0),           // 38
-        Tag("Eclipse", 0xFFB0B0B0),          // 39
-        Tag("Samurai Salju", 0xFFB0B0B0),    // 40
-        Tag("Shogun", 0xFFB0B0B0),           // 41
-        Tag("Onmyoji", 0xFFB0B0B0),          // 42
-        Tag("Yokai", 0xFFB0B0B0),            // 43
-        Tag("Ryu", 0xFFB0B0B0),              // 44
-        Tag("Kami", 0xFFB0B0B0),             // 45
-        Tag("Amaterasu", 0xFFB0B0B0),        // 46
-        Tag("Tsukuyomi", 0xFFB0B0B0),        // 47
-        Tag("Susanoo", 0xFFB0B0B0),          // 48
-        Tag("Tenshi", 0xFFB0B0B0),           // 49
-        Tag("Absolut", 0xFFB0B0B0),          // 50
-    )
-
-    fun tagForLevel(level: Int): Tag = ALL[(level - 1).coerceIn(0, ALL.size - 1)]
-
-    fun indexForLevel(level: Int): Int = (level - 1).coerceIn(0, ALL.size - 1)
-
-    fun safe(index: Int): Tag = ALL[index.coerceIn(0, ALL.size - 1)]
+@Immutable
+data class QuestUi(val def: QuestDef, val progress: Int, val claimed: Boolean) {
+    val done: Boolean get() = progress >= def.target
 }
 
-object XpCurve {
-    /**
-     * Cumulative XP needed to REACH a level: a mixed quadratic+linear curve.
-     * Level 2 needs 1201, and each level costs more than the last.
-     */
-    fun xpForLevel(level: Int): Long {
-        if (level <= 1) return 0
-        val l = (level - 1).toLong()
-        return 500L * l + 701L * l * l + 50L * l * l * l
-    }
+@Immutable
+data class ProfileUi(
+    val name: String,
+    val xp: Long,
+    val level: Int,
+    val levelStartXp: Long,
+    /** XP needed for the next level, or null at the top level. */
+    val nextLevelXp: Long?,
+    val quests: List<QuestUi>,
+    val unlockedBorders: Set<String>,
+    val equippedBorder: String?,
+)
 
-    /** Level reached by a total XP amount. */
-    fun levelFor(xp: Long): Int {
-        var level = 1
-        while (level < 999 && xpForLevel(level + 1) <= xp) level++
-        return level
-    }
+/** Outcome of a successful claim. */
+data class Claimed(val xp: Long, val borderId: String)
 
-    /** (level, xpIntoLevel, xpForNextLevel, progress 0..1) for a total XP. */
-    fun progress(xp: Long): LevelProgress {
-        val level = levelFor(xp)
-        val base = xpForLevel(level)
-        val next = xpForLevel(level + 1)
-        val into = xp - base
-        val span = (next - base).coerceAtLeast(1)
-        return LevelProgress(level, into, next, into.toFloat() / span)
-    }
-}
-
-data class LevelProgress(val level: Int, val xpIntoLevel: Long, val xpForNext: Long, val fraction: Float)
-
-/** Profile + XP + quest counters: everything the local account owns. */
+/** Local profile, XP, quests and borders. Everything is on-device; there is no account. */
 class ProfileRepository(private val db: FuwaDatabase) {
-    private val dao: ProfileDao = db.profileDao()
+    private val dao = db.profileDao()
 
-    val profile: Flow<ProfileEntity> = dao.observe().map { it ?: ProfileEntity(updatedAt = System.currentTimeMillis()) }
+    private val _levelUps = MutableSharedFlow<Int>(extraBufferCapacity = 4, onBufferOverflow = BufferOverflow.DROP_OLDEST)
 
-    /** Ensures the single row exists before any write. */
-    private suspend fun ensure(): ProfileEntity = dao.get() ?: ProfileEntity(updatedAt = System.currentTimeMillis()).also { dao.upsert(it) }
+    /** Emits the new level whenever XP from any source crosses a level boundary. */
+    val levelUps: SharedFlow<Int> = _levelUps
 
-    val level: Flow<LevelProgress> = profile.map { XpCurve.progress(it.totalXp) }
-
-    fun tagOf(p: ProfileEntity): RankTags.Tag = RankTags.safe(p.highestTagIndex)
-
-    suspend fun rename(name: String, bio: String?, keepBio: Boolean = false) {
-        val p = ensure()
-        val nextBio = if (keepBio) p.bio else bio.orEmpty().trim()
-        dao.upsert(p.copy(name = name.trim().ifBlank { p.name }, bio = nextBio, updatedAt = System.currentTimeMillis()))
+    fun observe(): Flow<ProfileUi> = combine(dao.observeProfile(), dao.observeQuests(), dao.observeBorders()) { p, rows, borders ->
+        val xp = p?.xp ?: 0L
+        val level = ProfileRules.levelFor(xp)
+        ProfileUi(
+            name = p?.name.orEmpty(),
+            xp = xp,
+            level = level,
+            levelStartXp = ProfileRules.levels[level - 1].minXp,
+            nextLevelXp = ProfileRules.levels.getOrNull(level)?.minXp,
+            quests = ProfileRules.quests.map { d ->
+                val row = rows.firstOrNull { it.id == d.id }
+                QuestUi(d, row?.progress ?: 0, (row?.claimed ?: 0) == 1)
+            },
+            unlockedBorders = borders.toSet(),
+            equippedBorder = p?.equippedBorder?.takeIf { it in borders },
+        )
     }
 
-    suspend fun setAvatar(path: String) {
-        val p = ensure()
-        dao.upsert(p.copy(avatarPath = path, updatedAt = System.currentTimeMillis()))
+    suspend fun setName(name: String) = db.withTransaction {
+        dao.ensureProfile()
+        dao.setName(name.trim().take(MAX_NAME))
     }
 
-    suspend fun setBanner(path: String) {
-        val p = ensure()
-        dao.upsert(p.copy(bannerPath = path, updatedAt = System.currentTimeMillis()))
+    /** Equips an unlocked border, or removes the border when [id] is null. False when the border is still locked. */
+    suspend fun setEquippedBorder(id: String?): Boolean = db.withTransaction {
+        dao.ensureProfile()
+        if (id != null && dao.hasBorder(id) == 0) return@withTransaction false
+        dao.setEquippedBorder(id)
+        true
     }
 
-    /** Selects the avatar border to show; must be one the user owns (or "none"). */
-    suspend fun setEquippedBorder(borderId: String) {
-        val p = ensure()
-        val owned = p.ownedBorders.split(",").filter { it.isNotBlank() }
-        if (borderId == "none" || owned.contains(borderId)) {
-            dao.upsert(p.copy(equippedBorder = borderId, updatedAt = System.currentTimeMillis()))
-        }
-    }
-
-    /** Adds XP directly (quest rewards) and refreshes the rank tag. */
-    suspend fun addRawXp(xp: Long) {
-        if (xp <= 0) return
-        ensure()
-        dao.addXp(xp)
-        dao.raiseTag(RankTags.indexForLevel(XpCurve.levelFor(totalXp())))
-    }
-
-    /** Unlocks a border if not owned yet. */
-    suspend fun grantBorder(borderId: String) {
-        if (borderId.isBlank() || borderId == "none") return
-        val p = ensure()
-        val owned = p.ownedBorders.split(",").filter { it.isNotBlank() }.toMutableList()
-        if (!owned.contains(borderId)) {
-            owned.add(borderId)
-            dao.upsert(p.copy(ownedBorders = owned.joinToString(","), updatedAt = System.currentTimeMillis()))
-        }
-    }
-
-    /** Quest counters stored on the profile row; returns the new value. */
-    suspend fun bumpQuestCounter(field: String, amount: Int = 1): Int {
-        val p = ensure()
-        val cur = when (field) {
-            "episodes" -> p.qEpisodes
-            "chapters" -> p.qChapters
-            "favorites" -> p.qFavorites
-            "searches" -> p.qSearches
-            "downloads" -> p.qDownloads
-            "minutes" -> p.qMinutes
-            else -> 0
-        }
-        val next = cur + amount
-        when (field) {
-            "episodes" -> dao.setQEpisodes(next)
-            "chapters" -> dao.setQChapters(next)
-            "favorites" -> dao.setQFavorites(next)
-            "searches" -> dao.setQSearches(next)
-            "downloads" -> dao.setQDownloads(next)
-            "minutes" -> dao.setQMinutes(next)
-        }
-        return next
-    }
-
-    /** 1 XP per 5 s of real playback. */
-    suspend fun addWatchXp(ms: Long) {
+    /**
+     * The only path that turns playing time into XP and quest progress: one XP per
+     * [ProfileRules.WATCH_XP_INTERVAL_MS], and the watch-time quest in whole seconds.
+     */
+    suspend fun recordWatch(ms: Long) {
         if (ms <= 0) return
-        ensure()
-        dao.addXp((ms / 5_000L).coerceAtLeast(1))
-        dao.raiseTag(RankTags.indexForLevel(XpCurve.levelFor(totalXp())))
+        val change = db.withTransaction {
+            ensureRows()
+            val before = dao.xp() ?: 0L
+            val gained = ProfileRules.xpForWatch(ms)
+            dao.addXp(gained)
+            val quest = checkNotNull(ProfileRules.quest(ProfileRules.QUEST_WATCH_SECONDS))
+            dao.bumpQuest(quest.id, (ms / 1000).toInt(), quest.target)
+            before to before + gained
+        }
+        announceLevelUp(change.first, change.second)
     }
 
-    suspend fun totalXp(): Long = dao.get()?.totalXp ?: 0
+    /** Counts [episodeId] once, however many times playback passes the finish threshold. */
+    suspend fun onEpisodeWatched(episodeId: String) = countOnce("ep:$episodeId", ProfileRules.QUEST_WATCH_EPISODES)
 
-    /** True when this write crossed into a new level; used for the "naik level" celebration. */
-    suspend fun addWatchXpCheckingLevelUp(ms: Long): Boolean {
-        if (ms <= 0) return false
-        ensure()
-        val before = XpCurve.levelFor(totalXp())
-        val xp = (ms / 5_000L).coerceAtLeast(1)
-        dao.addXp(xp)
-        val after = XpCurve.levelFor(totalXp())
-        dao.raiseTag(RankTags.indexForLevel(after))
-        return after > before
+    /** Counts [chapterId] once, however many pages are turned past the finish threshold. */
+    suspend fun onChapterRead(chapterId: String) = countOnce("ch:$chapterId", ProfileRules.QUEST_READ_CHAPTERS)
+
+    private suspend fun countOnce(key: String, questId: String) = db.withTransaction {
+        ensureRows()
+        if (dao.markCounted(CountedEntity(key)) == -1L) return@withTransaction
+        val quest = checkNotNull(ProfileRules.quest(questId))
+        dao.bumpQuest(quest.id, 1, quest.target)
     }
 
-    suspend fun clearAll() = db.withTransaction { dao.clear() }
+    /**
+     * Pays out a finished quest. The claim is a conditional UPDATE, so a double tap changes a row only once
+     * and only that first call gets XP and the border. Null when the quest is unfinished, claimed, or unknown.
+     */
+    suspend fun claim(questId: String): Claimed? {
+        val def = ProfileRules.quest(questId) ?: return null
+        val change = db.withTransaction {
+            ensureRows()
+            if (dao.markClaimed(def.id, def.target) == 0) return@withTransaction null
+            val before = dao.xp() ?: 0L
+            dao.addXp(def.rewardXp)
+            dao.grantBorder(BorderEntity(def.borderId))
+            before
+        } ?: return null
+        announceLevelUp(change, change + def.rewardXp)
+        return Claimed(def.rewardXp, def.borderId)
+    }
+
+    /** Wipes profile, quests, counters and borders; used by "Hapus semua data". */
+    suspend fun wipeAll() = db.withTransaction {
+        dao.clearProfile(); dao.clearQuests(); dao.clearCounted(); dao.clearBorders()
+    }
+
+    private suspend fun ensureRows() {
+        dao.ensureProfile()
+        ProfileRules.quests.forEach { dao.ensureQuest(it.id) }
+    }
+
+    private fun announceLevelUp(before: Long, after: Long) {
+        val level = ProfileRules.levelFor(after)
+        if (level > ProfileRules.levelFor(before)) _levelUps.tryEmit(level)
+    }
+
+    companion object {
+        const val MAX_NAME = 24
+    }
 }
