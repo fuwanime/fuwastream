@@ -132,6 +132,17 @@ class AppContainer(private val app: Application) {
             .addInterceptor(RateLimitInterceptor())
             .build()
     }
+    /** Coil's client: same as [httpClient] plus the Referer Webtoon's image CDN demands (else thumbnails and panels get HTTP 403). */
+    val imageHttpClient: OkHttpClient by lazy {
+        httpClient.newBuilder()
+            .addInterceptor { chain ->
+                val req = chain.request()
+                chain.proceed(
+                    if (isWebtoonImage(req.url.toString())) req.newBuilder().header("Referer", WT_REFERER).build() else req,
+                )
+            }
+            .build()
+    }
     val mangaRepository by lazy {
         MangaRepository(
             MangaDexApi.create(mangaHttpClient),
@@ -169,7 +180,7 @@ class FuwaApp : Application(), SingletonImageLoader.Factory {
 
     // Coil 3 ignores HTTP cache headers by default, matching the old respectCacheHeaders(false).
     override fun newImageLoader(context: PlatformContext): ImageLoader = ImageLoader.Builder(context)
-        .components { add(OkHttpNetworkFetcherFactory(callFactory = { container.httpClient })) }
+        .components { add(OkHttpNetworkFetcherFactory(callFactory = { container.imageHttpClient })) }
         .memoryCache { MemoryCache.Builder().maxSizePercent(context, 0.25).build() }
         .diskCache {
             DiskCache.Builder()
