@@ -52,6 +52,8 @@
     <string name="manga_settings_mature_desc">Show mature-themed manga (e.g. Berserk, Vagabond) from MangaDex</string>
     <string name="manga_credit_komiku">Data &amp; images from Komiku</string>
     <string name="manga_reader_source_komiku">Source: Komiku</string>
+    <string name="manga_credit_webtoon">Data &amp; images from WEBTOON</string>
+    <string name="manga_reader_source_webtoon">Source: WEBTOON</string>
     <string name="manga_home_genres">Browse genres</string>
     <string name="manga_genre_action">Action</string>
     <string name="manga_genre_romance">Romance</string>
