@@ -23,6 +23,8 @@ class MangaRepository(
     private val shinigami: ShinigamiSource? = null,
     /** Third source (Indonesian, large archive of older titles); ids starting with "km:". */
     private val komiku: KomikuSource? = null,
+    /** Fourth source (official, originals + canvas in id/en); ids starting with "wt:". */
+    private val webtoon: WebtoonSource? = null,
     /** "Konten dewasa" setting: also show MangaDex titles rated erotica (e.g. Berserk, Vagabond); never pornographic. */
     private val mature: suspend () -> Boolean = { false },
 ) {
@@ -65,7 +67,8 @@ class MangaRepository(
     /** Shinigami search results for [query]; empty when the source is off or fails. */
     suspend fun searchIndonesia(query: String): List<Manga> =
         runCatching { shinigami?.browse(null, query)?.items }.getOrNull().orEmpty() +
-            runCatching { komiku?.search(query) }.getOrNull().orEmpty()
+            runCatching { komiku?.search(query) }.getOrNull().orEmpty() +
+            runCatching { webtoon?.search(query) }.getOrNull().orEmpty()
 
     /** Popular Komiku titles; [page] is 1-based, 10 per page. */
     suspend fun popularKomiku(page: Int = 1, type: MangaType? = null): MangaPage =
@@ -92,7 +95,8 @@ class MangaRepository(
         val others = listOfNotNull(
             if (isShinigamiId(manga.id)) null else async { look { shinigami?.find(names) } },
             if (isKomikuId(manga.id)) null else async { look { komiku?.find(names) } },
-            if (isShinigamiId(manga.id) || isKomikuId(manga.id)) async { look { findOnMangaDex(names) } } else null,
+            if (isWebtoonId(manga.id)) null else async { look { webtoon?.find(names) } },
+            if (isShinigamiId(manga.id) || isKomikuId(manga.id) || isWebtoonId(manga.id)) async { look { findOnMangaDex(names) } } else null,
         ).awaitAll().filterNotNull()
         (listOf(manga) + others).also { sourceCache[manga.id] = it }
     }
@@ -120,6 +124,7 @@ class MangaRepository(
     suspend fun detail(id: String): Manga {
         if (isShinigamiId(id)) return shinigami?.detail(id) ?: throw notFound()
         if (isKomikuId(id)) return komiku?.detail(id) ?: throw notFound()
+        if (isWebtoonId(id)) return webtoon?.detail(id) ?: throw notFound()
         val dto = call { api.manga(id, listOf("cover_art", "author")) }.data ?: throw notFound()
         return dto.toManga(appLanguage(), 512)
     }
@@ -127,6 +132,7 @@ class MangaRepository(
     suspend fun chapters(id: String): List<MangaChapter> {
         if (isShinigamiId(id)) return shinigami?.chapters(id).orEmpty()
         if (isKomikuId(id)) return komiku?.chapters(id).orEmpty()
+        if (isWebtoonId(id)) return webtoon?.chapters(id).orEmpty()
         val all = ArrayList<MangaChapter>()
         var offset = 0
         while (true) {
@@ -151,6 +157,7 @@ class MangaRepository(
     suspend fun pages(chapterId: String, dataSaver: Boolean, forceRefresh: Boolean = false): List<String> {
         if (isShinigamiId(chapterId)) return shinigami?.pages(chapterId).orEmpty()
         if (isKomikuId(chapterId)) return komiku?.pages(chapterId).orEmpty()
+        if (isWebtoonId(chapterId)) return webtoon?.pages(chapterId).orEmpty()
         val cached = atHomeCache[chapterId]?.takeIf { !forceRefresh && now() - it.first < BASE_URL_TTL_MS }
         val dto = cached?.second ?: call { api.atHome(chapterId) }.also { atHomeCache[chapterId] = now() to it }
         return pageUrls(dto.baseUrl, dto.chapter.hash, dto.chapter.data, dto.chapter.dataSaver, dataSaver)
