@@ -62,6 +62,7 @@ The application does not use Dagger or Hilt. All dependencies live as singletons
   - `MangaDexApi` (Retrofit + Moshi) + `MangaDexDns`: Global manga source, uses custom DNS resolver to bypass Indonesian ISP blocking.
   - `ShinigamiApi` (Retrofit + Moshi): Indonesian manga provider.
   - `KomikuSource` (OkHttp + regex scraping): Indonesian manga archive provider.
+  - `WebtoonSource` (OkHttp + HTML/JSON parsing): LINE Webtoon (webtoons.com) Originals and Canvas, Indonesian catalogue. Image CDN needs a Referer header (see `AppContainer.imageHttpClient`).
   - `AniListApi` & `AniSkipApi`: Anime franchise enrichment and intro/outro timestamp skipping.
   - `GitHubApi`: In-app update checker against GitHub Releases.
 - **Cache-First Architecture**: `apiCacheClient` provides a 50MB disk cache with `NetworkStatus` observer and `ForceCache` interceptor for seamless offline fallback.
@@ -85,8 +86,8 @@ The application does not use Dagger or Hilt. All dependencies live as singletons
 
 ### Baca (Manga Reader & Multi-Source) — `docs/readme/read.webp`, `sources.webp`
 - **Multi-Source Aggregator (`MangaRepository`)**:
-  - Merges chapters from MangaDex, Shinigami, and Komiku into a single deduplicated title.
-  - Chapter provider precedence: Local / Readability > Shinigami > Komiku > MangaDex.
+  - Merges chapters from MangaDex, Shinigami, Komiku, and WEBTOON into a single deduplicated title.
+  - Chapter provider precedence: Local / Readability > Shinigami > Komiku > MangaDex > WEBTOON.
   - Language chips: `ID`, `EN`, `Raw`.
   - Format filters: `Manga`, `Manhwa`, `Manhua` on browse/shelf.
 - **Reader (`MangaReaderScreen`)**:
