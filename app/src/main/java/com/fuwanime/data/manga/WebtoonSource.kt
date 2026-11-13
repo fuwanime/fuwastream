@@ -165,7 +165,8 @@ fun parseWebtoonPages(html: String): List<String> {
 
 /** LINE Webtoon calls for [MangaRepository]: search, detail, chapters, pages. */
 class WebtoonSource(private val client: OkHttpClient) {
-    private suspend fun get(url: String): String = withContext(Dispatchers.IO) {
+    /** Body plus the final URL after redirects (webtoons.com redirects a wrong slug to the canonical one). */
+    private suspend fun getWithUrl(url: String): Pair<String, String> = withContext(Dispatchers.IO) {
         client.newCall(
             Request.Builder().url(url)
                 .header("User-Agent", WT_UA)
@@ -173,17 +174,27 @@ class WebtoonSource(private val client: OkHttpClient) {
                 .build(),
         ).execute().use { r ->
             if (!r.isSuccessful) throw java.io.IOException("Webtoon HTTP ${r.code}")
-            r.body?.string().orEmpty()
+            r.body?.string().orEmpty() to r.request.url.toString()
         }
     }
+
+    private suspend fun get(url: String): String = getWithUrl(url).first
+
+    /** "<genre>/<slug>" per title id, learned from search results; saves a lookup when a result is opened. */
+    private val pathCache = java.util.concurrent.ConcurrentHashMap<String, String>()
 
     private val language get() = "id"
 
     /** Search results from the webtoons.com HTML page (originals + canvas, Indonesian catalogue). */
-    suspend fun search(query: String): List<Manga> =
-        parseWebtoonSearch(
-            get("https://www.webtoons.com/id/search?keyword=" + java.net.URLEncoder.encode(query.trim(), "UTF-8")),
-        )
+    suspend fun search(query: String): List<Manga> {
+        val html = get("https://www.webtoons.com/id/search?keyword=" + java.net.URLEncoder.encode(query.trim(), "UTF-8"))
+        Regex("""https://www\.webtoons\.com/(?:id|en)/([^"?]+?)/list\?title_no=(\d+)""").findAll(html).forEach { m ->
+            val path = m.groupValues[1]
+            val kind = if (path.startsWith("canvas/")) WT_CANVAS else WT_WEBTOON
+            pathCache[webtoonTitleId(kind, m.groupValues[2])] = path
+        }
+        return parseWebtoonSearch(html)
+    }
 
     /** The Webtoon entry for a title (tries each name), matched by normalised title. */
     suspend fun find(names: List<String>): Manga? {
@@ -196,12 +207,31 @@ class WebtoonSource(private val client: OkHttpClient) {
 
     suspend fun detail(id: String): Manga {
         val raw = id.raw()
+        val kind = raw.substringBefore(':')
         val titleNo = raw.substringAfter(':')
-        // The list page URL needs the slug path; the search page can supply it.
-        val html = get("https://www.webtoons.com/id/search?keyword=$titleNo")
-        val path = Regex("""https://www\.webtoons\.com/id/([^"]+?)/list\?title_no=$titleNo""").find(html)?.groupValues?.get(1)
-            ?: throw java.io.IOException("Webtoon title $titleNo not found")
-        return parseWebtoonDetail(get("https://www.webtoons.com/id/$path/list?title_no=$titleNo"), id, path)
+        // Candidates, best first: the slug seen in search results, then placeholder slugs that webtoons.com
+        // redirects to the real page (genre and slug are ignored by the server, only title_no matters).
+        val candidates = listOfNotNull(
+            pathCache[id],
+            if (kind == WT_CANVAS) "canvas/a" else "a/a",
+        ).distinct()
+        var last: Throwable? = null
+        for (path in candidates) {
+            try {
+                val (html, finalUrl) = getWithUrl("https://www.webtoons.com/id/$path/list?title_no=$titleNo")
+                if (!html.contains("og:title")) continue
+                val realPath = Regex("""webtoons\.com/(?:id|en)/([^?]+?)/list""").find(finalUrl)?.groupValues?.get(1) ?: path
+                pathCache[id] = realPath
+                return parseWebtoonDetail(html, id, realPath)
+            } catch (e: java.io.IOException) {
+                last = e
+            }
+        }
+        // Last resort: the title page is unreachable by number, so look it up by the number in search.
+        val html = runCatching { get("https://www.webtoons.com/id/search?keyword=$titleNo") }.getOrNull()
+        val path = html?.let { Regex("""https://www\.webtoons\.com/id/([^"]+?)/list\?title_no=$titleNo""").find(it)?.groupValues?.get(1) }
+        if (path != null) return parseWebtoonDetail(get("https://www.webtoons.com/id/$path/list?title_no=$titleNo"), id, path)
+        throw last ?: java.io.IOException("Webtoon title $titleNo not found")
     }
 
     /** Every episode, oldest first for reading order; the API pages through a cursor. */
