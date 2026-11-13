@@ -1,29 +1,45 @@
 <div align="center">
 
-<img src="https://capsule-render.vercel.app/api?type=waving&color=0:0F2027,50:203A43,100:2C5364&height=220&section=header&text=FuwaStream&fontSize=70&fontColor=00F5FF&animation=fadeIn&fontAlignY=38&desc=Anime%20%26%20Manga%20Reader%20%C2%B7%20Android%20%C2%B7%20Tanpa%20Iklan&descAlignY=58&descSize=18" alt="FuwaStream" width="100%" />
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:0F2027,50:203A43,100:2C5364&height=240&section=header&text=FuwaStream&fontSize=72&fontColor=00F5FF&animation=fadeIn&fontAlignY=36&desc=Anime%20%26%20Manga%20Reader%20%C2%B7%20Android%20%C2%B7%20Tanpa%20Iklan&descAlignY=56&descSize=18" alt="FuwaStream" width="100%" />
 
 <a href="https://git.io/typing-svg">
 <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=22&duration=3000&pause=1000&color=00F5FF&center=true&vCenter=true&width=640&lines=Nonton+anime+dan+baca+manga;Satu+aplikasi+Android+yang+rapi;Cepat%2C+tahan+offline%2C+tanpa+iklan;Kotlin+%C2%B7+Jetpack+Compose+%C2%B7+Material+3" alt="Typing SVG" />
 </a>
 
-<p>
+<br/><br/>
+
 <a href="https://github.com/fuwanime/fuwastream/releases/latest"><img src="https://img.shields.io/github/v/release/fuwanime/fuwastream?style=for-the-badge&label=Download&labelColor=0F2027&color=00F5FF&logo=android&logoColor=00F5FF" alt="Download rilis terbaru"/></a>
 <img src="https://img.shields.io/badge/Android-7.0%2B-203A43?style=for-the-badge&labelColor=0F2027&logo=android&logoColor=00F5FF" alt="Android 7.0 ke atas"/>
 <a href="./LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-8A2BE2?style=for-the-badge&labelColor=0F2027" alt="Lisensi GPL-3.0"/></a>
-</p>
 
-<p>
-<a href="https://github.com/fuwanime/fuwastream/stargazers"><img src="https://img.shields.io/github/stars/fuwanime/fuwastream?style=flat-square&labelColor=0F2027&color=00F5FF" alt="GitHub Stars"/></a>
-<a href="https://github.com/fuwanime/fuwastream/network/members"><img src="https://img.shields.io/github/forks/fuwanime/fuwastream?style=flat-square&labelColor=0F2027&color=8A2BE2" alt="GitHub Forks"/></a>
-<a href="https://github.com/fuwanime/fuwastream/issues"><img src="https://img.shields.io/github/issues/fuwanime/fuwastream?style=flat-square&labelColor=0F2027&color=00F5FF" alt="Issues terbuka"/></a>
-<img src="https://img.shields.io/badge/Bahasa-ID%20%C2%B7%20MS%20%C2%B7%20EN%20%C2%B7%20ZH-203A43?style=flat-square&labelColor=0F2027" alt="Bahasa Indonesia, Melayu, Inggris, Mandarin"/>
-</p>
+<br/>
 
-<p>
-<a href="https://github.com/fuwanime/fuwastream/releases/latest"><b>Download APK</b></a> &nbsp;·&nbsp;
-<a href="https://chat.whatsapp.com/BD9q9veoNaAIhkdneKD4us"><b>Gabung Komunitas</b></a> &nbsp;·&nbsp;
-<a href="https://github.com/fuwanime/fuwastream/issues"><b>Laporkan Bug</b></a>
-</p>
+<a href="https://github.com/fuwanime/fuwastream/stargazers"><img src="https://img.shields.io/github/stars/fuwanime/fuwastream?style=flat-square&labelColor=0F2027&color=00F5FF&logo=github" alt="Stars"/></a>
+<a href="https://github.com/fuwanime/fuwastream/network/members"><img src="https://img.shields.io/github/forks/fuwanime/fuwastream?style=flat-square&labelColor=0F2027&color=8A2BE2" alt="Forks"/></a>
+<a href="https://github.com/fuwanime/fuwastream/issues"><img src="https://img.shields.io/github/issues/fuwanime/fuwastream?style=flat-square&labelColor=0F2027&color=00F5FF" alt="Issues"/></a>
+<img src="https://img.shields.io/badge/Bahasa-ID%20%C2%B7%20MS%20%C2%B7%20EN%20%C2%B7%20ZH-203A43?style=flat-square&labelColor=0F2027" alt="Bahasa"/>
+
+<br/><br/>
+
+<a href="https://github.com/fuwanime/fuwastream/releases/latest"><b>⬇️ Download APK</b></a> &nbsp;·&nbsp;
+<a href="https://chat.whatsapp.com/BD9q9veoNaAIhkdneKD4us"><b>💬 Gabung Komunitas</b></a> &nbsp;·&nbsp;
+<a href="https://github.com/fuwanime/fuwastream/issues"><b>🐞 Laporkan Bug</b></a>
+
+<br/><br/>
+
+<sub>
+<a href="#tentang">Tentang</a> &nbsp;·&nbsp;
+<a href="#fitur">Fitur</a> &nbsp;·&nbsp;
+<a href="#galeri">Galeri</a> &nbsp;·&nbsp;
+<a href="#tonton">Tonton</a> &nbsp;·&nbsp;
+<a href="#baca">Baca</a> &nbsp;·&nbsp;
+<a href="#simpan">Simpan</a> &nbsp;·&nbsp;
+<a href="#pasang">Pasang</a> &nbsp;·&nbsp;
+<a href="#build">Build</a> &nbsp;·&nbsp;
+<a href="#tim">Tim</a>
+</sub>
+
+<br/><br/>
 
 <img src="docs/brand/banner.webp" alt="FuwaStream: teman nonton anime dan baca manga di Android" width="100%" />
 
@@ -33,8 +49,9 @@
 
 </div>
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&color=0:0F2027,50:00F5FF,100:0F2027&height=2" width="100%" alt="" />
 
+<a name="tentang"></a>
 <h2 align="center">✨ Tentang ✨</h2>
 
 <p align="center">
@@ -66,9 +83,72 @@ License:  GPL-3.0
 
 <br clear="left"/>
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&color=0:0F2027,50:00F5FF,100:0F2027&height=2" width="100%" alt="" />
 
+<a name="fitur"></a>
+<h2 align="center">🌟 Fitur Unggulan 🌟</h2>
+
+<p align="center"><i>Yang bikin FuwaStream enak dipakai tiap hari</i></p>
+
+<table>
+  <tr>
+    <td width="33%" valign="top" align="center">
+      <h3>📺<br/>Pemutar Nyaman</h3>
+      <sub>Kualitas 360p–1080p, kecepatan 0,5×–2×, gestur layar penuh, Picture-in-Picture, dan lewati opening otomatis.</sub>
+    </td>
+    <td width="33%" valign="top" align="center">
+      <h3>📚<br/>Tiga Sumber, Satu Daftar</h3>
+      <sub>MangaDex, Shinigami, dan Komiku digabung jadi satu daftar chapter dengan pilihan bahasa.</sub>
+    </td>
+    <td width="33%" valign="top" align="center">
+      <h3>💾<br/>Tahan Offline</h3>
+      <sub>Unduh episode dan chapter, backup ke folder pilihan, dan layar tetap tampil dari data terakhir.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="33%" valign="top" align="center">
+      <h3>🗓️<br/>Jadwal dan Notifikasi</h3>
+      <sub>Jadwal tayang per hari dengan jam rilis, plus notifikasi episode baru untuk anime favorit.</sub>
+    </td>
+    <td width="33%" valign="top" align="center">
+      <h3>🎨<br/>Tema Material You</h3>
+      <sub>Ikuti sistem, terang, gelap, hitam AMOLED, atau warna dari wallpaper.</sub>
+    </td>
+    <td width="33%" valign="top" align="center">
+      <h3>🌏<br/>Empat Bahasa</h3>
+      <sub>Indonesia, Melayu, Inggris, dan Mandarin (Sederhana).</sub>
+    </td>
+  </tr>
+</table>
+
+<img src="https://capsule-render.vercel.app/api?type=rect&color=0:0F2027,50:00F5FF,100:0F2027&height=2" width="100%" alt="" />
+
+<a name="galeri"></a>
+<h2 align="center">📸 Galeri 📸</h2>
+
+<p align="center"><i>Sekilas tampilan aplikasi</i></p>
+
+<table>
+  <tr>
+    <td align="center" width="25%"><img src="docs/screenshots/home.webp" width="100%" alt="Beranda"/><br/><sub><b>Beranda</b></sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/explore.webp" width="100%" alt="Jelajah"/><br/><sub><b>Jelajah</b></sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/detail.webp" width="100%" alt="Detail"/><br/><sub><b>Detail</b></sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/player.webp" width="100%" alt="Pemutar"/><br/><sub><b>Pemutar</b></sub></td>
+  </tr>
+  <tr>
+    <td align="center" width="25%"><img src="docs/screenshots/collection.webp" width="100%" alt="Koleksi"/><br/><sub><b>Koleksi</b></sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/schedule.webp" width="100%" alt="Jadwal"/><br/><sub><b>Jadwal</b></sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/offline.webp" width="100%" alt="Offline"/><br/><sub><b>Offline</b></sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/settings.webp" width="100%" alt="Pengaturan"/><br/><sub><b>Pengaturan</b></sub></td>
+  </tr>
+</table>
+
+<img src="https://capsule-render.vercel.app/api?type=rect&color=0:0F2027,50:00F5FF,100:0F2027&height=2" width="100%" alt="" />
+
+<a name="tonton"></a>
 <h2 align="center">📺 Tonton 📺</h2>
+
+<p align="center"><i>Pemutar yang tidak merepotkan</i></p>
 
 <table>
   <tr>
@@ -82,9 +162,12 @@ License:  GPL-3.0
   </tr>
 </table>
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&color=0:0F2027,50:00F5FF,100:0F2027&height=2" width="100%" alt="" />
 
+<a name="baca"></a>
 <h2 align="center">📚 Baca 📚</h2>
+
+<p align="center"><i>Satu judul, tiga sumber</i></p>
 
 <table>
   <tr>
@@ -102,9 +185,12 @@ License:  GPL-3.0
 
 <sub>Urutan prioritas tiap chapter: yang bisa dibaca di aplikasi lebih dulu, lalu Shinigami, Komiku, dan MangaDex.</sub>
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&color=0:0F2027,50:00F5FF,100:0F2027&height=2" width="100%" alt="" />
 
+<a name="temukan"></a>
 <h2 align="center">🔎 Temukan 🔎</h2>
+
+<p align="center"><i>Dari sorotan musim ini sampai anime serupa</i></p>
 
 <table>
   <tr>
@@ -118,9 +204,12 @@ License:  GPL-3.0
   </tr>
 </table>
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&color=0:0F2027,50:00F5FF,100:0F2027&height=2" width="100%" alt="" />
 
+<a name="simpan"></a>
 <h2 align="center">💾 Simpan 💾</h2>
+
+<p align="center"><i>Unduh, kumpulkan, dan bawa ke mana saja</i></p>
 
 <table>
   <tr>
@@ -134,9 +223,12 @@ License:  GPL-3.0
   </tr>
 </table>
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&color=0:0F2027,50:00F5FF,100:0F2027&height=2" width="100%" alt="" />
 
+<a name="punyamu"></a>
 <h2 align="center">🎨 Punyamu 🎨</h2>
+
+<p align="center"><i>Atur tampilan dan lihat kebiasaan nontonmu</i></p>
 
 <table>
   <tr>
@@ -150,22 +242,28 @@ License:  GPL-3.0
   </tr>
 </table>
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&color=0:0F2027,50:00F5FF,100:0F2027&height=2" width="100%" alt="" />
 
+<a name="pasang"></a>
 <h2 align="center">📲 Pasang 📲</h2>
 
-<ol>
-  <li>Buka halaman <a href="https://github.com/fuwanime/fuwastream/releases/latest"><b>rilis terbaru</b></a>.</li>
-  <li>Unduh file <b>APK</b> di bagian <b>Assets</b>.</li>
-  <li>Buka APK di HP dan izinkan instalasi dari sumber itu bila diminta.</li>
-  <li>Buka FuwaStream.</li>
-</ol>
+<p align="center"><i>Empat langkah, kurang dari satu menit</i></p>
+
+<table>
+  <tr>
+    <td align="center" width="25%"><h3>1️⃣</h3><sub>Buka halaman <a href="https://github.com/fuwanime/fuwastream/releases/latest"><b>rilis terbaru</b></a></sub></td>
+    <td align="center" width="25%"><h3>2️⃣</h3><sub>Unduh file <b>APK</b> di bagian <b>Assets</b></sub></td>
+    <td align="center" width="25%"><h3>3️⃣</h3><sub>Buka APK di HP dan izinkan instalasi bila diminta</sub></td>
+    <td align="center" width="25%"><h3>4️⃣</h3><sub>Buka <b>FuwaStream</b> dan mulai nonton</sub></td>
+  </tr>
+</table>
 
 > [!IMPORTANT]
 > Unduh APK **hanya** dari halaman rilis resmi repository ini. Butuh **Android 7.0 (API 24)** atau lebih baru.
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&color=0:0F2027,50:00F5FF,100:0F2027&height=2" width="100%" alt="" />
 
+<a name="build"></a>
 <h2 align="center">🛠️ Dibuat dengan 🛠️</h2>
 
 <div align="center">
@@ -233,7 +331,7 @@ com.fuwanime
 
 </details>
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&color=0:0F2027,50:00F5FF,100:0F2027&height=2" width="100%" alt="" />
 
 <h2 align="center">📊 Statistik 📊</h2>
 
@@ -251,19 +349,54 @@ com.fuwanime
 
 </div>
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&color=0:0F2027,50:00F5FF,100:0F2027&height=2" width="100%" alt="" />
 
+<a name="tim"></a>
 <h2 align="center">🤝 Tim 🤝</h2>
 
-| Nama | Peran |
-| :--- | :--- |
-| **YuzakiNetwork (Haruka Fuyune)** | Pendiri dan admin proyek:<br>• **Brand dan identitas visual**: Desain ikon peluncur geometris (*petal-play*), *mask preview*, ikon 512px, dan *wordmark* FuwaStream.<br>• **Legal, privasi, dan kepatuhan**: Dokumen kepatuhan Play Store, Kebijakan Privasi, Ketentuan Layanan, *age-gate* 13+, dan fungsi hapus semua data.<br>• **Fitur anime dan katalog**: Pengecek *update* otomatis dengan *in-app changelog*, notifikasi episode baru, rekomendasi anime serupa (dengan *fallback cache*), filter tipe konten di Jelajah (Series, Film, ONA, OVA, Special), dan unduhan massal awal.<br>• **Infrastruktur dan build**: Konfigurasi awal proyek, lisensi GPL-3.0, *build* bundle AAB, alur smoke test di branch qa-smoke, dan formula *versionCode* deterministik untuk F-Droid. |
-| **Andra** | Kolaborator dan kontributor:<br>• **UI/UX dan desain sinematik**: *Redesign* antarmuka sinematik Material 3 (Beranda *ambient blur*, Jelajah *multi-chip* dan *collapsing header*, detail sinematik dengan *poster tinting*), tab Koleksi dengan badge "N baru" dan multi-pilih, grafik waktu tonton 7 hari, kartu rekap statistik, serta adaptasi tema Material You (terang, gelap, AMOLED).<br>• **Aksesibilitas dan multi-bahasa**: Dukungan penuh TalkBack (*merged nodes* dan label deskriptif), batas skala font 1.3x tanpa teks terpotong, tata letak layar lebar (*navigation rail*), serta pelokalan 4 bahasa (Indonesia, Melayu, Inggris, Mandarin).<br>• **Ekosistem manga**: Integrasi multi-sumber (MangaDex, Shinigami, Komiku 8.000+ judul), penggabung daftar chapter lintas sumber dengan filter bahasa (ID, EN, Raw) dan kategori (Manga, Manhwa, Manhua), *vertical reader* dengan DNS-over-HTTPS (DoH) untuk membuka blokir ISP, serta antrean unduh chapter *offline*.<br>• **Pemutar video (Media3 ExoPlayer)**: Audio latar belakang (*MediaSessionService*) saat layar mati atau di latar belakang, Picture-in-Picture (PiP) adaptif, integrasi AniSkip (otomatis/tombol +85 dtk), *gesture* layar penuh, dan tampilan bersih saat *buffering*.<br>• **Data, offline, dan penyimpanan**: Arsitektur *cache-first* (tahan *offline*), pencadangan dan pemulihan data lokal (Format v2), pemilihan folder unduhan eksternal via Storage Access Framework (SAF), serta widget *Glance* dan *Dynamic Shortcuts* di layar utama.<br>• **Infrastruktur, CI, dan QA**: *Suite smoke test* dan skenario QA komprehensif di emulator Android, generator Baseline Profile otomatis di CI, alur rilis SemVer terstandarisasi, dan dokumentasi aset resolusi tinggi. |
-| **BANG SYAII (LT-SYAII)** | Kontributor:<br>• **Sumber & penemuan anime**: Integrasi sumber Kuramanime (pencarian, detail, episode, pemutaran native) dan penyatuan hasil ke daftar anime utama di Jelajah.<br>• **Notifikasi rilis**: Perbaikan deteksi rilis manga (`readableAt`) dan episode anime (penyegaran cache/penyelesaian status) agar notifikasi tidak macet, serta notifikasi pembaruan aplikasi (cek saat dibuka dan WorkManager berkala).<br>• **Konten dewasa**: Perluasan toggle konten dewasa ke anime (filter genre eksplisit Ecchi/Erotica/Hentai), sinkron dengan preferensi manga dan perilaku katalog/daftar terkait. |
+<p align="center"><i>Orang-orang di balik FuwaStream</i></p>
 
-Mau ikut membantu? Fork repository ini, buat branch, jalankan `gradle testDebugUnitTest`, lalu kirim Pull Request dengan penjelasan singkat dan cara mengujinya. Ide fitur dan laporan bug masuk ke [Issues](https://github.com/fuwanime/fuwastream/issues).
+<details>
+<summary><b>YuzakiNetwork (Haruka Fuyune)</b> &nbsp;·&nbsp; Pendiri dan admin proyek</summary>
 
----
+<br>
+
+- **Brand dan identitas visual**: Desain ikon peluncur geometris (*petal-play*), *mask preview*, ikon 512px, dan *wordmark* FuwaStream.
+- **Legal, privasi, dan kepatuhan**: Dokumen kepatuhan Play Store, Kebijakan Privasi, Ketentuan Layanan, *age-gate* 13+, dan fungsi hapus semua data.
+- **Fitur anime dan katalog**: Pengecek *update* otomatis dengan *in-app changelog*, notifikasi episode baru, rekomendasi anime serupa (dengan *fallback cache*), filter tipe konten di Jelajah (Series, Film, ONA, OVA, Special), dan unduhan massal awal.
+- **Infrastruktur dan build**: Konfigurasi awal proyek, lisensi GPL-3.0, *build* bundle AAB, alur smoke test di branch qa-smoke, dan formula *versionCode* deterministik untuk F-Droid.
+
+</details>
+
+<details>
+<summary><b>Andra</b> &nbsp;·&nbsp; Kolaborator dan kontributor</summary>
+
+<br>
+
+- **UI/UX dan desain sinematik**: *Redesign* antarmuka sinematik Material 3 (Beranda *ambient blur*, Jelajah *multi-chip* dan *collapsing header*, detail sinematik dengan *poster tinting*), tab Koleksi dengan badge "N baru" dan multi-pilih, grafik waktu tonton 7 hari, kartu rekap statistik, serta adaptasi tema Material You (terang, gelap, AMOLED).
+- **Aksesibilitas dan multi-bahasa**: Dukungan penuh TalkBack (*merged nodes* dan label deskriptif), batas skala font 1.3x tanpa teks terpotong, tata letak layar lebar (*navigation rail*), serta pelokalan 4 bahasa (Indonesia, Melayu, Inggris, Mandarin).
+- **Ekosistem manga**: Integrasi multi-sumber (MangaDex, Shinigami, Komiku 8.000+ judul), penggabung daftar chapter lintas sumber dengan filter bahasa (ID, EN, Raw) dan kategori (Manga, Manhwa, Manhua), *vertical reader* dengan DNS-over-HTTPS (DoH) untuk membuka blokir ISP, serta antrean unduh chapter *offline*.
+- **Pemutar video (Media3 ExoPlayer)**: Audio latar belakang (*MediaSessionService*) saat layar mati atau di latar belakang, Picture-in-Picture (PiP) adaptif, integrasi AniSkip (otomatis/tombol +85 dtk), *gesture* layar penuh, dan tampilan bersih saat *buffering*.
+- **Data, offline, dan penyimpanan**: Arsitektur *cache-first* (tahan *offline*), pencadangan dan pemulihan data lokal (Format v2), pemilihan folder unduhan eksternal via Storage Access Framework (SAF), serta widget *Glance* dan *Dynamic Shortcuts* di layar utama.
+- **Infrastruktur, CI, dan QA**: *Suite smoke test* dan skenario QA komprehensif di emulator Android, generator Baseline Profile otomatis di CI, alur rilis SemVer terstandarisasi, dan dokumentasi aset resolusi tinggi.
+
+</details>
+
+<details>
+<summary><b>BANG SYAII (LT-SYAII)</b> &nbsp;·&nbsp; Kontributor</summary>
+
+<br>
+
+- **Sumber & penemuan anime**: Integrasi sumber Kuramanime (pencarian, detail, episode, pemutaran native) dan penyatuan hasil ke daftar anime utama di Jelajah.
+- **Notifikasi rilis**: Perbaikan deteksi rilis manga (`readableAt`) dan episode anime (penyegaran cache/penyelesaian status) agar notifikasi tidak macet, serta notifikasi pembaruan aplikasi (cek saat dibuka dan WorkManager berkala).
+- **Konten dewasa**: Perluasan toggle konten dewasa ke anime (filter genre eksplisit Ecchi/Erotica/Hentai), sinkron dengan preferensi manga dan perilaku katalog/daftar terkait.
+
+</details>
+
+> [!TIP]
+> **Mau ikut membantu?** Fork repository ini, buat branch, jalankan `gradle testDebugUnitTest`, lalu kirim Pull Request dengan penjelasan singkat dan cara mengujinya. Ide fitur dan laporan bug masuk ke [Issues](https://github.com/fuwanime/fuwastream/issues).
+
+<img src="https://capsule-render.vercel.app/api?type=rect&color=0:0F2027,50:00F5FF,100:0F2027&height=2" width="100%" alt="" />
 
 <h2 align="center">📜 Catatan konten 📜</h2>
 
@@ -274,5 +407,11 @@ FuwaStream adalah aplikasi klien dan **tidak meng-host video maupun gambar manga
 Kode sumber dilisensikan di bawah **[GNU General Public License v3.0](./LICENSE)**. Lisensi kode tidak memberikan hak atas nama, logo, merek, maupun aset FuwaStream.
 
 <div align="center">
+
+<br/>
+
+<a href="#"><b>⬆️ Kembali ke atas</b></a>
+
 <img src="https://capsule-render.vercel.app/api?type=waving&color=0:2C5364,50:203A43,100:0F2027&height=100&section=footer" alt="Footer" width="100%" />
+
 </div>
