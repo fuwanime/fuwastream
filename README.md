@@ -23,7 +23,7 @@
 
 <br>
 
-<img src="docs/brand/stats.svg" width="100%" alt="64.000+ judul manga, 3 sumber manga jadi satu, 4 bahasa aplikasi, 0 iklan">
+<img src="docs/brand/stats.svg" width="100%" alt="64.000+ judul manga, 4 sumber manga jadi satu, 4 bahasa aplikasi, 0 iklan">
 
 </div>
 
@@ -46,7 +46,7 @@
 <table>
   <tr>
     <td valign="top">
-      <p><b>Satu judul, tiga sumber.</b> FuwaStream mencari judul yang sama di MangaDex, Shinigami, dan Komiku, lalu menggabungkannya jadi satu daftar chapter. Tiap chapter diambil dari sumber yang bisa dibaca dan paling bagus.</p>
+      <p><b>Satu judul, empat sumber.</b> FuwaStream mencari judul yang sama di MangaDex, Shinigami, Komiku, dan WEBTOON, lalu menggabungkannya jadi satu daftar chapter. Tiap chapter diambil dari sumber yang bisa dibaca dan paling bagus.</p>
       <p><b>Pilih bahasanya.</b> Indonesia, Inggris, atau Raw, dan hanya bahasa yang benar-benar ada untuk judul itu yang ditampilkan.</p>
       <p><b>Manga, Manhwa, Manhua</b> bisa difilter langsung di tab Manga. Judul lama yang sudah tamat ikut tersedia dari arsip Komiku.</p>
       <p><b>Reader vertikal</b> dengan pemilih chapter, tombol Prev dan Next, lanjut dari halaman terakhir, dan mode hemat data. Konten dewasa hanya muncul kalau kamu nyalakan di Pengaturan.</p>
