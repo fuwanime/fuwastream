@@ -1,33 +1,74 @@
 <div align="center">
 
-<img src="docs/brand/banner.webp" alt="FuwaStream: teman nonton anime dan baca manga di Android" width="100%">
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:0F2027,50:203A43,100:2C5364&height=220&section=header&text=FuwaStream&fontSize=70&fontColor=00F5FF&animation=fadeIn&fontAlignY=38&desc=Anime%20%26%20Manga%20Reader%20%C2%B7%20Android%20%C2%B7%20Tanpa%20Iklan&descAlignY=58&descSize=18" alt="FuwaStream" width="100%" />
 
-<br>
-
-**Nonton anime dan baca manga dalam satu aplikasi Android yang rapi, cepat, dan tanpa iklan.**
+<a href="https://git.io/typing-svg">
+<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=22&duration=3000&pause=1000&color=00F5FF&center=true&vCenter=true&width=640&lines=Nonton+anime+dan+baca+manga;Satu+aplikasi+Android+yang+rapi;Cepat%2C+tahan+offline%2C+tanpa+iklan;Kotlin+%C2%B7+Jetpack+Compose+%C2%B7+Material+3" alt="Typing SVG" />
+</a>
 
 <p>
-  <a href="https://github.com/fuwanime/fuwastream/releases/latest"><img src="https://img.shields.io/github/v/release/fuwanime/fuwastream?style=for-the-badge&label=Download&labelColor=0B0A0F&color=D4BBFF&logo=android&logoColor=D4BBFF" alt="Download rilis terbaru"></a>
-  <img src="https://img.shields.io/badge/Android-7.0%2B-0B0A0F?style=for-the-badge&labelColor=0B0A0F&color=1F1C27&logo=android&logoColor=FFB0C9" alt="Android 7.0 ke atas">
-  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-1F1C27?style=for-the-badge&labelColor=0B0A0F" alt="Lisensi GPL-3.0"></a>
+<a href="https://github.com/fuwanime/fuwastream/releases/latest"><img src="https://img.shields.io/github/v/release/fuwanime/fuwastream?style=for-the-badge&label=Download&labelColor=0F2027&color=00F5FF&logo=android&logoColor=00F5FF" alt="Download rilis terbaru"/></a>
+<img src="https://img.shields.io/badge/Android-7.0%2B-203A43?style=for-the-badge&labelColor=0F2027&logo=android&logoColor=00F5FF" alt="Android 7.0 ke atas"/>
+<a href="./LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-8A2BE2?style=for-the-badge&labelColor=0F2027" alt="Lisensi GPL-3.0"/></a>
 </p>
 
 <p>
-  <a href="https://github.com/fuwanime/fuwastream/stargazers"><img src="https://img.shields.io/github/stars/fuwanime/fuwastream?style=flat-square&labelColor=0B0A0F&color=FFB0C9" alt="GitHub Stars"></a>
-  <a href="https://github.com/fuwanime/fuwastream/network/members"><img src="https://img.shields.io/github/forks/fuwanime/fuwastream?style=flat-square&labelColor=0B0A0F&color=8FD3F2" alt="GitHub Forks"></a>
-  <a href="https://github.com/fuwanime/fuwastream/issues"><img src="https://img.shields.io/github/issues/fuwanime/fuwastream?style=flat-square&labelColor=0B0A0F&color=D4BBFF" alt="Issues terbuka"></a>
-  <img src="https://img.shields.io/badge/Bahasa-ID%20%C2%B7%20MS%20%C2%B7%20EN%20%C2%B7%20ZH-0B0A0F?style=flat-square&labelColor=0B0A0F&color=1F1C27" alt="Bahasa Indonesia, Melayu, Inggris, Mandarin">
+<a href="https://github.com/fuwanime/fuwastream/stargazers"><img src="https://img.shields.io/github/stars/fuwanime/fuwastream?style=flat-square&labelColor=0F2027&color=00F5FF" alt="GitHub Stars"/></a>
+<a href="https://github.com/fuwanime/fuwastream/network/members"><img src="https://img.shields.io/github/forks/fuwanime/fuwastream?style=flat-square&labelColor=0F2027&color=8A2BE2" alt="GitHub Forks"/></a>
+<a href="https://github.com/fuwanime/fuwastream/issues"><img src="https://img.shields.io/github/issues/fuwanime/fuwastream?style=flat-square&labelColor=0F2027&color=00F5FF" alt="Issues terbuka"/></a>
+<img src="https://img.shields.io/badge/Bahasa-ID%20%C2%B7%20MS%20%C2%B7%20EN%20%C2%B7%20ZH-203A43?style=flat-square&labelColor=0F2027" alt="Bahasa Indonesia, Melayu, Inggris, Mandarin"/>
 </p>
 
-[**Download APK**](https://github.com/fuwanime/fuwastream/releases/latest) &nbsp;·&nbsp; [**Gabung Komunitas**](https://chat.whatsapp.com/BD9q9veoNaAIhkdneKD4us) &nbsp;·&nbsp; [**Laporkan Bug**](https://github.com/fuwanime/fuwastream/issues)
+<p>
+<a href="https://github.com/fuwanime/fuwastream/releases/latest"><b>Download APK</b></a> &nbsp;·&nbsp;
+<a href="https://chat.whatsapp.com/BD9q9veoNaAIhkdneKD4us"><b>Gabung Komunitas</b></a> &nbsp;·&nbsp;
+<a href="https://github.com/fuwanime/fuwastream/issues"><b>Laporkan Bug</b></a>
+</p>
 
-<br>
+<img src="docs/brand/banner.webp" alt="FuwaStream: teman nonton anime dan baca manga di Android" width="100%" />
 
-<img src="docs/brand/stats.svg" width="100%" alt="64.000+ judul manga, 3 sumber manga jadi satu, 4 bahasa aplikasi, 0 iklan">
+<br/><br/>
+
+<img src="docs/brand/stats.svg" width="100%" alt="64.000+ judul manga, 3 sumber manga jadi satu, 4 bahasa aplikasi, 0 iklan" />
 
 </div>
 
-## Tonton
+---
+
+<h2 align="center">✨ Tentang ✨</h2>
+
+<p align="center">
+<b>Nonton anime dan baca manga dalam satu aplikasi Android</b><br/>
+yang rapi, cepat, dan tanpa iklan.<br/>
+Pemutar nyaman, manga dari banyak sumber jadi satu, dan semuanya bisa dibawa offline.
+</p>
+
+```sh
+user@fuwastream: ~/fuwastream (main)$ neofetch
+```
+
+<img align="left" src="docs/brand/icon-512.png" width="130px" alt="Ikon FuwaStream"/>
+
+```yaml
+FuwaStream
+-------------------------------
+Package:  com.fuwanime.app
+Platform: Android 7.0+ (API 24), Target SDK 37
+Language: Kotlin 2.2, Java 17
+UI:       Jetpack Compose, Material 3
+Player:   Media3 ExoPlayer
+Data:     Room, DataStore, WorkManager
+Network:  Retrofit, OkHttp, Moshi, Coil 3
+Locales:  Indonesia, Melayu, English, Mandarin (Sederhana)
+Sources:  Animein, Kuramanime, MangaDex, Shinigami, Komiku
+License:  GPL-3.0
+```
+
+<br clear="left"/>
+
+---
+
+<h2 align="center">📺 Tonton 📺</h2>
 
 <table>
   <tr>
@@ -41,7 +82,9 @@
   </tr>
 </table>
 
-## Baca
+---
+
+<h2 align="center">📚 Baca 📚</h2>
 
 <table>
   <tr>
@@ -59,7 +102,9 @@
 
 <sub>Urutan prioritas tiap chapter: yang bisa dibaca di aplikasi lebih dulu, lalu Shinigami, Komiku, dan MangaDex.</sub>
 
-## Temukan
+---
+
+<h2 align="center">🔎 Temukan 🔎</h2>
 
 <table>
   <tr>
@@ -73,7 +118,9 @@
   </tr>
 </table>
 
-## Simpan
+---
+
+<h2 align="center">💾 Simpan 💾</h2>
 
 <table>
   <tr>
@@ -87,7 +134,9 @@
   </tr>
 </table>
 
-## Punyamu
+---
+
+<h2 align="center">🎨 Punyamu 🎨</h2>
 
 <table>
   <tr>
@@ -101,7 +150,9 @@
   </tr>
 </table>
 
-## Pasang
+---
+
+<h2 align="center">📲 Pasang 📲</h2>
 
 <ol>
   <li>Buka halaman <a href="https://github.com/fuwanime/fuwastream/releases/latest"><b>rilis terbaru</b></a>.</li>
@@ -113,7 +164,17 @@
 > [!IMPORTANT]
 > Unduh APK **hanya** dari halaman rilis resmi repository ini. Butuh **Android 7.0 (API 24)** atau lebih baru.
 
-## Dibuat dengan
+---
+
+<h2 align="center">🛠️ Dibuat dengan 🛠️</h2>
+
+<div align="center">
+<a href="https://skillicons.dev">
+<img src="https://skillicons.dev/icons?i=kotlin,androidstudio,gradle,git,github,githubactions&perline=6" alt="Tech stack"/>
+</a>
+</div>
+
+<br/>
 
 Kotlin dan Jetpack Compose dengan Material 3, Media3 ExoPlayer untuk pemutar, Room dan DataStore untuk data di HP, WorkManager untuk unduhan dan backup, Retrofit, OkHttp, dan Moshi untuk jaringan, serta Coil 3 untuk gambar. Build dan rilis berjalan di GitHub Actions.
 
@@ -172,7 +233,27 @@ com.fuwanime
 
 </details>
 
-## Tim
+---
+
+<h2 align="center">📊 Statistik 📊</h2>
+
+<div align="center">
+
+<a href="https://star-history.com/#fuwanime/fuwastream&Date">
+<img src="https://api.star-history.com/svg?repos=fuwanime/fuwastream&type=Date&theme=dark" alt="Star History" width="80%" />
+</a>
+
+<br/><br/>
+
+<a href="https://github.com/fuwanime/fuwastream/graphs/contributors">
+<img src="https://contrib.rocks/image?repo=fuwanime/fuwastream" alt="Kontributor" />
+</a>
+
+</div>
+
+---
+
+<h2 align="center">🤝 Tim 🤝</h2>
 
 | Nama | Peran |
 | :--- | :--- |
@@ -182,7 +263,9 @@ com.fuwanime
 
 Mau ikut membantu? Fork repository ini, buat branch, jalankan `gradle testDebugUnitTest`, lalu kirim Pull Request dengan penjelasan singkat dan cara mengujinya. Ide fitur dan laporan bug masuk ke [Issues](https://github.com/fuwanime/fuwastream/issues).
 
-## Catatan konten
+---
+
+<h2 align="center">📜 Catatan konten 📜</h2>
 
 FuwaStream adalah aplikasi klien dan **tidak meng-host video maupun gambar manga**. Informasi dan sumber pemutaran datang dari layanan pihak ketiga, jadi ketersediaannya bergantung pada layanan tersebut. Pengguna bertanggung jawab mematuhi hukum, hak cipta, dan ketentuan layanan di wilayahnya. Nama, logo, dan aset pihak ketiga tetap milik pemegang haknya; gambar manga berasal dari MangaDex, Shinigami, dan Komiku beserta grup scanlation masing-masing.
 
@@ -190,4 +273,6 @@ FuwaStream adalah aplikasi klien dan **tidak meng-host video maupun gambar manga
 
 Kode sumber dilisensikan di bawah **[GNU General Public License v3.0](./LICENSE)**. Lisensi kode tidak memberikan hak atas nama, logo, merek, maupun aset FuwaStream.
 
-<img src="docs/readme/footer.webp" width="100%" alt="fuwastream">
+<div align="center">
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:2C5364,50:203A43,100:0F2027&height=100&section=footer" alt="Footer" width="100%" />
+</div>
