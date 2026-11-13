@@ -254,7 +254,11 @@ class WebtoonSource(private val client: OkHttpClient) {
             if (cursor.isEmpty()) break
             page++
         }
-        return pickChapters(all, language)
+        // Canvas translations can carry a global episodeNo offset (e.g. an Indonesian dub of a
+        // canvas title starting at 41), so chapter numbers would show "41" with no 1–40 anywhere.
+        // Renumber by reading order instead: titles that already start at 1 keep identical numbers.
+        val numbered = all.mapIndexed { i, c -> c.copy(number = (i + 1).toString()) }
+        return pickChapters(numbered, language)
     }
 
     /** Panel images of one chapter, from the viewer HTML at the path stored in the chapter id. */
