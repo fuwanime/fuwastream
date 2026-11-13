@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="in">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<title>Cari :: WEBTOON</title>
+<link rel="shortcut icon" href="https://webtoons-static.pstatic.net/image/favicon/favicon.ico?dt=2017082301" type="image/x-icon">
+<link rel="stylesheet" type="text/css" href="/static/bundle/linewebtoon-b125f1a94ebdf4437938.css">
+
+<script type="text/javascript">
+  window.__headerState__ = {
+    domain: "www.webtoons.com",
+    phase: "release",
+    languageCode: "id",
+    cssCode: "id",
+    cssCodePrefix: "",
+    gaTrackingId: "UA-57082184-1",
+    ga4TrackingId: "G-ZTE4EZ7DVX",
+    contentLanguage: "INDONESIAN",
+    contentLanguageCode: "id",
+    gakSerName: "gak.webtoons.com",
+    gakPlatformName: "WEB_PC",
+    serviceZone: "GLOBAL",
+    facebookAdId: "",
+    lcsServer: "lcs.loginfra.com",
+    browserType: "CHROME",
+    gaPageName: "",
+    googleAdsState: {
+      gadWebtoonReadEvent: "",
+      title: "",
+      titleNo: "",
+      episodeNo: "",
+      gadConversion: {
+        th: [
+          { conversionId: "AW-761239969", conversionLabel: "yhf1CLXkr-0CEKGz_uoC" },
+          { conversionId: "AW-758804776", conversionLabel: "GzVDCNuRsO0CEKji6ekC" }
+        ]
+      }
+    },
+    afPbaKey: "fe890007-9461-4b38-a417-7611db3b631e"
+  };
+  let lcs_SerName = window.lcs_SerName = window.__headerState__.lcsServer;
+</script>
+<script type="text/javascript" src="/static/bundle/common/cmp-350b9bf6fc52363adec2.js" charset="utf-8"></script>
+<script type="text/javascript" src="/static/bundle/header-3eb11a4f70f2b036f532.js" charset="utf-8"></script>
+<script type="text/javascript" src="/static/bundle/common/header-ab5d4c7d9b697965842b.js" charset="utf-8"></script>
+</head>
+
+<body class="id">
+<div id="wrap">
+
+  <!-- skip navigation -->
+  <div id="u_skip">
+    <a href="#content" onclick="document.getElementById('content').tabIndex=-1;document.getElementById('content').focus();return false;"><span></span></a>
+  </div>
+
+  <!-- header -->
+  <header id="header">
+    <div class="header_inner">
+      <div class="header_left">
+        <a href="https://www.webtoons.com/id/" class="btn_logo" onclick='return publishGakPageEvent("GNB_FOR_YOU_TAB_CLICK") && publishGa4Event("gnb_home_click", "{\"contents_language\": \"ID\"}")'><span class="blind">WEBTOON</span></a>
+        <p class="blind">MENU</p>
+        <ul class="lnb" role="navigation">
+          <li><a href="https://www.webtoons.com/id/originals" class="link" onclick='return publishGakPageEvent("GNB_ORIGINALS_TAB_TAB_CLICK") && publishGa4Event("gnb_originals_click", "{\"contents_language\": \"ID\"}")'>ORIGINAL</a></li>
+          <li><a href="https://www.webtoons.com/id/genres" class="link" onclick='return publishGakPageEvent("GNB_GENRE_CLICK") && publishGa4Event("gnb_genres_click", "{\"contents_language\": \"ID\"}")'>KATEGORI</a></li>
+          <li><a href="https://www.webtoons.com/id/ranking" class="link" onclick='return publishGakPageEvent("GNB_RANKING_CLICK") && publishGa4Event("gnb_rankings_click", "{\"contents_language\": \"ID\"}")'>Populer</a></li>
+          <li><a href="https://www.webtoons.com/id/canvas" class="link" onclick='return publishGakPageEvent("GNB_CANVAS_TAB_CLICK") && publishGa4Event("gnb_canvas_click", "{\"contents_language\": \"ID\"}")'>CANVAS</a></li>
+        </ul>
+      </div>
+
+      <div class="header_right">
+        <a href="https://shop.webtoon.com" id="webshopLink" class="link_menu" onclick='return publishGakPageEvent("GNB_WEBTOONSHOP_CLICK") && publishGa4Event("gnb_webtoonshop_click", "{\"contents_language\": \"ID\"}")'>WEBTOON SHOP</a>
+        <a href="https://www.webtoons.com/id/creators101/webtoon-canvas" class="link_menu" onclick='return publishGakPageEvent("GNB_CREATOR101_CLICK") && publishGa4Event("gnb_creator101_click", "{\"contents_language\": \"ID\"}")'>Kreator 101</a>
+
+        <div class="util_cont">
+          <a href="#" class="link_publish" id="btnPublish">Dashboard</a>
+
+          <div class="login_cont">
+            <button type="button" class="link_login" id="btnLogin" aria-haspopup="dialog">Masuk</button>
+            <button type="button" class="link_login" id="btnLoginInfo" aria-expanded="false" style="display:none;"></button>
+            <div class="ly_loginbox" id="layerMy">
+              <button type="button" title="tutup" class="login_name _btnClose">Tutup halaman login</button>
+            </div>
+          </div>
+
+          <div class="search_cont">
+            <button class="btn_search _btnSearch"><span class="blind">Cari</span></button>
+            <div class="search_area _searchArea">
+              <div class="input_box _inputArea">
+                <input type="text" class="input_search _txtKeyword" role="combobox" aria-expanded="false" aria-haspopup="listbox" aria-owns="gnb_search_box" aria-autocomplete="list" aria-activedescendant aria-label="Cari Judul atau Kreator" placeholder="Cari Judul atau Kreator">
+                <a href="#" class="btn_delete_search _btnDelete" style="display:none;">Hapus</a>
+              </div>
+              <ul id="gnb_search_box" role="listbox" class="ly_autocomplete _searchLayer" style="display:none"></ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <hr>
+
+  <!-- search box -->
+  <div id="searchWrap">
+    <div class="big_search search_area _searchArea">
+      <span class="input_box _inputArea">
+        <input type="text" role="combobox" value="pasutri" aria-expanded="false" aria-haspopup="listbox" aria-owns="search_box" aria-autocomplete="list" aria-activedescendant aria-label="Cari Judul atau Kreator" placeholder="Cari Judul atau Kreator" class="input_search _txtKeyword">
+        <a href="#" class="btn_delete_search _btnDelete" style="display:inline-block">Hapus</a>
+      </span>
+      <div id="search_box" role="listbox" class="ly_autocomplete _searchLayer" style="display:none"></div>
+    </div>
+  </div>
+
+  <!-- results -->
+  <main id="container">
+    <div id="content">
+      <div class="snb_wrap type_search"></div>
+
+      <div class="snb_wrap type_sub">
+        <div class="snb_inner">
+          <ul class="snb_sub">
+            <li class="snb_item is_selected"><a href="/id/search?keyword=pasutri" class="snb_tab" aria-current="page">SEMUA</a></li>
+            <li class="snb_item"><a href="/id/search/originals?keyword=pasutri" class="snb_tab" aria-current="">ORIGINAL</a></li>
+            <li class="snb_item"><a href="/id/search/canvas?keyword=pasutri" class="snb_tab" aria-current="">CANVAS</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="webtoon_list_wrap">
+
+        <!-- ORIGINAL -->
+        <div class="section_header">
+          <div class="section_title_area">
+            <h2 class="section_title">ORIGINAL</h2>
+            <div class="series_count"><em class="number">2</em><span>serial</span></div>
+          </div>
+        </div>
+        <ul class="webtoon_list">
+          <li>
+            <a href="https://www.webtoons.com/id/slice-of-life/pasutri-kentang/list?title_no=7321" class="link _card_item" data-title-no="7321" data-webtoon-type="WEBTOON">
+              <div class="image_wrap" data-title-unsuitable-for-children="false" data-title-unsuitable-for-children-skin="harmful_black_skin1">
+                <img src="https://webtoon-phinf.pstatic.net/20250205_26/17387198372082mQhn_JPEG/7321.jpg?type=q90" width="192" height="249" alt="">
+                <div class="badge_area _badge_area"></div>
+              </div>
+              <div class="info_text">
+                <strong class="title">Pasutri Kentang</strong>
+                <div class="author">GAMZA</div>
+                <div class="view_count">632RBx Dibaca</div>
+              </div>
+            </a>
+          </li>
+          <li>
+            <a href="https://www.webtoons.com/id/romance/pasturi-gaje/list?title_no=790" class="link _card_item" data-title-no="790" data-webtoon-type="WEBTOON">
+              <div class="image_wrap" data-title-unsuitable-for-children="false" data-title-unsuitable-for-children-skin="harmful_black_skin1">
+                <img src="https://webtoon-phinf.pstatic.net/20250205_241/1738719900132oJp7o_JPEG/790.jpg?type=q90" width="192" height="249" alt="">
+                <div class="badge_area _badge_area"></div>
+              </div>
+              <div class="info_text">
+                <strong class="title">Pasutri Gaje</strong>
+                <div class="author">Annisa Nisfihani</div>
+                <div class="view_count">913JTx Dibaca</div>
+              </div>
+            </a>
+          </li>
+        </ul>
+
+        <!-- CANVAS -->
+        <div class="section_header">
+          <div class="section_title_area">
+            <h2 class="section_title">CANVAS</h2>
+            <div class="series_count"><em class="number">5</em><span>serial</span></div>
+          </div>
+        </div>
+        <ul class="webtoon_list type_small">
+          <li>
+            <a href="https://www.webtoons.com/id/canvas/daily-pasutri-baru/list?title_no=1120026" class="link _card_item" data-title-no="1120026" data-webtoon-type="CHALLENGE">
+              <div class="image_wrap" data-title-unsuitable-for-children="true" data-title-unsuitable-for-children-skin="harmful_black_skin1">
+                <img src="https://webtoon-phinf.pstatic.net/20260204_151/1770203367030qA4WU_JPEG/e5bb3634-e57f-49a8-ae4b-894b63a07f1a4071631139723586651.jpg?type=q90" width="192" height="192" alt="">
+                <div class="badge_area"></div>
+              </div>
+              <div class="info_text">
+                <strong class="title">Daily Pasutri Baru</strong>
+                <div class="author">VanzRil21</div>
+                <div class="view_count">104RBx Dibaca</div>
+              </div>
+            </a>
+          </li>
+          <li>
+            <a href="https://www.webtoons.com/id/canvas/pasutri-evtuber/list?title_no=1014204" class="link _card_item" data-title-no="1014204" data-webtoon-type="CHALLENGE">
+              <div class="image_wrap" data-title-unsuitable-for-children="true" data-title-unsuitable-for-children-skin="harmful_black_skin1">
+                <img src="https://webtoon-phinf.pstatic.net/20241224_223/1734997953665VtlNS_JPEG/ce08c09b-b539-48a2-8746-468ee284d0b916202565036377440581.jpg?type=q90" width="192" height="192" alt="">
+                <div class="badge_area"></div>
+              </div>
+              <div class="info_text">
+                <strong class="title">Pasutri Evtuber</strong>
+                <div class="author">Rinju Comic</div>
+                <div class="view_count">8RBx Dibaca</div>
+              </div>
+            </a>
+          </li>
+          <li>
+            <a href="https://www.webtoons.com/id/canvas/pasutri-daily/list?title_no=870171" class="link _card_item" data-title-no="870171" data-webtoon-type="CHALLENGE">
+              <div class="image_wrap" data-title-unsuitable-for-children="true" data-title-unsuitable-for-children-skin="harmful_black_skin1">
+                <img src="https://webtoon-phinf.pstatic.net/20240825_203/1724565078004OoyPp_JPEG/bc338ef4-30de-4f27-a24c-7601991c4f415938327152066920947.jpg?type=q90" width="192" height="192" alt="">
+                <div class="badge_area"></div>
+              </div>
+              <div class="info_text">
+                <strong class="title">Pasutri Daily</strong>
+                <div class="author">bunbunsohn🐰</div>
+                <div class="view_count">35RBx Dibaca</div>
+              </div>
+            </a>
+          </li>
+          <li>
+            <a href="https://www.webtoons.com/id/canvas/candaan-pasutri/list?title_no=72941" class="link _card_item" data-title-no="72941" data-webtoon-type="CHALLENGE">
+              <div class="image_wrap" data-title-unsuitable-for-children="true" data-title-unsuitable-for-children-skin="harmful_black_skin1">
+                <img src="https://webtoon-phinf.pstatic.net/20170503_8/149379268883977OTX_JPEG/abdaf806-a44a-4322-a433-5da1947719a6.jpg?type=q90" width="192" height="192" alt="">
+                <div class="badge_area"></div>
+              </div>
+              <div class="info_text">
+                <strong class="title">Candaan Pasutri</strong>
+                <div class="author">ciptacoipoy</div>
+                <div class="view_count">675RBx Dibaca</div>
+              </div>
+            </a>
+          </li>
+          <li>
+            <a href="https://www.webtoons.com/id/canvas/pasutri-101/list?title_no=1027184" class="link _card_item" data-title-no="1027184" data-webtoon-type="CHALLENGE">
+              <div class="image_wrap" data-title-unsuitable-for-children="true" data-title-unsuitable-for-children-skin="harmful_black_skin1">
+                <img src="https://webtoon-phinf.pstatic.net/20250218_148/1739876800985rm7lf_PNG/b7cd3e96-537a-4456-b599-744e47fad9973073464060325013686.png?type=q90" width="192" height="192" alt="">
+                <div class="badge_area"></div>
+              </div>
+              <div class="info_text">
+                <strong class="title">PASUTRI 101</strong>
+                <div class="author">KOMIKKUMI</div>
+                <div class="view_count">794x Dibaca</div>
+              </div>
+            </a>
+          </li>
+        </ul>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- footer -->
+  <footer id="footer">
+    <div class="go_top" id="_topBtn" style="display:none;">
+      <a href="#" title="Kembali ke atas" class="btn_top">Kembali ke atas</a>
+    </div>
+
+    <div class="notice_area" id="noticeArea" style="display:none;"></div>
+
+    <div class="foot_app">
+      <div class="foot_cont">
+        <span class="ico_qrcode"><span class="blind">qrcode</span></span>
+        <div class="foot_down_msg">
+          <p class="txt">Mau baca episode baru duluan?<br>Tinggal scan QR code ini!</p>
+          <div class="footapp_icon_cont">
+            <a href="https://play.google.com/store/apps/details?id=com.naver.linewebtoon&referrer=utm_source%3Dlinewebtoon%26utm_medium%3Dmobileweb" target="_blank" class="btn_google">Aplikasi Android</a>
+            <a href="https://itunes.apple.com/app/line-webtoon/id894546091?mt=8" target="_blank" class="btn_ios">Aplikasi iOS</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <ul class="foot_sns">
+      <li><a href="https://www.facebook.com/linewebtoon.ID" target="_blank" class="btn_foot_facebook">facebook</a></li>
+      <li><a href="https://www.instagram.com/linewebtoon.id/" target="_blank" class="btn_foot_instagram">instagram</a></li>
+      <li><a href="https://line.me/R/ti/p/%40webtoonid" target="_blank" class="btn_foot_line">line</a></li>
+      <li><a href="https://www.youtube.com/channel/UCRamMUlT12cmIw7zIrXzzsw" target="_blank" class="btn_foot_youtube">youtube</a></li>
+    </ul>
+
+    <ul class="foot_menu _footer">
+      <li><a href="https://webtoon.zendesk.com/hc/id/requests/new" rel="nofollow" target="_blank">Saran dan Pendapat</a></li>
+      <li><a href="https://webtoon.zendesk.com/hc/id" rel="nofollow" target="_blank">Bantuan</a></li>
+      <li><a href="https://www.webtoons.com/id/terms">Syarat Penggunaan</a></li>
+      <li><a href="https://www.webtoons.com/id/terms/privacyPolicy">Privasi</a></li>
+      <li class="gdprFooter" style="display:none"><a href="https://www.webtoons.com/id/consentsManagement">Data Pribadi</a></li>
+      <li><a href="https://advertising.webtoon.com/id/home">Info Iklan</a></li>
+      <li class="ccpaFooter _dnsmpi" style="display:none"><a href="#">Do Not Sell or Share My Personal Information</a></li>
+      <li class="language" id="languageArea">
+        <button type="button" aria-expanded="false" class="lk_lang _selectedLanguage"><span class="blind"></span><span class="_selectedLanguageText"></span></button>
+        <ul class="ly_lang _languageList">
+          <li><a href="#" class="ver_en _en _language" data-content-language="en" data-locale="en" aria-current="false">English</a></li>
+          <li><a href="#" class="ver_tw _zh-hant _language" data-content-language="zh-hant" data-locale="zh-TW" aria-current="false">中文 (繁體)</a></li>
+          <li><a href="#" class="ver_th _th _language" data-content-language="th" data-locale="th-TH" aria-current="false">ภาษาไทย</a></li>
+          <li class="on"><a href="#" class="ver_id _id _language" data-content-language="id" data-locale="id" aria-current="true">Indonesia</a></li>
+          <li><a href="#" class="ver_es _es _language" data-content-language="es" data-locale="es" aria-current="false">Español</a></li>
+          <li><a href="#" class="ver_fr _fr _language" data-content-language="fr" data-locale="fr" aria-current="false">Français</a></li>
+          <li><a href="#" class="ver_de _de _language" data-content-language="de" data-locale="de" aria-current="false">Deutsch</a></li>
+        </ul>
+      </li>
+    </ul>
+
+    <p class="foot_logo"><span class="ico_foot_logo">WEBTOON</span></p>
+    <p class="copyright"><a>ⓒ NAVER WEBTOON Ltd.</a></p>
+  </footer>
+
+  <script type="text/javascript" src="/static/bundle/vendor-2b6294ae4a9154fe5d0f.js" charset="utf-8"></script>
+
+  <script type="text/javascript">
+    window.defaultErrorMessage = {
+      "alert.error.no_internet_connection": "Tidak ada koneksi internet. \nHarap periksa kembali koneksi jaringanmu.",
+      "alert.error.invalid_input": "Kamu memasukkan data yang salah.",
+      "alert.error.unknown": "Terjadi gangguan. Coba sekali lagi."
+    };
+    window.__commonScriptState__ = {
+      contentLanguage: "INDONESIAN",
+      contentLanguageCode: "id",
+      browserType: "CHROME",
+      countryCode: "CN",
+      isNotNoticePage: true,
+      domain: "www.webtoons.com",
+      imageDomain: "https://webtoon-phinf.pstatic.net",
+      recentBarParam: {
+        imgDomain: "https://webtoon-phinf.pstatic.net",
+        language: "id",
+        title: "Terbaru",
+        domain: "www.webtoons.com",
+        contentLanguage: "id"
+      },
+      noticeParam: {
+        domain: "www.webtoons.com",
+        contentLanguageCode: "id",
+        messages: { "menu.notice": "Pemberitahuan" }
+      },
+      gdprChildProtectionPopupMessages: {
+        "gdpr.child_protection_popup.challenge.header": "Anak-anak dan remaja di bawah usia 16 tahun yang tinggal di Jerman tidak diizinkan menggunakan WEBTOON CANVAS.",
+        "gdpr.child_protection_popup.challenge.desc": "Sesuai dengan Undang-Undang Perlindungan Anak Jerman, kami membatasi penggunaan WEBTOON CANVAS untuk anak-anak yang tinggal di Jerman. Untuk informasi lebih lanjut, silakan merujuk ke <a href=\"https://webtoon.zendesk.com/hc/id\" target=\"_blank\">Bantuan</a>.",
+        "button.ok": "OKE"
+      },
+      canvasToUAgreePopupParam: {
+        domain: "www.webtoons.com",
+        contentLanguageCode: "id",
+        messages: {
+          "canvas.tou.popup.title": "Syarat Penggunaan Terbaru",
+          "canvas.tou.popup.text": "Kami telah mengupdate Syarat Penggunaan WEBTOON CANVAS.",
+          "canvas.tou.popup.desc": "Saya setuju dengan {0} WEBTOON CANVAS. (Wajib)",
+          "canvas.tou.popup.desc.canvasToU": "",
+          "canvas.tou.popup.caution": "",
+          "policy.popup.submit": "Selesai",
+          "canvas.tou.popup.postpone": "Tidak sekarang"
+        }
+      },
+      cmpChildRestrictPopupMessages: {
+        ccpa: "Penjualan atau pembagian informasi pribadi terkait akun Anda dibatasi sesuai dengan undang-undang privasi yang berlaku. Anda tidak perlu melakukan tindakan apa pun.",
+        gdpr: "Pengaturan cookie untuk akun Anda dikelola sesuai dengan undang-undang privasi yang berlaku. Hanya cookie tertentu yang diperlukan dan akan aktif di akun Anda.",
+        ok: "OKE"
+      },
+      ssoReloginPopupParam: {
+        domain: "www.webtoons.com",
+        contentLanguageCode: "id",
+        messages: {
+          "sso_relogin.popup.title": "Dapatkan update dan penawaran menarik",
+          "sso_relogin.popup.info": "Dapatkan update dan penawaran menarik",
+          "sso_relogin.popup.desc": "Subscribe ke email kami untuk mendapatkan update dan penawaran eksklusif. Anda akan menerima informasi dari WEBTOON terkait email layanan dan promosi. Jika Anda tidak lagi ingin menerima email tersebut, Anda dapat mengatur preferensi kapan saja melalui WEBTOON > Pengaturan. Untuk informasi lebih lanjut mengenai pemrosesan data pribadi Anda, silakan merujuk ke <a href=\"https://www.webtoons.com/id/terms/privacyPolicy\" class=\"link\" target=\"_blank\">Kebijakan Privasi</a> kami.",
+          "sso_relogin.popup.subscribe": "Subscribe",
+          "sso_relogin.popup.cancel": "Tidak sekarang",
+          "sso_relogin.popup.subscribe_confirm.title": "Berhasil subscribe",
+          "sso_relogin.popup.subscribe_confirm.info": "Dapatkan beragam update dan penawaran eksklusif!",
+          "sso_relogin.popup.subscribe_confirm.ok": "OK"
+        }
+      },
+      policyAgreeModalParam: {
+        termsUrls: {
+          accountTermsOfUse: "https://account.webtoon.com/id/terms/terms-of-use",
+          accountPrivacyPolicy: "https://account.webtoon.com/id/terms/privacy-policy",
+          serviceTermsOfUse: "https://www.webtoons.com/id/terms",
+          servicePrivacyPolicy: "https://www.webtoons.com/id/terms/privacyPolicy"
+        },
+        messages: {
+          "policy_agree_modal.title": "Pembaruan Ketentuan Penggunaan",
+          "policy_agree_modal.desc": "Kami telah memperbarui Ketentuan Penggunaan kami. Kami sarankan Anda untuk membacanya secara lengkap di bawah ini. Scroll ke bawah untuk mengecek.",
+          "policy_agree_modal.legal.account_and_service": "Dengan memilih ‘Setuju & Daftar’, Anda menyetujui <a href=\"{0}\" class=\"link\" target=\"_blank\">Ketentuan Penggunaan WEBTOON ACCOUNT</a> dan <a href=\"{1}\" class=\"link\" target=\"_blank\">Ketentuan Penggunaan Layanan WEBTOON</a> serta menyatakan bahwa Anda telah membaca <a href=\"{2}\" class=\"link\" target=\"_blank\">Kebijakan Privasi WEBTOON ACCOUNT</a> dan <a href=\"{3}\" class=\"link\" target=\"_blank\">Kebijakan Privasi Layanan WEBTOON</a>.",
+          "policy_agree_modal.legal.account": "Dengan mengetuk \"Setuju & Lanjutkan\", Anda menyetujui <a href=\"{0}\" class=\"link\" target=\"_blank\">Ketentuan Penggunaan WEBTOON ACCOUNT</a> dan menyatakan bahwa Anda telah membaca <a href=\"{1}\" class=\"link\" target=\"_blank\">Kebijakan Privasi WEBTOON ACCOUNT</a>.",
+          "policy_agree_modal.legal.service": "Dengan memilih ‘Setuju & Daftar’, Anda menyetujui <a href=\"{0}\" class=\"link\" target=\"_blank\">Ketentuan Penggunaan Layanan WEBTOON</a> dan menyatakan bahwa Anda telah membaca <a href=\"{1}\" class=\"link\" target=\"_blank\">Kebijakan Privasi Layanan WEBTOON</a>.",
+          "policy_agree_modal.submit": "Setuju dan Lanjutkan",
+          "policy_agree_modal.notice_button": "Apa yang terjadi jika saya tidak setuju?",
+          "policy_agree_modal.notice.text": "Ketentuan ini menjelaskan bagaimana kami melindungi informasi Anda serta bagaimana cara kerja layanan WEBTOON dan WEBTOON ACCOUNT. Persetujuan Anda diperlukan untuk terus menggunakan layanan WEBTOON. Untuk informasi lebih lanjut, silakan lihat <a href=\"{0}\" class=\"link\" target=\"_blank\">pemberitahuan</a> terkait.",
+          "button.ok": "OKE"
+        }
+      },
+      isCreatorsPage: false
+    };
+  </script>
+  <script type="text/javascript" src="/static/bundle/common/commonScript-a2977b30faf2ec11a560.js" charset="utf-8"></script>
+
+  <script>
+    window.__gnbState__ = {
+      locale: "id",
+      gnbLayerId: "#header",
+      message: {
+        logoutMessage: "Yakin ingin log out sekarang?",
+        cmpLogoutMessage: "Apakah Anda yakin ingin logout?\nPengaturan privasi akun Anda tidak akan berlaku lagi setelah Anda logout. Pengaturan privasi default dari perangkat inilah yang akan digunakan sebagai gantinya.",
+        systemErrorMessage: "Terjadi gangguan. Coba sekali lagi."
+      },
+      searchParam: {
+        locale: "id",
+        message: {
+          "confirm.search.delete_history": "Hapus semua riwayat pencarianmu?",
+          "message.search.clear": "Hapus Pencarian",
+          "message.search.autocomplete.webtoon": "Webtoon",
+          "message.search.autocomplete.artist": "Kreator",
+          "message.search.autocomplete.view_all": "Lihat semua",
+          "message.search.autocomplete.close": "tutup"
+        },
+        imgDomain: "https://webtoon-phinf.pstatic.net",
+        templateParam: {
+          imageDomain: "https://webtoon-phinf.pstatic.net",
+          messages: {
+            "confirm.search.delete_history": "Hapus semua riwayat pencarianmu?",
+            "message.search.clear": "Hapus Pencarian",
+            "button.close": "tutup",
+            "message.search.no_recent_search": "Tidak ada pencarian terbaru.",
+            "message.search.autocomplete.webtoon": "Webtoon",
+            "message.search.autocomplete.artist": "Kreator",
+            "message.search.autocomplete.view_all": "Lihat semua",
+            "message.search.autocomplete.close": "tutup"
+          }
+        }
+      },
+      myLayerParam: {
+        domain: "www.webtoons.com",
+        contentLanguageCode: "id",
+        isAvailableCoinShop: false,
+        supportsAuthorCommunity: true,
+        messages: {
+          "menu.favorite": "Favorit",
+          "menu.mycomment": "Komentar",
+          "menu.creator": "Kreator",
+          "menu.mypost": "Profil Saya",
+          "menu.account": "Akun",
+          "menu.coin.shop": "Coin Shop",
+          "button.logout": "Keluar"
+        }
+      },
+      languageCode: "id",
+      childProtectorParams: {
+        messages: {
+          main: "Fitur ini tidak tersedia. Untuk informasi lebih lanjut, silakan lihat {childpp}.",
+          childpp: "Kebijakan Privasi Anak-anak",
+          ok: "Tutup"
+        },
+        childppLink: "https://www.webtoons.com/id/terms/childrensPrivacyPolicy"
+      },
+      signUpLayerParam: {
+        domain: "www.webtoons.com",
+        contentLanguageCode: "id",
+        messages: {
+          "message.signup.desc": "Saya menyetujui <a href=\"https://www.webtoons.com/id/terms?noLogin=true\" target=\"_blank\">Syarat Penggunaan</a> dan <a href=\"https://www.webtoons.com/id/terms/privacyPolicy?noLogin=true\" target=\"_blank\">Kebijakan Privasi</a> WEBTOON",
+          "message.signup.need_agree": "Harap tandai kotak.",
+          "button.sign_up": "Kirim"
+        }
+      }
+    };
+  </script>
+  <script type="text/javascript" src="/static/bundle/common/gnb-f427d1c31060d86c8ea4.js" charset="utf-8"></script>
+
+  <script type="text/javascript">
+    window.__state__ = {
+      searchParam: {
+        keyword: "pasutri",
+        locale: "id",
+        language: "INDONESIAN",
+        templateParam: {
+          imageDomain: "https://webtoon-phinf.pstatic.net",
+          messages: {
+            "confirm.search.delete_history": "Hapus semua riwayat pencarianmu?",
+            "message.search.no_recent_search": "Tidak ada pencarian terbaru.",
+            "message.search.clear": "Hapus Pencarian",
+            "button.close": "tutup",
+            "message.search.autocomplete.webtoon": "Webtoon",
+            "message.search.autocomplete.artist": "Kreator",
+            "message.search.autocomplete.view_all": "Lihat semua",
+            "message.search.autocomplete.close": "tutup",
+            "message.icon.new": "BARU",
+            "message.icon.update": "UP"
+          },
+          yesterdayTimestamp: 1794495500569
+        },
+        webtoonCount: 2,
+        challengeCount: 5,
+        noResultMessage: "Tidak ditemukan hasil untuk <span>\"pasutri\"</span>. <br>Coba cari kreator atau serial lainnya",
+        searchType: "ALL"
+      }
+    };
+  </script>
+  <script type="text/javascript" src="/static/bundle/search-fa98795063c8a0cf360f.js" charset="utf-8"></script>
+
+</div>
+</body>
+</html>
