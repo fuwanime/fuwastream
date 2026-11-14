@@ -886,6 +886,20 @@ private fun TranslationPanel(
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = if (scrollable) Modifier.heightIn(max = 240.dp).verticalScroll(rememberScrollState()) else Modifier,
             )
+            translation != null && translation.originalText.isNotBlank() -> Column {
+                Text(
+                    stringResource(R.string.manga_reader_translate_unavailable),
+                    color = Color.White.copy(alpha = 0.6f),
+                    style = MaterialTheme.typography.labelSmall,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    translation.originalText,
+                    color = Color.White.copy(alpha = 0.85f),
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = if (scrollable) Modifier.heightIn(max = 240.dp).verticalScroll(rememberScrollState()) else Modifier,
+                )
+            }
             translation != null -> Text(
                 stringResource(R.string.manga_reader_translate_no_text),
                 color = Color.White.copy(alpha = 0.75f),

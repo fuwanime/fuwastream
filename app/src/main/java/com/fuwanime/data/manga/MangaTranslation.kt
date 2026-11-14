@@ -57,6 +57,8 @@ data class PageTranslation(
     val regions: List<TranslatedBlock> = emptyList(),
     val width: Int = 0,
     val height: Int = 0,
+    /** Original OCR text shown when translation is unavailable or failed. */
+    val originalText: String = "",
 )
 
 enum class MangaTranslationFailure { IMAGE, OCR_MODEL, OCR, TRANSLATION_MODEL, TRANSLATION }
@@ -137,6 +139,7 @@ class MangaTranslator(
             throw MangaTranslationException(MangaTranslationFailure.OCR, e)
         }
         if (page.blocks.isEmpty()) return@withLock PageTranslation("", emptyList(), page.width, page.height)
+        val originalText = page.blocks.joinToString("\n") { it.text }
         if (!modelReady) {
             notifyModelDownload()
             stage(MangaTranslationFailure.TRANSLATION_MODEL) {
@@ -145,9 +148,16 @@ class MangaTranslator(
             modelReady = true
         }
         val regions = ArrayList<TranslatedBlock>(page.blocks.size)
+        var hasTranslationFailure = false
         for (block in page.blocks) {
-            val translated = stage(MangaTranslationFailure.TRANSLATION) { translateBlock(block.text) }
-            if (translated.isBlank()) continue
+            val translated = try {
+                stage(MangaTranslationFailure.TRANSLATION) { translateBlock(block.text) }
+            } catch (e: Exception) {
+                hasTranslationFailure = true
+                Log.w(TAG, "Translation failed for block: ${e.message}", e)
+                null
+            }
+            if (translated.isNullOrBlank()) continue
             regions += TranslatedBlock(
                 left = block.rect.left.toFloat() / page.width,
                 top = block.rect.top.toFloat() / page.height,
@@ -158,11 +168,13 @@ class MangaTranslator(
                 foreground = block.foreground,
             )
         }
+        val displayText = if (regions.isNotEmpty()) regions.joinToString("\n") { it.text } else ""
         PageTranslation(
-            text = regions.joinToString("\n") { it.text },
+            text = displayText,
             regions = regions,
             width = page.width,
             height = page.height,
+            originalText = if (regions.isEmpty()) originalText else "",
         )
     }
 
