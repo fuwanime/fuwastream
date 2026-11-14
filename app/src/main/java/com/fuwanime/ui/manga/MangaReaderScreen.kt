@@ -2,6 +2,7 @@ package com.fuwanime.ui.manga
 
 import com.fuwanime.data.manga.isKomikuId
 import com.fuwanime.data.manga.isShinigamiId
+import com.fuwanime.data.manga.isWebtoonId
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
@@ -367,6 +368,7 @@ private fun Credit(chapter: MangaChapter, modifier: Modifier = Modifier) {
         when {
             isShinigamiId(chapter.id) -> stringResource(R.string.manga_reader_source_shinigami)
             isKomikuId(chapter.id) -> stringResource(R.string.manga_reader_source_komiku)
+            isWebtoonId(chapter.id) -> stringResource(R.string.manga_reader_source_webtoon)
             chapter.group != null -> stringResource(R.string.manga_reader_scanlation, chapter.group)
             else -> stringResource(R.string.manga_reader_scanlation_unknown)
         },

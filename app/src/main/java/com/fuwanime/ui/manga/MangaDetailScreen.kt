@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.LazyRow
 import com.fuwanime.data.manga.isKomikuId
 import com.fuwanime.data.manga.isShinigamiId
+import com.fuwanime.data.manga.isWebtoonId
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -272,6 +273,7 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
                         val own = when {
                             isShinigamiId(mangaId) -> "Shinigami"
                             isKomikuId(mangaId) -> "Komiku"
+                            isWebtoonId(mangaId) -> "WEBTOON"
                             else -> "MangaDex"
                         }
                         InfoTable(manga, sources.ifEmpty { listOf(own) }.joinToString(" + "), inApp?.maxOfOrNull { it.publishAt }?.takeIf { it > 0 })
@@ -381,6 +383,7 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
                                     when {
                                         isShinigamiId(mangaId) -> R.string.manga_credit_shinigami
                                         isKomikuId(mangaId) -> R.string.manga_credit_komiku
+                                        isWebtoonId(mangaId) -> R.string.manga_credit_webtoon
                                         else -> R.string.manga_credit_mangadex
                                     },
                                 )
@@ -400,7 +403,7 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
     }
 }
 
-private val SOURCE_NAMES = listOf("Shinigami", "Komiku", "MangaDex") // indexed by sourceRank
+private val SOURCE_NAMES = listOf("Shinigami", "Komiku", "MangaDex", "WEBTOON") // indexed by sourceRank
 private val LANG_LABELS = mapOf(ChapterLang.ID to R.string.manga_lang_id, ChapterLang.EN to R.string.manga_lang_en, ChapterLang.RAW to R.string.manga_lang_raw)
 
 /** "Ch. 12", or the chapter title for a oneshot without a number. */

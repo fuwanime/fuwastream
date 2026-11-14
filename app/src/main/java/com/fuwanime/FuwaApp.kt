@@ -3,6 +3,9 @@ package com.fuwanime
 import com.fuwanime.data.manga.KomikuSource
 import com.fuwanime.data.manga.ShinigamiApi
 import com.fuwanime.data.manga.ShinigamiSource
+import com.fuwanime.data.manga.WebtoonSource
+import com.fuwanime.data.manga.WT_REFERER
+import com.fuwanime.data.manga.isWebtoonImage
 import com.fuwanime.data.manga.MangaDexDns
 import kotlinx.coroutines.flow.first
 import com.fuwanime.data.backup.BackupWorker
@@ -118,11 +121,26 @@ class AppContainer(private val app: Application) {
                             .header("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36")
                             .header("Accept", "application/json")
                             .build()
+                        // Webtoon's panel CDN rejects requests without its own Referer (HTTP 403).
+                        isWebtoonImage(req.url.toString()) -> req.newBuilder()
+                            .header("Referer", WT_REFERER)
+                            .build()
                         else -> req
                     },
                 )
             }
             .addInterceptor(RateLimitInterceptor())
+            .build()
+    }
+    /** Coil's client: same as [httpClient] plus the Referer Webtoon's image CDN demands (else thumbnails and panels get HTTP 403). */
+    val imageHttpClient: OkHttpClient by lazy {
+        httpClient.newBuilder()
+            .addInterceptor { chain ->
+                val req = chain.request()
+                chain.proceed(
+                    if (isWebtoonImage(req.url.toString())) req.newBuilder().header("Referer", WT_REFERER).build() else req,
+                )
+            }
             .build()
     }
     val mangaRepository by lazy {
@@ -131,6 +149,7 @@ class AppContainer(private val app: Application) {
             appLanguage = { app.resources.configuration.locales[0].language },
             shinigami = ShinigamiSource(ShinigamiApi.create(mangaHttpClient)),
             komiku = KomikuSource(mangaHttpClient),
+            webtoon = WebtoonSource(mangaHttpClient),
             mature = { settingsStore.mangaMature.first() },
         )
     }
@@ -161,7 +180,7 @@ class FuwaApp : Application(), SingletonImageLoader.Factory {
 
     // Coil 3 ignores HTTP cache headers by default, matching the old respectCacheHeaders(false).
     override fun newImageLoader(context: PlatformContext): ImageLoader = ImageLoader.Builder(context)
-        .components { add(OkHttpNetworkFetcherFactory(callFactory = { container.httpClient })) }
+        .components { add(OkHttpNetworkFetcherFactory(callFactory = { container.imageHttpClient })) }
         .memoryCache { MemoryCache.Builder().maxSizePercent(context, 0.25).build() }
         .diskCache {
             DiskCache.Builder()
