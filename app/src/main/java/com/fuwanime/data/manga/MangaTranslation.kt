@@ -245,7 +245,9 @@ class MangaTranslator(
                     ?: throw MangaTranslationException(MangaTranslationFailure.DECODE, IOException("Unsupported image format"))
                 try {
                     val blocks = ArrayList<RecognizedBlock>()
-                    addBlocks(blocks, recognizeBitmapSafely(bitmap, 1f, 1f, 0, bitmap.width, bitmap.height, onWaitingForModel))
+                    val tileBlocks = recognizeBitmapSafely(bitmap, 1f, 1f, 0, bitmap.width, bitmap.height, onWaitingForModel)
+                        ?: throw MangaTranslationException(MangaTranslationFailure.OCR, IOException("Text recognition failed"))
+                    addBlocks(blocks, tileBlocks)
                     return@withContext RecognizedPage(bitmap.width, bitmap.height, blocks)
                 } finally {
                     bitmap.recycle()
@@ -261,7 +263,9 @@ class MangaTranslator(
             try {
                 val scaleX = width.toFloat() / bitmap.width
                 val scaleY = height.toFloat() / bitmap.height
-                addBlocks(blocks, recognizeBitmapSafely(bitmap, scaleX, scaleY, 0, width, height, onWaitingForModel))
+                val tileBlocks = recognizeBitmapSafely(bitmap, scaleX, scaleY, 0, width, height, onWaitingForModel)
+                    ?: throw MangaTranslationException(MangaTranslationFailure.OCR, IOException("Text recognition failed"))
+                addBlocks(blocks, tileBlocks)
             } finally {
                 bitmap.recycle()
             }
@@ -275,7 +279,7 @@ class MangaTranslator(
         RecognizedPage(width, height, blocks)
     }
 
-    /** @return true when at least one tile was decoded; false when the region decoder cannot read this file. */
+    /** @return true when at least one tile was decoded and OCRed successfully; false when this path can't be used. */
     private suspend fun decodeTilesWithRegionDecoder(
         bytes: ByteArray,
         width: Int,
@@ -291,6 +295,7 @@ class MangaTranslator(
         } ?: return false
         val sample = ((width + MAX_WIDTH - 1) / MAX_WIDTH).coerceAtLeast(1)
         var decoded = 0
+        var ocrSucceeded = 0
         try {
             var top = 0
             while (top < height) {
@@ -313,7 +318,11 @@ class MangaTranslator(
                     val scaleX = width.toFloat() / tile.width
                     val scaleY = (bottom - top).toFloat() / tile.height
                     try {
-                        addBlocks(blocks, recognizeBitmapSafely(tile, scaleX, scaleY, top, width, height, onWaitingForModel))
+                        val tileBlocks = recognizeBitmapSafely(tile, scaleX, scaleY, top, width, height, onWaitingForModel)
+                        if (tileBlocks != null) {
+                            ocrSucceeded++
+                            addBlocks(blocks, tileBlocks)
+                        }
                     } finally {
                         tile.recycle()
                     }
@@ -325,6 +334,9 @@ class MangaTranslator(
         } finally {
             decoder.recycle()
         }
+        // If tiles were decoded but OCR failed for every one of them, let the caller try the in-memory fallback
+        // instead of reporting a false "no text detected" result.
+        if (decoded > 0 && ocrSucceeded == 0) return false
         return decoded > 0
     }
 
@@ -344,6 +356,8 @@ class MangaTranslator(
             val strip = (TILE_HEIGHT / scaleY).toInt().coerceAtLeast(1)
             val overlap = (TILE_OVERLAP / scaleY).toInt().coerceAtLeast(1)
             var top = 0
+            var ocrSucceeded = 0
+            var stripsAttempted = 0
             while (top < full.height) {
                 val bottom = (top + strip).coerceAtMost(full.height)
                 val tile = try {
@@ -356,14 +370,25 @@ class MangaTranslator(
                     null
                 }
                 if (tile != null) {
+                    stripsAttempted++
                     try {
-                        addBlocks(blocks, recognizeBitmapSafely(tile, scaleX, scaleY, (top * scaleY).toInt(), width, height, onWaitingForModel))
+                        val tileBlocks = recognizeBitmapSafely(tile, scaleX, scaleY, (top * scaleY).toInt(), width, height, onWaitingForModel)
+                        if (tileBlocks != null) {
+                            ocrSucceeded++
+                            addBlocks(blocks, tileBlocks)
+                        }
                     } finally {
                         if (tile !== full) tile.recycle()
                     }
                 }
                 if (bottom >= full.height) break
                 top = (bottom - overlap).coerceAtLeast(top + 1)
+            }
+            if (stripsAttempted == 0) {
+                throw MangaTranslationException(MangaTranslationFailure.DECODE, IOException("Failed to prepare image strips for OCR"))
+            }
+            if (ocrSucceeded == 0) {
+                throw MangaTranslationException(MangaTranslationFailure.OCR, IOException("Text recognition failed"))
             }
         } finally {
             full.recycle()
@@ -454,8 +479,8 @@ class MangaTranslator(
     }
 
     /**
-     * OCR one tile without letting a single bad tile abort the whole page. Model-level failures still propagate,
-     * because the reader must show the download/retry message instead of silently returning a blank page.
+     * OCR one tile without letting a single bad tile abort the whole page. Returns null when this tile failed
+     * (so the caller can distinguish "no text found" from "OCR could not run"); model-level failures still propagate.
      */
     private suspend fun recognizeBitmapSafely(
         bitmap: Bitmap,
@@ -465,20 +490,20 @@ class MangaTranslator(
         imageWidth: Int,
         imageHeight: Int,
         onWaitingForModel: () -> Unit,
-    ): List<RecognizedBlock> = try {
+    ): List<RecognizedBlock>? = try {
         recognizeBitmap(bitmap, scaleX, scaleY, topOffset, imageWidth, imageHeight, onWaitingForModel)
     } catch (e: CancellationException) {
         throw e
     } catch (e: MlKitException) {
         if (isModelFailure(e)) throw e
         Log.w(TAG, "OCR failed for one tile: ${e.message}", e)
-        emptyList()
+        null
     } catch (e: OutOfMemoryError) {
         Log.w(TAG, "OCR ran out of memory for one tile", e)
-        emptyList()
+        null
     } catch (e: Exception) {
         Log.w(TAG, "OCR failed for one tile: ${e.message}", e)
-        emptyList()
+        null
     }
 
     private fun isModelFailure(e: MlKitException): Boolean =
