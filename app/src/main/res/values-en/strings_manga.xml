@@ -41,6 +41,7 @@
     <string name="manga_reader_translate_image_failed">The image could not be downloaded for translation. Reload the chapter and try again.</string>
     <string name="manga_reader_translate_ocr_model_failed">The OCR model is not ready yet. Wait a moment and try again.</string>
     <string name="manga_reader_translate_ocr_failed">The text in this image could not be processed by OCR.</string>
+    <string name="manga_reader_translate_decode_failed">This page image could not be read for translation. Try reloading the page.</string>
     <string name="manga_reader_translate_model_failed">The EN→ID translation model could not be downloaded. Check your connection and storage space.</string>
     <string name="manga_reader_translate_retry">Try again</string>
     <string name="manga_reader_translate_settings">Translate to Indonesian</string>

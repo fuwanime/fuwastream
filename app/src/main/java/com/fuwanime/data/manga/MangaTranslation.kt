@@ -4,9 +4,12 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.BitmapRegionDecoder
 import android.graphics.Color
+import android.graphics.ImageDecoder
 import android.graphics.Rect
 import android.net.Uri
+import android.os.Build
 import android.util.Log
+import androidx.annotation.RequiresApi
 import com.google.android.gms.tasks.Task
 import com.google.mlkit.common.MlKitException
 import com.google.mlkit.common.model.DownloadConditions
@@ -20,6 +23,7 @@ import com.google.mlkit.vision.text.TextRecognizer
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import java.io.File
 import java.io.IOException
+import java.nio.ByteBuffer
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.math.max
@@ -61,7 +65,7 @@ data class PageTranslation(
     val originalText: String = "",
 )
 
-enum class MangaTranslationFailure { IMAGE, OCR_MODEL, OCR, TRANSLATION_MODEL, TRANSLATION }
+enum class MangaTranslationFailure { IMAGE, DECODE, OCR_MODEL, OCR, TRANSLATION_MODEL, TRANSLATION }
 
 class MangaTranslationException(
     val failure: MangaTranslationFailure,
@@ -128,13 +132,14 @@ class MangaTranslator(
             recognize(bytes, notifyModelDownload)
         } catch (e: CancellationException) {
             throw e
+        } catch (e: MangaTranslationException) {
+            throw e
         } catch (e: MlKitException) {
-            val failure = if (e.errorCode == MlKitException.UNAVAILABLE || e.errorCode == MlKitException.NETWORK_ISSUE) {
-                MangaTranslationFailure.OCR_MODEL
-            } else {
-                MangaTranslationFailure.OCR
-            }
+            val failure = if (isModelFailure(e)) MangaTranslationFailure.OCR_MODEL else MangaTranslationFailure.OCR
             throw MangaTranslationException(failure, e)
+        } catch (e: OutOfMemoryError) {
+            Log.w(TAG, "Ran out of memory while decoding a page", e)
+            throw MangaTranslationException(MangaTranslationFailure.DECODE, e)
         } catch (e: Exception) {
             throw MangaTranslationException(MangaTranslationFailure.OCR, e)
         }
@@ -142,19 +147,27 @@ class MangaTranslator(
         val originalText = page.blocks.joinToString("\n") { it.text }
         if (!modelReady) {
             notifyModelDownload()
-            stage(MangaTranslationFailure.TRANSLATION_MODEL) {
-                downloadTranslationModel()
+            try {
+                stage(MangaTranslationFailure.TRANSLATION_MODEL) {
+                    downloadTranslationModel()
+                }
+                modelReady = true
+            } catch (e: MangaTranslationException) {
+                // The model is a one-time download; while it is unavailable the OCR result is still useful, so show
+                // the original text instead of discarding the page.
+                Log.w(TAG, "Translation model unavailable; showing the original text", e)
+                return@withLock PageTranslation("", emptyList(), page.width, page.height, originalText)
             }
-            modelReady = true
         }
         val regions = ArrayList<TranslatedBlock>(page.blocks.size)
-        var hasTranslationFailure = false
         for (block in page.blocks) {
             val translated = try {
                 stage(MangaTranslationFailure.TRANSLATION) { translateBlock(block.text) }
             } catch (e: Exception) {
-                hasTranslationFailure = true
                 Log.w(TAG, "Translation failed for block: ${e.message}", e)
+                null
+            } catch (e: OutOfMemoryError) {
+                Log.w(TAG, "Ran out of memory translating a block", e)
                 null
             }
             if (translated.isNullOrBlank()) continue
@@ -224,15 +237,31 @@ class MangaTranslator(
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
         val width = bounds.outWidth
         val height = bounds.outHeight
-        if (width <= 0 || height <= 0) throw IOException("Unsupported image format")
+        if (width <= 0 || height <= 0) {
+            // Extended WebP/AVIF variants can hide their size from BitmapFactory. ImageDecoder (API 28+) can still
+            // read them, so fall back to a memory-safe decode instead of failing the whole page.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                val bitmap = decodeWithImageDecoder(bytes, 0, 0)
+                    ?: throw MangaTranslationException(MangaTranslationFailure.DECODE, IOException("Unsupported image format"))
+                try {
+                    val blocks = ArrayList<RecognizedBlock>()
+                    addBlocks(blocks, recognizeBitmapSafely(bitmap, 1f, 1f, 0, bitmap.width, bitmap.height, onWaitingForModel))
+                    return@withContext RecognizedPage(bitmap.width, bitmap.height, blocks)
+                } finally {
+                    bitmap.recycle()
+                }
+            }
+            throw MangaTranslationException(MangaTranslationFailure.DECODE, IOException("Unsupported image format"))
+        }
 
         val blocks = ArrayList<RecognizedBlock>()
         if (height <= TILE_HEIGHT) {
-            val (bitmap, _) = decode(bytes, width, height) ?: throw IOException("Unsupported image format")
+            val (bitmap, _) = decode(bytes, width, height)
+                ?: throw MangaTranslationException(MangaTranslationFailure.DECODE, IOException("Unsupported image format"))
             try {
                 val scaleX = width.toFloat() / bitmap.width
                 val scaleY = height.toFloat() / bitmap.height
-                addBlocks(blocks, recognizeBitmap(bitmap, scaleX, scaleY, 0, width, height, onWaitingForModel))
+                addBlocks(blocks, recognizeBitmapSafely(bitmap, scaleX, scaleY, 0, width, height, onWaitingForModel))
             } finally {
                 bitmap.recycle()
             }
@@ -274,6 +303,9 @@ class MangaTranslator(
                 } catch (e: Exception) {
                     Log.w(TAG, "Region decode failed at y=$top of $height: ${e.message}", e)
                     null
+                } catch (e: OutOfMemoryError) {
+                    Log.w(TAG, "Region decode ran out of memory at y=$top of $height", e)
+                    null
                 }
                 if (tile != null) {
                     decoded++
@@ -281,7 +313,7 @@ class MangaTranslator(
                     val scaleX = width.toFloat() / tile.width
                     val scaleY = (bottom - top).toFloat() / tile.height
                     try {
-                        addBlocks(blocks, recognizeBitmap(tile, scaleX, scaleY, top, width, height, onWaitingForModel))
+                        addBlocks(blocks, recognizeBitmapSafely(tile, scaleX, scaleY, top, width, height, onWaitingForModel))
                     } finally {
                         tile.recycle()
                     }
@@ -304,7 +336,8 @@ class MangaTranslator(
         blocks: MutableList<RecognizedBlock>,
         onWaitingForModel: () -> Unit,
     ) {
-        val (full, _) = decode(bytes, width, height) ?: throw IOException("Unsupported image format")
+        val full = decodePage(bytes, width, height)
+            ?: throw MangaTranslationException(MangaTranslationFailure.DECODE, IOException("Unsupported image format"))
         try {
             val scaleX = width.toFloat() / full.width
             val scaleY = height.toFloat() / full.height
@@ -313,11 +346,21 @@ class MangaTranslator(
             var top = 0
             while (top < full.height) {
                 val bottom = (top + strip).coerceAtMost(full.height)
-                val tile = Bitmap.createBitmap(full, 0, top, full.width, bottom - top)
-                try {
-                    addBlocks(blocks, recognizeBitmap(tile, scaleX, scaleY, (top * scaleY).toInt(), width, height, onWaitingForModel))
-                } finally {
-                    if (tile !== full) tile.recycle()
+                val tile = try {
+                    Bitmap.createBitmap(full, 0, top, full.width, bottom - top)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Strip slice failed at y=$top of ${full.height}: ${e.message}", e)
+                    null
+                } catch (e: OutOfMemoryError) {
+                    Log.w(TAG, "Strip slice ran out of memory at y=$top of ${full.height}", e)
+                    null
+                }
+                if (tile != null) {
+                    try {
+                        addBlocks(blocks, recognizeBitmapSafely(tile, scaleX, scaleY, (top * scaleY).toInt(), width, height, onWaitingForModel))
+                    } finally {
+                        if (tile !== full) tile.recycle()
+                    }
                 }
                 if (bottom >= full.height) break
                 top = (bottom - overlap).coerceAtLeast(top + 1)
@@ -327,12 +370,60 @@ class MangaTranslator(
         }
     }
 
+    /** Decodes the whole page, retrying with a bigger sample size when the phone is short on memory. */
+    private fun decodePage(bytes: ByteArray, width: Int, height: Int): Bitmap? {
+        decode(bytes, width, height)?.let { return it.first }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) return decodeWithImageDecoder(bytes, width, height)
+        return null
+    }
+
     private fun decode(bytes: ByteArray, width: Int, height: Int): Pair<Bitmap, Int>? {
+        var sample = sampleSize(width, height)
+        repeat(MAX_DECODE_ATTEMPTS) {
+            try {
+                val bitmap = BitmapFactory.decodeByteArray(
+                    bytes,
+                    0,
+                    bytes.size,
+                    BitmapFactory.Options().apply { inSampleSize = sample },
+                )
+                if (bitmap != null) return bitmap to sample
+            } catch (e: Exception) {
+                Log.w(TAG, "Bitmap decode failed at sample $sample for ${width}x$height: ${e.message}", e)
+            } catch (e: OutOfMemoryError) {
+                Log.w(TAG, "Bitmap decode ran out of memory at sample $sample for ${width}x$height", e)
+            }
+            sample *= 2
+        }
+        return null
+    }
+
+    /**
+     * Last-resort decode for formats BitmapFactory rejects. ImageDecoder reports the real size before allocating,
+     * so a huge webtoon strip can be sampled down instead of overflowing the heap.
+     */
+    @RequiresApi(Build.VERSION_CODES.P)
+    private fun decodeWithImageDecoder(bytes: ByteArray, width: Int, height: Int): Bitmap? = try {
+        val source = ImageDecoder.createSource(ByteBuffer.wrap(bytes))
+        ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
+            decoder.setAllocator(ImageDecoder.ALLOCATOR_SOFTWARE)
+            decoder.setTargetSampleSize(sampleSize(info.size.width, info.size.height))
+        }
+    } catch (e: Exception) {
+        Log.w(TAG, "ImageDecoder failed for ${width}x$height image: ${e.message}", e)
+        null
+    } catch (e: OutOfMemoryError) {
+        Log.w(TAG, "ImageDecoder ran out of memory for ${width}x$height image", e)
+        null
+    }
+
+    /** Smallest power-of-two sample that keeps the decoded bitmap inside the memory budget. */
+    private fun sampleSize(width: Int, height: Int): Int {
         var sample = 1
-        while (width / sample > MAX_WIDTH || (width / sample).toLong() * (height / sample) > MAX_PIXELS) sample *= 2
-        val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sample })
-            ?: return null
-        return bitmap to sample
+        while (width / sample > MAX_WIDTH ||
+            (width / sample).coerceAtLeast(1).toLong() * (height / sample).coerceAtLeast(1) > MAX_PIXELS
+        ) sample *= 2
+        return sample
     }
 
     private suspend fun recognizeBitmap(
@@ -361,6 +452,37 @@ class MangaTranslator(
             RecognizedBlock(text, rect, background, foreground)
         }
     }
+
+    /**
+     * OCR one tile without letting a single bad tile abort the whole page. Model-level failures still propagate,
+     * because the reader must show the download/retry message instead of silently returning a blank page.
+     */
+    private suspend fun recognizeBitmapSafely(
+        bitmap: Bitmap,
+        scaleX: Float,
+        scaleY: Float,
+        topOffset: Int,
+        imageWidth: Int,
+        imageHeight: Int,
+        onWaitingForModel: () -> Unit,
+    ): List<RecognizedBlock> = try {
+        recognizeBitmap(bitmap, scaleX, scaleY, topOffset, imageWidth, imageHeight, onWaitingForModel)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: MlKitException) {
+        if (isModelFailure(e)) throw e
+        Log.w(TAG, "OCR failed for one tile: ${e.message}", e)
+        emptyList()
+    } catch (e: OutOfMemoryError) {
+        Log.w(TAG, "OCR ran out of memory for one tile", e)
+        emptyList()
+    } catch (e: Exception) {
+        Log.w(TAG, "OCR failed for one tile: ${e.message}", e)
+        emptyList()
+    }
+
+    private fun isModelFailure(e: MlKitException): Boolean =
+        e.errorCode == MlKitException.UNAVAILABLE || e.errorCode == MlKitException.NETWORK_ISSUE
 
     /** Picks the most common colour around the text; that is the bubble fill, not the lettering. */
     private fun sampleColors(bitmap: Bitmap, box: Rect): Pair<Int, Int> {
@@ -442,8 +564,7 @@ class MangaTranslator(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: MlKitException) {
-                val waiting = e.errorCode == MlKitException.UNAVAILABLE || e.errorCode == MlKitException.NETWORK_ISSUE
-                if (!waiting || attempt == OCR_MODEL_RETRIES - 1) throw e
+                if (!isModelFailure(e) || attempt == OCR_MODEL_RETRIES - 1) throw e
                 onWaitingForModel()
                 delay(OCR_MODEL_RETRY_MS)
             }
@@ -459,8 +580,7 @@ class MangaTranslator(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: MlKitException) {
-                val transient = e.errorCode == MlKitException.UNAVAILABLE || e.errorCode == MlKitException.NETWORK_ISSUE
-                if (!transient || attempt == TRANSLATION_MODEL_RETRIES - 1) throw e
+                if (!isModelFailure(e) || attempt == TRANSLATION_MODEL_RETRIES - 1) throw e
                 delay(TRANSLATION_MODEL_RETRY_MS)
             }
         }
@@ -483,6 +603,7 @@ class MangaTranslator(
         const val TILE_OVERLAP = 120
         const val MAX_WIDTH = 2_000
         const val MAX_PIXELS = 8_000_000L
+        const val MAX_DECODE_ATTEMPTS = 5
         const val OCR_MODEL_RETRIES = 20
         const val OCR_MODEL_RETRY_MS = 1_500L
         const val TRANSLATION_MODEL_RETRIES = 3

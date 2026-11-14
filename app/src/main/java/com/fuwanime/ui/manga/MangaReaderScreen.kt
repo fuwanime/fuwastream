@@ -223,6 +223,7 @@ class MangaReaderViewModel(
     private fun translationError(e: Exception): UiText = UiText(
         when ((e as? MangaTranslationException)?.failure) {
             MangaTranslationFailure.IMAGE -> R.string.manga_reader_translate_image_failed
+            MangaTranslationFailure.DECODE -> R.string.manga_reader_translate_decode_failed
             MangaTranslationFailure.OCR_MODEL -> R.string.manga_reader_translate_ocr_model_failed
             MangaTranslationFailure.OCR -> R.string.manga_reader_translate_ocr_failed
             MangaTranslationFailure.TRANSLATION_MODEL -> R.string.manga_reader_translate_model_failed

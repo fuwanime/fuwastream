@@ -41,6 +41,7 @@
     <string name="manga_reader_translate_image_failed">Gambar tidak dapat diunduh untuk diterjemahkan. Muat ulang chapter lalu coba lagi.</string>
     <string name="manga_reader_translate_ocr_model_failed">Model OCR belum siap. Tunggu sebentar lalu coba lagi.</string>
     <string name="manga_reader_translate_ocr_failed">Teks pada gambar tidak dapat diproses oleh OCR.</string>
+    <string name="manga_reader_translate_decode_failed">Gambar halaman ini tidak dapat dibaca untuk diterjemahkan. Coba muat ulang halaman.</string>
     <string name="manga_reader_translate_model_failed">Model terjemahan EN→ID gagal diunduh. Periksa koneksi dan ruang penyimpanan.</string>
     <string name="manga_reader_translate_retry">Coba lagi</string>
     <string name="manga_reader_translate_settings">Terjemahkan ke Indonesia</string>
