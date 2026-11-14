@@ -117,14 +117,14 @@ class EpisodeNotifyWorker(context: Context, params: WorkerParameters) : Coroutin
     companion object {
         private const val WORK_NAME = "episode_check"
 
-        /** Schedules the daily-ish sweep; safe to call on every app start (KEEP policy). */
+        /** Schedules a frequent sweep (every 15 min, WorkManager minimum) for near-real-time favorite checks. */
         fun schedule(context: Context) {
-            val request = PeriodicWorkRequestBuilder<EpisodeNotifyWorker>(6, TimeUnit.HOURS)
+            val request = PeriodicWorkRequestBuilder<EpisodeNotifyWorker>(15, TimeUnit.MINUTES)
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
                 .build()
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(
                 WORK_NAME,
-                ExistingPeriodicWorkPolicy.KEEP,
+                ExistingPeriodicWorkPolicy.UPDATE,
                 request,
             )
         }

@@ -148,14 +148,14 @@ class ReleaseNotifyWorker(context: Context, params: WorkerParameters) : Coroutin
         private const val ANIME_FEED = 50
         private const val MANGA_FEED = 100
 
-        /** Schedules the hourly sweep; safe to call on every app start (KEEP policy). */
+        /** Schedules a frequent sweep (every 15 min, WorkManager minimum) for near-real-time release checks. */
         fun schedule(context: Context) {
-            val request = PeriodicWorkRequestBuilder<ReleaseNotifyWorker>(1, TimeUnit.HOURS)
+            val request = PeriodicWorkRequestBuilder<ReleaseNotifyWorker>(15, TimeUnit.MINUTES)
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
                 .build()
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(
                 WORK_NAME,
-                ExistingPeriodicWorkPolicy.KEEP,
+                ExistingPeriodicWorkPolicy.UPDATE,
                 request,
             )
         }
