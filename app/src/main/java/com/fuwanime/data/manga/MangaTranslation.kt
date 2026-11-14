@@ -87,7 +87,7 @@ private data class RecognizedPage(
 )
 
 /**
- * On-device English → Indonesian translation for image chapters (Comix). The Latin OCR model is bundled;
+ * On-device English → Indonesian translation for image chapters (English sources). The Latin OCR model is bundled;
  * the translation model is downloaded once and then works offline. Nothing leaves the device.
  */
 class MangaTranslator(
@@ -212,7 +212,7 @@ class MangaTranslator(
             val path = Uri.parse(candidates.first()).path ?: throw IOException("Invalid local page: ${candidates.first()}")
             return@withContext File(path).readBytes()
         }
-        // The Comix CDN rejects requests that carry a Referer (403), so send none.
+        // Some image CDNs reject requests that carry a Referer, so send none.
         var failure: IOException? = null
         for (candidate in candidates) {
             try {
@@ -221,14 +221,14 @@ class MangaTranslator(
                     .header("User-Agent", USER_AGENT)
                     .build()
                 http.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) throw IOException("Comix image HTTP ${response.code}")
-                    return@withContext response.body?.bytes() ?: throw IOException("Comix image is empty")
+                    if (!response.isSuccessful) throw IOException("Image HTTP ${response.code}")
+                    return@withContext response.body?.bytes() ?: throw IOException("Image response is empty")
                 }
             } catch (e: IOException) {
                 failure = e
             }
         }
-        throw failure ?: IOException("Comix image has no usable host")
+        throw failure ?: IOException("Image host is unavailable")
     }
 
     /** OCR for one image, split into vertical tiles so very long webtoon strips stay within memory limits. */

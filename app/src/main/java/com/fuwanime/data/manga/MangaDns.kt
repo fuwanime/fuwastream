@@ -17,10 +17,10 @@ data class DohResponse(@Json(name = "Status") val status: Int = -1, @Json(name =
 data class DohAnswer(@Json(name = "type") val type: Int = 0, @Json(name = "TTL") val ttl: Int = 0, @Json(name = "data") val data: String = "")
 
 private val DOH_DOMAINS = listOf(
-    "comix.ws",
-    // Comix rotates reader images across random *.site hosts and kkplayer.wtf.
-    "site",
-    "kkplayer.wtf",
+    "mangadex.org",
+    "mangadex.network",
+    "uploads.mangadex.org",
+    "api.mangadex.org",
     "shngm.io",
     "shngm.id",
     "komiku.org",

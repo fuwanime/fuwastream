@@ -4,8 +4,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.LazyRow
-import com.fuwanime.data.manga.isComixId
 import com.fuwanime.data.manga.isKomikuId
+import com.fuwanime.data.manga.isMangaDexId
 import com.fuwanime.data.manga.isShinigamiId
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
@@ -319,8 +319,8 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
                         val own = when {
                             isShinigamiId(mangaId) -> "Shinigami"
                             isKomikuId(mangaId) -> "Komiku"
-                            isComixId(mangaId) -> "Comix"
-                            else -> "Comix"
+                            isMangaDexId(mangaId) -> "MangaDex"
+                            else -> "MangaDex"
                         }
                         InfoTable(manga, sources.ifEmpty { listOf(own) }.joinToString(" + "), inApp?.maxOfOrNull { it.publishAt }?.takeIf { it > 0 })
                     }
@@ -431,8 +431,8 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
                                     when {
                                         isShinigamiId(mangaId) -> R.string.manga_credit_shinigami
                                         isKomikuId(mangaId) -> R.string.manga_credit_komiku
-                                        isComixId(mangaId) -> R.string.manga_credit_comix
-                                        else -> R.string.manga_credit_comix
+                                        isMangaDexId(mangaId) -> R.string.manga_credit_mangadex
+                                        else -> R.string.manga_credit_mangadex
                                     },
                                 )
                             },

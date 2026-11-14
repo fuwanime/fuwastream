@@ -94,7 +94,7 @@ class ReleaseNotifyWorker(context: Context, params: WorkerParameters) : Coroutin
 
         for (release in releases) {
             val label = release.chapter ?: continue
-            // Comix normally sends "12.5", but some scanlations prefix it ("Chapter 12"); take the number either way.
+            // Chapter labels may be plain numbers or prefixed ("Chapter 12"); take the number either way.
             val number = episodeNumber(label) ?: continue
             val preference = container.libraryRepository.titlePreferenceValue("MANGA", release.mangaId)
             val mode = preference?.notifyMode
@@ -142,8 +142,8 @@ class ReleaseNotifyWorker(context: Context, params: WorkerParameters) : Coroutin
         private const val WORK_NAME = "release_check"
 
         /**
-         * How many entries of each feed to scan per run. Anime updates are a few dozen a day; Comix
-         * can publish a hundred chapters in a few hours, so its window is wider to avoid missing releases.
+         * How many entries of each feed to scan per run. Anime updates are a few dozen a day; manga sources
+         * can publish many chapters in a few hours, so the window is wider to avoid missing releases.
          */
         private const val ANIME_FEED = 50
         private const val MANGA_FEED = 100

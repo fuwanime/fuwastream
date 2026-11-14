@@ -1,8 +1,8 @@
 <resources>
     <string name="manga_error_not_found">未找到该漫画。</string>
-    <string name="manga_source_catalog_down">当前网络无法访问 Comix。印尼漫画源仍可使用。</string>
+    <string name="manga_source_catalog_down">当前网络无法访问 MangaDex。印尼漫画源仍可使用。</string>
     <string name="manga_source_catalog_retry">重试</string>
-    <string name="manga_source_catalog_filter">类型和状态筛选需要 Comix。请清除筛选或使用搜索。</string>
+    <string name="manga_source_catalog_filter">类型和状态筛选需要 MangaDex。请清除筛选或使用搜索。</string>
     <string name="manga_status_ongoing">连载中</string>
     <string name="manga_status_completed">已完结</string>
     <string name="manga_status_hiatus">休刊中</string>
@@ -62,11 +62,11 @@
     <string name="manga_reader_source_shinigami">来源：Shinigami</string>
     <string name="manga_home_komiku">经典与完结</string>
     <string name="manga_settings_mature">成人内容</string>
-    <string name="manga_settings_mature_desc">显示成人类型动画（Ecchi、Erotica、Hentai）以及 Comix 的成人题材漫画</string>
+    <string name="manga_settings_mature_desc">显示成人类型动画（Ecchi、Erotica、Hentai）以及 MangaDex 的成人题材漫画</string>
     <string name="manga_credit_komiku">数据与图片来自 Komiku</string>
     <string name="manga_reader_source_komiku">来源：Komiku</string>
-    <string name="manga_credit_comix">数据与图片来自 Comix</string>
-    <string name="manga_reader_source_comix">来源：Comix</string>
+    <string name="manga_credit_mangadex">数据与图片来自 MangaDex</string>
+    <string name="manga_reader_source_mangadex">来源：MangaDex</string>
     <string name="manga_home_genres">按类型浏览</string>
     <string name="manga_genre_action">动作</string>
     <string name="manga_genre_romance">恋爱</string>

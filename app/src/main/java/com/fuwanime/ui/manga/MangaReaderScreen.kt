@@ -2,7 +2,7 @@ package com.fuwanime.ui.manga
 
 import com.fuwanime.data.manga.PageTranslation
 import com.fuwanime.data.manga.TranslatedBlock
-import com.fuwanime.data.manga.isComixId
+import com.fuwanime.data.manga.isMangaDexId
 import com.fuwanime.data.manga.isKomikuId
 import com.fuwanime.data.manga.isShinigamiId
 import android.app.Activity
@@ -401,7 +401,7 @@ fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
             chapter == null || pages == null -> CircularProgressIndicator(Modifier.align(Alignment.Center), color = Color.White)
             else -> key(chapter.id) {
                 val label = chapterLabel(chapter)
-                val translationAvailable = isComixId(chapter.id)
+                val translationAvailable = isMangaDexId(chapter.id)
                 // A source change can shrink the page list; never open past its last page.
                 val startPage = state.startPage.coerceIn(0, (pages.size - 1).coerceAtLeast(0))
                 // From the start, show the credit above page 1; when resuming, jump straight to the saved page.
@@ -643,7 +643,7 @@ private fun Credit(chapter: MangaChapter, modifier: Modifier = Modifier) {
         when {
             isShinigamiId(chapter.id) -> stringResource(R.string.manga_reader_source_shinigami)
             isKomikuId(chapter.id) -> stringResource(R.string.manga_reader_source_komiku)
-            isComixId(chapter.id) -> stringResource(R.string.manga_reader_source_comix)
+            isMangaDexId(chapter.id) -> stringResource(R.string.manga_reader_source_mangadex)
             chapter.group != null -> stringResource(R.string.manga_reader_scanlation, chapter.group)
             else -> stringResource(R.string.manga_reader_source_comix)
         },
