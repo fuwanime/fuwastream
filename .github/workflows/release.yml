@@ -123,21 +123,54 @@ jobs:
       - name: Decode signing keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-        if: env.KEYSTORE_BASE64 != ''
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ]; then
+            echo "::error::Release signing secrets are missing."
+            exit 1
+          fi
           echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          EFFECTIVE_ALIAS="${KEY_ALIAS:-fuwanime}"
+          if ! keytool -list -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" -alias "$EFFECTIVE_ALIAS" >/dev/null 2>&1; then
+            EFFECTIVE_ALIAS=$(keytool -list -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" 2>/dev/null \
+              | awk -F, '/PrivateKeyEntry/ { gsub(/^[[:space:]]+|[[:space:]]+$/, "", $1); print $1; exit }')
+          fi
+          if [ -z "$EFFECTIVE_ALIAS" ]; then
+            echo "::error::No private-key alias was found in the release keystore."
+            exit 1
+          fi
           echo "KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+          echo "KEY_ALIAS=$EFFECTIVE_ALIAS" >> "$GITHUB_ENV"
 
-      - name: Build APK + AAB
+      - name: Test and build universal APK
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-        run: gradle testDebugUnitTest assembleRelease bundleRelease --stacktrace
+        run: gradle testDebugUnitTest assembleRelease -PabiSplits=false --stacktrace
+
+      - name: Build AAB
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: gradle bundleRelease -PabiSplits=false --stacktrace
+
+      - name: Verify release signing certificate
+        run: |
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
+          APK=$(find app/build/outputs/apk/release -maxdepth 1 -name '*.apk' | head -1)
+          "$APKSIGNER" verify --print-certs "$APK" | tee "$RUNNER_TEMP/apksigner.txt"
+          CERT=$(grep 'certificate SHA-256 digest' "$RUNNER_TEMP/apksigner.txt" \
+            | head -1 | awk '{print $NF}' | tr -d ':' | tr 'A-F' 'a-f')
+          echo "APK signing certificate SHA-256: $CERT"
+          test "$CERT" = "9d192491f8c087ece5ed36f361e16503b07ef1980070ca2939bbfd6a41fc4848"
 
       - name: Rename artifacts
         run: |
           mkdir -p dist
-          cp app/build/outputs/apk/release/*.apk "dist/FuwaStream-${VERSION_NAME}.apk"
-          cp app/build/outputs/bundle/release/*.aab "dist/FuwaStream-${VERSION_NAME}.aab"
+          APK=$(find app/build/outputs/apk/release -maxdepth 1 -name '*.apk' | head -1)
+          AAB=$(find app/build/outputs/bundle/release -maxdepth 1 -name '*.aab' | head -1)
+          test -n "$APK" && test -n "$AAB"
+          cp "$APK" "dist/FuwaStream-${VERSION_NAME}.apk"
+          cp "$AAB" "dist/FuwaStream-${VERSION_NAME}.aab"
 
       - uses: actions/upload-artifact@v4
         with:
