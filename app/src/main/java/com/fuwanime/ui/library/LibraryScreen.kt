@@ -250,7 +250,6 @@ fun LibraryRoute(
         week?.takeIf { !selecting }?.let { WeekCard(it, onStats) }
         SegmentedTabs(
             listOf(R.string.mine_tab_history to history?.size, R.string.ux_collection to favorites?.size, R.string.manga_tab to null, R.string.mine_tab_downloads to downloads?.size?.plus(mangaDownloads?.size ?: 0))
->>>>>>> upstream/main
                 .map { (label, count) -> stringResource(label).let { if (count != null && count > 0) stringResource(R.string.mine_tab_with_count, it, count) else it } },
             selected = pager.currentPage,
             onSelect = { scope.launch { pager.animateScrollToPage(it) } },

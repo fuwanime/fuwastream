@@ -13,7 +13,8 @@ val releaseAlias = System.getenv("KEY_ALIAS") ?: "fuwanime"
 // Only packaging tasks need signing. Match real task names so values like
 // `--tests com.fuwanime.MangaReleaseMappingTest` never trigger the release check.
 val buildingRelease = gradle.startParameter.taskNames.any { it.substringAfterLast(':').endsWith("Release") }
-if (buildingRelease && (releaseKeystore == null || releasePassword.isNullOrBlank())) {
+val allowUnsignedRelease = System.getenv("GITHUB_EVENT_NAME") == "pull_request" || System.getenv("ALLOW_UNSIGNED_RELEASE") == "true"
+if (buildingRelease && (releaseKeystore == null || releasePassword.isNullOrBlank()) && !allowUnsignedRelease) {
   throw GradleException(
     "Release signing is not configured. Set KEYSTORE_PATH, KEYSTORE_PASSWORD and KEY_ALIAS " +
       "to the permanent FuwaStream keystore before building a release.",

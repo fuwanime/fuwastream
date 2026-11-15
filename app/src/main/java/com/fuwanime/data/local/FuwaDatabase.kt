@@ -245,23 +245,6 @@ abstract class FuwaDatabase : RoomDatabase() {
             }
         }
 
-        /** v8 adds the local profile, quest progress, once-only counters and unlocked borders; nothing existing changes. */
-        internal val MIGRATION_7_8 = object : Migration(7, 8) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("CREATE TABLE IF NOT EXISTS `user_profile` (`id` INTEGER NOT NULL, `name` TEXT NOT NULL, `xp` INTEGER NOT NULL, `equippedBorder` TEXT, PRIMARY KEY(`id`))")
-                db.execSQL("CREATE TABLE IF NOT EXISTS `quest_progress` (`id` TEXT NOT NULL, `progress` INTEGER NOT NULL, `claimed` INTEGER NOT NULL, PRIMARY KEY(`id`))")
-                db.execSQL("CREATE TABLE IF NOT EXISTS `counted_items` (`key` TEXT NOT NULL, PRIMARY KEY(`key`))")
-                db.execSQL("CREATE TABLE IF NOT EXISTS `unlocked_borders` (`id` TEXT NOT NULL, PRIMARY KEY(`id`))")
-            }
-        }
-
-        /** v7 lets a downloaded chapter live as a CBZ in the user's folder. */
-        internal val MIGRATION_6_7 = object : Migration(6, 7) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE `manga_downloads` ADD COLUMN `fileUri` TEXT")
-            }
-        }
-
         /** v6 adds downloaded manga chapters; nothing existing changes. */
         internal val MIGRATION_5_6 = object : Migration(5, 6) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -274,14 +257,24 @@ abstract class FuwaDatabase : RoomDatabase() {
             }
         }
 
-        /** v7 turns favourites into status-aware collections and adds per-title UX preferences. */
+        /** v7: external CBZ storage for downloads, collection status/preferences, and source stats. */
         internal val MIGRATION_6_7 = object : Migration(6, 7) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE `favorites` ADD COLUMN `collectionStatus` TEXT NOT NULL DEFAULT 'PLANNED'")
-                db.execSQL("ALTER TABLE `manga_favorite` ADD COLUMN `collectionStatus` TEXT NOT NULL DEFAULT 'PLANNED'")
-                // Existing saved titles with progress are actively being watched/read.
-                db.execSQL("UPDATE `favorites` SET `collectionStatus` = 'IN_PROGRESS' WHERE animeId IN (SELECT DISTINCT animeId FROM watch_history)")
-                db.execSQL("UPDATE `manga_favorite` SET `collectionStatus` = 'IN_PROGRESS' WHERE mangaId IN (SELECT DISTINCT mangaId FROM manga_history)")
+                if (tableExists(db, "manga_downloads") && !columnExists(db, "manga_downloads", "fileUri")) {
+                    db.execSQL("ALTER TABLE `manga_downloads` ADD COLUMN `fileUri` TEXT")
+                }
+                if (tableExists(db, "favorites") && !columnExists(db, "favorites", "collectionStatus")) {
+                    db.execSQL("ALTER TABLE `favorites` ADD COLUMN `collectionStatus` TEXT NOT NULL DEFAULT 'PLANNED'")
+                    if (tableExists(db, "watch_history")) {
+                        db.execSQL("UPDATE `favorites` SET `collectionStatus` = 'IN_PROGRESS' WHERE animeId IN (SELECT DISTINCT animeId FROM watch_history)")
+                    }
+                }
+                if (tableExists(db, "manga_favorite") && !columnExists(db, "manga_favorite", "collectionStatus")) {
+                    db.execSQL("ALTER TABLE `manga_favorite` ADD COLUMN `collectionStatus` TEXT NOT NULL DEFAULT 'PLANNED'")
+                    if (tableExists(db, "manga_history")) {
+                        db.execSQL("UPDATE `manga_favorite` SET `collectionStatus` = 'IN_PROGRESS' WHERE mangaId IN (SELECT DISTINCT mangaId FROM manga_history)")
+                    }
+                }
                 db.execSQL(
                     "CREATE TABLE IF NOT EXISTS `content_preferences` (`key` TEXT NOT NULL, `mediaType` TEXT NOT NULL, `contentId` TEXT NOT NULL, " +
                         "`notifyMode` TEXT NOT NULL, `notifyLanguage` TEXT NOT NULL, `autoDownload` INTEGER NOT NULL, `autoDownloadLimit` INTEGER NOT NULL, " +
@@ -293,6 +286,25 @@ abstract class FuwaDatabase : RoomDatabase() {
                 )
             }
         }
+
+        /** v8 adds the local profile, quest progress, once-only counters and unlocked borders; nothing existing changes. */
+        internal val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `user_profile` (`id` INTEGER NOT NULL, `name` TEXT NOT NULL, `xp` INTEGER NOT NULL, `equippedBorder` TEXT, PRIMARY KEY(`id`))")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `quest_progress` (`id` TEXT NOT NULL, `progress` INTEGER NOT NULL, `claimed` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `counted_items` (`key` TEXT NOT NULL, PRIMARY KEY(`key`))")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `unlocked_borders` (`id` TEXT NOT NULL, PRIMARY KEY(`id`))")
+            }
+        }
+
+        private fun tableExists(db: SupportSQLiteDatabase, table: String): Boolean =
+            db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='$table'").use { it.moveToFirst() }
+
+        private fun columnExists(db: SupportSQLiteDatabase, table: String, column: String): Boolean =
+            db.query("PRAGMA table_info(`$table`)").use { c ->
+                while (c.moveToNext()) if (c.getString(1) == column) return true
+                false
+            }
 
         /** v5 adds manga favourites and reading history; nothing existing changes. */
         private val MIGRATION_4_5 = object : Migration(4, 5) {

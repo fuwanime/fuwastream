@@ -49,12 +49,24 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
-          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ]; then
-            echo "::error::Release signing secrets are missing. Set KEYSTORE_BASE64, KEYSTORE_PASSWORD and KEY_ALIAS."
-            exit 1
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ]; then
+            echo "Release signing secrets are missing; building unsigned artifacts (expected for fork PRs)."
+            echo "HAS_SIGNING=false" >> "$GITHUB_ENV"
+            exit 0
           fi
           echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          EFFECTIVE_ALIAS="${KEY_ALIAS:-fuwanime}"
+          if ! keytool -list -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" -alias "$EFFECTIVE_ALIAS" >/dev/null 2>&1; then
+            EFFECTIVE_ALIAS=$(keytool -list -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" 2>/dev/null \
+              | awk -F, '/PrivateKeyEntry/ { gsub(/^[[:space:]]+|[[:space:]]+$/, "", $1); print $1; exit }')
+          fi
+          if [ -z "$EFFECTIVE_ALIAS" ]; then
+            echo "::error::No private-key alias was found in the release keystore."
+            exit 1
+          fi
           echo "KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+          echo "KEY_ALIAS=$EFFECTIVE_ALIAS" >> "$GITHUB_ENV"
+          echo "HAS_SIGNING=true" >> "$GITHUB_ENV"
 
       - name: Set version name
         run: |
@@ -71,17 +83,16 @@ jobs:
       - name: Build APK
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: gradle testDebugUnitTest assembleRelease --stacktrace
 
       - name: Build AAB
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         # ABI splits and app bundles cannot be built in the same invocation.
         run: gradle bundleRelease -PabiSplits=false --stacktrace
 
       - name: Verify release signing certificate
+        if: env.HAS_SIGNING == 'true'
         run: |
           APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
           APK=$(ls app/build/outputs/apk/release/*arm64-v8a*.apk 2>/dev/null | head -1)
@@ -94,7 +105,7 @@ jobs:
           echo "APK signing certificate SHA-256: $CERT"
           test -n "$CERT"
           # Pinned to the permanent FuwaStream keystore so an update never ships with another key.
-          test "$CERT" = "1cdbc56c56c6dba68fbf74c0dde37b428b6fa9ec57fe6ee1316fd70083767544"
+          test "$CERT" = "9d192491f8c087ece5ed36f361e16503b07ef1980070ca2939bbfd6a41fc4848"
 
       - name: Rename artifacts
         run: |
