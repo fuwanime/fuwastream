@@ -63,7 +63,9 @@ upgrade_from_release() {
   gh release download --repo "${GITHUB_REPOSITORY:-SakamotoMrX/fuwanime}" --pattern '*.apk' -D /tmp/old >/dev/null 2>&1 \
     || { echo "upgrade: skipped (no release apk)" | tee -a "$OUT/qa-checks.txt"; return; }
   adb uninstall "$PKG" >/dev/null 2>&1
-  adb install "$(ls /tmp/old/*.apk | head -1)" >/dev/null || { echo "upgrade: skipped (old apk install failed)" | tee -a "$OUT/qa-checks.txt"; adb install -r "$APK"; return; }
+  OLD_APK=$(ls /tmp/old/*x86_64*.apk 2>/dev/null | head -1)
+  [ -n "$OLD_APK" ] || OLD_APK=$(ls /tmp/old/*.apk | head -1)
+  adb install "$OLD_APK" >/dev/null || { echo "upgrade: skipped (old apk install failed)" | tee -a "$OUT/qa-checks.txt"; adb install -r "$APK"; return; }
   adb shell pm grant "$PKG" android.permission.POST_NOTIFICATIONS || true
   fresh
   tap "Tonton"; sleep 5; scroll_to "Episode 1" && tap "Episode 1"; sleep 20
@@ -76,12 +78,12 @@ upgrade_from_release() {
 }
 upgrade_from_release
 
-# 12. Manga tab: shelves from MangaDex + Shinigami load, a Shinigami title opens, its first chapter renders in the reader.
+# 12. Manga tab: shelves from Comix + Shinigami load, a Shinigami title opens, its first chapter renders in the reader.
 manga_check() { [ -n "$(find_xy "$1")" ] && echo "manga: $2 ok" | tee -a "$OUT/qa-checks.txt" || echo "manga: $2 MISSING" | tee -a "$OUT/qa-checks.txt"; }
 record qa12-manga
 fresh; tap "Manga"; shot qa12a-manga-tab 10
-manga_check "Populer Indonesia" "shinigami shelf"
-manga_check "Update terbaru" "mangadex latest shelf"
+manga_check "Populer di Indonesia" "shinigami shelf"
+manga_check "Trending dunia" "comix latest shelf"
 [ -n "$(find_xy "Gagal memuat")" ] && echo "manga: load error shown" | tee -a "$OUT/qa-checks.txt"
 y=$(find_xy "Populer Indonesia" | cut -d' ' -f2)
 adb shell input tap 150 $(( ${y:-700} + 260 )); shot qa12b-manga-detail 8

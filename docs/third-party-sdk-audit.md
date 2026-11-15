@@ -9,7 +9,8 @@ atau mengirim data pengguna. Sumber: `gradle/libs.versions.toml` + `app/build.gr
 - **Tidak ada** SDK iklan (AdMob, AppLovin, Unity Ads, dll).
 - **Tidak ada** SDK crash reporting (Crashlytics, Sentry, Bugsnag, dll).
 - **Tidak ada** SDK identitas/sosial (Google Sign-In, Facebook SDK, dll).
-- Semua dependency berlisensi open source (Apache-2.0 / MIT / BSD).
+- Semua dependency berlisensi open source (Apache-2.0 / MIT / BSD), kecuali ML Kit (Google,
+  proprietary) yang dipakai untuk OCR dan terjemahan di perangkat.
 
 ## Dependency runtime
 
@@ -29,6 +30,8 @@ atau mengirim data pengguna. Sumber: `gradle/libs.versions.toml` + `app/build.gr
 | OkHttp (+ logging interceptor) | 4.12.0 | Transport HTTP | Header permintaan (UA) |
 | Moshi | 1.15.2 | Parsing JSON | — |
 | Media3 ExoPlayer (+ HLS, OkHttp datasource, UI) | 1.8.0 | Pemutaran video | Streaming langsung dari sumber video pihak ketiga |
+| ML Kit Text Recognition (Latin) | 16.0.1 | OCR teks chapter manga di perangkat | — (gambar tidak dikirim; model OCR sudah menyatu di aplikasi) |
+| ML Kit Translate | 17.0.3 | Terjemahan EN→ID di perangkat | Unduhan model bahasa dari server Google (IP, UA); teks tidak dikirim |
 | WorkManager | 2.10.0 | Pemeriksaan episode baru (6 jam) | Permintaan ke API pihak ketiga |
 | JUnit | 4.13.2 | Unit test (test-only) | — |
 
@@ -37,6 +40,11 @@ atau mengirim data pengguna. Sumber: `gradle/libs.versions.toml` + `app/build.gr
 | Tujuan | Dipanggil oleh | Data |
 | --- | --- | --- |
 | `https://xyz-api.animein.net` | Retrofit (katalog), WorkManager (notifikasi), DownloadManager (unduhan) | IP, User-Agent, permintaan katalog/stream |
+| `https://api.shngm.io` | Retrofit (katalog manga Shinigami) | IP, User-Agent, permintaan katalog |
+| `https://api.komiku.org` | Retrofit (katalog manga Komiku) | IP, User-Agent, permintaan katalog |
+| `https://comix.ws` | WebView tersembunyi (katalog manga Comix) | IP, User-Agent, cookie/local storage WebView |
+| CDN gambar manga | OkHttp / Coil / pengunduh halaman | IP, User-Agent, permintaan gambar |
+| Server model ML Kit (Google) | ML Kit Translate (unduh model sekali pakai) | IP, User-Agent |
 | `https://api.github.com` | UpdateRepository | IP, User-Agent, path repositori |
 | Host video pihak ketiga | ExoPlayer / DownloadManager | IP, User-Agent, permintaan byte-range |
 
@@ -49,5 +57,7 @@ Tidak ada endpoint milik pengembang. Tidak ada telemetri.
    penyimpanan privat aplikasi (`getExternalFilesDir(Movies)`).
 3. **Coil** menyimpan cache gambar di `cacheDir/image_cache` (maks 256 MB) — dapat dihapus lewat
    Pengaturan sistem atau "Hapus semua data".
-4. Tidak ada dependency yang meminta akses ke kontak, lokasi, kamera, mikrofon, atau penyimpanan
+4. **ML Kit** menjalankan OCR dan terjemahan di perangkat; model bahasa yang sudah diunduh disimpan
+   di penyimpanan privat aplikasi dan ikut terhapus oleh "Hapus semua data".
+5. Tidak ada dependency yang meminta akses ke kontak, lokasi, kamera, mikrofon, atau penyimpanan
    eksternal publik.

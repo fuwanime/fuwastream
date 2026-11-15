@@ -10,6 +10,8 @@
 # Backup file models (also @JsonClass): the backup format must survive minification.
 -keep class com.fuwanime.data.backup.** { *; }
 -keep class com.fuwanime.data.local.*Entity* { *; }
+# Room stores these enum names as strings; renaming constants would break restored data.
+-keepclassmembers enum com.fuwanime.data.local.** { *; }
 
 # Retrofit service interfaces are accessed via reflection.
 -keep,allowobfuscation interface com.fuwanime.data.remote.AnimeApiService

@@ -7,6 +7,7 @@ import com.fuwanime.data.backup.SettingEntry
 import com.fuwanime.data.backup.isBackedUpSetting
 import com.fuwanime.data.backup.settingTypeAccepted
 import com.fuwanime.data.backup.shouldWriteBackup
+import com.fuwanime.data.local.ContentPreferenceEntity
 import com.fuwanime.data.local.FavoriteEntity
 import com.fuwanime.data.local.MangaFavoriteEntity
 import com.fuwanime.data.local.MangaHistoryEntity
@@ -28,23 +29,43 @@ class BackupCodecTest {
         settings = listOf(SettingEntry("theme_mode", "string", "DARK"), SettingEntry("auto_pip", "boolean", "true")),
         mangaFavorites = listOf(MangaFavoriteEntity("m1", "Chainsaw", null, 3)),
         mangaHistory = listOf(MangaHistoryEntity("c1", "m1", "Chainsaw", "u", "Ch 1", 4, 20, 8)),
+        contentPreferences = listOf(ContentPreferenceEntity("ANIME:a", "ANIME", "a", notifyMode = "ALL", updatedAt = 10)),
     )
 
     @Test fun roundTripKeepsEverything() = assertEquals(BackupResult.Ok(file), BackupCodec.decode(BackupCodec.encode(file)))
 
     @Test fun newerFormatIsTooNew() =
-        assertEquals(BackupResult.TooNew, BackupCodec.decode(BackupCodec.encode(file).replace("\"format\":2", "\"format\":3")))
+        assertEquals(BackupResult.TooNew, BackupCodec.decode(BackupCodec.encode(file).replace("\"format\":3", "\"format\":4")))
 
     @Test fun formatOneStillDecodes() {
         val v1 = """{"format":1,"app":"fuwanime","createdAt":1,"favorites":[],"history":[],"watchDaily":[],"searches":[],"settings":[]}"""
         val r = BackupCodec.decode(v1) as BackupResult.Ok
         assertEquals(emptyList<MangaFavoriteEntity>(), r.file.mangaFavorites)
         assertEquals(emptyList<MangaHistoryEntity>(), r.file.mangaHistory)
+        assertEquals(emptyList<ContentPreferenceEntity>(), r.file.contentPreferences)
     }
 
-    @Test fun roundTripFormatTwo() {
+    @Test fun formatTwoWithoutPreferencesStillDecodes() {
+        val v2 = """{"format":2,"app":"fuwanime","createdAt":1,"favorites":[],"history":[],"watchDaily":[],"searches":[],"settings":[],"mangaFavorites":[],"mangaHistory":[]}"""
+        val r = BackupCodec.decode(v2) as BackupResult.Ok
+        assertEquals(emptyList<ContentPreferenceEntity>(), r.file.contentPreferences)
+    }
+
+    @Test fun formatTwoMangaFavoriteWithoutCollectionStatusUsesDefault() {
+        val v2 = """{"format":2,"app":"fuwanime","createdAt":1,"favorites":[],"history":[],"watchDaily":[],"searches":[],"settings":[],"mangaFavorites":[{"mangaId":"m1","title":"Old","coverUrl":null,"addedAt":3}],"mangaHistory":[]}"""
+        val r = BackupCodec.decode(v2) as BackupResult.Ok
+        assertEquals("PLANNED", r.file.mangaFavorites.single().collectionStatus)
+    }
+
+    @Test fun formatTwoFavoriteWithoutCollectionStatusUsesDefault() {
+        val v2 = """{"format":2,"app":"fuwanime","createdAt":1,"favorites":[{"animeId":"a1","title":"Old","poster":"p","cover":"c","type":"TV","status":"ONGOING","year":"2020","genres":"","addedAt":3}],"history":[],"watchDaily":[],"searches":[],"settings":[],"mangaFavorites":[],"mangaHistory":[]}"""
+        val r = BackupCodec.decode(v2) as BackupResult.Ok
+        assertEquals("PLANNED", r.file.favorites.single().collectionStatus)
+    }
+
+    @Test fun roundTripCurrentFormat() {
         val json = BackupCodec.encode(file)
-        assertTrue(json.contains("\"format\":2"))
+        assertTrue(json.contains("\"format\":3"))
         assertEquals(BackupResult.Ok(file), BackupCodec.decode(json))
     }
 
@@ -61,7 +82,11 @@ class BackupCodecTest {
         assertTrue(isBackedUpSetting("favorite_sort"))
         assertFalse(isBackedUpSetting("update_last_check_ms"))
         assertFalse(isBackedUpSetting("update_dismissed_tag"))
+        assertFalse(isBackedUpSetting("home_last_open_ms"))
         assertFalse(isBackedUpSetting("notify_baseline_9"))
+        assertFalse(isBackedUpSetting("notify_release_9"))
+        assertFalse(isBackedUpSetting("notify_manga_9"))
+        assertFalse(isBackedUpSetting("download_baseline_9"))
         assertFalse(isBackedUpSetting("backup_tree_uri"))
     }
 
@@ -84,6 +109,8 @@ class BackupCodecTest {
         assertFalse(settingTypeAccepted("auto_pip", "int"))
         assertTrue(settingTypeAccepted("op_start_42", "long"))
         assertFalse(settingTypeAccepted("op_end_42", "string"))
+        assertTrue(settingTypeAccepted("notify_ongoing_anime", "boolean"))
+        assertFalse(settingTypeAccepted("notify_new_chapters", "int"))
         assertTrue(settingTypeAccepted("some_future_key", "string"))
         assertFalse(settingTypeAccepted("theme_mode", "blob"))
     }

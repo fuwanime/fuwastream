@@ -7,18 +7,32 @@ import com.fuwanime.ui.motion.sharedEpisodeKey
 /** Where the app should land when opened from a notification, shortcut or widget. */
 sealed interface LaunchTarget {
     data class Anime(val id: String) : LaunchTarget
+    data class Manga(val id: String) : LaunchTarget
     data object Search : LaunchTarget
     data object Schedule : LaunchTarget
     data class Resume(val episodeId: String) : LaunchTarget
+    data class Episode(val animeId: String, val episodeId: String, val number: String) : LaunchTarget
+    data class MangaChapter(val mangaId: String, val chapterId: String) : LaunchTarget
 }
 
 const val TAB_EXPLORE_SEARCH = "explore_search"
 const val TAB_SCHEDULE = "schedule"
 
-/** Resume beats a specific anime, which beats a tab; blank values count as absent. */
-fun parseLaunchTarget(animeId: String?, tab: String?, resumeEpisodeId: String?): LaunchTarget? {
+/** Resume beats a specific title, which beats a tab; blank values count as absent. */
+fun parseLaunchTarget(
+    animeId: String?,
+    tab: String?,
+    resumeEpisodeId: String?,
+    mangaId: String? = null,
+    episodeId: String? = null,
+    episodeNumber: String? = null,
+    chapterId: String? = null,
+): LaunchTarget? {
     resumeEpisodeId?.takeIf { it.isNotBlank() }?.let { return LaunchTarget.Resume(it) }
+    if (!animeId.isNullOrBlank() && !episodeId.isNullOrBlank()) return LaunchTarget.Episode(animeId, episodeId, episodeNumber.orEmpty())
+    if (!mangaId.isNullOrBlank() && !chapterId.isNullOrBlank()) return LaunchTarget.MangaChapter(mangaId, chapterId)
     animeId?.takeIf { it.isNotBlank() }?.let { return LaunchTarget.Anime(it) }
+    mangaId?.takeIf { it.isNotBlank() }?.let { return LaunchTarget.Manga(it) }
     return when (tab) {
         TAB_EXPLORE_SEARCH -> LaunchTarget.Search
         TAB_SCHEDULE -> LaunchTarget.Schedule

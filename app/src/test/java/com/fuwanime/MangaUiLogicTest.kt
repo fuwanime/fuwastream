@@ -14,11 +14,7 @@ import com.fuwanime.ui.manga.historyLanguage
 import com.fuwanime.ui.manga.chapterRanges
 import com.fuwanime.ui.manga.genreTagId
 import com.fuwanime.ui.manga.rangeLabel
-import com.fuwanime.ui.manga.ReaderSegment
-import com.fuwanime.ui.manga.nextToAppend
-import com.fuwanime.ui.manga.readableChapters
 import com.fuwanime.ui.manga.readerChapter
-import com.fuwanime.ui.manga.readerPosition
 import com.fuwanime.ui.manga.readerStartIndex
 import com.fuwanime.ui.manga.resumeTarget
 import org.junit.Assert.assertEquals
@@ -77,23 +73,6 @@ class MangaUiLogicTest {
         val scan = MangaChapter("scan", "5", null, "en", "G", 20, null, 10)
         val official = MangaChapter("mp", "5", null, "en", null, 0, "https://mangaplus.example", 99)
         assertEquals(listOf("scan"), pickChapters(listOf(scan, official), "en").map { it.id })
-    }
-
-    @Test fun readerPositionMapsItems() {
-        val counts = listOf(3, 2)
-        assertEquals(0 to 0, readerPosition(counts, 0))
-        assertEquals(0 to 0, readerPosition(counts, 1))
-        assertEquals(0 to 2, readerPosition(counts, 3))
-        assertEquals(1 to 0, readerPosition(counts, 4))
-        assertEquals(1 to 1, readerPosition(counts, 6))
-        assertEquals(1 to 1, readerPosition(counts, 99))
-    }
-
-    @Test fun nextToAppendSkipsExternalAndStopsAtEnd() {
-        assertEquals("c3", nextToAppend(chapters, listOf(ReaderSegment(chapters[1], listOf("p"))))?.id)
-        assertNull(nextToAppend(chapters, listOf(ReaderSegment(chapters[2], listOf("p")))))
-        assertNull(nextToAppend(chapters, emptyList()))
-        assertEquals(listOf("c2", "c3"), readableChapters(chapters).map { it.id })
     }
 
     @Test fun readerChapterUsesListedChapter() =

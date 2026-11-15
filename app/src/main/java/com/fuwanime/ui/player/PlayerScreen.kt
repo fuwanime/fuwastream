@@ -164,6 +164,7 @@ import com.fuwanime.ui.motion.Motion
 import com.fuwanime.FuwaApp
 import com.fuwanime.R
 import com.fuwanime.util.UiText
+import com.fuwanime.util.estimateDownloadBytes
 import com.fuwanime.util.formatBytes
 import com.fuwanime.data.DownloadState
 import com.fuwanime.data.DownloadItem
@@ -174,7 +175,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarHost
+import com.fuwanime.ui.components.FuwaSnackbarHost
 import com.fuwanime.data.Episode
 import com.fuwanime.data.OpMark
 import com.fuwanime.data.StreamSource
@@ -349,6 +350,7 @@ fun PlayerRoute(
 
             override fun onRenderedFirstFrame() {
                 playback.firstFrame = true
+                vm.onSourceStarted()
             }
 
             override fun onVideoSizeChanged(size: VideoSize) {
@@ -542,7 +544,7 @@ fun PlayerRoute(
             }
         }
         // One snackbar host for both layouts so messages (download started/failed) are visible fullscreen too.
-        SnackbarHost(
+        FuwaSnackbarHost(
             snackbar,
             Modifier.align(Alignment.BottomCenter).windowInsetsPadding(WindowInsets.navigationBars),
         )
@@ -576,6 +578,7 @@ fun PlayerRoute(
             },
             sources = state.sources,
             current = state.source,
+            recommended = state.recommended,
             speed = speed,
             resize = settings.videoResize,
             positionMs = playback.position,
@@ -1367,7 +1370,12 @@ private fun EpisodeInfo(
                         FilterChip(
                             selected = s.url == state.source?.url,
                             onClick = { onSelectSource(s) },
-                            label = { Text(s.label()) },
+                            label = {
+                                Text(
+                                    if (s.url == state.recommended?.url) "${s.label()} · ${stringResource(R.string.ux_source_recommended)}"
+                                    else s.label(),
+                                )
+                            },
                             leadingIcon = if (s.url == state.source?.url) {
                                 { Icon(Icons.Rounded.Check, null, Modifier.size(16.dp)) }
                             } else null,
@@ -1423,6 +1431,7 @@ private fun EpisodeInfo(
 private fun PlayerSettingsSheet(
     sources: List<StreamSource>,
     current: StreamSource?,
+    recommended: StreamSource?,
     speed: Float,
     resize: VideoResize,
     positionMs: Long,
@@ -1455,9 +1464,19 @@ private fun PlayerSettingsSheet(
             items(sources, key = { it.url }) { s ->
                 ListItem(
                     headlineContent = { Text(s.label()) },
-                    supportingContent = if (s.isLocal() || s.server.isNotBlank()) {
-                        { Text(if (s.isLocal()) stringResource(R.string.watch_server_device) else stringResource(R.string.watch_server, s.server)) }
-                    } else null,
+                    supportingContent = {
+                        val server = when {
+                            s.isLocal() -> stringResource(R.string.watch_server_device)
+                            s.server.isNotBlank() -> stringResource(R.string.watch_server, s.server)
+                            else -> ""
+                        }
+                        val badge = when {
+                            recommended == null -> ""
+                            s.url == recommended.url -> stringResource(R.string.ux_source_recommended)
+                            else -> stringResource(R.string.ux_source_alternative)
+                        }
+                        Text(listOf(server, badge).filter { it.isNotBlank() }.joinToString(" · "))
+                    },
                     trailingContent = if (s.url == current?.url) {
                         { Icon(Icons.Rounded.Check, null, tint = MaterialTheme.colorScheme.primary) }
                     } else null,
@@ -1591,8 +1610,16 @@ private fun DownloadRow(
             }
             DropdownMenu(menuOpen, onDismissRequest = { menuOpen = false }) {
                 state.sources.forEach { s ->
+                    val res = LocalContext.current.resources
                     DropdownMenuItem(
-                        text = { Text(s.quality) },
+                        text = {
+                            Text(
+                                s.quality + " · " + stringResource(
+                                    R.string.ux_download_estimate,
+                                    formatBytes(res, estimateDownloadBytes(s.quality)),
+                                ),
+                            )
+                        },
                         leadingIcon = { Icon(Icons.Rounded.Download, null) },
                         onClick = {
                             menuOpen = false

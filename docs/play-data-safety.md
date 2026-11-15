@@ -11,9 +11,10 @@ Alasan: aplikasi tidak memiliki akun, tidak mengirim data ke server pengembang, 
 analitik/iklan/crash reporting. Seluruh data (favorit, riwayat, pengaturan, unduhan) hanya
 tersimpan di perangkat.
 
-Catatan: permintaan HTTP langsung ke layanan pihak ketiga (katalog anime, GitHub, host video)
-membawa alamat IP dan User-Agent secara teknis. Ini bukan pengumpulan oleh pengembang dan tidak
-dapat dihindari oleh aplikasi klien mana pun; tetap dijelaskan di kebijakan privasi.
+Catatan: permintaan HTTP langsung ke layanan pihak ketiga (katalog anime/manga, GitHub, host video,
+serta unduhan model ML Kit) membawa alamat IP dan User-Agent secara teknis. Ini bukan pengumpulan
+oleh pengembang dan tidak dapat dihindari oleh aplikasi klien mana pun; tetap dijelaskan di
+kebijakan privasi.
 
 ## Bagian 2 — Jenis data (jika ditanya per kategori)
 

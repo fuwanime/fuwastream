@@ -74,6 +74,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -108,6 +109,7 @@ import androidx.compose.material.icons.rounded.Delete
 import com.fuwanime.data.LibraryRepository
 import com.fuwanime.data.local.FavoriteEntity
 import com.fuwanime.data.local.WatchHistoryEntity
+import com.fuwanime.data.local.CollectionStatus
 import com.fuwanime.ui.components.MessageState
 import com.fuwanime.ui.components.NetImage
 import com.fuwanime.ui.components.PosterCard
@@ -246,7 +248,7 @@ fun LibraryRoute(
         }
         week?.takeIf { !selecting }?.let { WeekCard(it, onStats) }
         SegmentedTabs(
-            listOf(R.string.mine_tab_history to history?.size, R.string.mine_tab_favorites to favorites?.size, R.string.manga_tab to null, R.string.mine_tab_downloads to downloads?.size?.plus(mangaDownloads?.size ?: 0))
+            listOf(R.string.mine_tab_history to history?.size, R.string.ux_collection to favorites?.size, R.string.manga_tab to null, R.string.mine_tab_downloads to downloads?.size?.plus(mangaDownloads?.size ?: 0))
                 .map { (label, count) -> stringResource(label).let { if (count != null && count > 0) stringResource(R.string.mine_tab_with_count, it, count) else it } },
             selected = pager.currentPage,
             onSelect = { scope.launch { pager.animateScrollToPage(it) } },
@@ -463,6 +465,10 @@ private fun FavoriteGrid(
     }
     val res = LocalContext.current.resources
     val selecting = selection.isNotEmpty()
+    var statusFilter by rememberSaveable { mutableStateOf<CollectionStatus?>(null) }
+    val shown = remember(items, statusFilter) {
+        statusFilter?.let { filter -> items.filter { it.first.collectionStatus == filter.name } } ?: items
+    }
     LazyVerticalGrid(
         columns = GridCells.Adaptive(108.dp),
         contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp + LocalNavBarPadding.current),
@@ -470,13 +476,31 @@ private fun FavoriteGrid(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item(key = "sort", span = { GridItemSpan(maxLineSpan) }) {
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FavoriteSort.entries.forEach { option ->
-                    TagChip(stringResource(option.label), onClick = { onSort(option) }, selected = option == sort)
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TagChip(stringResource(R.string.ux_status_all), onClick = { statusFilter = null }, selected = statusFilter == null)
+                    CollectionStatus.entries.forEach { option ->
+                        TagChip(stringResource(option.collectionLabel()), onClick = { statusFilter = option }, selected = option == statusFilter)
+                    }
+                }
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FavoriteSort.entries.forEach { option ->
+                        TagChip(stringResource(option.label), onClick = { onSort(option) }, selected = option == sort)
+                    }
                 }
             }
         }
-        items(items, key = { it.first.animeId }) { (fav, newCount) ->
+        if (shown.isEmpty()) {
+            item(key = "emptyFilter", span = { GridItemSpan(maxLineSpan) }) {
+                Text(
+                    stringResource(R.string.ux_collection_empty_filter),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 8.dp),
+                )
+            }
+        }
+        items(shown, key = { it.first.animeId }) { (fav, newCount) ->
             val anime = fav.toAnime()
             PosterCard(
                 anime,
@@ -488,6 +512,15 @@ private fun FavoriteGrid(
             )
         }
     }
+}
+
+private fun CollectionStatus.collectionLabel() = when (this) {
+    CollectionStatus.PLANNED -> R.string.ux_status_planned
+    CollectionStatus.IN_PROGRESS -> R.string.ux_status_in_progress
+    CollectionStatus.WAITING -> R.string.ux_status_waiting
+    CollectionStatus.PAUSED -> R.string.ux_status_paused
+    CollectionStatus.COMPLETED -> R.string.ux_status_completed
+    CollectionStatus.DROPPED -> R.string.ux_status_dropped
 }
 
 @Composable

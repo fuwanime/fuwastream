@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="960" height="132" viewBox="0 0 960 132" role="img" aria-label="64.000+ judul manga, 3 sumber manga, 4 bahasa, 0 iklan">
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="132" viewBox="0 0 960 132" role="img" aria-label="64.000+ judul manga, 4 sumber manga, 4 bahasa, 0 iklan">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#16131F"/>
@@ -17,7 +17,7 @@
       <text y="96" font-size="15" fill="#A99BC2">judul manga</text>
     </g>
     <g transform="translate(360 0)">
-      <text y="66" font-size="38" font-weight="800" fill="url(#accent)">3</text>
+      <text y="66" font-size="38" font-weight="800" fill="url(#accent)">4</text>
       <text y="96" font-size="15" fill="#A99BC2">sumber manga jadi satu</text>
     </g>
     <g transform="translate(600 0)">

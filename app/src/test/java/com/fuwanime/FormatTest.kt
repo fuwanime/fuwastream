@@ -12,6 +12,7 @@ import com.fuwanime.util.airTime
 import com.fuwanime.util.friendlyMessage
 import com.fuwanime.util.statusLabel
 import com.fuwanime.util.compactNumber
+import com.fuwanime.util.estimateDownloadBytes
 import com.fuwanime.util.formatBytes
 import com.fuwanime.util.formatDuration
 import com.fuwanime.util.historyDayLabel
@@ -75,6 +76,25 @@ class FormatTest {
         assertEquals("1180", EpisodeDto(id = "1", index = "1180").toEpisode().number)
         assertEquals("12", EpisodeDto(id = "1", index = 12.0).toEpisode().number)
         assertEquals("12.5", EpisodeDto(id = "1", index = 12.5).toEpisode().number)
+    }
+
+    @Test
+    fun estimateDownloadBytes_scalesWithResolution() {
+        val sd = estimateDownloadBytes("480p")
+        val hd = estimateDownloadBytes("720p")
+        val fullHd = estimateDownloadBytes("1080p")
+        assert(fullHd > hd)
+        assert(hd > sd)
+        assert(sd > 0)
+    }
+
+    @Test
+    fun estimateDownloadBytes_handlesUnknownLabelAndShortDurations() {
+        val unknown = estimateDownloadBytes("Auto")
+        assertEquals(estimateDownloadBytes("480p"), unknown)
+        // Very short clips still report at least one minute, never a negative or zero size.
+        assertEquals(estimateDownloadBytes("720p", 60_000), estimateDownloadBytes("720p", 1))
+        assert(estimateDownloadBytes("720p", 1) > 0)
     }
 
     @Test

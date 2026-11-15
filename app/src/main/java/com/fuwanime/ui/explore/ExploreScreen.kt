@@ -91,12 +91,15 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fuwanime.data.SortOrder
+import com.fuwanime.data.MATURE_ANIME_GENRES
 import com.fuwanime.ui.components.ErrorState
 import com.fuwanime.ui.components.LocalNavBarPadding
 import com.fuwanime.ui.components.MessageState
 import com.fuwanime.ui.components.PosterCard
 import com.fuwanime.ui.components.PosterSkeleton
 import com.fuwanime.ui.components.TagChip
+import com.fuwanime.ui.manga.mangaStatusLabel
+import com.fuwanime.ui.manga.toPoster
 import com.fuwanime.ui.motion.Motion
 import com.fuwanime.ui.motion.OpenAnime
 import com.fuwanime.ui.motion.rememberStaggerState
@@ -104,28 +107,36 @@ import com.fuwanime.ui.motion.staggerIn
 import com.fuwanime.util.fuwaViewModel
 import kotlin.math.roundToInt
 
-val AllGenres = listOf(
+private val GeneralAnimeGenres = listOf(
     "Action", "Adventure", "Comedy", "Drama", "Fantasy", "Isekai", "Romance", "School",
     "Slice of Life", "Supernatural", "Mystery", "Psychological", "Sci-Fi", "Mecha", "Sports",
     "Magic", "Super Power", "Martial Arts", "Historical", "Military", "Seinen", "Shounen",
     "Shoujo", "Harem", "Horror", "Thriller", "Game", "Parody", "Demons",
 )
 
+fun availableAnimeGenres(matureContent: Boolean): List<String> =
+    if (matureContent) GeneralAnimeGenres + MATURE_ANIME_GENRES else GeneralAnimeGenres
+
 @Composable
-fun ExploreRoute(focusSearch: Boolean, onAnimeClick: OpenAnime) {
-    val vm: ExploreViewModel = fuwaViewModel { c, h -> ExploreViewModel(c.animeRepository, c.libraryRepository, h) }
+fun ExploreRoute(focusSearch: Boolean, onAnimeClick: OpenAnime, onMangaClick: (String) -> Unit) {
+    val vm: ExploreViewModel = fuwaViewModel { c, h ->
+        ExploreViewModel(c.animeRepository, c.libraryRepository, c.mangaRepository, c.settingsStore, h)
+    }
     val state by vm.state.collectAsStateWithLifecycle()
     val recent by vm.recentSearches.collectAsStateWithLifecycle()
-    ExploreScreen(state, recent, focusSearch, vm, onAnimeClick)
+    val matureContent by vm.matureContent.collectAsStateWithLifecycle()
+    ExploreScreen(state, recent, matureContent, focusSearch, vm, onAnimeClick, onMangaClick)
 }
 
 @Composable
 private fun ExploreScreen(
     state: ExploreUiState,
     recent: List<String>,
+    matureContent: Boolean,
     focusSearch: Boolean,
     vm: ExploreViewModel,
     onAnimeClick: OpenAnime,
+    onMangaClick: (String) -> Unit,
 ) {
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
@@ -163,7 +174,7 @@ private fun ExploreScreen(
                 onClear = { vm.clearRecent() },
             )
         } else {
-            ResultsGrid(state, vm, onAnimeClick, topPad = headerDp)
+            ResultsGrid(state, vm, onAnimeClick, onMangaClick, topPad = headerDp)
         }
     Column(
         Modifier
@@ -179,7 +190,7 @@ private fun ExploreScreen(
         OutlinedTextField(
             value = state.filters.query,
             onValueChange = vm::onQueryChange,
-            placeholder = { Text(stringResource(R.string.browse_search_hint)) },
+            placeholder = { Text(stringResource(R.string.ux_search_all)) },
             leadingIcon = { Icon(Icons.Rounded.Search, null) },
             trailingIcon = {
                 if (state.filters.query.isNotEmpty()) {
@@ -208,7 +219,7 @@ private fun ExploreScreen(
 
         if (!showRecent) {
             Spacer(Modifier.height(14.dp))
-            FilterBar(state.filters, vm)
+            FilterBar(state.filters, matureContent, vm)
             ResultsHeader(state.filters, vm, onRandom = state.results.takeIf { it.isNotEmpty() }?.let { r -> { pickRandom(r)?.let { onAnimeClick(it, "explore") } } })
         }
     }
@@ -241,7 +252,7 @@ private fun RecentSearches(items: List<String>, topPad: Dp, onPick: (String) -> 
 }
 
 @Composable
-private fun FilterBar(filters: ExploreFilters, vm: ExploreViewModel) {
+private fun FilterBar(filters: ExploreFilters, matureContent: Boolean, vm: ExploreViewModel) {
     // One row: the genre picker (a sheet) then the content types, instead of a second endless row of genres.
     var genresOpen by remember { mutableStateOf(false) }
     LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -252,7 +263,7 @@ private fun FilterBar(filters: ExploreFilters, vm: ExploreViewModel) {
     }
     if (genresOpen) {
         GenreSheet(
-            genres = AllGenres.map { it to it },
+            genres = availableAnimeGenres(matureContent).map { it to it },
             selected = filters.genres,
             onToggle = vm::toggleGenre,
             onClear = { filters.genres.forEach(vm::toggleGenre) },
@@ -335,8 +346,15 @@ private fun MenuLabel(text: String) {
 }
 
 @Composable
-private fun ResultsGrid(state: ExploreUiState, vm: ExploreViewModel, onAnimeClick: OpenAnime, topPad: Dp) {
+private fun ResultsGrid(
+    state: ExploreUiState,
+    vm: ExploreViewModel,
+    onAnimeClick: OpenAnime,
+    onMangaClick: (String) -> Unit,
+    topPad: Dp,
+) {
     val stagger = rememberStaggerState()
+    val mangaCaption = mangaStatusLabel()
     val gridState = rememberLazyGridState()
     val nearEnd by remember {
         derivedStateOf {
@@ -349,9 +367,9 @@ private fun ResultsGrid(state: ExploreUiState, vm: ExploreViewModel, onAnimeClic
     }
 
     val branch = when {
-        state.loading && state.results.isEmpty() -> ResultsBranch.LOADING
-        state.error != null && state.results.isEmpty() -> ResultsBranch.ERROR
-        state.results.isEmpty() && !state.loadingMore && !state.kuramanimeLoading -> ResultsBranch.EMPTY
+        state.loading && state.results.isEmpty() && state.mangaResults.isEmpty() -> ResultsBranch.LOADING
+        state.error != null && state.results.isEmpty() && state.mangaResults.isEmpty() -> ResultsBranch.ERROR
+        state.results.isEmpty() && state.mangaResults.isEmpty() && !state.loadingMore && !state.mangaLoading && !state.kuramanimeLoading -> ResultsBranch.EMPTY
         else -> ResultsBranch.RESULTS
     }
     Crossfade(branch, animationSpec = tween(Motion.Medium), label = "exploreResults") { shown ->
@@ -381,6 +399,34 @@ private fun ResultsGrid(state: ExploreUiState, vm: ExploreViewModel, onAnimeClic
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            if (state.mangaResults.isNotEmpty()) {
+                item(span = { GridItemSpan(maxLineSpan) }, key = "manga-header") {
+                    Text(
+                        stringResource(R.string.manga_tab),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 4.dp, bottom = 2.dp),
+                    )
+                }
+                items(state.mangaResults, key = { "manga-" + it.id }) { manga ->
+                    PosterCard(
+                        manga.toPoster(),
+                        onClick = { onMangaClick(manga.id) },
+                        modifier = Modifier.animateItem(),
+                        caption = mangaCaption(manga.status),
+                    )
+                }
+            }
+            if (state.mangaResults.isNotEmpty() && state.results.isNotEmpty()) {
+                item(span = { GridItemSpan(maxLineSpan) }, key = "anime-header") {
+                    Text(
+                        stringResource(R.string.browse_all_anime),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
+                    )
+                }
+            }
             itemsIndexed(state.results, key = { _, a -> a.id }) { index, anime ->
                 PosterCard(
                     anime,
@@ -389,7 +435,7 @@ private fun ResultsGrid(state: ExploreUiState, vm: ExploreViewModel, onAnimeClic
                     sharedOrigin = "explore",
                 )
             }
-            if (state.kuramanimeLoading) {
+            if (state.mangaLoading || state.kuramanimeLoading) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     Box(Modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)

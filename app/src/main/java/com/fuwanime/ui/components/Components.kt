@@ -46,6 +46,8 @@ import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -409,6 +411,8 @@ fun ContinueWatchingCard(
     modifier: Modifier = Modifier,
     /** When set, the thumbnail flies into the player's video area. */
     sharedOrigin: String? = null,
+    /** Removes this title from Lanjutkan without deleting its progress. */
+    onHide: (() -> Unit)? = null,
 ) {
     val interaction = remember { MutableInteractionSource() }
     Column(
@@ -446,6 +450,17 @@ fun ContinueWatchingCard(
                 drawStopIndicator = {},
                 gapSize = 0.dp,
             )
+            if (onHide != null) {
+                IconButton(
+                    onClick = onHide,
+                    modifier = Modifier.align(Alignment.TopEnd).aboveSharedElements().revealWhenLanded(thumb)
+                        .padding(4.dp)
+                        .background(Color.Black.copy(alpha = 0.45f), CircleShape)
+                        .size(28.dp),
+                ) {
+                    Icon(Icons.Rounded.Close, stringResource(R.string.ux_hide_continue), tint = Color.White, modifier = Modifier.size(16.dp))
+                }
+            }
         }
         Text(
             entry.animeTitle,

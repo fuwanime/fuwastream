@@ -34,6 +34,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -65,13 +67,14 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.SwapVert
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilledTonalIconToggleButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
@@ -80,6 +83,9 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.RadioButton
 import androidx.compose.runtime.Composable
 import kotlinx.coroutines.delay
 import androidx.compose.runtime.LaunchedEffect
@@ -112,14 +118,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.animation.Crossfade
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.runtime.mutableIntStateOf
 import com.fuwanime.ui.motion.rememberIsEntering
 import com.fuwanime.ui.motion.rememberIsExiting
 import com.fuwanime.ui.motion.headerStillShown
@@ -142,9 +142,15 @@ import androidx.compose.material.icons.rounded.DownloadDone
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarHost
+import com.fuwanime.ui.components.FuwaSnackbarHost
 import com.fuwanime.data.Episode
 import com.fuwanime.data.local.WatchHistoryEntity
+import com.fuwanime.data.local.CollectionStatus
+import com.fuwanime.data.local.ContentPreferenceEntity
+import com.fuwanime.data.local.TitleNotifyMode
+import com.fuwanime.data.notify.NotificationAccess
+import com.fuwanime.data.notify.notificationAccess
+import com.fuwanime.data.notify.openNotificationSettings
 import com.fuwanime.ui.components.ErrorState
 import com.fuwanime.ui.components.NetImage
 import com.fuwanime.ui.components.PosterRow
@@ -170,6 +176,8 @@ fun DetailRoute(
     val vm: DetailViewModel = fuwaViewModel(key = "detail") { c, h -> DetailViewModel(c.animeRepository, c.libraryRepository, c.downloadRepository, c.settingsStore, c.animeLinkRepository, c.mangaRepository, h) }
     val state by vm.state.collectAsStateWithLifecycle()
     val favorite by vm.isFavorite.collectAsStateWithLifecycle()
+    val collectionStatus by vm.collectionStatus.collectAsStateWithLifecycle()
+    val preference by vm.preference.collectAsStateWithLifecycle()
     val progress by vm.progress.collectAsStateWithLifecycle()
     val downloads by vm.downloadMap.collectAsStateWithLifecycle()
     val message by vm.messages.collectAsStateWithLifecycle()
@@ -189,6 +197,8 @@ fun DetailRoute(
             state,
             vm.displayed(state),
             favorite,
+            collectionStatus,
+            preference,
             progress,
             downloads,
             vm,
@@ -199,7 +209,7 @@ fun DetailRoute(
             onAnimeClick,
             onGenre,
         )
-        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
+        FuwaSnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
     }
 }
 
@@ -209,6 +219,8 @@ private fun DetailScreen(
     state: DetailUiState,
     episodes: List<Episode>,
     favorite: Boolean,
+    collectionStatus: CollectionStatus?,
+    preference: ContentPreferenceEntity?,
     progress: Map<String, WatchHistoryEntity>,
     downloads: Map<String, DownloadItem>,
     vm: DetailViewModel,
@@ -223,9 +235,8 @@ private fun DetailScreen(
     val anime = state.anime
     val listState = rememberLazyListState()
     val stagger = rememberStaggerState()
-    var favoritePop by remember { mutableIntStateOf(0) }
-    // Outlives the lazy "actions" item, so scrolling it back never replays the pop.
-    var favoritePopShown by rememberSaveable { mutableIntStateOf(0) }
+    var collectionDialog by rememberSaveable { mutableStateOf(false) }
+    var notificationDialog by rememberSaveable { mutableStateOf(false) }
     val resume = remember(progress) { progress.values.maxByOrNull { it.updatedAt } }
     val hazeState = remember { HazeState() }
     // A dark colour from the poster for the header wash and the play button; null keeps the app's own colours.
@@ -329,23 +340,26 @@ private fun DetailScreen(
                         }
                     }
                     Spacer(Modifier.width(12.dp))
-                    FilledTonalIconToggleButton(
-                        checked = favorite,
-                        onCheckedChange = { adding ->
-                            if (adding) favoritePop++
-                            vm.toggleFavorite()
-                        },
+                    FilledTonalIconButton(
+                        onClick = { collectionDialog = true },
                         modifier = Modifier
                             .size(52.dp)
                             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp)),
                         shape = RoundedCornerShape(14.dp),
-                        colors = IconButtonDefaults.filledTonalIconToggleButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                            checkedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-                            checkedContentColor = MaterialTheme.colorScheme.primary,
-                        ),
                     ) {
-                        FavoriteIcon(favorite, favoritePop, favoritePopShown) { favoritePopShown = it }
+                        Icon(
+                            if (favorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                            stringResource(R.string.ux_collection_change),
+                            tint = if (favorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    FilledTonalIconButton(
+                        onClick = { notificationDialog = true },
+                        modifier = Modifier.size(52.dp).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp)),
+                        shape = RoundedCornerShape(14.dp),
+                    ) {
+                        Icon(Icons.Rounded.Notifications, stringResource(R.string.ux_notification_title))
                     }
                 }
             }
@@ -456,6 +470,9 @@ private fun DetailScreen(
                         download = downloads[ep.id],
                         onDownload = { gate { vm.download(ep) } },
                         onDeleteDownload = { vm.deleteDownload(ep) },
+                        onMark = { vm.markEpisode(ep, it) },
+                        onRestart = { vm.restartEpisode(ep) },
+                        onMarkBefore = { vm.markBefore(ep) },
                         onClick = { anime?.let { onPlay(it, ep, sharedEpisodeKey(ep.id, "detail"), ep.thumbnail) } },
                     )
                     }
@@ -467,6 +484,25 @@ private fun DetailScreen(
             derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 520 }
         }
         DetailTopBar(solid, anime?.title.orEmpty(), onBack, hazeState)
+    }
+
+    if (collectionDialog) {
+        CollectionStatusDialog(
+            selected = collectionStatus,
+            hiddenFromContinue = preference?.hiddenFromContinue == true,
+            onSelect = { vm.setCollectionStatus(it); collectionDialog = false },
+            onHidden = vm::setHiddenFromContinue,
+            onDismiss = { collectionDialog = false },
+        )
+    }
+    if (notificationDialog) {
+        AnimeNotificationDialog(
+            selected = preference?.notifyMode?.let { raw -> TitleNotifyMode.entries.firstOrNull { it.name == raw } } ?: TitleNotifyMode.DEFAULT,
+            autoDownload = preference?.autoDownload == true,
+            onMode = vm::setNotificationMode,
+            onAutoDownload = vm::setAutoDownload,
+            onDismiss = { notificationDialog = false },
+        )
     }
 }
 
@@ -737,6 +773,7 @@ private fun EpisodeHeader(state: DetailUiState, vm: DetailViewModel) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun EpisodeRow(
     ep: Episode,
@@ -745,12 +782,17 @@ private fun EpisodeRow(
     download: DownloadItem?,
     onDownload: () -> Unit,
     onDeleteDownload: () -> Unit,
+    onMark: (Boolean) -> Unit,
+    onRestart: () -> Unit,
+    onMarkBefore: () -> Unit,
     onClick: () -> Unit,
 ) {
+    var menu by remember { mutableStateOf(false) }
+    Box {
     Row(
         Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .combinedClickable(onClick = onClick, onLongClick = { menu = true })
             .background(if (isResume) MaterialTheme.colorScheme.surfaceContainerLow else Color.Transparent)
             .padding(horizontal = 20.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -800,31 +842,119 @@ private fun EpisodeRow(
         }
         EpisodeDownloadButton(download, onDownload, onDeleteDownload)
     }
-}
-
-/** Heart that pops when the anime is added to favourites; [pop] increments on each add. */
-@Composable
-private fun FavoriteIcon(favorite: Boolean, pop: Int, shown: Int, onShown: (Int) -> Unit) {
-    val scale = remember { Animatable(1f) }
-    val reduce = LocalReduceMotion.current
-    LaunchedEffect(pop) {
-        if (pop > shown) {
-            onShown(pop)
-            if (reduce) return@LaunchedEffect
-            scale.animateTo(1.3f, tween(120, easing = Motion.EmphasizedDecelerate))
-            scale.animateTo(1f, spring(dampingRatio = 0.45f, stiffness = Spring.StiffnessMedium))
+        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(if (progress?.isFinished == true) R.string.ux_mark_unwatched else R.string.ux_mark_watched)) },
+                onClick = { menu = false; onMark(progress?.isFinished != true) },
+            )
+            DropdownMenuItem(text = { Text(stringResource(R.string.ux_restart)) }, onClick = { menu = false; onRestart() })
+            DropdownMenuItem(text = { Text(stringResource(R.string.ux_mark_before_watched)) }, onClick = { menu = false; onMarkBefore() })
+            DropdownMenuItem(text = { Text(stringResource(R.string.watch_download)) }, onClick = { menu = false; onDownload() })
         }
     }
-    Crossfade(favorite, animationSpec = tween(Motion.Short), label = "favorite") { fav ->
-        Icon(
-            if (fav) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-            stringResource(R.string.watch_favorite),
-            Modifier.graphicsLayer {
-                scaleX = scale.value
-                scaleY = scale.value
-            },
-        )
-    }
+}
+
+@Composable
+private fun CollectionStatusDialog(
+    selected: CollectionStatus?,
+    hiddenFromContinue: Boolean,
+    onSelect: (CollectionStatus?) -> Unit,
+    onHidden: (Boolean) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.ux_collection)) },
+        text = {
+            Column {
+                CollectionStatus.entries.forEach { status ->
+                    Row(
+                        Modifier.fillMaxWidth().clickable { onSelect(status) }.padding(vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = selected == status, onClick = { onSelect(status) })
+                        Text(stringResource(status.labelResource()))
+                    }
+                }
+                if (selected != null) {
+                    Row(
+                        Modifier.fillMaxWidth().clickable { onHidden(!hiddenFromContinue) }.padding(top = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        androidx.compose.material3.Checkbox(hiddenFromContinue, onCheckedChange = onHidden)
+                        Text(stringResource(R.string.ux_hide_continue))
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.ux_done)) } },
+        dismissButton = {
+            if (selected != null) TextButton(onClick = { onSelect(null) }) { Text(stringResource(R.string.ux_collection_remove)) }
+        },
+    )
+}
+
+@Composable
+private fun AnimeNotificationDialog(
+    selected: TitleNotifyMode,
+    autoDownload: Boolean,
+    onMode: (TitleNotifyMode) -> Unit,
+    onAutoDownload: (Boolean) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    val blocked = notificationAccess(context) != NotificationAccess.GRANTED
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.ux_notification_title)) },
+        text = {
+            Column {
+                TitleNotifyMode.entries.forEach { mode ->
+                    val label = when (mode) {
+                        TitleNotifyMode.DEFAULT -> R.string.ux_notify_default
+                        TitleNotifyMode.ALL -> R.string.ux_notify_all
+                        TitleNotifyMode.FINAL_ONLY -> R.string.ux_notify_final
+                        TitleNotifyMode.OFF -> R.string.ux_notify_off
+                    }
+                    Row(
+                        Modifier.fillMaxWidth().clickable { onMode(mode) }.padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected == mode, onClick = { onMode(mode) })
+                        Text(stringResource(label))
+                    }
+                }
+                Row(
+                    Modifier.fillMaxWidth().clickable { onAutoDownload(!autoDownload) }.padding(top = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    androidx.compose.material3.Checkbox(autoDownload, onCheckedChange = onAutoDownload)
+                    Text(stringResource(R.string.ux_auto_download))
+                }
+                if (blocked) {
+                    Text(
+                        stringResource(R.string.ux_notify_blocked),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                    TextButton(onClick = { openNotificationSettings(context) }) {
+                        Text(stringResource(R.string.mine_notify_open_settings))
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.ux_done)) } },
+    )
+}
+
+private fun CollectionStatus.labelResource() = when (this) {
+    CollectionStatus.PLANNED -> R.string.ux_status_planned
+    CollectionStatus.IN_PROGRESS -> R.string.ux_status_in_progress
+    CollectionStatus.WAITING -> R.string.ux_status_waiting
+    CollectionStatus.PAUSED -> R.string.ux_status_paused
+    CollectionStatus.COMPLETED -> R.string.ux_status_completed
+    CollectionStatus.DROPPED -> R.string.ux_status_dropped
 }
 
 @Composable

@@ -78,10 +78,12 @@ class ShinigamiTest {
         assertTrue(sameTitle("Love", "Love", emptyList()))
     }
 
-    @Test fun dohCoversShinigamiAndMangaDex() {
+    @Test fun dohCoversMangaHosts() {
+        assertTrue(needsDoh("api.comix.ws"))
+        assertTrue(needsDoh("comix.ws"))
         assertTrue(needsDoh("api.shngm.io"))
         assertTrue(needsDoh("assets.shngm.id"))
-        assertTrue(needsDoh("api.mangadex.org"))
+        assertTrue(needsDoh("komiku.org"))
         assertFalse(needsDoh("xyz-api.animein.net"))
         assertFalse(needsDoh("evilshngm.io"))
     }

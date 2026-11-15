@@ -3,9 +3,10 @@ package com.fuwanime.ui.home
 import com.fuwanime.R
 import androidx.compose.ui.res.stringResource
 import com.fuwanime.ui.settings.rememberRestoreFlow
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.rounded.Restore
-import android.widget.Toast
+import com.fuwanime.ui.components.FuwaSnackbarHost
 import com.fuwanime.ui.components.IconWithTooltip
 import androidx.compose.foundation.layout.heightIn
 import com.fuwanime.ui.components.LocalNavBarPadding
@@ -63,6 +64,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.fuwanime.ui.theme.PlusJakarta
@@ -72,11 +74,14 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.BorderStroke
@@ -108,6 +113,7 @@ import com.fuwanime.ui.motion.pressScale
 import com.fuwanime.ui.motion.OpenAnime
 import com.fuwanime.data.Anime
 import com.fuwanime.data.UpdateRepository
+import com.fuwanime.data.local.MangaHistoryEntity
 import com.fuwanime.data.local.WatchHistoryEntity
 import com.fuwanime.ui.components.ContinueWatchingCard
 import com.fuwanime.ui.components.ErrorState
@@ -131,42 +137,56 @@ val QuickGenres = listOf(
 fun HomeRoute(
     onAnimeClick: OpenAnime,
     onContinue: (WatchHistoryEntity) -> Unit,
+    onMangaContinue: (MangaHistoryEntity) -> Unit,
     onSearch: () -> Unit,
     onSettings: () -> Unit,
     onSchedule: () -> Unit,
     onExplore: (genre: String?) -> Unit,
 ) {
     val vm: HomeViewModel = fuwaViewModel { c, _ ->
-        HomeViewModel(c.animeRepository, c.libraryRepository, c.updateRepository, c.settingsStore, c.networkStatus, c.backupRepository)
+        HomeViewModel(
+            c.animeRepository, c.libraryRepository, c.updateRepository, c.settingsStore,
+            c.networkStatus, c.backupRepository, c.mangaLibrary, c.mangaRepository,
+        )
     }
     val state by vm.state.collectAsStateWithLifecycle()
     val update by vm.update.collectAsStateWithLifecycle()
     val favoriteIds by vm.favoriteIds.collectAsStateWithLifecycle()
     val showRestore by vm.showRestorePrompt.collectAsStateWithLifecycle()
-    val context = LocalContext.current
+    LaunchedEffect(Unit) { vm.onOpened() }
+    val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
     val restore = rememberRestoreFlow(
         vm.backup,
         onRestored = { vm.dismissRestorePrompt() },
-        onMessage = { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() },
+        onMessage = { message -> scope.launch { snackbar.showSnackbar(message) } },
     )
-    HomeScreen(
-        state = state,
-        favoriteIds = favoriteIds,
-        onToggleFavorite = vm::toggleFavorite,
-        todayLabel = stringResource(vm.today.full),
-        onRefresh = vm::refresh,
-        update = update,
-        onDismissUpdate = vm::dismissUpdate,
-        showRestore = showRestore,
-        onRestore = restore,
-        onDismissRestore = { vm.dismissRestorePrompt() },
-        onAnimeClick = onAnimeClick,
-        onContinue = onContinue,
-        onSearch = onSearch,
-        onSettings = onSettings,
-        onSchedule = onSchedule,
-        onExplore = onExplore,
-    )
+    Box(Modifier.fillMaxSize()) {
+        HomeScreen(
+            state = state,
+            favoriteIds = favoriteIds,
+            onToggleFavorite = vm::toggleFavorite,
+            todayLabel = stringResource(vm.today.full),
+            onRefresh = vm::refresh,
+            update = update,
+            onDismissUpdate = vm::dismissUpdate,
+            showRestore = showRestore,
+            onRestore = restore,
+            onDismissRestore = { vm.dismissRestorePrompt() },
+            onAnimeClick = onAnimeClick,
+            onContinue = onContinue,
+            onMangaContinue = onMangaContinue,
+            onHideContinue = vm::hideFromContinue,
+            onSearch = onSearch,
+            onSettings = onSettings,
+            onSchedule = onSchedule,
+            onExplore = onExplore,
+        )
+        FuwaSnackbarHost(
+            snackbar,
+            Modifier.align(Alignment.BottomCenter).padding(bottom = LocalNavBarPadding.current),
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -184,6 +204,8 @@ private fun HomeScreen(
     onDismissRestore: () -> Unit,
     onAnimeClick: OpenAnime,
     onContinue: (WatchHistoryEntity) -> Unit,
+    onMangaContinue: (MangaHistoryEntity) -> Unit,
+    onHideContinue: (HomeContinue) -> Unit,
     onSearch: () -> Unit,
     onSettings: () -> Unit,
     onSchedule: () -> Unit,
@@ -219,21 +241,59 @@ private fun HomeScreen(
                 item(key = "restoreBanner") { RestoreBanner(onRestore, onDismissRestore) }
             }
 
+            if (state.updates.total > 0) {
+                item(key = "updatesSummary") { UpdatesSummary(state.updates) }
+            }
+
             if (feed.error != null && feed.popular.isEmpty()) {
                 item { ErrorState(feed.error, onRefresh) }
             }
 
-            if (state.continueWatching.isNotEmpty()) {
+            if (state.continueItems.isNotEmpty()) {
                 item(key = "cw") {
                     Section(stringResource(R.string.browse_home_continue)) {
                         LazyRow(
                             contentPadding = PaddingValues(horizontal = 20.dp),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
-                            items(state.continueWatching, key = { it.episodeId }) { entry ->
-                                ContinueWatchingCard(entry, onClick = { onContinue(entry) }, sharedOrigin = "home-cw")
+                            items(
+                                state.continueItems,
+                                key = {
+                                    when (it) {
+                                        is HomeContinue.Anime -> "a-" + it.entry.episodeId
+                                        is HomeContinue.Manga -> "m-" + it.entry.chapterId
+                                    }
+                                },
+                            ) { item ->
+                                when (item) {
+                                    is HomeContinue.Anime -> ContinueWatchingCard(
+                                        item.entry,
+                                        onClick = { onContinue(item.entry) },
+                                        sharedOrigin = "home-cw",
+                                        onHide = { onHideContinue(item) },
+                                    )
+                                    is HomeContinue.Manga -> MangaContinueCard(
+                                        item.entry,
+                                        onClick = { onMangaContinue(item.entry) },
+                                        onHide = { onHideContinue(item) },
+                                    )
+                                }
                             }
                         }
+                    }
+                }
+            }
+
+            if (state.collectionLatest.isNotEmpty()) {
+                item(key = "collectionLatest") {
+                    Section(stringResource(R.string.ux_collection_updates)) {
+                        PosterRow(
+                            state.collectionLatest.map { it.anime },
+                            loading = false,
+                            onClick = { onAnimeClick(it, "home-collection") },
+                            origin = "home-collection",
+                            caption = { a -> state.collectionLatest.firstOrNull { it.anime.id == a.id }?.episodeLabel },
+                        )
                     }
                 }
             }
@@ -351,6 +411,88 @@ private fun UpdateBanner(info: UpdateRepository.UpdateInfo, onClick: () -> Unit,
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun UpdatesSummary(updates: HomeUpdates) {
+    Surface(
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
+        shape = MaterialTheme.shapes.medium,
+        modifier = Modifier.padding(horizontal = 20.dp).padding(top = 12.dp),
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Rounded.Notifications, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+            Column(Modifier.weight(1f).padding(start = 10.dp)) {
+                Text(stringResource(R.string.ux_since_last), style = MaterialTheme.typography.labelLarge)
+                Text(
+                    stringResource(R.string.ux_updates_summary, updates.total),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MangaContinueCard(entry: MangaHistoryEntity, onClick: () -> Unit, onHide: () -> Unit) {
+    val progress = if (entry.pageCount > 0) ((entry.page + 1f) / entry.pageCount).coerceIn(0f, 1f) else 0f
+    Column(
+        Modifier.width(240.dp)
+            .clip(MaterialTheme.shapes.medium)
+            .clickable(onClick = onClick),
+    ) {
+        Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(MaterialTheme.shapes.medium)) {
+            NetImage(
+                entry.coverUrl.orEmpty(),
+                Modifier.fillMaxSize(),
+                "${entry.mangaTitle} — ${entry.chapterLabel}",
+                contentScale = ContentScale.Crop,
+            )
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.5f to Color.Transparent, 1f to ImageScrim.copy(alpha = 0.75f))))
+            Text(
+                entry.chapterLabel,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                modifier = Modifier.align(Alignment.BottomStart).padding(start = 10.dp, bottom = 10.dp),
+            )
+            LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(3.dp),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = Color.White.copy(alpha = 0.25f),
+                drawStopIndicator = {},
+                gapSize = 0.dp,
+            )
+            IconButton(
+                onClick = onHide,
+                modifier = Modifier.align(Alignment.TopEnd).padding(4.dp)
+                    .background(Color.Black.copy(alpha = 0.45f), CircleShape)
+                    .size(28.dp),
+            ) {
+                Icon(Icons.Rounded.Close, stringResource(R.string.ux_hide_continue), tint = Color.White, modifier = Modifier.size(16.dp))
+            }
+        }
+        Text(
+            entry.mangaTitle,
+            style = MaterialTheme.typography.titleSmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 8.dp, start = 2.dp, end = 2.dp),
+        )
+        Text(
+            stringResource(R.string.manga_library_progress, entry.chapterLabel, entry.page + 1, entry.pageCount),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 2.dp),
+        )
     }
 }
 
