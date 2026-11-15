@@ -5,7 +5,9 @@ import com.fuwanime.util.text
 import com.fuwanime.ui.components.IconWithTooltip
 import android.app.Activity
 import android.content.Context
+import android.content.ActivityNotFoundException
 import android.content.ContextWrapper
+import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.media.AudioManager
@@ -17,6 +19,9 @@ import android.util.Log
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
@@ -543,8 +548,32 @@ fun PlayerRoute(
         )
     }
 
+    // Another app played the stream; pick up where it stopped, or where we paused if it did not say.
+    var externalFrom by remember { mutableLongStateOf(0L) }
+    val externalLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val pos = externalEndPosition(result.data) ?: externalFrom
+        player.seekTo(pos)
+        if (player.duration > 0) vm.saveProgress(pos, player.duration)
+    }
+    val externalScope = rememberCoroutineScope()
+
     if (showSettings) {
+        val streamSource = state.source?.takeUnless { it.isLocal() }
         PlayerSettingsSheet(
+            onOpenExternal = streamSource?.let { s ->
+                {
+                    externalFrom = player.currentPosition
+                    player.pause()
+                    showSettings = false
+                    val title = nowPlaying(res, state.episode, state.anime).let { np -> listOf(np.artist, np.title).filter { it.isNotBlank() }.joinToString(" · ") }
+                    try {
+                        // No chooser: it would swallow ActivityNotFoundException and may drop the other app's result.
+                        externalLauncher.launch(externalPlayerIntent(s.url, title, externalFrom))
+                    } catch (e: ActivityNotFoundException) {
+                        externalScope.launch { snackbar.showSnackbar(res.getString(R.string.watch_no_external_player)) }
+                    }
+                }
+            },
             sources = state.sources,
             current = state.source,
             speed = speed,
@@ -1407,9 +1436,21 @@ private fun PlayerSettingsSheet(
     onMarkOpEnd: () -> Unit,
     onClearOpMark: () -> Unit,
     onSleep: (SleepOption) -> Unit,
+    /** Null for a downloaded episode: its file can't be handed to another app. */
+    onOpenExternal: (() -> Unit)?,
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
+            if (onOpenExternal != null) {
+                item {
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.watch_open_external)) },
+                        leadingContent = { Icon(Icons.AutoMirrored.Rounded.OpenInNew, null) },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        modifier = Modifier.clickable(onClick = onOpenExternal),
+                    )
+                }
+            }
             item { SheetTitle(stringResource(R.string.watch_quality)) }
             items(sources, key = { it.url }) { s ->
                 ListItem(

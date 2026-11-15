@@ -50,6 +50,7 @@
     <string name="browse_schedule_season_tab">本季</string>
     <string name="browse_schedule_empty_title">暂无安排</string>
     <string name="browse_schedule_empty_message">%1$s 暂无动画播出安排。</string>
+    <string name="browse_schedule_season_empty_message">本季暂无动画排期，请稍后再来。</string>
     <string name="browse_schedule_new_season">本季新番</string>
     <string name="browse_schedule_continuing">续播</string>
     <string name="browse_schedule_section">%1$s（%2$d）</string>
