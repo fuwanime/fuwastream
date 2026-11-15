@@ -506,3 +506,31 @@ data class ChapterTranslationState(
     val pages: List<String>? = null,
     val error: String? = null,
 )
+
+/** Splits text at line boundaries for chunked processing; keeps every line. */
+internal fun translationChunks(text: String, limit: Int = 3_000): List<String> {
+    if (text.length <= limit) return listOf(text)
+    val chunks = ArrayList<String>()
+    val current = StringBuilder()
+    fun flush() {
+        if (current.isNotBlank()) chunks += current.toString().trim()
+        current.clear()
+    }
+    for (line in text.lineSequence()) {
+        if (line.length > limit) {
+            flush()
+            var start = 0
+            while (start < line.length) {
+                val end = (start + limit).coerceAtMost(line.length)
+                chunks += line.substring(start, end)
+                start = end
+            }
+            continue
+        }
+        if (current.isNotEmpty() && current.length + line.length + 1 > limit) flush()
+        if (current.isNotEmpty()) current.append('\n')
+        current.append(line)
+    }
+    flush()
+    return chunks
+}
