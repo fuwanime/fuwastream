@@ -1,8 +1,8 @@
 <resources>
     <string name="manga_error_not_found">Manga tidak ditemukan.</string>
-    <string name="manga_source_catalog_down">MangaDex tidak dapat diakses dari jaringan ini. Sumber Indonesia tetap tersedia.</string>
+    <string name="manga_source_catalog_down">Comix tidak dapat diakses dari jaringan ini. Sumber Indonesia tetap tersedia.</string>
     <string name="manga_source_catalog_retry">Coba lagi</string>
-    <string name="manga_source_catalog_filter">Filter genre dan status membutuhkan MangaDex. Hapus filter atau gunakan pencarian.</string>
+    <string name="manga_source_catalog_filter">Filter genre dan status membutuhkan Comix. Hapus filter atau gunakan pencarian.</string>
     <string name="manga_status_ongoing">Berjalan</string>
     <string name="manga_status_completed">Tamat</string>
     <string name="manga_status_hiatus">Hiatus</string>
@@ -62,11 +62,11 @@
     <string name="manga_reader_source_shinigami">Sumber: Shinigami</string>
     <string name="manga_home_komiku">Klasik &amp; tamat lengkap</string>
     <string name="manga_settings_mature">Konten dewasa</string>
-    <string name="manga_settings_mature_desc">Tampilkan anime ber-genre dewasa (Ecchi, Erotica, Hentai) dan manga bertema dewasa dari MangaDex</string>
+    <string name="manga_settings_mature_desc">Tampilkan anime ber-genre dewasa (Ecchi, Erotica, Hentai) dan manga bertema dewasa dari Comix</string>
     <string name="manga_credit_komiku">Data &amp; gambar dari Komiku</string>
     <string name="manga_reader_source_komiku">Sumber: Komiku</string>
-    <string name="manga_credit_mangadex">Data &amp; gambar dari MangaDex</string>
-    <string name="manga_reader_source_mangadex">Sumber: MangaDex</string>
+    <string name="manga_credit_comix">Data &amp; gambar dari Comix</string>
+    <string name="manga_reader_source_comix">Sumber: Comix</string>
     <string name="manga_home_genres">Jelajah genre</string>
     <string name="manga_genre_action">Aksi</string>
     <string name="manga_genre_romance">Romansa</string>
@@ -108,4 +108,9 @@
     </plurals>
     <string name="manga_download_delete_all_title">Hapus semua unduhan %1$s?</string>
     <string name="manga_download_delete_all">Hapus</string>
+    <string name="manga_reader_translate_chapter">Terjemahkan chapter ke Indonesia</string>
+    <string name="manga_reader_translating_chapter">Menerjemahkan chapter ke Indonesia…</string>
+    <string name="manga_reader_show_original">Tampilkan asli</string>
+    <string name="manga_reader_translate_auto">Terjemahkan otomatis</string>
+    <string name="manga_reader_translate_auto_desc">Saat membuka chapter, terjemahkan seluruh halaman ke Bahasa Indonesia.</string>
 </resources>

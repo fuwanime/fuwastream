@@ -1,8 +1,7 @@
 package com.fuwanime
 
+import com.fuwanime.data.manga.ComixWsSource
 import com.fuwanime.data.manga.KomikuSource
-import com.fuwanime.data.manga.MangaDexApi
-import com.fuwanime.data.manga.MangaDexSource
 import com.fuwanime.data.manga.ShinigamiApi
 import com.fuwanime.data.manga.ShinigamiSource
 import com.fuwanime.data.manga.MangaDns
@@ -26,7 +25,7 @@ import com.fuwanime.data.local.FuwaDatabase
 import com.fuwanime.data.local.SettingsStore
 import com.fuwanime.data.manga.MangaDownloadRepository
 import com.fuwanime.data.manga.MangaRepository
-import com.fuwanime.data.manga.MangaTranslator
+import com.fuwanime.data.manga.IsMangaChapterTranslator
 import com.fuwanime.data.meta.AniListApi
 import com.fuwanime.data.meta.AniSkipApi
 import com.fuwanime.data.meta.AnimeLinkRepository
@@ -104,7 +103,7 @@ class AppContainer(private val app: Application) {
     val animeLinkRepository by lazy { AnimeLinkRepository(database.animeLinkDao(), AniListApi.create(metaHttpClient)) }
     val skipRepository by lazy { SkipRepository(AniSkipApi.create(metaHttpClient)) }
 
-    /** Shinigami's API answers browser-like clients; MangaDex and Komiku share this client. */
+    /** Shinigami's API answers browser-like clients; Comix and Komiku share this client. */
     val mangaHttpClient: OkHttpClient by lazy {
         metaHttpClient.newBuilder()
             .addInterceptor { chain ->
@@ -113,10 +112,6 @@ class AppContainer(private val app: Application) {
                     when {
                         req.url.host == "api.shngm.io" -> req.newBuilder()
                             .header("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36")
-                            .header("Accept", "application/json")
-                            .build()
-                        req.url.host == "api.mangadex.org" || req.url.host.endsWith(".mangadex.org") || req.url.host.endsWith(".mangadex.network") -> req.newBuilder()
-                            .header("User-Agent", "FuwaStream/2.0 (Android; manga reader)")
                             .header("Accept", "application/json")
                             .build()
                         else -> req
@@ -130,7 +125,7 @@ class AppContainer(private val app: Application) {
             appLanguage = { app.resources.configuration.locales[0].language },
             shinigami = ShinigamiSource(ShinigamiApi.create(mangaHttpClient)),
             komiku = KomikuSource(mangaHttpClient),
-            mangadex = MangaDexSource(MangaDexApi.create(mangaHttpClient), mature = { settingsStore.matureContent.first() }),
+            comix = ComixWsSource(app, mature = { settingsStore.matureContent.first() }, client = mangaHttpClient),
             mature = { settingsStore.matureContent.first() },
         )
     }
@@ -140,8 +135,8 @@ class AppContainer(private val app: Application) {
     /** Downloaded manga chapters (app-private files), fetched one at a time by MangaDownloadWorker. */
     val mangaDownloads by lazy { MangaDownloadRepository(app, mangaDownloadDao, settingsStore) }
 
-    /** On-device OCR + EN→ID translation for image chapters; images use the clean video client. */
-    val mangaTranslator by lazy { MangaTranslator(videoHttpClient) }
+    /** IsManga server-side EN→ID translation for chapter pages. */
+    val mangaTranslator by lazy { IsMangaChapterTranslator(app, videoHttpClient) }
 
     /** Daily backup file in a folder the user picked; survives an uninstall. */
     val backupRepository by lazy { BackupRepository(app, libraryRepository, settingsStore) }

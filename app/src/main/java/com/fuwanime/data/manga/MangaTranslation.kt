@@ -1,671 +1,508 @@
 package com.fuwanime.data.manga
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.BitmapRegionDecoder
+import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.ImageDecoder
+import android.graphics.Paint
 import android.graphics.Rect
-import android.net.Uri
-import android.os.Build
-import android.util.Log
-import androidx.annotation.RequiresApi
-import com.google.android.gms.tasks.Task
-import com.google.mlkit.common.MlKitException
-import com.google.mlkit.common.model.DownloadConditions
-import com.google.mlkit.nl.translate.TranslateLanguage
-import com.google.mlkit.nl.translate.Translation
-import com.google.mlkit.nl.translate.Translator
-import com.google.mlkit.nl.translate.TranslatorOptions
-import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.text.TextRecognition
-import com.google.mlkit.vision.text.TextRecognizer
-import com.google.mlkit.vision.text.latin.TextRecognizerOptions
-import java.io.File
-import java.io.IOException
-import java.nio.ByteBuffer
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
-import kotlin.math.max
-import kotlin.math.min
-import kotlin.math.roundToInt
+import android.text.Layout
+import android.text.StaticLayout
+import android.text.TextPaint
+import android.util.Base64
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.IOException
+import java.net.HttpURLConnection
+import java.net.URL
+import java.security.SecureRandom
+import java.time.Instant
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.max
+import kotlin.math.min
 
-/**
- * One translated text block, positioned as fractions of the page (0..1). Keeping the position lets the reader
- * paint the translation over the original text instead of only listing it below the page.
- */
-data class TranslatedBlock(
-    val left: Float,
-    val top: Float,
-    val right: Float,
-    val bottom: Float,
-    val text: String,
-    /** Sampled bubble background, used to cover the original text. */
-    val background: Int,
-    /** Black or white, whichever is readable on [background]. */
-    val foreground: Int,
+// ============== IsManga workflow (adapted) ==============
+// Translates manga page images to Indonesian via IsManga GraphQL API (server-side),
+// then composites translated text and saves resulting PNGs locally for the reader.
+
+private const val ISMANGA_ENDPOINT = "https://api.ismanga.com/graphql"
+private const val FIREBASE_API_KEY = "AIzaSyApW93EPxiSW6FwUVFc42GT-Q8ILs9wtkk"
+
+private data class IsAccount(
+    var email: String = "",
+    var password: String = "",
+    var idToken: String = "",
+    var refreshToken: String = "",
+    var localId: String = "",
+    var expiresIn: String = "3600",
+    var createdAt: String = "",
+    var updatedAt: String? = null,
 )
 
-/** Text recognised on one page and translated to Indonesian. */
-data class PageTranslation(
-    val text: String,
-    val regions: List<TranslatedBlock> = emptyList(),
-    val width: Int = 0,
-    val height: Int = 0,
-    /** Original OCR text shown when translation is unavailable or failed. */
-    val originalText: String = "",
+private data class IsLangText(val script: String?)
+private data class IsBoxColors(val text: String?, val background: String?)
+private data class IsBox(
+    val x: Double, val y: Double, val width: Double, val height: Double,
+    val toLang: IsLangText?, val imgWidth: Int, val imgHeight: Int,
+    val inpaintingUrl: String?, val colors: IsBoxColors?,
 )
-
-enum class MangaTranslationFailure { IMAGE, DECODE, OCR_MODEL, OCR, TRANSLATION_MODEL, TRANSLATION }
-
-class MangaTranslationException(
-    val failure: MangaTranslationFailure,
-    cause: Throwable,
-) : Exception(cause.message, cause)
-
-/** A recognised text block in original page pixels, before normalising for the UI. */
-private data class RecognizedBlock(
-    val text: String,
-    val rect: Rect,
-    val background: Int,
-    val foreground: Int,
+private data class IsTaskPayload(
+    val taskId: String, val url: String?, val isPseudoUrl: Boolean,
+    val isHighQuality: Boolean, val langCode: String?, val shouldCache: Boolean,
 )
+private data class IsResult(val code: Int, val payload: List<IsBox>, val taskPayload: IsTaskPayload?)
+private class IsApiException(message: String, val code: Int? = null) : Exception(message)
 
-private data class RecognizedPage(
-    val width: Int,
-    val height: Int,
-    val blocks: List<RecognizedBlock>,
-)
-
-/**
- * On-device English → Indonesian translation for image chapters (English sources). The Latin OCR model is bundled;
- * the translation model is downloaded once and then works offline. Nothing leaves the device.
- */
-class MangaTranslator(
-    private val http: OkHttpClient,
-) {
-    private val mutex = Mutex()
-    private val clientLock = Any()
-    private var translatorClient: Translator? = null
-    private var recognizerClient: TextRecognizer? = null
-
-    @Volatile
-    private var modelReady = false
-
-    private fun translator(): Translator = synchronized(clientLock) {
-        translatorClient ?: Translation.getClient(
-            TranslatorOptions.Builder()
-                .setSourceLanguage(TranslateLanguage.ENGLISH)
-                .setTargetLanguage(TranslateLanguage.INDONESIAN)
-                .build(),
-        ).also { translatorClient = it }
+private object IsCodes {
+    const val SUCCESS = 1
+    const val STILL_IN_QUEUE = 12
+    const val PROCESSING = 13
+    const val NO_SUCH_TASK = 15
+    const val ENQUEUED = 16
+    const val DUPLICATE = 17
+    const val QUOTA_EXCEEDED = 10003
+    val PENDING = setOf(STILL_IN_QUEUE, PROCESSING, ENQUEUED, DUPLICATE)
+    fun message(code: Int): String = when (code) {
+        3 -> "Gambar bukan manga / tidak valid"
+        9 -> "File terlalu besar (maks 5MB)"
+        10 -> "Dimensi gambar terlalu kecil"
+        14 -> "Antrian GPU gagal memproses"
+        15 -> "Task tidak ditemukan"
+        18 -> "Antrian penuh"
+        19 -> "Antrian kehabisan memori"
+        20 -> "GPU internal error"
+        21 -> "Dimensi gambar terlalu besar"
+        10002 -> "Kena throttle"
+        10003 -> "Kuota habis"
+        10004 -> "Terjemahan diblokir"
+        else -> "Error kode $code"
     }
+}
 
-    private fun recognizer(): TextRecognizer = synchronized(clientLock) {
-        recognizerClient ?: TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-            .also { recognizerClient = it }
+private fun JSONObject.toIsBox(): IsBox? = try {
+    val to = optJSONObject("toLang")
+    val colors = optJSONObject("colors")
+    IsBox(
+        x = optDouble("x", 0.0), y = optDouble("y", 0.0),
+        width = optDouble("width", 0.0), height = optDouble("height", 0.0),
+        toLang = to?.let { IsLangText(it.optString("script", null)) },
+        imgWidth = optInt("imgWidth", 0), imgHeight = optInt("imgHeight", 0),
+        inpaintingUrl = optString("inpaintingUrl", null),
+        colors = colors?.let { IsBoxColors(it.optString("text", null), it.optString("background", null)) },
+    )
+} catch (_: Exception) { null }
+
+private fun JSONArray.toIsBoxes(): List<IsBox> = buildList {
+    for (i in 0 until length()) { optJSONObject(i)?.toIsBox()?.let { add(it) } }
+}
+
+private fun JSONObject.toTaskPayload(): IsTaskPayload? {
+    val id = optString("taskId", null) ?: return null
+    return IsTaskPayload(id, optString("url", null), optBoolean("isPseudoUrl", false),
+        optBoolean("isHighQuality", false), optString("langCode", null), optBoolean("shouldCache", false))
+}
+
+private fun parseIsResult(data: JSONObject?): IsResult {
+    if (data == null) throw IsApiException("Response kosong")
+    val code = data.optInt("code", -1)
+    val payloadAny = data.opt("payload")
+    val payload = when (payloadAny) {
+        is JSONArray -> payloadAny.toIsBoxes()
+        is JSONObject -> JSONArray().put(payloadAny).toIsBoxes()
+        else -> emptyList()
     }
+    return IsResult(code, payload, data.optJSONObject("taskPayload")?.toTaskPayload())
+}
 
-    /**
-     * Downloads the page, reads its text and translates each text block. [onDownloadingModel] fires only while
-     * the one-time model download is in progress, so the reader can show its status.
-     */
-    suspend fun translatePage(url: String, onDownloadingModel: () -> Unit = {}): PageTranslation = mutex.withLock {
-        var modelNoticeSent = false
-        val notifyModelDownload = {
-            if (!modelNoticeSent) {
-                modelNoticeSent = true
-                onDownloadingModel()
-            }
+private object IsHttp {
+    fun postJson(url: String, body: JSONObject, headers: Map<String, String> = emptyMap(), timeout: Int = 60_000): JSONObject? {
+        val conn = (URL(url).openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"; connectTimeout = timeout; readTimeout = timeout; doOutput = true; doInput = true
+            setRequestProperty("Content-Type", "application/json"); setRequestProperty("Accept", "application/json")
+            headers.forEach { (k, v) -> setRequestProperty(k, v) }
         }
-        val bytes = stage(MangaTranslationFailure.IMAGE) { download(url) }
-        val page = try {
-            recognize(bytes, notifyModelDownload)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: MangaTranslationException) {
-            throw e
-        } catch (e: MlKitException) {
-            val failure = if (isModelFailure(e)) MangaTranslationFailure.OCR_MODEL else MangaTranslationFailure.OCR
-            throw MangaTranslationException(failure, e)
-        } catch (e: OutOfMemoryError) {
-            Log.w(TAG, "Ran out of memory while decoding a page", e)
-            throw MangaTranslationException(MangaTranslationFailure.DECODE, e)
-        } catch (e: Exception) {
-            throw MangaTranslationException(MangaTranslationFailure.OCR, e)
-        }
-        if (page.blocks.isEmpty()) return@withLock PageTranslation("", emptyList(), page.width, page.height)
-        val originalText = page.blocks.joinToString("\n") { it.text }
-        if (!modelReady) {
-            notifyModelDownload()
-            try {
-                stage(MangaTranslationFailure.TRANSLATION_MODEL) {
-                    downloadTranslationModel()
-                }
-                modelReady = true
-            } catch (e: MangaTranslationException) {
-                // The model is a one-time download; while it is unavailable the OCR result is still useful, so show
-                // the original text instead of discarding the page.
-                Log.w(TAG, "Translation model unavailable; showing the original text", e)
-                return@withLock PageTranslation("", emptyList(), page.width, page.height, originalText)
-            }
-        }
-        val regions = ArrayList<TranslatedBlock>(page.blocks.size)
-        for (block in page.blocks) {
-            val translated = try {
-                stage(MangaTranslationFailure.TRANSLATION) { translateBlock(block.text) }
-            } catch (e: Exception) {
-                Log.w(TAG, "Translation failed for block: ${e.message}", e)
-                null
-            } catch (e: OutOfMemoryError) {
-                Log.w(TAG, "Ran out of memory translating a block", e)
-                null
-            }
-            if (translated.isNullOrBlank()) continue
-            regions += TranslatedBlock(
-                left = block.rect.left.toFloat() / page.width,
-                top = block.rect.top.toFloat() / page.height,
-                right = block.rect.right.toFloat() / page.width,
-                bottom = block.rect.bottom.toFloat() / page.height,
-                text = translated,
-                background = block.background,
-                foreground = block.foreground,
-            )
-        }
-        val displayText = if (regions.isNotEmpty()) regions.joinToString("\n") { it.text } else ""
-        PageTranslation(
-            text = displayText,
-            regions = regions,
-            width = page.width,
-            height = page.height,
-            originalText = if (regions.isEmpty()) originalText else "",
-        )
+        return try {
+            conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+            val stream = if (conn.responseCode in 200..299) conn.inputStream else (conn.errorStream ?: conn.inputStream)
+            val text = stream.bufferedReader().use { it.readText() }
+            try { JSONObject(text) } catch (_: Exception) { null }
+        } finally { conn.disconnect() }
     }
-
-    private suspend fun translateBlock(text: String): String =
-        translationChunks(text).map { translator().translate(it).await() }.joinToString(" ").trim()
-
-    /** Releases the ML Kit clients; the app-wide instance normally lives for the whole process. */
-    fun close() {
-        synchronized(clientLock) {
-            runCatching { translatorClient?.close() }
-            runCatching { recognizerClient?.close() }
-            translatorClient = null
-            recognizerClient = null
-            modelReady = false
+    fun postForm(url: String, form: String, timeout: Int = 60_000): JSONObject? {
+        val conn = (URL(url).openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"; connectTimeout = timeout; readTimeout = timeout; doOutput = true; doInput = true
+            setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
         }
+        return try {
+            conn.outputStream.use { it.write(form.toByteArray(Charsets.UTF_8)) }
+            val stream = if (conn.responseCode in 200..299) conn.inputStream else (conn.errorStream ?: conn.inputStream)
+            val text = stream.bufferedReader().use { it.readText() }
+            try { JSONObject(text) } catch (_: Exception) { null }
+        } finally { conn.disconnect() }
     }
-
-    private suspend fun download(url: String): ByteArray = withContext(Dispatchers.IO) {
-        val candidates = mangaPageCandidates(url).ifEmpty { listOf(url) }
-        // Downloaded chapters keep their pages as file: URIs; read those directly.
-        if (candidates.first().startsWith("file:")) {
-            val path = Uri.parse(candidates.first()).path ?: throw IOException("Invalid local page: ${candidates.first()}")
-            return@withContext File(path).readBytes()
+    fun getBytes(url: String, timeout: Int = 60_000): ByteArray {
+        val conn = (URL(url).openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"; connectTimeout = timeout; readTimeout = timeout
         }
-        // Some image CDNs reject requests that carry a Referer, so send none.
-        var failure: IOException? = null
-        for (candidate in candidates) {
-            try {
-                val request = Request.Builder()
-                    .url(candidate)
-                    .header("User-Agent", USER_AGENT)
-                    .build()
-                http.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) throw IOException("Image HTTP ${response.code}")
-                    return@withContext response.body?.bytes() ?: throw IOException("Image response is empty")
-                }
-            } catch (e: IOException) {
-                failure = e
+        return try {
+            val status = conn.responseCode
+            if (status in 300..399) {
+                val loc = conn.getHeaderField("Location")
+                if (!loc.isNullOrBlank()) return getBytes(URL(URL(url), loc).toString(), timeout)
             }
-        }
-        throw failure ?: IOException("Image host is unavailable")
+            val stream = if (status in 200..299) conn.inputStream else throw IOException("HTTP $status: $url")
+            stream.use { it.readBytes() }
+        } finally { conn.disconnect() }
     }
+}
 
-    /** OCR for one image, split into vertical tiles so very long webtoon strips stay within memory limits. */
-    private suspend fun recognize(bytes: ByteArray, onWaitingForModel: () -> Unit): RecognizedPage = withContext(Dispatchers.IO) {
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-        val width = bounds.outWidth
-        val height = bounds.outHeight
-        if (width <= 0 || height <= 0) {
-            // Extended WebP/AVIF variants can hide their size from BitmapFactory. ImageDecoder (API 28+) can still
-            // read them, so fall back to a memory-safe decode instead of failing the whole page.
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                val bitmap = decodeWithImageDecoder(bytes, 0, 0)
-                    ?: throw MangaTranslationException(MangaTranslationFailure.DECODE, IOException("Unsupported image format"))
-                try {
-                    val blocks = ArrayList<RecognizedBlock>()
-                    val tileBlocks = recognizeBitmapSafely(bitmap, 1f, 1f, 0, bitmap.width, bitmap.height, onWaitingForModel)
-                        ?: throw MangaTranslationException(MangaTranslationFailure.OCR, IOException("Text recognition failed"))
-                    addBlocks(blocks, tileBlocks)
-                    return@withContext RecognizedPage(bitmap.width, bitmap.height, blocks)
-                } finally {
-                    bitmap.recycle()
-                }
-            }
-            throw MangaTranslationException(MangaTranslationFailure.DECODE, IOException("Unsupported image format"))
-        }
-
-        val blocks = ArrayList<RecognizedBlock>()
-        if (height <= TILE_HEIGHT) {
-            val (bitmap, _) = decode(bytes, width, height)
-                ?: throw MangaTranslationException(MangaTranslationFailure.DECODE, IOException("Unsupported image format"))
-            try {
-                val scaleX = width.toFloat() / bitmap.width
-                val scaleY = height.toFloat() / bitmap.height
-                val tileBlocks = recognizeBitmapSafely(bitmap, scaleX, scaleY, 0, width, height, onWaitingForModel)
-                    ?: throw MangaTranslationException(MangaTranslationFailure.OCR, IOException("Text recognition failed"))
-                addBlocks(blocks, tileBlocks)
-            } finally {
-                bitmap.recycle()
-            }
-            return@withContext RecognizedPage(width, height, blocks)
-        }
-        // Region decoding is the memory-friendly path, but some WebP variants throw on this decoder. When no
-        // tile can be decoded, sample the whole page down and OCR it in strips instead of failing the chapter.
-        if (!decodeTilesWithRegionDecoder(bytes, width, height, blocks, onWaitingForModel)) {
-            decodeTilesInMemory(bytes, width, height, blocks, onWaitingForModel)
-        }
-        RecognizedPage(width, height, blocks)
+private object IsImage {
+    fun detectMime(bytes: ByteArray): String = when {
+        bytes.size >= 3 && bytes[0] == 0xFF.toByte() && bytes[1] == 0xD8.toByte() -> "image/jpeg"
+        bytes.size >= 8 && bytes[0] == 0x89.toByte() && bytes[1] == 0x50.toByte() -> "image/png"
+        bytes.size >= 12 && String(bytes, 0, 4) == "RIFF" && String(bytes, 8, 4) == "WEBP" -> "image/webp"
+        bytes.size >= 6 && String(bytes, 0, 6).let { it == "GIF87a" || it == "GIF89a" } -> "image/gif"
+        else -> "image/jpeg"
     }
-
-    /** @return true when at least one tile was decoded and OCRed successfully; false when this path can't be used. */
-    private suspend fun decodeTilesWithRegionDecoder(
-        bytes: ByteArray,
-        width: Int,
-        height: Int,
-        blocks: MutableList<RecognizedBlock>,
-        onWaitingForModel: () -> Unit,
-    ): Boolean {
-        val decoder = try {
-            BitmapRegionDecoder.newInstance(bytes, 0, bytes.size, false)
-        } catch (e: Exception) {
-            Log.w(TAG, "Region decoder unavailable for ${width}x$height image: ${e.message}", e)
-            null
-        } ?: return false
-        val sample = ((width + MAX_WIDTH - 1) / MAX_WIDTH).coerceAtLeast(1)
-        var decoded = 0
-        var ocrSucceeded = 0
-        try {
-            var top = 0
-            while (top < height) {
-                val bottom = (top + TILE_HEIGHT).coerceAtMost(height)
-                val tile = try {
-                    decoder.decodeRegion(
-                        Rect(0, top, width, bottom),
-                        BitmapFactory.Options().apply { inSampleSize = sample },
+    fun toDataUrl(bytes: ByteArray): String = "data:${detectMime(bytes)};base64," + Base64.encodeToString(bytes, Base64.NO_WRAP)
+    fun dataUrlId(dataUrl: String): String = buildString { var i = 0; while (i < dataUrl.length) { append(dataUrl[i]); i += 10000 } }
+    fun decodeJwtExp(token: String): Long = try {
+        val parts = token.split('.')
+        if (parts.size < 2) 0L else JSONObject(String(Base64.decode(parts[1], Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING))).optLong("exp", 0L)
+    } catch (_: Exception) { 0L }
+    fun parseColor(color: String?, fallback: Int): Int {
+        if (color.isNullOrBlank()) return fallback
+        return try {
+            when {
+                color.startsWith("#") || !color.startsWith("rgb", true) -> Color.parseColor(color)
+                else -> {
+                    val nums = Regex("-?\\d+(?:\\.\\d+)?").findAll(color).map { it.value.toDouble() }.toList()
+                    if (nums.size < 3) fallback else Color.argb(
+                        if (nums.size >= 4) (nums[3] * 255).toInt().coerceIn(0, 255) else 255,
+                        nums[0].toInt().coerceIn(0, 255), nums[1].toInt().coerceIn(0, 255), nums[2].toInt().coerceIn(0, 255)
                     )
-                } catch (e: Exception) {
-                    Log.w(TAG, "Region decode failed at y=$top of $height: ${e.message}", e)
-                    null
-                } catch (e: OutOfMemoryError) {
-                    Log.w(TAG, "Region decode ran out of memory at y=$top of $height", e)
-                    null
                 }
-                if (tile != null) {
-                    decoded++
-                    // Some decoders ignore inSampleSize; derive the scale from the bitmap actually returned.
-                    val scaleX = width.toFloat() / tile.width
-                    val scaleY = (bottom - top).toFloat() / tile.height
-                    try {
-                        val tileBlocks = recognizeBitmapSafely(tile, scaleX, scaleY, top, width, height, onWaitingForModel)
-                        if (tileBlocks != null) {
-                            ocrSucceeded++
-                            addBlocks(blocks, tileBlocks)
-                        }
-                    } finally {
-                        tile.recycle()
-                    }
-                }
-                if (bottom >= height) break
-                // Overlap keeps a bubble cut by the tile edge readable in one of the two tiles.
-                top = bottom - TILE_OVERLAP
             }
-        } finally {
-            decoder.recycle()
-        }
-        // If tiles were decoded but OCR failed for every one of them, let the caller try the in-memory fallback
-        // instead of reporting a false "no text detected" result.
-        if (decoded > 0 && ocrSucceeded == 0) return false
-        return decoded > 0
-    }
-
-    /** Fallback for files the region decoder rejects: decode once at a memory-safe sample size, then OCR strips. */
-    private suspend fun decodeTilesInMemory(
-        bytes: ByteArray,
-        width: Int,
-        height: Int,
-        blocks: MutableList<RecognizedBlock>,
-        onWaitingForModel: () -> Unit,
-    ) {
-        val full = decodePage(bytes, width, height)
-            ?: throw MangaTranslationException(MangaTranslationFailure.DECODE, IOException("Unsupported image format"))
-        try {
-            val scaleX = width.toFloat() / full.width
-            val scaleY = height.toFloat() / full.height
-            val strip = (TILE_HEIGHT / scaleY).toInt().coerceAtLeast(1)
-            val overlap = (TILE_OVERLAP / scaleY).toInt().coerceAtLeast(1)
-            var top = 0
-            var ocrSucceeded = 0
-            var stripsAttempted = 0
-            while (top < full.height) {
-                val bottom = (top + strip).coerceAtMost(full.height)
-                val tile = try {
-                    Bitmap.createBitmap(full, 0, top, full.width, bottom - top)
-                } catch (e: Exception) {
-                    Log.w(TAG, "Strip slice failed at y=$top of ${full.height}: ${e.message}", e)
-                    null
-                } catch (e: OutOfMemoryError) {
-                    Log.w(TAG, "Strip slice ran out of memory at y=$top of ${full.height}", e)
-                    null
-                }
-                if (tile != null) {
-                    stripsAttempted++
-                    try {
-                        val tileBlocks = recognizeBitmapSafely(tile, scaleX, scaleY, (top * scaleY).toInt(), width, height, onWaitingForModel)
-                        if (tileBlocks != null) {
-                            ocrSucceeded++
-                            addBlocks(blocks, tileBlocks)
-                        }
-                    } finally {
-                        if (tile !== full) tile.recycle()
-                    }
-                }
-                if (bottom >= full.height) break
-                top = (bottom - overlap).coerceAtLeast(top + 1)
-            }
-            if (stripsAttempted == 0) {
-                throw MangaTranslationException(MangaTranslationFailure.DECODE, IOException("Failed to prepare image strips for OCR"))
-            }
-            if (ocrSucceeded == 0) {
-                throw MangaTranslationException(MangaTranslationFailure.OCR, IOException("Text recognition failed"))
-            }
-        } finally {
-            full.recycle()
-        }
-    }
-
-    /** Decodes the whole page, retrying with a bigger sample size when the phone is short on memory. */
-    private fun decodePage(bytes: ByteArray, width: Int, height: Int): Bitmap? {
-        decode(bytes, width, height)?.let { return it.first }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) return decodeWithImageDecoder(bytes, width, height)
-        return null
-    }
-
-    private fun decode(bytes: ByteArray, width: Int, height: Int): Pair<Bitmap, Int>? {
-        var sample = sampleSize(width, height)
-        repeat(MAX_DECODE_ATTEMPTS) {
-            try {
-                val bitmap = BitmapFactory.decodeByteArray(
-                    bytes,
-                    0,
-                    bytes.size,
-                    BitmapFactory.Options().apply { inSampleSize = sample },
-                )
-                if (bitmap != null) return bitmap to sample
-            } catch (e: Exception) {
-                Log.w(TAG, "Bitmap decode failed at sample $sample for ${width}x$height: ${e.message}", e)
-            } catch (e: OutOfMemoryError) {
-                Log.w(TAG, "Bitmap decode ran out of memory at sample $sample for ${width}x$height", e)
-            }
-            sample *= 2
-        }
-        return null
-    }
-
-    /**
-     * Last-resort decode for formats BitmapFactory rejects. ImageDecoder reports the real size before allocating,
-     * so a huge webtoon strip can be sampled down instead of overflowing the heap.
-     */
-    @RequiresApi(Build.VERSION_CODES.P)
-    private fun decodeWithImageDecoder(bytes: ByteArray, width: Int, height: Int): Bitmap? = try {
-        val source = ImageDecoder.createSource(ByteBuffer.wrap(bytes))
-        ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
-            decoder.setAllocator(ImageDecoder.ALLOCATOR_SOFTWARE)
-            decoder.setTargetSampleSize(sampleSize(info.size.width, info.size.height))
-        }
-    } catch (e: Exception) {
-        Log.w(TAG, "ImageDecoder failed for ${width}x$height image: ${e.message}", e)
-        null
-    } catch (e: OutOfMemoryError) {
-        Log.w(TAG, "ImageDecoder ran out of memory for ${width}x$height image", e)
-        null
-    }
-
-    /** Smallest power-of-two sample that keeps the decoded bitmap inside the memory budget. */
-    private fun sampleSize(width: Int, height: Int): Int {
-        var sample = 1
-        while (width / sample > MAX_WIDTH ||
-            (width / sample).coerceAtLeast(1).toLong() * (height / sample).coerceAtLeast(1) > MAX_PIXELS
-        ) sample *= 2
-        return sample
-    }
-
-    private suspend fun recognizeBitmap(
-        bitmap: Bitmap,
-        scaleX: Float,
-        scaleY: Float,
-        topOffset: Int,
-        imageWidth: Int,
-        imageHeight: Int,
-        onWaitingForModel: () -> Unit,
-    ): List<RecognizedBlock> {
-        val image = InputImage.fromBitmap(bitmap, 0)
-        val result = recognizeWithModelRetry(image, onWaitingForModel)
-        return result.textBlocks.mapNotNull { block ->
-            val text = block.text.trim()
-            if (text.count(Char::isLetterOrDigit) < 2) return@mapNotNull null
-            val box = block.boundingBox ?: return@mapNotNull null
-            if (box.width() < 4 || box.height() < 4) return@mapNotNull null
-            val left = (box.left * scaleX).roundToInt().coerceIn(0, imageWidth - 1)
-            val right = (box.right * scaleX).roundToInt().coerceIn(left + 1, imageWidth)
-            val top = (box.top * scaleY).roundToInt().plus(topOffset).coerceIn(0, imageHeight - 1)
-            val bottom = (box.bottom * scaleY).roundToInt().plus(topOffset).coerceIn(top + 1, imageHeight)
-            val rect = Rect(left, top, right, bottom)
-            if (rect.width() < 6 || rect.height() < 6) return@mapNotNull null
-            val (background, foreground) = sampleColors(bitmap, box)
-            RecognizedBlock(text, rect, background, foreground)
-        }
-    }
-
-    /**
-     * OCR one tile without letting a single bad tile abort the whole page. Returns null when this tile failed
-     * (so the caller can distinguish "no text found" from "OCR could not run"); model-level failures still propagate.
-     */
-    private suspend fun recognizeBitmapSafely(
-        bitmap: Bitmap,
-        scaleX: Float,
-        scaleY: Float,
-        topOffset: Int,
-        imageWidth: Int,
-        imageHeight: Int,
-        onWaitingForModel: () -> Unit,
-    ): List<RecognizedBlock>? = try {
-        recognizeBitmap(bitmap, scaleX, scaleY, topOffset, imageWidth, imageHeight, onWaitingForModel)
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: MlKitException) {
-        if (isModelFailure(e)) throw e
-        Log.w(TAG, "OCR failed for one tile: ${e.message}", e)
-        null
-    } catch (e: OutOfMemoryError) {
-        Log.w(TAG, "OCR ran out of memory for one tile", e)
-        null
-    } catch (e: Exception) {
-        Log.w(TAG, "OCR failed for one tile: ${e.message}", e)
-        null
-    }
-
-    private fun isModelFailure(e: MlKitException): Boolean =
-        e.errorCode == MlKitException.UNAVAILABLE || e.errorCode == MlKitException.NETWORK_ISSUE
-
-    /** Picks the most common colour around the text; that is the bubble fill, not the lettering. */
-    private fun sampleColors(bitmap: Bitmap, box: Rect): Pair<Int, Int> {
-        val left = box.left.coerceIn(0, bitmap.width - 1)
-        val top = box.top.coerceIn(0, bitmap.height - 1)
-        val right = box.right.coerceIn(left + 1, bitmap.width)
-        val bottom = box.bottom.coerceIn(top + 1, bitmap.height)
-        val stepX = max(1, (right - left) / 24)
-        val stepY = max(1, (bottom - top) / 24)
-        val buckets = HashMap<Int, IntArray>()
-        var x = left
-        while (x < right) {
-            var y = top
-            while (y < bottom) {
-                var color = bitmap.getPixel(x, y)
-                if (Color.alpha(color) < 128) color = Color.WHITE
-                val r = Color.red(color)
-                val g = Color.green(color)
-                val b = Color.blue(color)
-                val key = ((r shr 4) shl 8) or ((g shr 4) shl 4) or (b shr 4)
-                val bucket = buckets.getOrPut(key) { IntArray(4) }
-                bucket[0]++
-                bucket[1] += r
-                bucket[2] += g
-                bucket[3] += b
-                y += stepY
-            }
-            x += stepX
-        }
-        val best = buckets.values.maxByOrNull { it[0] } ?: return Color.WHITE to Color.BLACK
-        val count = best[0].coerceAtLeast(1)
-        val r = best[1] / count
-        val g = best[2] / count
-        val b = best[3] / count
-        val background = Color.rgb(r, g, b)
-        val luminance = 0.299f * r + 0.587f * g + 0.114f * b
-        val foreground = if (luminance > 140f) Color.BLACK else Color.WHITE
-        return background to foreground
-    }
-
-    /** Drops the duplicate block produced when a bubble sits on the overlap between two tiles. */
-    private fun addBlocks(target: MutableList<RecognizedBlock>, blocks: List<RecognizedBlock>) {
-        for (block in blocks) {
-            if (target.any { duplicate(it, block) }) continue
-            target += block
-        }
-    }
-
-    private fun duplicate(a: RecognizedBlock, b: RecognizedBlock): Boolean {
-        val left = max(a.rect.left, b.rect.left)
-        val top = max(a.rect.top, b.rect.top)
-        val right = min(a.rect.right, b.rect.right)
-        val bottom = min(a.rect.bottom, b.rect.bottom)
-        if (right <= left || bottom <= top) return false
-        val overlap = (right - left).toLong() * (bottom - top)
-        val areaA = a.rect.width().toLong() * a.rect.height()
-        val areaB = b.rect.width().toLong() * b.rect.height()
-        val union = (areaA + areaB - overlap).coerceAtLeast(1)
-        val iou = overlap.toFloat() / union
-        if (iou >= 0.7f) return true
-        if (iou < 0.25f) return false
-        return normalize(a.text) == normalize(b.text)
-    }
-
-    private fun normalize(text: String): String =
-        text.lowercase().replace(WHITESPACE, " ").trim().trim('.', ',', '!', '?', '"', '\'')
-
-    private suspend fun <T> Task<T>.await(): T = suspendCancellableCoroutine { continuation ->
-        addOnSuccessListener { continuation.resume(it) }
-        addOnFailureListener { continuation.resumeWithException(it) }
-        addOnCanceledListener { continuation.cancel() }
-    }
-
-    /** The unbundled OCR model can still be downloading when the first page opens. Retry instead of failing it. */
-    private suspend fun recognizeWithModelRetry(image: InputImage, onWaitingForModel: () -> Unit): com.google.mlkit.vision.text.Text {
-        repeat(OCR_MODEL_RETRIES) { attempt ->
-            try {
-                return recognizer().process(image).await()
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: MlKitException) {
-                if (!isModelFailure(e) || attempt == OCR_MODEL_RETRIES - 1) throw e
-                onWaitingForModel()
-                delay(OCR_MODEL_RETRY_MS)
-            }
-        }
-        error("OCR retry loop ended unexpectedly")
-    }
-
-    private suspend fun downloadTranslationModel() {
-        repeat(TRANSLATION_MODEL_RETRIES) { attempt ->
-            try {
-                translator().downloadModelIfNeeded(DownloadConditions.Builder().build()).await()
-                return
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: MlKitException) {
-                if (!isModelFailure(e) || attempt == TRANSLATION_MODEL_RETRIES - 1) throw e
-                delay(TRANSLATION_MODEL_RETRY_MS)
-            }
-        }
-    }
-
-    private suspend fun <T> stage(failure: MangaTranslationFailure, block: suspend () -> T): T = try {
-        block()
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: MangaTranslationException) {
-        throw e
-    } catch (e: Exception) {
-        Log.w(TAG, "Manga translation failed at $failure: ${e.message}", e)
-        throw MangaTranslationException(failure, e)
-    }
-
-    private companion object {
-        const val USER_AGENT = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36"
-        const val TILE_HEIGHT = 2_400
-        const val TILE_OVERLAP = 120
-        const val MAX_WIDTH = 2_000
-        const val MAX_PIXELS = 8_000_000L
-        const val MAX_DECODE_ATTEMPTS = 5
-        const val OCR_MODEL_RETRIES = 20
-        const val OCR_MODEL_RETRY_MS = 1_500L
-        const val TRANSLATION_MODEL_RETRIES = 3
-        const val TRANSLATION_MODEL_RETRY_MS = 2_000L
-        const val TAG = "MangaTranslator"
-        val WHITESPACE = Regex("\\s+")
-        const val TRANSLATION_FONT = "translation_font.ttf"
+        } catch (_: Exception) { fallback }
     }
 }
 
-/**
- * Splits OCR text at line boundaries for the translator, which caps a single request at a few thousand characters.
- * Internal for unit tests: the split must never drop or reorder a line.
- */
-internal fun translationChunks(text: String, limit: Int = 3_000): List<String> {
-    if (text.length <= limit) return listOf(text)
-    val chunks = ArrayList<String>()
-    val current = StringBuilder()
-    fun flush() {
-        if (current.isNotBlank()) chunks += current.toString().trim()
-        current.clear()
-    }
-    for (line in text.lineSequence()) {
-        if (line.length > limit) {
-            flush()
-            var start = 0
-            while (start < line.length) {
-                val end = (start + limit).coerceAtMost(line.length)
-                chunks += line.substring(start, end)
-                start = end
+private class IsTextRenderer {
+    fun draw(base: Bitmap, boxes: List<IsBox>): Bitmap {
+        val result = base.copy(Bitmap.Config.ARGB_8888, true)
+        val canvas = Canvas(result)
+        for (box in boxes) {
+            val text = box.toLang?.script?.trim().orEmpty()
+            if (text.isEmpty()) continue
+            val x = box.x.toFloat(); val y = box.y.toFloat()
+            val w = max(1f, box.width.toFloat()); val h = max(1f, box.height.toFloat())
+            val textColor = IsImage.parseColor(box.colors?.text, Color.BLACK)
+            val outlineColor = IsImage.parseColor(box.colors?.background, Color.WHITE)
+            val pad = max(2f, min(w, h) * 0.07f)
+            val innerW = max(1f, w - pad * 2); val innerH = max(1f, h - pad * 2)
+            val (paint, layout) = fit(text, innerW, innerH, textColor)
+            val dx = x + pad; val dy = y + (h - layout.height) / 2f
+            canvas.save(); canvas.translate(dx, dy)
+            val outline = TextPaint(paint).apply {
+                style = Paint.Style.STROKE; strokeWidth = max(1f, paint.textSize * 0.18f)
+                color = outlineColor; strokeJoin = Paint.Join.ROUND
             }
-            continue
+            buildLayout(text, outline, layout.width.toFloat()).draw(canvas)
+            layout.draw(canvas); canvas.restore()
         }
-        if (current.isNotEmpty() && current.length + line.length + 1 > limit) flush()
-        if (current.isNotEmpty()) current.append('\n')
-        current.append(line)
+        return result
     }
-    flush()
-    return chunks
+    private fun fit(text: String, maxW: Float, maxH: Float, color: Int): Pair<TextPaint, StaticLayout> {
+        var size = min(maxH, 120f); val minSize = 10f
+        var cp = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color; textSize = minSize; isFakeBoldText = true }
+        var cl = buildLayout(text, cp, maxW)
+        while (size >= minSize) {
+            val p = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color; textSize = size; isFakeBoldText = true }
+            val l = buildLayout(text, p, maxW); cp = p; cl = l
+            if (l.height <= maxH) break; size -= 1f
+        }
+        return cp to cl
+    }
+    private fun buildLayout(text: String, paint: TextPaint, maxW: Float): StaticLayout =
+        StaticLayout.Builder.obtain(text, 0, text.length, paint, maxW.toInt().coerceAtLeast(1))
+            .setAlignment(Layout.Alignment.ALIGN_CENTER).setIncludePad(false).build()
 }
+
+private class IsAccountStore(private val file: File) {
+    private val accounts = mutableListOf<IsAccount>()
+    @Synchronized fun load(): MutableList<IsAccount> {
+        accounts.clear()
+        if (!file.exists()) return accounts
+        runCatching {
+            val arr = JSONArray(file.readText())
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                accounts.add(IsAccount(
+                    email = o.optString("email"), password = o.optString("password"),
+                    idToken = o.optString("idToken"), refreshToken = o.optString("refreshToken"),
+                    localId = o.optString("localId"), expiresIn = o.optString("expiresIn", "3600"),
+                    createdAt = o.optString("createdAt"),
+                    updatedAt = if (o.has("updatedAt")) o.optString("updatedAt") else null,
+                ))
+            }
+        }
+        return accounts
+    }
+    @Synchronized fun save() {
+        val arr = JSONArray()
+        accounts.forEach { a -> arr.put(JSONObject().apply {
+            put("email", a.email); put("password", a.password); put("idToken", a.idToken)
+            put("refreshToken", a.refreshToken); put("localId", a.localId); put("expiresIn", a.expiresIn)
+            put("provider", "firebase"); put("createdAt", a.createdAt)
+            if (a.updatedAt != null) put("updatedAt", a.updatedAt)
+        }) }
+        file.parentFile?.mkdirs(); file.writeText(arr.toString(2))
+    }
+    @Synchronized fun all(): MutableList<IsAccount> = accounts
+    @Synchronized fun add(a: IsAccount) { accounts.add(a) }
+}
+
+private object IsAuth {
+    private const val SIGNUP = "https://www.googleapis.com/identitytoolkit/v3/relyingparty/signupNewUser?key=$FIREBASE_API_KEY"
+    private const val REFRESH = "https://securetoken.googleapis.com/v1/token?key=$FIREBASE_API_KEY"
+    private val rnd = SecureRandom()
+    fun createAccount(): IsAccount {
+        val bytes = ByteArray(8).also { rnd.nextBytes(it) }
+        val hex = bytes.joinToString("") { "%02x".format(it) }
+        val domains = listOf("mailinator.com", "tempmail.com", "guerrillamail.com")
+        val email = "ismanga_${hex}@${domains[rnd.nextInt(domains.size)]}"
+        val chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+        val pass = buildString { repeat(12) { append(chars[rnd.nextInt(chars.length)]) }; append("!A1") }
+        val body = JSONObject().apply { put("email", email); put("password", pass); put("returnSecureToken", true) }
+        val json = IsHttp.postJson(SIGNUP, body) ?: throw IsApiException("Signup response kosong")
+        if (json.has("error") || !json.has("idToken")) throw IsApiException("Signup gagal: ${json.optJSONObject("error")?.optString("message") ?: json}")
+        return IsAccount(email, pass, json.optString("idToken"), json.optString("refreshToken"), json.optString("localId"), json.optString("expiresIn", "3600"), Instant.now().toString())
+    }
+    fun refresh(a: IsAccount): IsAccount {
+        val form = "grant_type=refresh_token&refresh_token=${java.net.URLEncoder.encode(a.refreshToken, "UTF-8")}"
+        val json = IsHttp.postForm(REFRESH, form) ?: throw IsApiException("Refresh response kosong")
+        if (json.has("error") || !json.has("id_token")) throw IsApiException("Refresh gagal: ${json.optJSONObject("error")?.optString("message") ?: json}")
+        a.idToken = json.optString("id_token"); a.refreshToken = json.optString("refresh_token", a.refreshToken)
+        a.localId = json.optString("user_id", a.localId); a.expiresIn = json.optString("expires_in", a.expiresIn)
+        a.updatedAt = Instant.now().toString(); return a
+    }
+}
+
+private class IsMangaApi(private val store: IsAccountStore) {
+    private var account: IsAccount? = null
+    private var visitId = UUID.randomUUID().toString()
+    private var deviceId = UUID.randomUUID().toString()
+
+    @Synchronized private fun ensureAccount(): IsAccount {
+        account?.let { return it }
+        val accounts = store.load()
+        if (accounts.isEmpty()) {
+            val created = IsAuth.createAccount(); store.add(created); store.save(); account = created; return created
+        }
+        for (i in accounts.indices.reversed()) {
+            val a = accounts[i]
+            val exp = IsImage.decodeJwtExp(a.idToken)
+            if (exp > 0 && exp - 300 > Instant.now().epochSecond) { account = a; return a }
+            try { IsAuth.refresh(a); store.save(); account = a; return a } catch (_: Exception) {}
+        }
+        val created = IsAuth.createAccount(); store.add(created); store.save(); account = created; return created
+    }
+
+    private fun headers(): Map<String, String> = mapOf("Authorization" to (account?.idToken.orEmpty()), "ismanga-visit-id" to visitId, "ismanga-device-id" to deviceId)
+
+    private fun isAuthExpired(res: JSONObject?): Boolean {
+        val errs = res?.optJSONArray("errors") ?: return false
+        for (i in 0 until errs.length()) {
+            val msg = (errs.optJSONObject(i)?.optString("message") ?: "") + (errs.optJSONObject(i)?.optJSONObject("extensions")?.optString("code") ?: "")
+            if ("id-token-expired" in msg || "ID token has expired" in msg) return true
+        }
+        return false
+    }
+
+    @Synchronized fun newSession() { visitId = UUID.randomUUID().toString(); deviceId = UUID.randomUUID().toString() }
+
+    fun graphql(query: String, variables: JSONObject): JSONObject {
+        ensureAccount()
+        val body = JSONObject().apply { put("query", query); put("variables", variables) }
+        var res = IsHttp.postJson(ISMANGA_ENDPOINT, body, headers())
+        if (isAuthExpired(res)) {
+            val a = ensureAccount(); IsAuth.refresh(a); store.save(); res = IsHttp.postJson(ISMANGA_ENDPOINT, body, headers())
+        }
+        return res ?: JSONObject()
+    }
+
+    @Synchronized fun signupNew() {
+        val a = IsAuth.createAccount(); store.add(a); store.save(); account = a
+    }
+}
+
+class IsMangaChapterTranslator(
+    context: Context,
+    private val httpClient: OkHttpClient,
+) {
+    private val store = IsAccountStore(File(context.filesDir, "ismanga_accounts.json"))
+    private val api = IsMangaApi(store)
+    private val renderer = IsTextRenderer()
+
+    /** Translate all pages of a chapter and return local file:// URIs for the translated PNGs (cached). */
+    suspend fun translateChapter(
+        chapterId: String,
+        pageUrls: List<String>,
+        cacheDir: File,
+        onProgress: (done: Int, total: Int) -> Unit = { _, _ -> },
+    ): List<String> = withContext(Dispatchers.IO) {
+        val outDir = File(cacheDir, "ismanga/${chapterId.replace(':', '_').replace('/', '_')}")
+        // If fully cached, return immediately.
+        val cached = (pageUrls.indices).map { File(outDir, "p_${it.toString().padStart(4, '0')}.png") }
+        if (cached.isNotEmpty() && cached.all { it.exists() && it.length() > 0 }) {
+            onProgress(cached.size, cached.size)
+            return@withContext cached.map { "file://${it.absolutePath}" }
+        }
+        outDir.mkdirs()
+        val results = ArrayList<String>(pageUrls.size)
+        for ((i, url) in pageUrls.withIndex()) {
+            val outFile = File(outDir, "p_${i.toString().padStart(4, '0')}.png")
+            if (outFile.exists() && outFile.length() > 0) {
+                results += "file://${outFile.absolutePath}"
+                onProgress(i + 1, pageUrls.size)
+                continue
+            }
+            val bytes = downloadPage(url)
+            val bitmap = translateOne(bytes)
+            outFile.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            bitmap.recycle()
+            results += "file://${outFile.absolutePath}"
+            onProgress(i + 1, pageUrls.size)
+            if (i < pageUrls.lastIndex) delay(400)
+        }
+        results
+    }
+
+    private fun downloadPage(url: String): ByteArray {
+        if (url.startsWith("file://")) return File(url.removePrefix("file://")).readBytes()
+        val req = Request.Builder().url(url).header("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36").build()
+        httpClient.newCall(req).execute().use { resp ->
+            if (!resp.isSuccessful) throw IOException("Gagal mengunduh halaman: HTTP ${resp.code}")
+            return resp.body?.bytes() ?: throw IOException("Halaman kosong")
+        }
+    }
+
+    private fun translateOne(imageBytes: ByteArray): Bitmap {
+        var signups = 0
+        while (true) {
+            api.newSession()
+            try {
+                val created = create(imageBytes)
+                val result = if (created.code == IsCodes.SUCCESS && created.payload.isNotEmpty()) created
+                else poll(created.taskPayload ?: throw IsApiException("taskPayload kosong"))
+                return compose(imageBytes, result.payload)
+            } catch (e: IsApiException) {
+                if (e.code == IsCodes.QUOTA_EXCEEDED) {
+                    if (signups >= 3) throw IsApiException("Kuota habis, coba lagi nanti", 10003)
+                    signups++; api.signupNew(); continue
+                }
+                throw e
+            }
+        }
+    }
+
+    private fun create(bytes: ByteArray): IsResult {
+        val dataUrl = IsImage.toDataUrl(bytes)
+        val vars = JSONObject().apply {
+            put("dataUrl", dataUrl); put("dataUrlId", IsImage.dataUrlId(dataUrl))
+            put("originUrl", "https://ismanga.com")
+            put("langCode", "id-ID"); put("selectedLangCode", "en-US")
+            put("isScreenshot", false); put("shouldSkipCache", true); put("shouldForceRefresh", false)
+        }
+        val q = """
+            mutation CreateMangaByDataUrl(${'$'}dataUrl: String!, ${'$'}dataUrlId: String!, ${'$'}originUrl: String!, ${'$'}langCode: String!, ${'$'}selectedLangCode: String!, ${'$'}isScreenshot: Boolean!, ${'$'}shouldSkipCache: Boolean!, ${'$'}shouldForceRefresh: Boolean!) {
+              createMangaByDataUrl(dataUrl: ${'$'}dataUrl, dataUrlId: ${'$'}dataUrlId, originUrl: ${'$'}originUrl, langCode: ${'$'}langCode, selectedLangCode: ${'$'}selectedLangCode, isScreenshot: ${'$'}isScreenshot, shouldSkipCache: ${'$'}shouldSkipCache, shouldForceRefresh: ${'$'}shouldForceRefresh) {
+                code payload { x y width height toLang{code script} imgWidth imgHeight inpaintingUrl colors{text background} }
+                taskPayload { taskId url isPseudoUrl isHighQuality langCode shouldCache }
+              }
+            }
+        """.trimIndent()
+        val res = api.graphql(q, vars)
+        if (res.has("errors")) throw IsApiException("GraphQL error: ${res.optJSONArray("errors")}")
+        val data = res.optJSONObject("data")?.optJSONObject("createMangaByDataUrl") ?: throw IsApiException("createMangaByDataUrl kosong")
+        val result = parseIsResult(data)
+        if (result.code == IsCodes.QUOTA_EXCEEDED) throw IsApiException("Kuota habis", 10003)
+        if (result.code == IsCodes.SUCCESS && result.payload.isNotEmpty()) return result
+        if (result.code in IsCodes.PENDING) { if (result.taskPayload == null) throw IsApiException("Tidak ada taskId"); return result }
+        throw IsApiException(IsCodes.message(result.code), result.code)
+    }
+
+    private fun poll(task: IsTaskPayload, maxSeconds: Int = 180): IsResult {
+        val start = System.currentTimeMillis(); var noSuch = 0
+        val q = """
+            query PollTranslationQueue(${'$'}taskId: String!, ${'$'}isHighQuality: Boolean!, ${'$'}url: String!, ${'$'}isPseudoUrl: Boolean!, ${'$'}langCode: String!, ${'$'}shouldCache: Boolean!) {
+              pollTranslationQueue(taskId: ${'$'}taskId, isHighQuality: ${'$'}isHighQuality, url: ${'$'}url, isPseudoUrl: ${'$'}isPseudoUrl, langCode: ${'$'}langCode, shouldCache: ${'$'}shouldCache) {
+                code payload { x y width height toLang{code script} imgWidth imgHeight inpaintingUrl colors{text background} }
+                taskPayload { taskId url isPseudoUrl isHighQuality langCode shouldCache }
+              }
+            }
+        """.trimIndent()
+        while (System.currentTimeMillis() - start < maxSeconds * 1000L) {
+            val vars = JSONObject().apply {
+                put("taskId", task.taskId); put("isHighQuality", task.isHighQuality)
+                put("url", task.url ?: ""); put("isPseudoUrl", task.isPseudoUrl)
+                put("langCode", task.langCode ?: ""); put("shouldCache", task.shouldCache)
+            }
+            val res = api.graphql(q, vars)
+            if (res.has("errors")) { Thread.sleep(1000); continue }
+            val data = res.optJSONObject("data")?.optJSONObject("pollTranslationQueue") ?: run { Thread.sleep(1000); continue }
+            val result = parseIsResult(data)
+            when {
+                result.code == IsCodes.SUCCESS -> { if (result.payload.isEmpty()) throw IsApiException("Sukses tapi payload kosong"); return result }
+                result.code in IsCodes.PENDING -> Thread.sleep(1000)
+                result.code == IsCodes.NO_SUCH_TASK && noSuch < 5 -> { noSuch++; Thread.sleep(1000) }
+                result.code == IsCodes.QUOTA_EXCEEDED -> throw IsApiException("Kuota habis", 10003)
+                else -> throw IsApiException(IsCodes.message(result.code), result.code)
+            }
+        }
+        throw IsApiException("Timeout menerjemahkan halaman (${maxSeconds}s)")
+    }
+
+    private fun compose(originalBytes: ByteArray, boxes: List<IsBox>): Bitmap {
+        val original = BitmapFactory.decodeByteArray(originalBytes, 0, originalBytes.size) ?: throw IsApiException("Gagal decode gambar")
+        val w = boxes.firstOrNull()?.imgWidth?.takeIf { it > 0 } ?: original.width
+        val h = boxes.firstOrNull()?.imgHeight?.takeIf { it > 0 } ?: original.height
+        val base = Bitmap.createScaledBitmap(original, w, h, true).copy(Bitmap.Config.ARGB_8888, true)
+        if (original != base) original.recycle()
+        val canvas = Canvas(base)
+        for (box in boxes) {
+            val url = box.inpaintingUrl ?: continue
+            val patchBytes = runCatching { IsHttp.getBytes(url) }.getOrNull() ?: continue
+            val patch = BitmapFactory.decodeByteArray(patchBytes, 0, patchBytes.size) ?: continue
+            val isFull = kotlin.math.abs(patch.width - w) <= 2 && kotlin.math.abs(patch.height - h) <= 2
+            if (isFull) canvas.drawBitmap(patch, null, Rect(0, 0, w, h), null)
+            else {
+                val left = box.x.toInt().coerceAtLeast(0); val top = box.y.toInt().coerceAtLeast(0)
+                val bw = box.width.toInt().coerceAtLeast(1).coerceAtMost((w - left).coerceAtLeast(1))
+                val bh = box.height.toInt().coerceAtLeast(1).coerceAtMost((h - top).coerceAtLeast(1))
+                canvas.drawBitmap(patch, null, Rect(left, top, left + bw, top + bh), null)
+            }
+            patch.recycle()
+        }
+        return renderer.draw(base, boxes)
+    }
+}
+
+/** Progress/result state for chapter-wide translation (IsManga). */
+data class ChapterTranslationState(
+    val running: Boolean = false,
+    val done: Int = 0,
+    val total: Int = 0,
+    /** Translated page URIs (file://) when complete. */
+    val pages: List<String>? = null,
+    val error: String? = null,
+)

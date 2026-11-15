@@ -1,8 +1,8 @@
 <resources>
     <string name="manga_error_not_found">Manga not found.</string>
-    <string name="manga_source_catalog_down">MangaDex cannot be reached from this network. Indonesian sources are still available.</string>
+    <string name="manga_source_catalog_down">Comix cannot be reached from this network. Indonesian sources are still available.</string>
     <string name="manga_source_catalog_retry">Try again</string>
-    <string name="manga_source_catalog_filter">Genre and status filters need MangaDex. Clear the filters or use search.</string>
+    <string name="manga_source_catalog_filter">Genre and status filters need Comix. Clear the filters or use search.</string>
     <string name="manga_status_ongoing">Ongoing</string>
     <string name="manga_status_completed">Completed</string>
     <string name="manga_status_hiatus">On hiatus</string>
@@ -63,11 +63,11 @@
     <string name="manga_reader_source_shinigami">Source: Shinigami</string>
     <string name="manga_home_komiku">Classics &amp; complete</string>
     <string name="manga_settings_mature">Mature content</string>
-    <string name="manga_settings_mature_desc">Show anime with mature genres (Ecchi, Erotica, Hentai) and mature-themed manga from MangaDex</string>
+    <string name="manga_settings_mature_desc">Show anime with mature genres (Ecchi, Erotica, Hentai) and mature-themed manga from Comix</string>
     <string name="manga_credit_komiku">Data &amp; images from Komiku</string>
     <string name="manga_reader_source_komiku">Source: Komiku</string>
-    <string name="manga_credit_mangadex">Data &amp; images from MangaDex</string>
-    <string name="manga_reader_source_mangadex">Source: MangaDex</string>
+    <string name="manga_credit_comix">Data &amp; images from Comix</string>
+    <string name="manga_reader_source_comix">Source: Comix</string>
     <string name="manga_home_genres">Browse genres</string>
     <string name="manga_genre_action">Action</string>
     <string name="manga_genre_romance">Romance</string>
@@ -112,4 +112,9 @@
     </plurals>
     <string name="manga_download_delete_all_title">Delete all downloads of %1$s?</string>
     <string name="manga_download_delete_all">Delete</string>
+    <string name="manga_reader_translate_chapter">Translate chapter to Indonesian</string>
+    <string name="manga_reader_translating_chapter">Translating chapter to Indonesian…</string>
+    <string name="manga_reader_show_original">Show original</string>
+    <string name="manga_reader_translate_auto">Auto-translate</string>
+    <string name="manga_reader_translate_auto_desc">When opening a chapter, translate all pages to Indonesian.</string>
 </resources>

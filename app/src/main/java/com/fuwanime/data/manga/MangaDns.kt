@@ -17,10 +17,7 @@ data class DohResponse(@Json(name = "Status") val status: Int = -1, @Json(name =
 data class DohAnswer(@Json(name = "type") val type: Int = 0, @Json(name = "TTL") val ttl: Int = 0, @Json(name = "data") val data: String = "")
 
 private val DOH_DOMAINS = listOf(
-    "mangadex.org",
-    "mangadex.network",
-    "uploads.mangadex.org",
-    "api.mangadex.org",
+    "comix.ws",
     "shngm.io",
     "shngm.id",
     "komiku.org",

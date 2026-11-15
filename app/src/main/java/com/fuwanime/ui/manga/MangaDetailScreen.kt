@@ -5,7 +5,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.LazyRow
 import com.fuwanime.data.manga.isKomikuId
-import com.fuwanime.data.manga.isMangaDexId
+import com.fuwanime.data.manga.isComixId
 import com.fuwanime.data.manga.isShinigamiId
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
@@ -319,8 +319,8 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
                         val own = when {
                             isShinigamiId(mangaId) -> "Shinigami"
                             isKomikuId(mangaId) -> "Komiku"
-                            isMangaDexId(mangaId) -> "MangaDex"
-                            else -> "MangaDex"
+                            isComixId(mangaId) -> "Comix"
+                            else -> "Comix"
                         }
                         InfoTable(manga, sources.ifEmpty { listOf(own) }.joinToString(" + "), inApp?.maxOfOrNull { it.publishAt }?.takeIf { it > 0 })
                     }
@@ -431,8 +431,8 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
                                     when {
                                         isShinigamiId(mangaId) -> R.string.manga_credit_shinigami
                                         isKomikuId(mangaId) -> R.string.manga_credit_komiku
-                                        isMangaDexId(mangaId) -> R.string.manga_credit_mangadex
-                                        else -> R.string.manga_credit_mangadex
+                                        isComixId(mangaId) -> R.string.manga_credit_comix
+                                        else -> R.string.manga_credit_comix
                                     },
                                 )
                             },
@@ -469,7 +469,7 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
     }
 }
 
-private val SOURCE_NAMES = listOf("Shinigami", "Komiku", "MangaDex") // indexed by sourceRank
+private val SOURCE_NAMES = listOf("Shinigami", "Komiku", "Comix") // indexed by sourceRank
 private val LANG_LABELS = mapOf(ChapterLang.ID to R.string.manga_lang_id, ChapterLang.EN to R.string.manga_lang_en, ChapterLang.RAW to R.string.manga_lang_raw)
 
 /** "Ch. 12", or the chapter title for a oneshot without a number. */
