@@ -68,15 +68,15 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
-private const val PAGE_SIZE = 30 // MangaRepository's page size
-private const val OFFSET_CAP = 10_000 // MangaDex rejects offset + limit above this
+private const val PAGE_SIZE = 28 // MangaRepository's Comix page size
+private const val OFFSET_CAP = 10_000 // Comix rejects offsets above this
 private const val PREFETCH = 6
 
 /** Load the next page once the last visible item is within [PREFETCH] of the end, and only while the server has more and the offset cap allows it. */
 fun shouldLoadMore(lastVisible: Int, loaded: Int, total: Int): Boolean =
     loaded < total && loaded + PAGE_SIZE <= OFFSET_CAP && lastVisible >= loaded - PREFETCH
 
-/** The MangaDex tag a genre name from any source stands for, or null (Indonesian-only names have none). */
+/** The Comix genre id a genre name from any source stands for, or null (Indonesian-only names have none). */
 fun genreTagId(name: String, tags: List<MangaTag>): String? = tags.firstOrNull { it.name.equals(name.trim(), ignoreCase = true) }?.id
 
 /** One entry per title: a later entry whose title matches an earlier one (either side's alt titles) is dropped. */
@@ -106,6 +106,8 @@ data class MangaExploreState(
     val error: UiText? = null,
     /** Bumps with every fresh first page, so UI state tied to the old result list (scroll, pending paging) can be dropped. */
     val generation: Int = 0,
+    /** Comix failed; the shown results come from Shinigami/Komiku. */
+    val catalogDown: Boolean = false,
 ) {
     val endReached get() = results.size >= total || results.size + PAGE_SIZE > OFFSET_CAP
     val filtered get() = query.isNotBlank() || status != null || tagIds.isNotEmpty() || type != null
@@ -123,8 +125,8 @@ class MangaExploreViewModel(private val repo: MangaRepository) : ViewModel() {
 
     // What the shown results were fetched with (the query is debounced, so it can lag behind state.query).
     private var applied = Applied()
-    // MangaDex items fetched so far: the next page's offset (results also hold Indonesian entries and drop duplicates).
-    private var mangaDexOffset = 0
+    // Comix items fetched so far: the next page's offset (results also hold Indonesian entries and drop duplicates).
+    private var comixOffset = 0
 
     /** Starts the search pipeline when manga mode is first shown. */
     fun start() {
@@ -151,7 +153,7 @@ class MangaExploreViewModel(private val repo: MangaRepository) : ViewModel() {
     fun setType(t: MangaType?) = _state.update { it.copy(type = t) }
     fun reload() { retry.update { it + 1 } }
 
-    /** Shows one genre: as the MangaDex filter when the name matches a tag, else as a text search. */
+    /** Shows one genre: as the Comix filter when the name matches a tag, else as a text search. */
     fun applyGenre(name: String) {
         viewModelScope.launch {
             // On a cold tab the tag list may still be loading.
@@ -161,50 +163,80 @@ class MangaExploreViewModel(private val repo: MangaRepository) : ViewModel() {
         }
     }
 
+    /** A failed source must not hide the others, but cancellation must still stop stale results. */
+    private suspend fun <T> quiet(block: suspend () -> T): T? = try {
+        block()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        null
+    }
+
     private suspend fun loadFirst(a: Applied) {
         moreJob?.cancel()
-        _state.update { it.copy(results = emptyList(), total = 0, loading = true, loadingMore = false, error = null, generation = it.generation + 1) }
-        try {
-            val page = repo.browse(orderFor(a.q), a.q, a.tags.toList(), a.status, 0, a.type)
-            mangaDexOffset = page.items.size
-            // Indonesian sources come first; genre and status are MangaDex-only filters, so they turn them off.
-            val indonesian = when {
-                a.tags.isNotEmpty() || a.status != null -> emptyList()
-                a.q.isNotBlank() -> repo.searchIndonesia(a.q).filter { a.type == null || it.type == null || it.type.equals(a.type.label, ignoreCase = true) }
-                a.type != null -> runCatching { repo.popularIndonesia(1, a.type).items }.getOrDefault(emptyList()) +
-                    runCatching { repo.popularKomiku(1, a.type).items }.getOrDefault(emptyList())
-                else -> emptyList()
-            }
-            val results = dedupeByTitle((indonesian + page.items).distinctBy { m -> m.id })
-            // results.size >= total exactly when MangaDex has nothing more.
-            _state.update { it.copy(results = results, total = page.total + results.size - mangaDexOffset, loading = false) }
+        _state.update { it.copy(results = emptyList(), total = 0, loading = true, loadingMore = false, error = null, generation = it.generation + 1, catalogDown = false) }
+
+        // Comix is the primary catalogue; the Indonesian sources remain usable when it is blocked.
+        val comixPage = try {
+            Result.success(repo.browse(orderFor(a.q), a.q, a.tags.toList(), a.status, 0, a.type))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            _state.update { it.copy(loading = false, error = e.friendlyText()) }
+            Result.failure(e)
+        }
+        val page = comixPage.getOrNull()
+        comixOffset = page?.items?.size ?: 0
+
+        // Genre and status are Comix-only filters, so they turn the Indonesian fallback off.
+        // With no query, a dead Comix still gets the Indonesian popular list instead of an empty screen.
+        val indonesian = when {
+            a.tags.isNotEmpty() || a.status != null -> emptyList()
+            a.q.isNotBlank() -> repo.searchIndonesia(a.q)
+                .filter { a.type == null || it.type == null || it.type.equals(a.type.label, ignoreCase = true) }
+            page == null -> quiet { repo.popularIndonesia(1, a.type).items }.orEmpty() +
+                quiet { repo.popularKomiku(1, a.type).items }.orEmpty()
+            else -> emptyList()
+        }
+        val results = dedupeByTitle((page?.items.orEmpty() + indonesian).distinctBy { m -> m.id })
+        val total = page?.let { it.total + results.size - comixOffset } ?: results.size
+        val error = when {
+            page != null -> null
+            results.isNotEmpty() -> null
+            a.tags.isNotEmpty() || a.status != null -> UiText(R.string.manga_source_catalog_filter)
+            else -> comixPage.exceptionOrNull()?.friendlyText()
+        }
+        _state.update {
+            it.copy(
+                results = results,
+                total = total,
+                loading = false,
+                error = error,
+                catalogDown = page == null,
+            )
         }
     }
 
     /** [generation] is the one the caller saw; a request from before a filter change is ignored. */
     fun loadMore(generation: Int) {
         val s = _state.value
-        if (generation != s.generation || s.loading || s.loadingMore || s.endReached) return
+        if (generation != s.generation || s.loading || s.loadingMore || s.endReached || s.catalogDown) return
         val a = applied
         moreJob = viewModelScope.launch {
             _state.update { it.copy(loadingMore = true, error = null) }
             try {
-                val page = repo.browse(orderFor(a.q), a.q, a.tags.toList(), a.status, mangaDexOffset, a.type)
-                mangaDexOffset += page.items.size
+                val page = repo.browse(orderFor(a.q), a.q, a.tags.toList(), a.status, comixOffset, a.type)
+                comixOffset += page.items.size
                 _state.update { cur ->
                     val known = cur.results.mapTo(HashSet()) { it.id }
                     val merged = dedupeByTitle(cur.results + page.items.filter { it.id !in known })
                     // An empty page ends paging even when `total` says more (it counts items we may not receive).
-                    cur.copy(results = merged, total = if (page.items.isEmpty()) merged.size else page.total + merged.size - mangaDexOffset, loadingMore = false)
+                    cur.copy(results = merged, total = if (page.items.isEmpty()) merged.size else page.total + merged.size - comixOffset, loadingMore = false)
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _state.update { it.copy(loadingMore = false, error = e.friendlyText()) }
+                // The first page came from Indonesian sources; a failed Comix page just ends paging.
+                _state.update { it.copy(loadingMore = false, catalogDown = true, error = if (it.results.isEmpty()) e.friendlyText() else null) }
             }
         }
     }
@@ -215,7 +247,8 @@ class MangaExploreViewModel(private val repo: MangaRepository) : ViewModel() {
 fun MangaFilterBar(state: MangaExploreState, vm: MangaExploreViewModel) {
     var genresOpen by remember { mutableStateOf(false) }
     LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        item { GenreChip(state.tagIds.size) { genresOpen = true } }
+        // The genre sheet is Comix's tag list; hide it when the catalogue is unreachable.
+        if (state.tags.isNotEmpty()) item { GenreChip(state.tagIds.size) { genresOpen = true } }
         item { TagChip(stringResource(R.string.manga_filter_all), onClick = { vm.setStatus(null) }, selected = state.status == null) }
         item { TagChip(stringResource(R.string.manga_status_ongoing), onClick = { vm.setStatus(MangaStatus.ONGOING) }, selected = state.status == MangaStatus.ONGOING) }
         item { TagChip(stringResource(R.string.manga_status_completed), onClick = { vm.setStatus(MangaStatus.COMPLETED) }, selected = state.status == MangaStatus.COMPLETED) }
@@ -276,6 +309,11 @@ private fun MangaResultsGridBody(state: MangaExploreState, vm: MangaExploreViewM
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
+                if (state.catalogDown) {
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        MangaSourceNotice(vm::reload, Modifier.padding(bottom = 4.dp))
+                    }
+                }
                 items(state.results, key = { it.id }) { m ->
                     PosterCard(m.toPoster(), onClick = { onMangaClick(m.id) }, modifier = Modifier.animateItem(), caption = status(m.status))
                 }

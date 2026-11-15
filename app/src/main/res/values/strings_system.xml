@@ -5,6 +5,14 @@
     <plurals name="system_new_episodes_summary">
         <item quantity="other">%1$d episode baru</item>
     </plurals>
+    <string name="system_channel_new_chapters_name">Chapter baru</string>
+    <string name="system_channel_new_chapters_desc">Notifikasi chapter baru untuk manga yang sedang berjalan</string>
+    <string name="system_new_chapter_text">Chapter %1$s baru!</string>
+    <string name="system_action_watch">Tonton</string>
+    <string name="system_action_read">Baca</string>
+    <plurals name="system_new_chapters_summary">
+        <item quantity="other">%1$d chapter baru</item>
+    </plurals>
     <string name="system_shortcut_search_short">Cari</string>
     <string name="system_shortcut_search_long">Cari anime</string>
     <string name="system_shortcut_schedule_short">Jadwal</string>

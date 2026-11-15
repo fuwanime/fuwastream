@@ -4,7 +4,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Checkbox
 import androidx.compose.material.icons.rounded.Explicit
-import androidx.compose.material.icons.rounded.DataSaverOn
 import kotlinx.coroutines.flow.first
 import android.content.res.Resources
 import androidx.compose.ui.res.stringResource
@@ -24,12 +23,14 @@ import android.provider.DocumentsContract
 import android.net.Uri
 import android.content.Intent
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
 import com.fuwanime.ui.components.readableWidth
 import com.fuwanime.ui.components.frostedStyle
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.HazeState
 import android.os.Build
+import android.Manifest
 import android.app.Activity
 import androidx.compose.material.icons.rounded.Language
 import com.fuwanime.util.currentLanguageTag
@@ -65,10 +66,15 @@ import androidx.compose.material.icons.rounded.PictureInPictureAlt
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.NotificationsActive
+import androidx.compose.material.icons.rounded.NotificationsOff
+import androidx.compose.material.icons.rounded.LiveTv
+import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.SignalCellularAlt
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.SystemUpdateAlt
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -81,8 +87,10 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.SnackbarHost
+import com.fuwanime.ui.components.FuwaSnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -99,6 +107,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.fuwanime.BuildConfig
@@ -107,6 +116,13 @@ import com.fuwanime.data.LibraryRepository
 import com.fuwanime.data.local.AppSettings
 import com.fuwanime.data.local.SettingsStore
 import com.fuwanime.data.local.ThemeMode
+import com.fuwanime.data.notify.EpisodeNotifier
+import com.fuwanime.data.notify.EpisodeNotifyWorker
+import com.fuwanime.data.notify.NotificationAccess
+import com.fuwanime.data.notify.ReleaseNotifyWorker
+import com.fuwanime.data.notify.AppUpdateWorker
+import com.fuwanime.data.notify.notificationAccess
+import com.fuwanime.data.notify.openNotificationSettings
 import com.fuwanime.util.fuwaViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -153,6 +169,59 @@ fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit, onOpenProfi
     val context = LocalContext.current
     val res = context.resources
     val say: (String) -> Unit = { msg -> scope.launch { snackbar.showSnackbar(msg) } }
+    var notifyAccess by remember { mutableStateOf(notificationAccess(context)) }
+    // Re-check after the user returns from the Android notification settings.
+    LifecycleResumeEffect(Unit) {
+        notifyAccess = notificationAccess(context)
+        onPauseOrDispose { }
+    }
+    var pendingNotifyEnable by remember { mutableStateOf<(() -> Unit)?>(null) }
+    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        val action = pendingNotifyEnable
+        pendingNotifyEnable = null
+        notifyAccess = notificationAccess(context)
+        if (granted) {
+            action?.invoke()
+        } else {
+            scope.launch {
+                val result = snackbar.showSnackbar(
+                    message = res.getString(R.string.mine_notify_permission_denied),
+                    actionLabel = res.getString(R.string.mine_notify_open_settings),
+                    duration = SnackbarDuration.Long,
+                )
+                if (result == SnackbarResult.ActionPerformed) openNotificationSettings(context)
+            }
+        }
+    }
+    val enableNotifications: (() -> Unit) -> Unit = { action ->
+        when (notifyAccess) {
+            NotificationAccess.GRANTED -> action()
+            NotificationAccess.PERMISSION_MISSING -> {
+                if (Build.VERSION.SDK_INT >= 33) {
+                    pendingNotifyEnable = action
+                    notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                } else {
+                    action()
+                }
+            }
+            NotificationAccess.APP_BLOCKED, NotificationAccess.CHANNEL_BLOCKED -> {
+                action()
+                openNotificationSettings(context)
+                scope.launch {
+                    snackbar.showSnackbar(
+                        res.getString(
+                            if (notifyAccess == NotificationAccess.CHANNEL_BLOCKED) R.string.mine_notify_channel_blocked_desc
+                            else R.string.mine_notify_blocked_desc,
+                        ),
+                    )
+                }
+            }
+        }
+    }
+    val sendTestNotification: () -> Unit = {
+        val sent = EpisodeNotifier(context).notifyTest()
+        say(res.getString(if (sent) R.string.mine_notify_test_sent else R.string.mine_notify_test_blocked))
+    }
     val restore = rememberRestoreFlow(vm.backup, onRestored = {}, onMessage = say)
     val pickFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
@@ -213,7 +282,7 @@ fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit, onOpenProfi
                 modifier = Modifier.hazeEffect(hazeState, frostedStyle()),
             )
         },
-        snackbarHost = { SnackbarHost(snackbar) },
+        snackbarHost = { FuwaSnackbarHost(snackbar) },
     ) { padding ->
         LazyColumn(
             Modifier.fillMaxHeight().readableWidth().hazeSource(hazeState),
@@ -259,6 +328,17 @@ fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit, onOpenProfi
                 SwitchRow(Icons.Rounded.Contrast, stringResource(R.string.mine_amoled), stringResource(R.string.mine_amoled_desc), s.amoledBlack) {
                     vm.update { setAmoledBlack(it) }
                 }
+            }
+
+            item { Group(stringResource(R.string.mine_group_content)) }
+            item {
+                val mature by vm.store.matureContent.collectAsStateWithLifecycle(false)
+                SwitchRow(
+                    Icons.Rounded.Explicit,
+                    stringResource(R.string.manga_settings_mature),
+                    stringResource(R.string.manga_settings_mature_desc),
+                    mature,
+                ) { vm.update { setMatureContent(it) } }
             }
 
             item { Group(stringResource(R.string.mine_group_player)) }
@@ -320,14 +400,56 @@ fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit, onOpenProfi
             }
 
             item { Group(stringResource(R.string.mine_group_notifications)) }
+            if (notifyAccess != NotificationAccess.GRANTED) {
+                item {
+                    NotificationBlockedCard(
+                        title = stringResource(
+                            if (notifyAccess == NotificationAccess.CHANNEL_BLOCKED) R.string.mine_notify_channel_blocked_title
+                            else R.string.mine_notify_blocked_title,
+                        ),
+                        subtitle = stringResource(
+                            if (notifyAccess == NotificationAccess.CHANNEL_BLOCKED) R.string.mine_notify_channel_blocked_desc
+                            else R.string.mine_notify_blocked_desc,
+                        ),
+                        action = stringResource(
+                            if (notifyAccess == NotificationAccess.PERMISSION_MISSING) R.string.mine_notify_grant
+                            else R.string.mine_notify_open_settings,
+                        ),
+                        onAction = { enableNotifications {} },
+                    )
+                }
+            }
             item {
                 SwitchRow(
                     Icons.Rounded.NotificationsActive,
                     stringResource(R.string.mine_notify_new),
                     stringResource(R.string.mine_notify_new_desc),
                     s.notifyNewEpisodes,
-                ) {
-                    vm.update { setNotifyNewEpisodes(it) }
+                ) { enabled ->
+                    if (enabled) enableNotifications { vm.update { setNotifyNewEpisodes(true) } }
+                    else vm.update { setNotifyNewEpisodes(false) }
+                }
+            }
+            item {
+                SwitchRow(
+                    Icons.Rounded.LiveTv,
+                    stringResource(R.string.mine_notify_releases),
+                    stringResource(R.string.mine_notify_releases_desc),
+                    s.notifyOngoingAnime,
+                ) { enabled ->
+                    if (enabled) enableNotifications { vm.update { setNotifyOngoingAnime(true) } }
+                    else vm.update { setNotifyOngoingAnime(false) }
+                }
+            }
+            item {
+                SwitchRow(
+                    Icons.AutoMirrored.Rounded.MenuBook,
+                    stringResource(R.string.mine_notify_chapters),
+                    stringResource(R.string.mine_notify_chapters_desc),
+                    s.notifyNewChapters,
+                ) { enabled ->
+                    if (enabled) enableNotifications { vm.update { setNotifyNewChapters(true) } }
+                    else vm.update { setNotifyNewChapters(false) }
                 }
             }
             item {
@@ -336,9 +458,46 @@ fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit, onOpenProfi
                     stringResource(R.string.mine_notify_app_updates),
                     stringResource(R.string.mine_notify_app_updates_desc),
                     s.notifyAppUpdates,
-                ) {
-                    vm.update { setNotifyAppUpdates(it) }
+                ) { enabled ->
+                    if (enabled) enableNotifications { vm.update { setNotifyAppUpdates(true) } }
+                    else vm.update { setNotifyAppUpdates(false) }
                 }
+            }
+            item {
+                ActionRow(
+                    Icons.Rounded.NotificationsActive,
+                    stringResource(R.string.mine_notify_test),
+                    stringResource(R.string.mine_notify_test_desc),
+                ) {
+                    when (notifyAccess) {
+                        NotificationAccess.GRANTED -> sendTestNotification()
+                        NotificationAccess.PERMISSION_MISSING -> enableNotifications(sendTestNotification)
+                        NotificationAccess.APP_BLOCKED, NotificationAccess.CHANNEL_BLOCKED -> {
+                            say(res.getString(R.string.mine_notify_test_blocked))
+                            openNotificationSettings(context)
+                        }
+                    }
+                }
+            }
+            item {
+                ActionRow(
+                    Icons.Rounded.Autorenew,
+                    stringResource(R.string.mine_notify_check_now),
+                    stringResource(R.string.mine_notify_check_desc),
+                ) {
+                    EpisodeNotifyWorker.runNow(context)
+                    ReleaseNotifyWorker.runNow(context)
+                    AppUpdateWorker.runNow(context)
+                    say(res.getString(R.string.mine_notify_check_scheduled))
+                }
+            }
+            item {
+                Text(
+                    stringResource(R.string.mine_notify_first_run),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                )
             }
 
             item { Group(stringResource(R.string.mine_group_downloads)) }
@@ -365,19 +524,6 @@ fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit, onOpenProfi
             }
 
             item { Group(stringResource(R.string.manga_settings_group)) }
-            item {
-                val saver by vm.store.mangaDataSaver.collectAsStateWithLifecycle(false)
-                SwitchRow(Icons.Rounded.DataSaverOn, stringResource(R.string.manga_settings_data_saver), stringResource(R.string.manga_settings_data_saver_desc), saver) {
-                    vm.update { setMangaDataSaver(it) }
-                }
-            }
-            item {
-                val mature by vm.store.mangaMature.collectAsStateWithLifecycle(false)
-                SwitchRow(Icons.Rounded.Explicit, stringResource(R.string.manga_settings_mature), stringResource(R.string.manga_settings_mature_desc), mature) {
-                    vm.update { setMangaMature(it) }
-                }
-            }
-
             item { Group(stringResource(R.string.mine_group_backup)) }
             backupPrefs?.let { b ->
                 item {
@@ -489,6 +635,36 @@ private fun SwitchRow(icon: ImageVector, title: String, subtitle: String?, check
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         modifier = Modifier.clickable { onChange(!checked) }.padding(horizontal = 8.dp),
     )
+}
+
+@Composable
+private fun NotificationBlockedCard(title: String, subtitle: String, action: String, onAction: () -> Unit) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Icon(Icons.Rounded.NotificationsOff, null, tint = MaterialTheme.colorScheme.onErrorContainer)
+                Text(
+                    title,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    modifier = Modifier.padding(start = 12.dp),
+                )
+            }
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+            TextButton(
+                onClick = onAction,
+                modifier = Modifier.align(androidx.compose.ui.Alignment.End),
+            ) { Text(action, color = MaterialTheme.colorScheme.onErrorContainer) }
+        }
+    }
 }
 
 @Composable

@@ -1,6 +1,7 @@
 package com.fuwanime
 
 import com.fuwanime.data.manga.downloadPages
+import com.fuwanime.data.manga.packMangaPageCandidates
 import java.io.File
 import java.io.IOException
 import kotlinx.coroutines.runBlocking
@@ -49,6 +50,18 @@ class MangaDownloadPagesTest {
         server.enqueue(MockResponse().setResponseCode(500))
         assertThrows(IOException::class.java) { runBlocking { downloadPages(urls(1), dir, OkHttpClient()) { _, _ -> } } }
         assertTrue(dir.listFiles().orEmpty().none { it.name.endsWith(".part") })
+    }
+
+    @Test fun retriesEquivalentPageHost() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(503))
+        server.enqueue(MockResponse().setBody("fallback-image"))
+        val page = packMangaPageCandidates(
+            listOf(server.url("/primary.webp").toString(), server.url("/fallback.webp").toString()),
+        )
+
+        assertTrue(downloadPages(listOf(page), dir, OkHttpClient()) { _, _ -> })
+        assertEquals(2, server.requestCount)
+        assertEquals("fallback-image", File(dir, "001.webp").readText())
     }
 
     @Test fun stopsWhenDeleted() = runBlocking {

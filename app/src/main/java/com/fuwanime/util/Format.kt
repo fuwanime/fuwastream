@@ -24,6 +24,22 @@ fun compactNumber(res: Resources, value: Long): String = when {
     else -> value.toString()
 }
 
+/**
+ * Rough download size from the source label and a typical episode length.
+ * Only for the picker hint; the real size is shown once the system knows it.
+ */
+fun estimateDownloadBytes(quality: String, durationMs: Long = 24 * 60_000L): Long {
+    val height = Regex("""(\d{3,4})""").find(quality)?.value?.toIntOrNull() ?: 480
+    val kbps = when {
+        height >= 1080 -> 4_500
+        height >= 720 -> 2_200
+        height >= 480 -> 1_100
+        height >= 360 -> 650
+        else -> 450
+    }
+    return (kbps * 1_000L / 8L) * (durationMs.coerceAtLeast(60_000L) / 1_000L)
+}
+
 /** 1536 -> "1,5 KB", 734003200 -> "700 MB"; the decimal separator follows the app language. */
 fun formatBytes(res: Resources, bytes: Long): String {
     val units = listOf("B", "KB", "MB", "GB")

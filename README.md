@@ -16,6 +16,7 @@
   <a href="https://github.com/fuwanime/fuwastream/stargazers"><img src="https://img.shields.io/github/stars/fuwanime/fuwastream?style=flat-square&labelColor=0B0A0F&color=FFB0C9" alt="GitHub Stars"></a>
   <a href="https://github.com/fuwanime/fuwastream/network/members"><img src="https://img.shields.io/github/forks/fuwanime/fuwastream?style=flat-square&labelColor=0B0A0F&color=8FD3F2" alt="GitHub Forks"></a>
   <a href="https://github.com/fuwanime/fuwastream/issues"><img src="https://img.shields.io/github/issues/fuwanime/fuwastream?style=flat-square&labelColor=0B0A0F&color=D4BBFF" alt="Issues terbuka"></a>
+  <img src="https://img.shields.io/badge/Sumber%20manga-MangaDex%20%C2%B7%20Shinigami%20%C2%B7%20Komiku%20%C2%B7%20WEBTOON-0B0A0F?style=flat-square&labelColor=0B0A0F&color=FFB0C9" alt="Sumber manga: MangaDex, Shinigami, Komiku, WEBTOON">
   <img src="https://img.shields.io/badge/Bahasa-ID%20%C2%B7%20MS%20%C2%B7%20EN%20%C2%B7%20ZH-0B0A0F?style=flat-square&labelColor=0B0A0F&color=1F1C27" alt="Bahasa Indonesia, Melayu, Inggris, Mandarin">
 </p>
 
@@ -23,20 +24,80 @@
 
 <br>
 
-<img src="docs/brand/stats.svg" width="100%" alt="64.000+ judul manga, 3 sumber manga jadi satu, 4 bahasa aplikasi, 0 iklan">
+<img src="docs/brand/stats.svg" width="100%" alt="64.000+ judul manga, 4 sumber manga jadi satu, 4 bahasa aplikasi, 0 iklan">
 
 </div>
+
+<p align="center">
+  <a href="#tonton">Tonton</a> &nbsp;·&nbsp;
+  <a href="#baca">Baca</a> &nbsp;·&nbsp;
+  <a href="#temukan">Temukan</a> &nbsp;·&nbsp;
+  <a href="#simpan">Simpan</a> &nbsp;·&nbsp;
+  <a href="#punyamu">Punyamu</a> &nbsp;·&nbsp;
+  <a href="#pasang">Pasang</a> &nbsp;·&nbsp;
+  <a href="#dibuat-dengan">Teknologi</a>
+</p>
+
+> [!TIP]
+> **Baru: WEBTOON jadi sumber manga keempat.** Webtoon Original dan Canvas berbahasa Indonesia kini bisa dicari, dibaca, dan diunduh dari tab Manga, tanpa pindah aplikasi. Lihat bagian [Baca](#baca).
 
 ## Tonton
 
 <table>
   <tr>
-    <td width="36%" valign="top"><img src="docs/readme/watch.webp" width="100%" alt="Pemutar: judul, tombol episode sebelumnya dan berikutnya, tombol unduh, pilihan kualitas, daftar episode"></td>
-    <td valign="top">
-      <p><b>Pemutar yang tidak merepotkan.</b> Pilih kualitas 360p sampai 1080p, kecepatan 0,5× sampai 2×, dan mode pas atau isi layar. Kualitas bawaan bisa dibedakan untuk Wi-Fi dan data seluler.</p>
-      <p><b>Gestur di layar penuh.</b> Ketuk dua kali untuk maju atau mundur, geser untuk kecerahan dan volume. Saat video memuat, yang tampil hanya lingkaran memuat; tombol muncul saat layar diketuk.</p>
-      <p><b>Lewati opening</b> otomatis berkat data AniSkip, atau pakai tombol <b>+85 dtk</b>. Episode berikutnya diputar sendiri, video bisa jalan di <b>Picture-in-Picture</b>, dan suaranya tetap terdengar saat layar mati.</p>
-      <p><b>Jadwal tayang</b> per hari dengan jam rilis, plus notifikasi episode baru untuk anime favoritmu.</p>
+    <td align="center" width="25%"><img src="docs/screenshots/home.webp" width="190" alt="Beranda: banner anime musim ini dengan poster tajam di atas latar blur"><br><sub><b>Beranda</b><br>Sorotan musim ini</sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/explore.webp" width="190" alt="Jelajah: kolom pencarian, chip tipe dan genre, grid poster"><br><sub><b>Jelajah</b><br>Cari, filter, urutkan</sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/schedule.webp" width="190" alt="Jadwal tayang per hari dengan jam rilis"><br><sub><b>Jadwal</b><br>Rilis per hari</sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/detail.webp" width="190" alt="Detail anime: poster, statistik, tombol tonton, genre, sinopsis"><br><sub><b>Detail</b><br>Episode &amp; info lengkap</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/player.webp" width="190" alt="Pemutar video dengan pilihan kualitas dan daftar episode"><br><sub><b>Pemutar</b><br>Kualitas, PiP, gestur</sub></td>
+    <td align="center"><img src="docs/screenshots/collection.webp" width="190" alt="Koleksi: tab Riwayat, Favorit, dan Unduhan"><br><sub><b>Koleksi</b><br>Riwayat, favorit, unduhan</sub></td>
+    <td align="center"><img src="docs/screenshots/settings.webp" width="190" alt="Pengaturan tema, pemutar, unduhan, dan notifikasi"><br><sub><b>Pengaturan</b><br>Atur sesukamu</sub></td>
+    <td align="center"><img src="docs/screenshots/offline.webp" width="190" alt="Beranda saat offline dengan penanda Offline di atas tab bar"><br><sub><b>Mode offline</b><br>Data terakhir tetap ada</sub></td>
+  </tr>
+</table>
+
+## ✨ Fitur
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>🔎 Temukan</h3>
+      <ul>
+        <li><b>Beranda sinematik</b> — sorotan musim ini, Lanjutkan Nonton, episode terbaru, Top 10 terpopuler, dan pintasan genre.</li>
+        <li><b>Jelajah</b> — cari judul, genre, atau studio; filter tipe &amp; genre; urutkan populer, terbaru, atau A–Z.</li>
+        <li><b>Jadwal tayang</b> — rilis per hari lengkap dengan jamnya.</li>
+        <li><b>Anime serupa &amp; season terkait</b> — langsung dari halaman detail.</li>
+        <li><b>Manga</b> — saklar Anime | Manga di Beranda &amp; Jelajah; baca chapter dari <a href="https://comix.ws">Comix</a> sebagai katalog utama plus sumber Indonesia <a href="https://shinigami.asia">Shinigami</a>, <a href="https://komiku.org">Komiku</a>, dan WEBTOON, dengan reader scroll vertikal, lanjut baca, favorit, unduhan, serta terjemahan chapter ke Bahasa Indonesia via IsManga untuk chapter Comix.</li>
+      </ul>
+    </td>
+    <td width="50%" valign="top">
+      <h3>▶️ Tonton</h3>
+      <ul>
+        <li><b>Pemutar Media3</b> — pilih kualitas, kecepatan 0,5×–2×, mode pas/isi layar.</li>
+        <li><b>Gestur</b> — ketuk dua kali untuk maju/mundur, geser untuk kecerahan &amp; volume.</li>
+        <li><b>Lewati OP</b> — otomatis, atau tombol <b>+85 detik</b> yang bisa dimatikan.</li>
+        <li><b>Lanjut otomatis</b> ke episode berikutnya dan <b>Picture-in-Picture</b>.</li>
+      </ul>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>💾 Simpan</h3>
+      <ul>
+        <li><b>Koleksi</b> — riwayat per hari dengan sisa waktu tontonan, favorit, dan unduhan.</li>
+        <li><b>Download offline</b> — pilih kualitas, opsi hanya lewat Wi-Fi.</li>
+        <li><b>Notifikasi episode baru</b> untuk anime favoritmu.</li>
+      </ul>
+    </td>
+    <td width="50%" valign="top">
+      <h3>🎨 Personal</h3>
+      <ul>
+        <li><b>Tema</b> — sistem, terang, gelap, hitam AMOLED, dan Material You.</li>
+        <li><b>Kualitas default</b> terpisah untuk Wi-Fi dan data seluler.</li>
+        <li><b>Update di dalam aplikasi</b> — diberi tahu saat rilis baru tersedia.</li>
+      </ul>
     </td>
   </tr>
 </table>
@@ -46,7 +107,8 @@
 <table>
   <tr>
     <td valign="top">
-      <p><b>Satu judul, tiga sumber.</b> FuwaStream mencari judul yang sama di MangaDex, Shinigami, dan Komiku, lalu menggabungkannya jadi satu daftar chapter. Tiap chapter diambil dari sumber yang bisa dibaca dan paling bagus.</p>
+      <p><b>Satu judul, empat sumber.</b> FuwaStream mencari judul yang sama di MangaDex, Shinigami, Komiku, dan WEBTOON, lalu menggabungkannya jadi satu daftar chapter. Tiap chapter diambil dari sumber yang bisa dibaca dan paling bagus.</p>
+      <p><b>WEBTOON resmi.</b> Katalog Original dan Canvas berbahasa Indonesia: sampul, sinopsis, genre, daftar episode lengkap, dan panel vertikal langsung di reader. Judul WEBTOON yang sama juga ditemukan di sumber lain, begitu pula sebaliknya.</p>
       <p><b>Pilih bahasanya.</b> Indonesia, Inggris, atau Raw, dan hanya bahasa yang benar-benar ada untuk judul itu yang ditampilkan.</p>
       <p><b>Manga, Manhwa, Manhua</b> bisa difilter langsung di tab Manga. Judul lama yang sudah tamat ikut tersedia dari arsip Komiku.</p>
       <p><b>Reader vertikal</b> dengan pemilih chapter, tombol Prev dan Next, lanjut dari halaman terakhir, dan mode hemat data. Konten dewasa hanya muncul kalau kamu nyalakan di Pengaturan.</p>
@@ -57,7 +119,7 @@
 
 <img src="docs/readme/sources.webp" width="100%" alt="Diagram: MangaDex punya chapter 1 sampai 7, Shinigami chapter 3 sampai 6, Komiku chapter 1, 2, dan 4. Di FuwaStream jadi satu daftar: chapter 1 dan 2 dari Komiku, 3 sampai 6 dari Shinigami, 7 dari MangaDex.">
 
-<sub>Urutan prioritas tiap chapter: yang bisa dibaca di aplikasi lebih dulu, lalu Shinigami, Komiku, dan MangaDex.</sub>
+<sub>Urutan prioritas tiap chapter: yang bisa dibaca di aplikasi lebih dulu, lalu Shinigami, Komiku, MangaDex, dan WEBTOON. Diagram di atas belum menampilkan WEBTOON.</sub>
 
 ## Temukan
 
@@ -68,7 +130,7 @@
       <p><b>Beranda</b> dibuka dengan sorotan musim ini, lalu Lanjutkan Nonton, episode terbaru, dan Top 10.</p>
       <p><b>Jelajah</b> mencari judul, genre, atau studio, dengan filter tipe (Series, Film, ONA, OVA, Live Action) dan urutan populer, terbaru, atau A–Z.</p>
       <p><b>Anime serupa dan season berikutnya</b> muncul di halaman detail, jadi kamu tidak perlu mencari lagi.</p>
-      <p><b>Pencarian manga</b> menampilkan satu hasil per judul walaupun judul itu ada di beberapa sumber.</p>
+      <p><b>Pencarian manga</b> menampilkan satu hasil per judul walaupun judul itu ada di beberapa sumber, termasuk WEBTOON.</p>
     </td>
   </tr>
 </table>
@@ -123,6 +185,7 @@ Kotlin dan Jetpack Compose dengan Material 3, Media3 ExoPlayer untuk pemutar, Ro
 | AniList, AniSkip | Info tambahan anime dan penanda opening |
 | MangaDex | Manga multi-bahasa (Indonesia, Inggris, Raw) |
 | Shinigami, Komiku | Manga berbahasa Indonesia |
+| WEBTOON | Webtoon Original dan Canvas berbahasa Indonesia (pencarian, detail, episode, dan panel) |
 
 <details>
 <summary><b>Build dari source</b></summary>
@@ -157,7 +220,7 @@ APK debug ada di `app/build/outputs/apk/debug/app-debug.apk`.
 com.fuwanime
 ├── data/
 │   ├── remote/       # API anime, DTO, cache dan status jaringan
-│   ├── manga/        # MangaDex, Shinigami, Komiku, gabung sumber, unduhan manga
+│   ├── manga/        # MangaDex, Shinigami, Komiku, WEBTOON, gabung sumber, unduhan manga
 │   ├── meta/         # AniList dan AniSkip
 │   ├── backup/       # Backup dan pulihkan data
 │   └── local/        # Room dan DataStore
@@ -177,17 +240,42 @@ com.fuwanime
 | Nama | Peran |
 | :--- | :--- |
 | **YuzakiNetwork (Haruka Fuyune)** | Pendiri dan admin proyek:<br>• **Brand dan identitas visual**: Desain ikon peluncur geometris (*petal-play*), *mask preview*, ikon 512px, dan *wordmark* FuwaStream.<br>• **Legal, privasi, dan kepatuhan**: Dokumen kepatuhan Play Store, Kebijakan Privasi, Ketentuan Layanan, *age-gate* 13+, dan fungsi hapus semua data.<br>• **Fitur anime dan katalog**: Pengecek *update* otomatis dengan *in-app changelog*, notifikasi episode baru, rekomendasi anime serupa (dengan *fallback cache*), filter tipe konten di Jelajah (Series, Film, ONA, OVA, Special), dan unduhan massal awal.<br>• **Infrastruktur dan build**: Konfigurasi awal proyek, lisensi GPL-3.0, *build* bundle AAB, alur smoke test di branch qa-smoke, dan formula *versionCode* deterministik untuk F-Droid. |
-| **Andra** | Kolaborator dan kontributor:<br>• **UI/UX dan desain sinematik**: *Redesign* antarmuka sinematik Material 3 (Beranda *ambient blur*, Jelajah *multi-chip* dan *collapsing header*, detail sinematik dengan *poster tinting*), tab Koleksi dengan badge "N baru" dan multi-pilih, grafik waktu tonton 7 hari, kartu rekap statistik, serta adaptasi tema Material You (terang, gelap, AMOLED).<br>• **Aksesibilitas dan multi-bahasa**: Dukungan penuh TalkBack (*merged nodes* dan label deskriptif), batas skala font 1.3x tanpa teks terpotong, tata letak layar lebar (*navigation rail*), serta pelokalan 4 bahasa (Indonesia, Melayu, Inggris, Mandarin).<br>• **Ekosistem manga**: Integrasi multi-sumber (MangaDex, Shinigami, Komiku 8.000+ judul), penggabung daftar chapter lintas sumber dengan filter bahasa (ID, EN, Raw) dan kategori (Manga, Manhwa, Manhua), *vertical reader* dengan DNS-over-HTTPS (DoH) untuk membuka blokir ISP, serta antrean unduh chapter *offline*.<br>• **Pemutar video (Media3 ExoPlayer)**: Audio latar belakang (*MediaSessionService*) saat layar mati atau di latar belakang, Picture-in-Picture (PiP) adaptif, integrasi AniSkip (otomatis/tombol +85 dtk), *gesture* layar penuh, dan tampilan bersih saat *buffering*.<br>• **Data, offline, dan penyimpanan**: Arsitektur *cache-first* (tahan *offline*), pencadangan dan pemulihan data lokal (Format v2), pemilihan folder unduhan eksternal via Storage Access Framework (SAF), serta widget *Glance* dan *Dynamic Shortcuts* di layar utama.<br>• **Infrastruktur, CI, dan QA**: *Suite smoke test* dan skenario QA komprehensif di emulator Android, generator Baseline Profile otomatis di CI, alur rilis SemVer terstandarisasi, dan dokumentasi aset resolusi tinggi. |
+| **Andra** | Kolaborator dan kontributor:<br>• **UI/UX dan desain sinematik**: *Redesign* antarmuka sinematik Material 3 (Beranda *ambient blur*, Jelajah *multi-chip* dan *collapsing header*, detail sinematik dengan *poster tinting*), tab Koleksi dengan badge "N baru" dan multi-pilih, grafik waktu tonton 7 hari, kartu rekap statistik, serta adaptasi tema Material You (terang, gelap, AMOLED).<br>• **Aksesibilitas dan multi-bahasa**: Dukungan penuh TalkBack (*merged nodes* dan label deskriptif), batas skala font 1.3x tanpa teks terpotong, tata letak layar lebar (*navigation rail*), serta pelokalan 4 bahasa (Indonesia, Melayu, Inggris, Mandarin).<br>• **Ekosistem manga**: Integrasi multi-sumber (Comix/English, Shinigami, Komiku 8.000+ judul, dan WEBTOON), penggabung daftar chapter lintas sumber dengan filter bahasa (ID, EN, Raw) dan kategori (Manga, Manhwa, Manhua), *vertical reader* dengan DNS-over-HTTPS (DoH), antrean unduh chapter *offline*, serta terjemahan chapter ke Bahasa Indonesia via IsManga.<br>• **Pemutar video (Media3 ExoPlayer)**: Audio latar belakang (*MediaSessionService*) saat layar mati atau di latar belakang, Picture-in-Picture (PiP) adaptif, integrasi AniSkip (otomatis/tombol +85 dtk), *gesture* layar penuh, dan tampilan bersih saat *buffering*.<br>• **Data, offline, dan penyimpanan**: Arsitektur *cache-first* (tahan *offline*), pencadangan dan pemulihan data lokal (Format v2), pemilihan folder unduhan eksternal via Storage Access Framework (SAF), serta widget *Glance* dan *Dynamic Shortcuts* di layar utama.<br>• **Infrastruktur, CI, dan QA**: *Suite smoke test* dan skenario QA komprehensif di emulator Android, generator Baseline Profile otomatis di CI, alur rilis SemVer terstandarisasi, dan dokumentasi aset resolusi tinggi. |
 | **BANG SYAII (LT-SYAII)** | Kontributor:<br>• **Sumber & penemuan anime**: Integrasi sumber Kuramanime (pencarian, detail, episode, pemutaran native) dan penyatuan hasil ke daftar anime utama di Jelajah.<br>• **Notifikasi rilis**: Perbaikan deteksi rilis manga (`readableAt`) dan episode anime (penyegaran cache/penyelesaian status) agar notifikasi tidak macet, serta notifikasi pembaruan aplikasi (cek saat dibuka dan WorkManager berkala).<br>• **Konten dewasa**: Perluasan toggle konten dewasa ke anime (filter genre eksplisit Ecchi/Erotica/Hentai), sinkron dengan preferensi manga dan perilaku katalog/daftar terkait. |
 
 Mau ikut membantu? Fork repository ini, buat branch, jalankan `gradle testDebugUnitTest`, lalu kirim Pull Request dengan penjelasan singkat dan cara mengujinya. Ide fitur dan laporan bug masuk ke [Issues](https://github.com/fuwanime/fuwastream/issues).
 
 ## Catatan konten
 
-FuwaStream adalah aplikasi klien dan **tidak meng-host video maupun gambar manga**. Informasi dan sumber pemutaran datang dari layanan pihak ketiga, jadi ketersediaannya bergantung pada layanan tersebut. Pengguna bertanggung jawab mematuhi hukum, hak cipta, dan ketentuan layanan di wilayahnya. Nama, logo, dan aset pihak ketiga tetap milik pemegang haknya; gambar manga berasal dari MangaDex, Shinigami, dan Komiku beserta grup scanlation masing-masing.
+1. **Fork** repository ini dan buat branch untuk perubahanmu.
+2. Uji perubahanmu (`gradle testDebugUnitTest`).
+3. Kirim **Pull Request** dengan penjelasan singkat dan cara mengujinya.
+
+Punya ide fitur atau menemukan bug? [Buat Issue](https://github.com/fuwanime/fuwastream/issues) — cek dulu apakah sudah pernah dilaporkan.
+
+## ⚠️ Catatan konten
+
+> [!NOTE]
+> FuwaStream adalah aplikasi klien dan **tidak meng-host file video maupun gambar manga**. Informasi dan sumber pemutaran berasal dari API atau layanan pihak ketiga, sehingga ketersediaan konten bergantung pada layanan tersebut. Pengguna bertanggung jawab mematuhi hukum, hak cipta, dan ketentuan layanan yang berlaku di wilayahnya. Nama, logo, dan aset pihak ketiga tetap milik pemegang haknya. Data dan gambar manga berasal dari [Comix](https://comix.ws), [Shinigami](https://shinigami.asia), [Komiku](https://komiku.org), dan WEBTOON beserta grup scanlation/penyedia masing-masing; FuwaStream tidak menampilkan iklan. Terjemahan chapter Comix ke Bahasa Indonesia menggunakan layanan IsManga (server-side) dan kualitasnya dapat berbeda dari terjemahan resmi.
+
+## 🔐 Privasi &amp; kepatuhan
 
 [Kebijakan Privasi](./docs/legal/privacy.md) · [Ketentuan Layanan](./docs/legal/terms.md) · [Checklist Kepatuhan Play Store](./docs/compliance.md) · [Audit SDK Pihak Ketiga](./docs/third-party-sdk-audit.md) · [Jawaban Data Safety](./docs/play-data-safety.md)
 
 Kode sumber dilisensikan di bawah **[GNU General Public License v3.0](./LICENSE)**. Lisensi kode tidak memberikan hak atas nama, logo, merek, maupun aset FuwaStream.
 
-<img src="docs/readme/footer.webp" width="100%" alt="fuwastream">
+Font **Comic Neue** dibuat oleh Craig Rozynski dan dilisensikan di bawah [SIL Open Font License 1.1](https://github.com/crozynski/comicneue/blob/master/OFL.txt). Salinan lisensi disertakan di `app/src/main/assets/licenses/comic_neue_ofl.txt` (jika tersedia).
+
+---
+
+<div align="center">
+
+<img src="docs/brand/icon-512.png" width="56" alt="Ikon FuwaStream">
+
+**Dibuat dengan 💜 untuk para pecinta anime.**
+
+<sub>Kalau FuwaStream bermanfaat buatmu, beri ⭐ pada repository ini — itu sangat membantu!</sub>
+
+[GitHub](https://github.com/fuwanime/fuwastream) · [Komunitas WhatsApp](https://chat.whatsapp.com/BD9q9veoNaAIhkdneKD4us) · [Releases](https://github.com/fuwanime/fuwastream/releases)
+
+</div>

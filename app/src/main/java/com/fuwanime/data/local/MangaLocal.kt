@@ -3,6 +3,7 @@ package com.fuwanime.data.local
 import androidx.room.Dao
 import androidx.room.Entity
 import androidx.room.Index
+import androidx.room.ColumnInfo
 import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Upsert
@@ -16,6 +17,7 @@ data class MangaFavoriteEntity(
     val title: String,
     val coverUrl: String?,
     val addedAt: Long,
+    @ColumnInfo(defaultValue = "'PLANNED'") val collectionStatus: String = CollectionStatus.PLANNED.name,
 )
 
 /** One row per chapter the user has opened; the newest row per manga drives "Lanjut baca". */
@@ -67,11 +69,17 @@ interface MangaHistoryDao {
     @Query("SELECT * FROM manga_history")
     suspend fun all(): List<MangaHistoryEntity>
 
+    @Query("SELECT * FROM manga_history WHERE chapterId = :chapterId")
+    suspend fun get(chapterId: String): MangaHistoryEntity?
+
     @Upsert
     suspend fun upsert(entity: MangaHistoryEntity)
 
     @Upsert
     suspend fun upsertAll(entities: List<MangaHistoryEntity>)
+
+    @Query("DELETE FROM manga_history WHERE chapterId = :chapterId")
+    suspend fun deleteChapter(chapterId: String)
 
     @Query("DELETE FROM manga_history WHERE mangaId = :mangaId")
     suspend fun deleteManga(mangaId: String)

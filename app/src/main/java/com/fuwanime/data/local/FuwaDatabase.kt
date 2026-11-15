@@ -6,6 +6,7 @@ import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Entity
 import androidx.room.Index
+import androidx.room.ColumnInfo
 import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Room
@@ -27,6 +28,7 @@ data class FavoriteEntity(
     val year: String,
     val genres: String,
     val addedAt: Long,
+    @ColumnInfo(defaultValue = "'PLANNED'") val collectionStatus: String = CollectionStatus.PLANNED.name,
 )
 
 /** One row per episode the user has started; the newest row per anime drives "Lanjutkan Nonton". */
@@ -123,6 +125,9 @@ interface WatchHistoryDao {
     @Query("SELECT * FROM watch_history WHERE episodeId = :episodeId")
     suspend fun get(episodeId: String): WatchHistoryEntity?
 
+    @Query("DELETE FROM watch_history WHERE episodeId = :episodeId")
+    suspend fun deleteEpisode(episodeId: String)
+
     @Upsert
     suspend fun upsert(entity: WatchHistoryEntity)
 
@@ -182,7 +187,7 @@ interface DownloadDao {
 }
 
 @Database(
-    entities = [FavoriteEntity::class, WatchHistoryEntity::class, SearchHistoryEntity::class, DownloadEntity::class, WatchDailyEntity::class, AnimeLinkEntity::class, MangaFavoriteEntity::class, MangaHistoryEntity::class, MangaDownloadEntity::class, ProfileEntity::class, QuestEntity::class, CountedEntity::class, BorderEntity::class],
+    entities = [FavoriteEntity::class, WatchHistoryEntity::class, SearchHistoryEntity::class, DownloadEntity::class, WatchDailyEntity::class, AnimeLinkEntity::class, MangaFavoriteEntity::class, MangaHistoryEntity::class, MangaDownloadEntity::class, ContentPreferenceEntity::class, SourceStatEntity::class, ProfileEntity::class, QuestEntity::class, CountedEntity::class, BorderEntity::class],
     version = 9,
     exportSchema = false,
 )
@@ -196,6 +201,8 @@ abstract class FuwaDatabase : RoomDatabase() {
     abstract fun mangaFavoriteDao(): MangaFavoriteDao
     abstract fun mangaHistoryDao(): MangaHistoryDao
     abstract fun mangaDownloadDao(): MangaDownloadDao
+    abstract fun contentPreferenceDao(): ContentPreferenceDao
+    abstract fun sourceStatDao(): SourceStatDao
     abstract fun profileDao(): ProfileDao
 
     companion object {
@@ -238,10 +245,59 @@ abstract class FuwaDatabase : RoomDatabase() {
             }
         }
 
-        /** v9 caches the manga an anime adapts (AniList SOURCE relation); old rows get none until their next refresh. */
+        /** v6 adds downloaded manga chapters; nothing existing changes. */
+        internal val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `manga_downloads` (`chapterId` TEXT NOT NULL, `mangaId` TEXT NOT NULL, `mangaTitle` TEXT NOT NULL, `coverUrl` TEXT, " +
+                        "`chapterNumber` TEXT, `chapterLabel` TEXT NOT NULL, `language` TEXT NOT NULL, `pageCount` INTEGER NOT NULL, `pagesDone` INTEGER NOT NULL, " +
+                        "`bytes` INTEGER NOT NULL, `state` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`chapterId`))",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_manga_downloads_mangaId` ON `manga_downloads` (`mangaId`)")
+            }
+        }
+
+        /** v7: external CBZ storage for downloads, collection status/preferences, and source stats. */
+        internal val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                if (tableExists(db, "manga_downloads") && !columnExists(db, "manga_downloads", "fileUri")) {
+                    db.execSQL("ALTER TABLE `manga_downloads` ADD COLUMN `fileUri` TEXT")
+                }
+                if (tableExists(db, "favorites") && !columnExists(db, "favorites", "collectionStatus")) {
+                    db.execSQL("ALTER TABLE `favorites` ADD COLUMN `collectionStatus` TEXT NOT NULL DEFAULT 'PLANNED'")
+                    if (tableExists(db, "watch_history")) {
+                        db.execSQL("UPDATE `favorites` SET `collectionStatus` = 'IN_PROGRESS' WHERE animeId IN (SELECT DISTINCT animeId FROM watch_history)")
+                    }
+                }
+                if (tableExists(db, "manga_favorite") && !columnExists(db, "manga_favorite", "collectionStatus")) {
+                    db.execSQL("ALTER TABLE `manga_favorite` ADD COLUMN `collectionStatus` TEXT NOT NULL DEFAULT 'PLANNED'")
+                    if (tableExists(db, "manga_history")) {
+                        db.execSQL("UPDATE `manga_favorite` SET `collectionStatus` = 'IN_PROGRESS' WHERE mangaId IN (SELECT DISTINCT mangaId FROM manga_history)")
+                    }
+                }
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `content_preferences` (`key` TEXT NOT NULL, `mediaType` TEXT NOT NULL, `contentId` TEXT NOT NULL, " +
+                        "`notifyMode` TEXT NOT NULL, `notifyLanguage` TEXT NOT NULL, `autoDownload` INTEGER NOT NULL, `autoDownloadLimit` INTEGER NOT NULL, " +
+                        "`readerMode` TEXT, `hiddenFromContinue` INTEGER NOT NULL, `reminderMinutes` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`key`))",
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `source_stats` (`sourceKey` TEXT NOT NULL, `successes` INTEGER NOT NULL, `failures` INTEGER NOT NULL, " +
+                        "`startupTotalMs` INTEGER NOT NULL, `lastUsedAt` INTEGER NOT NULL, PRIMARY KEY(`sourceKey`))",
+                )
+            }
+        }
+
+        /**
+         * v9 caches the manga an anime adapts (AniList SOURCE relation). It also re-runs the v7 steps, which are
+         * idempotent: the fork's v2.2.0 reached v8 through a v7 that only added `fileUri`, so those installs lack
+         * the collection columns and tables that upstream's v7 creates.
+         */
         internal val MIGRATION_8_9 = object : Migration(8, 9) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE `anime_link` ADD COLUMN `sourceTitles` TEXT NOT NULL DEFAULT ''")
+                MIGRATION_6_7.migrate(db)
+                if (!columnExists(db, "anime_link", "sourceTitles")) {
+                    db.execSQL("ALTER TABLE `anime_link` ADD COLUMN `sourceTitles` TEXT NOT NULL DEFAULT ''")
+                }
             }
         }
 
@@ -255,24 +311,14 @@ abstract class FuwaDatabase : RoomDatabase() {
             }
         }
 
-        /** v7 lets a downloaded chapter live as a CBZ in the user's folder. */
-        internal val MIGRATION_6_7 = object : Migration(6, 7) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE `manga_downloads` ADD COLUMN `fileUri` TEXT")
-            }
-        }
+        private fun tableExists(db: SupportSQLiteDatabase, table: String): Boolean =
+            db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='$table'").use { it.moveToFirst() }
 
-        /** v6 adds downloaded manga chapters; nothing existing changes. */
-        internal val MIGRATION_5_6 = object : Migration(5, 6) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL(
-                    "CREATE TABLE IF NOT EXISTS `manga_downloads` (`chapterId` TEXT NOT NULL, `mangaId` TEXT NOT NULL, `mangaTitle` TEXT NOT NULL, `coverUrl` TEXT, " +
-                        "`chapterNumber` TEXT, `chapterLabel` TEXT NOT NULL, `language` TEXT NOT NULL, `pageCount` INTEGER NOT NULL, `pagesDone` INTEGER NOT NULL, " +
-                        "`bytes` INTEGER NOT NULL, `state` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`chapterId`))",
-                )
-                db.execSQL("CREATE INDEX IF NOT EXISTS `index_manga_downloads_mangaId` ON `manga_downloads` (`mangaId`)")
+        private fun columnExists(db: SupportSQLiteDatabase, table: String, column: String): Boolean =
+            db.query("PRAGMA table_info(`$table`)").use { c ->
+                while (c.moveToNext()) if (c.getString(1) == column) return true
+                false
             }
-        }
 
         /** v5 adds manga favourites and reading history; nothing existing changes. */
         private val MIGRATION_4_5 = object : Migration(4, 5) {

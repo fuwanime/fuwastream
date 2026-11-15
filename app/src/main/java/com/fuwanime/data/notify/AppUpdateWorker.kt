@@ -1,16 +1,11 @@
 package com.fuwanime.data.notify
 
-import android.Manifest
-import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
 import androidx.core.app.NotificationCompat
-import androidx.core.content.ContextCompat
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -25,6 +20,7 @@ import com.fuwanime.FuwaApp
 import com.fuwanime.MainActivity
 import com.fuwanime.R
 import com.fuwanime.data.isNewerRelease
+import com.fuwanime.data.selectApkUrl
 import com.fuwanime.data.remote.GitHubApi
 import com.fuwanime.util.localizedContext
 import kotlinx.coroutines.flow.first
@@ -54,11 +50,14 @@ class AppUpdateWorker(context: Context, params: WorkerParameters) : CoroutineWor
         if (release.tagName == dismissed || release.tagName == notified) return Result.success()
 
         val title = release.name?.takeIf { it.isNotBlank() } ?: "FuwaStream ${release.tagName.removePrefix("v")}"
+        val pageUrl = release.htmlUrl
+        val apkUrl = selectApkUrl(release.assets)
+
         val posted = AppUpdateNotifier(applicationContext).notifyUpdate(
             tag = release.tagName,
             title = title,
-            pageUrl = release.htmlUrl,
-            apkUrl = release.assets.lastOrNull { it.name.endsWith(".apk") }?.url ?: release.assets.firstOrNull()?.url,
+            pageUrl = pageUrl,
+            apkUrl = apkUrl,
         )
         if (posted) container.settingsStore.setUpdateNotifiedTag(release.tagName)
         return Result.success()
@@ -107,25 +106,19 @@ class AppUpdateNotifier(private val context: Context) {
     private val res get() = localizedContext(context).resources
     private val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-    private fun ready(): Boolean {
-        if (Build.VERSION.SDK_INT >= 33 &&
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
-            PackageManager.PERMISSION_GRANTED
-        ) return false
-        if (Build.VERSION.SDK_INT >= 26) {
-            manager.createNotificationChannel(
-                NotificationChannel(
-                    CHANNEL_ID,
-                    res.getString(R.string.system_channel_app_updates_name),
-                    NotificationManager.IMPORTANCE_DEFAULT,
-                ).apply { description = res.getString(R.string.system_channel_app_updates_desc) },
-            )
-        }
-        return true
-    }
+    private fun ready(): Boolean = ensureChannel(
+        context, manager, CHANNEL_ID,
+        res.getString(R.string.system_channel_app_updates_name),
+        res.getString(R.string.system_channel_app_updates_desc),
+    )
 
+    /**
+     * Shows an update notification. Opens the release page (or app) on tap.
+     * Returns true when posted (or handed to the system).
+     */
     fun notifyUpdate(tag: String, title: String, pageUrl: String, apkUrl: String?): Boolean {
         if (!ready()) return false
+
         val openUrl = pageUrl.ifBlank { apkUrl.orEmpty() }
         val contentIntent = if (openUrl.isNotBlank()) {
             PendingIntent.getActivity(
@@ -144,14 +137,16 @@ class AppUpdateNotifier(private val context: Context) {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
         }
+
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(R.drawable.ic_stat_fuwa)
             .setContentTitle(res.getString(R.string.system_app_update_title, tag))
             .setContentText(title)
             .setStyle(NotificationCompat.BigTextStyle().bigText(title))
             .setAutoCancel(true)
             .setContentIntent(contentIntent)
             .build()
+
         manager.notify(NOTIFICATION_ID, notification)
         return true
     }

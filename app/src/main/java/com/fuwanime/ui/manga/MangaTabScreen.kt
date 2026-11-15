@@ -96,7 +96,7 @@ fun MangaTabScreen(onMangaClick: (String) -> Unit, onRead: (mangaId: String, cha
     }
 }
 
-/** Shortcuts for the genres people browse most; a tap applies that genre filter (MangaDex tag names are English). */
+/** Shortcuts for the genres people browse most; a tap applies that genre filter (Comix tag names are English). */
 private val GENRE_TILES = listOf(
     "Action" to R.string.manga_genre_action, "Romance" to R.string.manga_genre_romance, "Horror" to R.string.manga_genre_horror,
     "Comedy" to R.string.manga_genre_comedy, "Fantasy" to R.string.manga_genre_fantasy, "Isekai" to R.string.manga_genre_isekai,

@@ -5,6 +5,14 @@
     <plurals name="system_new_episodes_summary">
         <item quantity="other">%1$d 集新剧集</item>
     </plurals>
+    <string name="system_channel_new_chapters_name">新章节</string>
+    <string name="system_channel_new_chapters_desc">连载漫画的新章节通知</string>
+    <string name="system_new_chapter_text">第 %1$s 话已上线!</string>
+    <string name="system_action_watch">观看</string>
+    <string name="system_action_read">阅读</string>
+    <plurals name="system_new_chapters_summary">
+        <item quantity="other">%1$d 个新章节</item>
+    </plurals>
     <string name="system_shortcut_search_short">搜索</string>
     <string name="system_shortcut_search_long">搜索动漫</string>
     <string name="system_shortcut_schedule_short">时间表</string>

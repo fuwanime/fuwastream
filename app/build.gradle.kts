@@ -6,8 +6,20 @@ plugins {
 }
 
 // CI injects the release keystore through these env vars (see .github/workflows/build.yml).
-// Without them, release falls back to the debug key so local builds still work.
+// Release builds never fall back to the debug key: a different certificate would break in-place updates.
 val releaseKeystore = System.getenv("KEYSTORE_PATH")?.let { file(it) }?.takeIf { it.exists() }
+val releasePassword = System.getenv("KEYSTORE_PASSWORD")
+val releaseAlias = System.getenv("KEY_ALIAS") ?: "fuwanime"
+// Only packaging tasks need signing. Match real task names so values like
+// `--tests com.fuwanime.MangaReleaseMappingTest` never trigger the release check.
+val buildingRelease = gradle.startParameter.taskNames.any { it.substringAfterLast(':').endsWith("Release") }
+val allowUnsignedRelease = System.getenv("GITHUB_EVENT_NAME") == "pull_request" || System.getenv("ALLOW_UNSIGNED_RELEASE") == "true"
+if (buildingRelease && (releaseKeystore == null || releasePassword.isNullOrBlank()) && !allowUnsignedRelease) {
+  throw GradleException(
+    "Release signing is not configured. Set KEYSTORE_PATH, KEYSTORE_PASSWORD and KEY_ALIAS " +
+      "to the permanent FuwaStream keystore before building a release.",
+  )
+}
 
 android {
   namespace = "com.fuwanime"
@@ -21,19 +33,21 @@ android {
     targetSdk = 37
     // F-Droid & CI pass VERSION_CODE/VERSION_NAME as env vars. Fallback to fixed
     // values when not set (deterministic, not epoch minutes).
-    versionCode = System.getenv("VERSION_CODE")?.toIntOrNull() ?: 2
-    versionName = System.getenv("VERSION_NAME") ?: "2.1.0"
+    versionCode = System.getenv("VERSION_CODE")?.toIntOrNull() ?: 13
+    versionName = System.getenv("VERSION_NAME") ?: "2.1.36"
+    // Instrumented tests exercise the real Comix OCR/translation pipeline on an emulator.
+    testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     // The in-app update checker looks at the repo this APK was built from (a fork checks its own releases).
-    buildConfigField("String", "UPDATE_REPO", "\"${System.getenv("GITHUB_REPOSITORY") ?: "fuwanime/fuwastream"}\"")
+    buildConfigField("String", "UPDATE_REPO", "\"${System.getenv("GITHUB_REPOSITORY") ?: "LT-SYAII/fuwastream"}\"")
   }
 
   signingConfigs {
-    if (releaseKeystore != null) {
+    if (releaseKeystore != null && !releasePassword.isNullOrBlank()) {
       create("release") {
         storeFile = releaseKeystore
-        storePassword = System.getenv("KEYSTORE_PASSWORD")
-        keyAlias = System.getenv("KEY_ALIAS") ?: "fuwanime"
-        keyPassword = System.getenv("KEYSTORE_PASSWORD")
+        storePassword = releasePassword
+        keyAlias = releaseAlias
+        keyPassword = releasePassword
       }
     }
   }
@@ -43,7 +57,7 @@ android {
       isMinifyEnabled = true
       isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
+      signingConfig = signingConfigs.findByName("release")
     }
     debug {
       applicationIdSuffix = ".debug"
@@ -62,6 +76,16 @@ android {
   dependenciesInfo {
     includeInApk = false
     includeInBundle = false
+  }
+  splits {
+    abi {
+      // AAB builds cannot use ABI splits; CI disables them for bundleRelease.
+      isEnable = (findProperty("abiSplits") as String?)?.toBooleanStrictOrNull() ?: true
+      reset()
+      // x86_64 keeps the CI emulator smoke test installable; phones use the arm64 build.
+      include("arm64-v8a", "armeabi-v7a", "x86_64")
+      isUniversalApk = false
+    }
   }
 }
 
@@ -98,6 +122,7 @@ dependencies {
   implementation(libs.androidx.profileinstaller)
   baselineProfile(project(":baselineprofile"))
   implementation(libs.okhttp.logging)
+
   implementation(libs.retrofit)
   implementation(libs.retrofit.converter.moshi)
   ksp(libs.androidx.room.compiler)
@@ -106,5 +131,8 @@ dependencies {
   testImplementation(libs.okhttp.mockwebserver)
   testImplementation(libs.robolectric)
   testImplementation(libs.androidx.test.core)
+  androidTestImplementation(libs.androidx.junit)
+  androidTestImplementation(libs.androidx.test.core)
+  androidTestImplementation(libs.androidx.test.runner)
   debugImplementation(libs.androidx.compose.ui.tooling)
 }

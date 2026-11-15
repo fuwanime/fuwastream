@@ -6,6 +6,7 @@ import com.fuwanime.data.local.MangaHistoryEntity
 import com.fuwanime.data.local.SearchHistoryEntity
 import com.fuwanime.data.local.WatchDailyEntity
 import com.fuwanime.data.local.WatchHistoryEntity
+import com.fuwanime.data.local.ContentPreferenceEntity
 
 // Restoring merges into what is on the phone: each function returns only the backup rows to upsert.
 
@@ -41,4 +42,10 @@ fun mergeMangaHistory(local: List<MangaHistoryEntity>, backup: List<MangaHistory
 fun newMangaFavorites(local: List<MangaFavoriteEntity>, backup: List<MangaFavoriteEntity>): List<MangaFavoriteEntity> {
     val mine = local.mapTo(HashSet()) { it.mangaId }
     return backup.filter { it.mangaId !in mine }
+}
+
+/** Per title, the more recently edited preference wins; local-only rows stay untouched. */
+fun mergePreferences(local: List<ContentPreferenceEntity>, backup: List<ContentPreferenceEntity>): List<ContentPreferenceEntity> {
+    val mine = local.associateBy { it.key }
+    return backup.filter { b -> mine[b.key].let { it == null || b.updatedAt > it.updatedAt } }
 }

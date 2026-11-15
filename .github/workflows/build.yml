@@ -14,6 +14,10 @@ on:
         description: QA run with animations on, gesture navigation and screen recordings
         type: boolean
         default: false
+      translate:
+        description: Translate one real Comix chapter on the emulator (bundled OCR + ML Kit EN→ID)
+        type: boolean
+        default: false
       profile:
         description: Generate the baseline profile on an emulator and upload it as an artifact
         type: boolean
@@ -42,26 +46,75 @@ jobs:
       - name: Decode signing keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-        if: env.KEYSTORE_BASE64 != ''
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ]; then
+            echo "Release signing secrets are missing; building unsigned artifacts (expected for fork PRs)."
+            echo "HAS_SIGNING=false" >> "$GITHUB_ENV"
+            exit 0
+          fi
           echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          EFFECTIVE_ALIAS="${KEY_ALIAS:-fuwanime}"
+          if ! keytool -list -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" -alias "$EFFECTIVE_ALIAS" >/dev/null 2>&1; then
+            EFFECTIVE_ALIAS=$(keytool -list -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" 2>/dev/null \
+              | awk -F, '/PrivateKeyEntry/ { gsub(/^[[:space:]]+|[[:space:]]+$/, "", $1); print $1; exit }')
+          fi
+          if [ -z "$EFFECTIVE_ALIAS" ]; then
+            echo "::error::No private-key alias was found in the release keystore."
+            exit 1
+          fi
           echo "KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+          echo "KEY_ALIAS=$EFFECTIVE_ALIAS" >> "$GITHUB_ENV"
+          echo "HAS_SIGNING=true" >> "$GITHUB_ENV"
 
       - name: Set version name
         run: |
           # 30M offset keeps codes above installs made by older builds (epoch-minute codes ~29.7M).
           echo "VERSION_CODE=$((30000000 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
-          BASE=$(git describe --tags --abbrev=0 --match 'v*.*.*' 2>/dev/null || echo v2.1.0)
-          echo "VERSION_NAME=${BASE#v}-ci.${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
-      - name: Build APK + AAB
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "VERSION_NAME=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          else
+            BASE=$(git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
+            [ -n "$BASE" ] || BASE=v2.1.0
+            echo "VERSION_NAME=${BASE#v}-build.${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build APK
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-        run: gradle testDebugUnitTest assembleRelease bundleRelease --stacktrace
+        run: gradle testDebugUnitTest assembleRelease --stacktrace
+
+      - name: Build AAB
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        # ABI splits and app bundles cannot be built in the same invocation.
+        run: gradle bundleRelease -PabiSplits=false --stacktrace
+
+      - name: Verify release signing certificate
+        # Forks sign with their own keystore; the pin guards the upstream key only.
+        if: env.HAS_SIGNING == 'true' && github.repository == 'fuwanime/fuwastream'
+        run: |
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
+          APK=$(ls app/build/outputs/apk/release/*arm64-v8a*.apk 2>/dev/null | head -1)
+          [ -n "$APK" ] || APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
+          "$APKSIGNER" verify --print-certs "$APK" | tee "$RUNNER_TEMP/apksigner.txt"
+          # build-tools 35 and older print "Signer #1 certificate SHA-256 digest:",
+          # while newer versions print "V2 Signer: certificate SHA-256 digest:".
+          CERT=$(grep 'certificate SHA-256 digest' "$RUNNER_TEMP/apksigner.txt" \
+            | head -1 | awk '{print $NF}' | tr -d ':' | tr 'A-F' 'a-f')
+          echo "APK signing certificate SHA-256: $CERT"
+          test -n "$CERT"
+          # Pinned to the permanent FuwaStream keystore so an update never ships with another key.
+          test "$CERT" = "9d192491f8c087ece5ed36f361e16503b07ef1980070ca2939bbfd6a41fc4848"
 
       - name: Rename artifacts
         run: |
           mkdir -p dist
-          cp app/build/outputs/apk/release/*.apk "dist/FuwaStream-${VERSION_NAME}.apk"
+          for apk in app/build/outputs/apk/release/*.apk; do
+            abi=$(basename "$apk" | sed -E 's/^app-(.*)-release\.apk$/\1/')
+            cp "$apk" "dist/FuwaStream-${VERSION_NAME}-${abi}.apk"
+          done
           cp app/build/outputs/bundle/release/*.aab "dist/FuwaStream-${VERSION_NAME}.aab"
 
       - uses: actions/upload-artifact@v4
@@ -97,13 +150,60 @@ jobs:
           profile: pixel_6
           disable-animations: ${{ !inputs.qa }}
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
-          script: .github/scripts/${{ inputs.qa && 'qa' || 'smoke' }}.sh "$(ls apk/*.apk | head -1)" screenshots
+          script: .github/scripts/${{ inputs.qa && 'qa' || 'smoke' }}.sh "$(ls apk/*x86_64*.apk 2>/dev/null | head -1 || ls apk/*.apk | head -1)" screenshots
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: smoke-screenshots
           path: screenshots/
+
+  translate:
+    if: github.event_name == 'workflow_dispatch' && inputs.translate
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.3.1"
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          # The test translates a whole real Comix chapter with the bundled OCR model and ML Kit translation.
+          # Keep the app installed so the translated-page renders survive for the adb pull below.
+          script: |
+            gradle :app:connectedDebugAndroidTest -PabiSplits=false -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true --stacktrace
+            code=$?
+            adb pull /sdcard/Download/translation-evidence translation-evidence || true
+            exit $code
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: translation-test-reports
+          path: |
+            app/build/reports/androidTests/
+            app/build/outputs/androidTest-results/
+            translation-evidence/
 
   profile:
     if: github.event_name == 'workflow_dispatch' && inputs.profile

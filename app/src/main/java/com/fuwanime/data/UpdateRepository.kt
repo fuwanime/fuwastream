@@ -1,8 +1,10 @@
 package com.fuwanime.data
 
+import android.os.Build
 import com.fuwanime.BuildConfig
 import com.fuwanime.data.local.SettingsStore
 import com.fuwanime.data.remote.GitHubApi
+import com.fuwanime.data.remote.GitHubAsset
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -37,6 +39,28 @@ fun isNewerRelease(candidate: String, current: String): Boolean {
     if (cVer != null && curBuild != null) return true
 
     return false
+}
+
+/**
+ * GitHub may attach one APK per ABI. Pick the APK that matches this device instead of the last upload,
+ * otherwise an ARM phone could download the x86_64 build (or the 32-bit build on an arm64-only device).
+ */
+fun selectApkUrl(assets: List<GitHubAsset>): String? {
+    val apks = assets.filter { it.name.endsWith(".apk", ignoreCase = true) }
+    if (apks.isEmpty()) return null
+    val abi = Build.SUPPORTED_ABIS.firstOrNull().orEmpty()
+    val preferred = when {
+        abi.startsWith("arm64") -> "arm64-v8a"
+        abi.startsWith("armeabi") || abi.startsWith("armv7") -> "armeabi-v7a"
+        abi.startsWith("x86_64") -> "x86_64"
+        abi.startsWith("x86") -> "x86"
+        else -> null
+    }
+    return (
+        apks.firstOrNull { preferred != null && it.name.contains(preferred) }
+            ?: apks.firstOrNull { it.name.contains("universal", ignoreCase = true) }
+            ?: apks.first()
+        ).url
 }
 
 /**
@@ -75,8 +99,7 @@ class UpdateRepository(private val settingsStore: SettingsStore) {
             tag = release.tagName,
             title = release.name?.takeIf { it.isNotBlank() } ?: "FuwaStream ${release.tagName.removePrefix("v")}",
             notes = release.body.orEmpty().trim(),
-            apkUrl = release.assets.lastOrNull { it.name.endsWith(".apk") }?.url
-                ?: release.assets.firstOrNull()?.url,
+            apkUrl = selectApkUrl(release.assets),
             pageUrl = release.htmlUrl,
         )
     }

@@ -79,6 +79,30 @@ fun List<StreamSource>.nextLowerThan(current: StreamSource, tried: Set<String>):
 fun List<StreamSource>.closestTo(preferredHeight: Int): StreamSource? =
     minByOrNull { s -> if (s.height == 0) Int.MAX_VALUE else kotlin.math.abs(s.height - preferredHeight) }
 
+/** Local reliability of one server/quality pair. Kept tiny so it can be ranked without Android types. */
+data class SourceReliability(val successes: Int, val failures: Int, val startupTotalMs: Long) {
+    /** Laplace-smoothed success rate: a never-tried source starts neutral instead of looking perfect. */
+    val rate: Double get() = (successes + 1.0) / (successes + failures + 2.0)
+    val averageStartupMs: Long get() = if (successes == 0) Long.MAX_VALUE else startupTotalMs / successes
+}
+
+fun StreamSource.reliabilityKey(): String = server.trim().lowercase().ifBlank { quality.trim().lowercase() }
+
+/**
+ * Smart Source order: resolution closest to the user's preference first, then the most reliable server,
+ * then the one that starts fastest. The first entry is the recommended source.
+ */
+fun List<StreamSource>.smartOrder(
+    preferredHeight: Int,
+    stats: Map<String, SourceReliability>,
+): List<StreamSource> = sortedWith(
+    compareBy<StreamSource>(
+        { s -> if (s.height == 0) Int.MAX_VALUE else kotlin.math.abs(s.height - preferredHeight) },
+        { s -> -(stats[s.reliabilityKey()]?.rate ?: 0.5) },
+        { s -> stats[s.reliabilityKey()]?.averageStartupMs ?: Long.MAX_VALUE },
+    ),
+)
+
 /** Where the opening sits in an anime's episodes, as marked by the user. */
 data class OpMark(val startMs: Long, val endMs: Long) {
     val isValid: Boolean get() = endMs > startMs
