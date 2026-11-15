@@ -241,8 +241,7 @@ class ExploreViewModel(
                 f.type.matches(a.type)
         }
         val krFiltered = kuramanimeRaw.filter { a ->
-<<<<<<< HEAD
-
+            // For explicit searches, trust the source's keyword match; for browse, apply local filters.
             (f.query.trim().length >= 2 || matchesGenres(a, f.genres)) &&
                 when (f.status) {
                     StatusFilter.ALL -> true
@@ -251,8 +250,7 @@ class ExploreViewModel(
                 } &&
                 f.type.matches(a.type)
         }
-<<<<<<< HEAD
-
+        // Kuramanime items merged in (deduped) so all sources appear as one list.
         val merged = (filtered + krFiltered)
             .distinctBy { it.id }
             .distinctBy { it.title.trim().lowercase() }
