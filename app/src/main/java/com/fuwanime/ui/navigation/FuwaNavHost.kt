@@ -408,6 +408,7 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
                                     onPlay = { anime, ep, shared, thumb -> play(anime.id, ep, shared, thumb) },
                                     onAnimeClick = openAnime,
                                     onGenre = { g -> openExplore(g, false) },
+                                    onOpenManga = openManga,
                                 )
                             }
                         }

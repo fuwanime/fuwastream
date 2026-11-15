@@ -183,7 +183,7 @@ interface DownloadDao {
 
 @Database(
     entities = [FavoriteEntity::class, WatchHistoryEntity::class, SearchHistoryEntity::class, DownloadEntity::class, WatchDailyEntity::class, AnimeLinkEntity::class, MangaFavoriteEntity::class, MangaHistoryEntity::class, MangaDownloadEntity::class, ProfileEntity::class, QuestEntity::class, CountedEntity::class, BorderEntity::class],
-    version = 8,
+    version = 9,
     exportSchema = false,
 )
 abstract class FuwaDatabase : RoomDatabase() {
@@ -201,7 +201,7 @@ abstract class FuwaDatabase : RoomDatabase() {
     companion object {
         fun create(context: Context): FuwaDatabase =
             Room.databaseBuilder(context, FuwaDatabase::class.java, "fuwanime.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
                 .build()
 
         /** v2 adds offline downloads; existing favourites and history are kept. */
@@ -235,6 +235,13 @@ abstract class FuwaDatabase : RoomDatabase() {
                         "`malId` INTEGER, `score` INTEGER, `tags` TEXT NOT NULL, `nextEpisode` INTEGER, `nextAiringAt` INTEGER, " +
                         "`fetchedAt` INTEGER NOT NULL, PRIMARY KEY(`animeId`))",
                 )
+            }
+        }
+
+        /** v9 caches the manga an anime adapts (AniList SOURCE relation); old rows get none until their next refresh. */
+        internal val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `anime_link` ADD COLUMN `sourceTitles` TEXT NOT NULL DEFAULT ''")
             }
         }
 

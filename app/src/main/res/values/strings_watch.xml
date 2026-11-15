@@ -86,6 +86,8 @@
     <string name="watch_previous">Sebelumnya</string>
     <string name="watch_next">Berikutnya</string>
     <string name="watch_quality">Kualitas</string>
+    <string name="watch_read_manga">Baca versi manga</string>
+    <string name="watch_manga_not_found">Versi manga belum tersedia di FuwaStream</string>
     <string name="watch_open_external">Buka di player lain</string>
     <string name="watch_no_external_player">Tidak ada aplikasi pemutar video</string>
     <string name="watch_now_playing">Diputar</string>

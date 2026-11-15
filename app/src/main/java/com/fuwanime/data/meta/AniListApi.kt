@@ -25,7 +25,8 @@ interface AniListApi {
 }
 
 private const val MEDIA_FIELDS = "id idMal format seasonYear startDate{year} title{romaji english native} synonyms " +
-    "averageScore tags{name rank isMediaSpoiler} nextAiringEpisode{episode airingAt}"
+    "averageScore tags{name rank isMediaSpoiler} nextAiringEpisode{episode airingAt} " +
+    "relations{edges{relationType(version:2) node{type format title{romaji english native} synonyms}}}"
 
 const val SEARCH_QUERY = "query(\$s:String){Page(perPage:6){media(search:\$s,type:ANIME){$MEDIA_FIELDS}}}"
 const val BY_ID_QUERY = "query(\$id:Int){Media(id:\$id,type:ANIME){$MEDIA_FIELDS}}"
@@ -57,6 +58,7 @@ data class AniListMedia(
     val averageScore: Int? = null,
     val tags: List<AniListTag> = emptyList(),
     val nextAiringEpisode: AiringEpisode? = null,
+    val relations: AniListRelations? = null,
 )
 
 @JsonClass(generateAdapter = true)
@@ -70,3 +72,17 @@ data class AniListTag(val name: String, val rank: Int? = null, val isMediaSpoile
 
 @JsonClass(generateAdapter = true)
 data class AiringEpisode(val episode: Int, val airingAt: Long)
+
+@JsonClass(generateAdapter = true)
+data class AniListRelations(val edges: List<AniListRelationEdge> = emptyList())
+
+@JsonClass(generateAdapter = true)
+data class AniListRelationEdge(val relationType: String? = null, val node: AniListRelationNode? = null)
+
+@JsonClass(generateAdapter = true)
+data class AniListRelationNode(
+    val type: String? = null,
+    val format: String? = null,
+    val title: AniListTitle = AniListTitle(),
+    val synonyms: List<String> = emptyList(),
+)

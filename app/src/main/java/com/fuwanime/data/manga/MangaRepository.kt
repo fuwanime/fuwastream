@@ -84,6 +84,12 @@ class MangaRepository(
         return null
     }
 
+    /** The first source that has a title by one of [names]: MangaDex, then Shinigami, then Komiku. Never throws. */
+    suspend fun findAnywhere(names: List<String>): Manga? {
+        suspend fun look(block: suspend () -> Manga?) = runCatching { withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { block() } }.getOrNull()
+        return look { findOnMangaDex(names) } ?: look { shinigami?.find(names) } ?: look { komiku?.find(names) }
+    }
+
     /** [manga] plus the same title on the other sources; a lookup that fails or takes over 8 s is left out. */
     suspend fun sources(manga: Manga): List<Manga> = sourceCache[manga.id] ?: coroutineScope {
         // Short alt names ("Love") match unrelated titles; search by the title and longer alt names only.

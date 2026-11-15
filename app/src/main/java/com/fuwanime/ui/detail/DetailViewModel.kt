@@ -14,6 +14,7 @@ import com.fuwanime.data.LibraryRepository
 import com.fuwanime.data.SeasonEntry
 import com.fuwanime.data.meta.AnimeLinkRepository
 import com.fuwanime.data.meta.AnimeMeta
+import com.fuwanime.data.manga.MangaRepository
 import com.fuwanime.data.rankSimilar
 import com.fuwanime.data.local.WatchHistoryEntity
 import com.fuwanime.data.remote.AnimeApiService.Companion.EPISODE_PAGE_SIZE
@@ -60,7 +61,15 @@ data class DetailUiState(
     val seasons: List<SeasonEntry> = emptyList(),
     /** AniList score, tags and next airing episode; null until (or unless) the anime is linked. */
     val meta: AnimeMeta? = null,
+    /** "Baca versi manga": where the lookup of the source manga stands. */
+    val mangaLookup: MangaLookup = MangaLookup.Idle,
 )
+
+sealed interface MangaLookup {
+    data object Idle : MangaLookup
+    data object Searching : MangaLookup
+    data class Found(val mangaId: String) : MangaLookup
+}
 
 class DetailViewModel(
     private val repo: AnimeRepository,
@@ -68,6 +77,7 @@ class DetailViewModel(
     private val downloads: DownloadRepository,
     private val settings: SettingsStore,
     private val links: AnimeLinkRepository,
+    private val manga: MangaRepository,
     saved: SavedStateHandle,
 ) : ViewModel() {
 
@@ -97,6 +107,23 @@ class DetailViewModel(
             _state.update { it.copy(meta = meta) }
         }
     }
+
+    /** Finds the manga this anime adapts in the app's manga sources; one lookup at a time, on the user's tap. */
+    fun openManga() {
+        val s = _state.value
+        val names = s.meta?.sourceTitles.orEmpty()
+        if (names.isEmpty() || s.mangaLookup == MangaLookup.Searching) return
+        _state.update { it.copy(mangaLookup = MangaLookup.Searching) }
+        viewModelScope.launch {
+            val found = manga.findAnywhere(names)
+            // A miss may be offline or a timeout, not a real absence, so the button stays usable for a retry.
+            _state.update { it.copy(mangaLookup = found?.let { m -> MangaLookup.Found(m.id) } ?: MangaLookup.Idle) }
+            if (found == null) say(R.string.watch_manga_not_found)
+        }
+    }
+
+    /** The screen navigated to the found manga; a later tap looks again (the result is cached by the sources). */
+    fun mangaOpened() = _state.update { it.copy(mangaLookup = MangaLookup.Idle) }
 
     /** "Bukan anime ini?": hide AniList info (and AniSkip) for this anime from now on. */
     fun unlinkMeta() {

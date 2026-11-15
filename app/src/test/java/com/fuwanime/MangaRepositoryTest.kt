@@ -14,6 +14,7 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
@@ -165,5 +166,15 @@ class MangaRepositoryTest {
         }
         return OkHttpClient.Builder().addInterceptor(spoof)
             .addInterceptor(inner.interceptors.first()).addInterceptor(redirect).build()
+    }
+
+    @Test fun findAnywhereReturnsMangaDexHit() = runBlocking {
+        server.enqueue(json(fixture("manga_list.json")))
+        assertEquals("m1", repo.findAnywhere(listOf("Sousou no Frieren"))?.id)
+    }
+
+    @Test fun findAnywhereNullWhenNothingMatches() = runBlocking {
+        repeat(3) { server.enqueue(json("""{"data":[],"total":0,"offset":0,"limit":20}""")) }
+        assertNull(repo.findAnywhere(listOf("zzz unknown")))
     }
 }

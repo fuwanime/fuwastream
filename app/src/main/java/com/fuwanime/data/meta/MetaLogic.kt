@@ -5,8 +5,14 @@ import kotlin.math.abs
 
 enum class LinkState { LINKED, NONE, UNLINKED }
 
-/** What Detail shows from AniList; [nextAiringAt] is epoch milliseconds. */
-data class AnimeMeta(val score: Int?, val tags: List<String>, val nextEpisode: Int?, val nextAiringAt: Long?)
+/** What Detail shows from AniList; [nextAiringAt] is epoch milliseconds; [sourceTitles] name the manga it adapts. */
+data class AnimeMeta(
+    val score: Int?,
+    val tags: List<String>,
+    val nextEpisode: Int?,
+    val nextAiringAt: Long?,
+    val sourceTitles: List<String> = emptyList(),
+)
 
 enum class SegmentKind { OP, ED, RECAP }
 
@@ -43,7 +49,21 @@ fun metaOf(m: AniListMedia): AnimeMeta = AnimeMeta(
     tags = m.tags.filterNot { it.isMediaSpoiler }.sortedByDescending { it.rank ?: 0 }.take(6).map { it.name },
     nextEpisode = m.nextAiringEpisode?.episode,
     nextAiringAt = m.nextAiringEpisode?.airingAt?.times(1000),
+    sourceTitles = sourceMangaTitles(m),
 )
+
+/**
+ * Names of the manga this anime adapts (AniList SOURCE relation), romaji first; empty for light novels and originals.
+ * Native titles are left out: the manga sources match on Latin names only.
+ */
+fun sourceMangaTitles(m: AniListMedia): List<String> {
+    val node = m.relations?.edges.orEmpty()
+        .firstOrNull { it.relationType == "SOURCE" && it.node?.type == "MANGA" && it.node.format != "NOVEL" }?.node
+        ?: return emptyList()
+    return (listOf(node.title.romaji, node.title.english) + node.synonyms)
+        .mapNotNull { it?.trim()?.takeIf(String::isNotEmpty) }
+        .distinct()
+}
 
 private const val HOUR_MS = 3_600_000L
 
