@@ -198,6 +198,15 @@ private fun SeasonPage(state: SeasonTab, onRetry: () -> Unit, onAnimeClick: Open
                 seasonOf(c.get(Calendar.YEAR), c.get(Calendar.MONTH) + 1)
             }
             val (fresh, continuing) = remember(state.all, season) { splitBySeason(state.all, season) }
+            if (fresh.isEmpty() && continuing.isEmpty()) {
+                MessageState(
+                    Icons.Rounded.EventBusy,
+                    stringResource(R.string.browse_schedule_empty_title),
+                    modifier = Modifier.padding(bottom = LocalNavBarPadding.current),
+                    message = stringResource(R.string.browse_schedule_season_empty_message),
+                )
+                return
+            }
             val sections = listOf(stringResource(R.string.browse_schedule_new_season) to fresh, stringResource(R.string.browse_schedule_continuing) to continuing)
             LazyColumn(
                 contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp + LocalNavBarPadding.current),
