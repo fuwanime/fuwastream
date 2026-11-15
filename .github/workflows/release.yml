@@ -133,7 +133,8 @@ jobs:
       - name: Build APK + AAB
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-        run: gradle testDebugUnitTest assembleRelease bundleRelease --stacktrace
+        # One universal APK: ABI splits can't share an invocation with bundleRelease, and the in-app updater installs a single .apk.
+        run: gradle testDebugUnitTest assembleRelease bundleRelease -PabiSplits=false --stacktrace
 
       - name: Rename artifacts
         run: |
