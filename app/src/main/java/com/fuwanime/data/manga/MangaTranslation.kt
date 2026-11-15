@@ -24,7 +24,7 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.security.SecureRandom
-import java.time.Instant
+
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.max
@@ -251,7 +251,7 @@ private class IsAccountStore(private val file: File) {
                     idToken = o.optString("idToken"), refreshToken = o.optString("refreshToken"),
                     localId = o.optString("localId"), expiresIn = o.optString("expiresIn", "3600"),
                     createdAt = o.optString("createdAt"),
-                    updatedAt = if (o.has("updatedAt")) o.optString("updatedAt") else null,
+        updatedAt = if (o.has("updatedAt")) o.optString("updatedAt") else null,
                 ))
             }
         }
@@ -285,7 +285,7 @@ private object IsAuth {
         val body = JSONObject().apply { put("email", email); put("password", pass); put("returnSecureToken", true) }
         val json = IsHttp.postJson(SIGNUP, body) ?: throw IsApiException("Signup response kosong")
         if (json.has("error") || !json.has("idToken")) throw IsApiException("Signup gagal: ${json.optJSONObject("error")?.optString("message") ?: json}")
-        return IsAccount(email, pass, json.optString("idToken"), json.optString("refreshToken"), json.optString("localId"), json.optString("expiresIn", "3600"), Instant.now().toString())
+        return IsAccount(email, pass, json.optString("idToken"), json.optString("refreshToken"), json.optString("localId"), json.optString("expiresIn", "3600"), java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).apply{timeZone=java.util.TimeZone.getTimeZone("UTC")}.format(java.util.Date()))
     }
     fun refresh(a: IsAccount): IsAccount {
         val form = "grant_type=refresh_token&refresh_token=${java.net.URLEncoder.encode(a.refreshToken, "UTF-8")}"
@@ -293,7 +293,7 @@ private object IsAuth {
         if (json.has("error") || !json.has("id_token")) throw IsApiException("Refresh gagal: ${json.optJSONObject("error")?.optString("message") ?: json}")
         a.idToken = json.optString("id_token"); a.refreshToken = json.optString("refresh_token", a.refreshToken)
         a.localId = json.optString("user_id", a.localId); a.expiresIn = json.optString("expires_in", a.expiresIn)
-        a.updatedAt = Instant.now().toString(); return a
+        a.updatedAt = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).apply{timeZone=java.util.TimeZone.getTimeZone("UTC")}.format(java.util.Date()); return a
     }
 }
 
@@ -311,7 +311,7 @@ private class IsMangaApi(private val store: IsAccountStore) {
         for (i in accounts.indices.reversed()) {
             val a = accounts[i]
             val exp = IsImage.decodeJwtExp(a.idToken)
-            if (exp > 0 && exp - 300 > Instant.now().epochSecond) { account = a; return a }
+            if (exp > 0 && exp - 300 > (System.currentTimeMillis() / 1000L)) { account = a; return a }
             try { IsAuth.refresh(a); store.save(); account = a; return a } catch (_: Exception) {}
         }
         val created = IsAuth.createAccount(); store.add(created); store.save(); account = created; return created
