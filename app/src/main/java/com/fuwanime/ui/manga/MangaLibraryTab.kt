@@ -84,20 +84,9 @@ fun MangaLibraryTab(onOpen: (mangaId: String) -> Unit, onRead: (mangaId: String,
     val favorites by vm.favorites.collectAsStateWithLifecycle()
     val r = reading ?: return
     val f = favorites ?: return
-    val d = dls ?: return
-    val ctx = LocalContext.current
-    var confirm by remember { mutableStateOf<DownloadedManga?>(null) }
     var statusFilter by rememberSaveable { mutableStateOf<CollectionStatus?>(null) }
     val shownFavorites = statusFilter?.let { status -> f.filter { it.collectionStatus == status.name } } ?: f
-    confirm?.let { dm ->
-        AlertDialog(
-            onDismissRequest = { confirm = null },
-            title = { Text(stringResource(R.string.manga_download_delete_all_title, dm.title)) },
-            confirmButton = { TextButton(onClick = { vm.deleteDownloads(dm.mangaId); confirm = null }) { Text(stringResource(R.string.manga_download_delete_all)) } },
-            dismissButton = { TextButton(onClick = { confirm = null }) { Text(stringResource(android.R.string.cancel)) } },
-        )
-    }
-    if (r.isEmpty() && f.isEmpty() && d.isEmpty()) {
+    if (r.isEmpty() && f.isEmpty()) {
         MessageState(Icons.AutoMirrored.Rounded.MenuBook, stringResource(R.string.manga_library_empty_title), message = stringResource(R.string.manga_library_empty_body))
         return
     }
