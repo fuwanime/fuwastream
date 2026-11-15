@@ -49,13 +49,14 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
-          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ]; then
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ]; then
             echo "Release signing secrets are missing; building unsigned artifacts (expected for fork PRs)."
             echo "HAS_SIGNING=false" >> "$GITHUB_ENV"
             exit 0
           fi
           echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
           echo "KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+          echo "KEY_ALIAS=${KEY_ALIAS:-fuwanime}" >> "$GITHUB_ENV"
           echo "HAS_SIGNING=true" >> "$GITHUB_ENV"
 
       - name: Set version name
