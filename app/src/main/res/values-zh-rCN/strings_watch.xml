@@ -86,6 +86,8 @@
     <string name="watch_previous">上一集</string>
     <string name="watch_next">下一集</string>
     <string name="watch_quality">画质</string>
+    <string name="watch_open_external">用其他播放器打开</string>
+    <string name="watch_no_external_player">未找到视频播放器</string>
     <string name="watch_now_playing">播放中</string>
     <string name="watch_server">服务器 %1$s</string>
     <string name="watch_server_device">服务器：本机</string>

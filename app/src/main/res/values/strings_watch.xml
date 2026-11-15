@@ -86,6 +86,8 @@
     <string name="watch_previous">Sebelumnya</string>
     <string name="watch_next">Berikutnya</string>
     <string name="watch_quality">Kualitas</string>
+    <string name="watch_open_external">Buka di player lain</string>
+    <string name="watch_no_external_player">Tidak ada aplikasi pemutar video</string>
     <string name="watch_now_playing">Diputar</string>
     <string name="watch_server">Server %1$s</string>
     <string name="watch_server_device">Server Perangkat</string>
