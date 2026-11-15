@@ -380,10 +380,10 @@ class IsMangaChapterTranslator(
         if (doneCount.get() > 0) onProgress(doneCount.get(), pageUrls.size)
 
         val concurrency = 3.coerceAtMost(pending.size.coerceAtLeast(1))
-        val semaphore = kotlinx.coroutines.sync.Semaphore(concurrency)
-        kotlinx.coroutines.coroutineScope {
+        val semaphore = Semaphore(concurrency)
+        coroutineScope {
             pending.map { i ->
-                kotlinx.coroutines.async {
+                async {
                     semaphore.withPermit {
                         val bytes = downloadPage(pageUrls[i])
                         val bitmap = translateOne(bytes)
