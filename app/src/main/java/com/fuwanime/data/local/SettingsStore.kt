@@ -40,7 +40,7 @@ data class AppSettings(
     val notifyNewEpisodes: Boolean = true,
     /** Release notifications for any ongoing anime, not only favourites. */
     val notifyOngoingAnime: Boolean = true,
-    /** Release notifications for any ongoing manga (Comix). */
+    /** Release notifications for any ongoing manga (MangaDex). */
     val notifyNewChapters: Boolean = true,
     /** Notify when a newer app version is published on GitHub Releases. */
     val notifyAppUpdates: Boolean = true,
