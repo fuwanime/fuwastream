@@ -60,9 +60,6 @@ class AnimeRepository(
         return list
     }
 
-    private suspend fun visible(list: List<Anime>): List<Anime> =
-        if (mature()) list else list.filterNot { it.hasMatureGenre() }
-
     /** Detail responses carry fields (studio) list responses lack, and vice versa; feeds without genres keep known ones. */
     private fun mergeAnime(old: Anime, new: Anime) = new.copy(
         studio = new.studio.ifBlank { old.studio },
