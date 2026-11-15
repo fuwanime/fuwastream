@@ -260,12 +260,21 @@ abstract class FuwaDatabase : RoomDatabase() {
         /** v7: external CBZ storage for downloads, collection status/preferences, and source stats. */
         internal val MIGRATION_6_7 = object : Migration(6, 7) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE `manga_downloads` ADD COLUMN `fileUri` TEXT")
-                db.execSQL("ALTER TABLE `favorites` ADD COLUMN `collectionStatus` TEXT NOT NULL DEFAULT 'PLANNED'")
-                db.execSQL("ALTER TABLE `manga_favorite` ADD COLUMN `collectionStatus` TEXT NOT NULL DEFAULT 'PLANNED'")
-                // Existing saved titles with progress are actively being watched/read.
-                db.execSQL("UPDATE `favorites` SET `collectionStatus` = 'IN_PROGRESS' WHERE animeId IN (SELECT DISTINCT animeId FROM watch_history)")
-                db.execSQL("UPDATE `manga_favorite` SET `collectionStatus` = 'IN_PROGRESS' WHERE mangaId IN (SELECT DISTINCT mangaId FROM manga_history)")
+                if (tableExists(db, "manga_downloads") && !columnExists(db, "manga_downloads", "fileUri")) {
+                    db.execSQL("ALTER TABLE `manga_downloads` ADD COLUMN `fileUri` TEXT")
+                }
+                if (tableExists(db, "favorites") && !columnExists(db, "favorites", "collectionStatus")) {
+                    db.execSQL("ALTER TABLE `favorites` ADD COLUMN `collectionStatus` TEXT NOT NULL DEFAULT 'PLANNED'")
+                    if (tableExists(db, "watch_history")) {
+                        db.execSQL("UPDATE `favorites` SET `collectionStatus` = 'IN_PROGRESS' WHERE animeId IN (SELECT DISTINCT animeId FROM watch_history)")
+                    }
+                }
+                if (tableExists(db, "manga_favorite") && !columnExists(db, "manga_favorite", "collectionStatus")) {
+                    db.execSQL("ALTER TABLE `manga_favorite` ADD COLUMN `collectionStatus` TEXT NOT NULL DEFAULT 'PLANNED'")
+                    if (tableExists(db, "manga_history")) {
+                        db.execSQL("UPDATE `manga_favorite` SET `collectionStatus` = 'IN_PROGRESS' WHERE mangaId IN (SELECT DISTINCT mangaId FROM manga_history)")
+                    }
+                }
                 db.execSQL(
                     "CREATE TABLE IF NOT EXISTS `content_preferences` (`key` TEXT NOT NULL, `mediaType` TEXT NOT NULL, `contentId` TEXT NOT NULL, " +
                         "`notifyMode` TEXT NOT NULL, `notifyLanguage` TEXT NOT NULL, `autoDownload` INTEGER NOT NULL, `autoDownloadLimit` INTEGER NOT NULL, " +
@@ -287,6 +296,15 @@ abstract class FuwaDatabase : RoomDatabase() {
                 db.execSQL("CREATE TABLE IF NOT EXISTS `unlocked_borders` (`id` TEXT NOT NULL, PRIMARY KEY(`id`))")
             }
         }
+
+        private fun tableExists(db: SupportSQLiteDatabase, table: String): Boolean =
+            db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='$table'").use { it.moveToFirst() }
+
+        private fun columnExists(db: SupportSQLiteDatabase, table: String, column: String): Boolean =
+            db.query("PRAGMA table_info(`$table`)").use { c ->
+                while (c.moveToNext()) if (c.getString(1) == column) return true
+                false
+            }
 
         /** v5 adds manga favourites and reading history; nothing existing changes. */
         private val MIGRATION_4_5 = object : Migration(4, 5) {
