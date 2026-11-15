@@ -645,7 +645,7 @@ private fun Credit(chapter: MangaChapter, modifier: Modifier = Modifier) {
             isKomikuId(chapter.id) -> stringResource(R.string.manga_reader_source_komiku)
             isMangaDexId(chapter.id) -> stringResource(R.string.manga_reader_source_mangadex)
             chapter.group != null -> stringResource(R.string.manga_reader_scanlation, chapter.group)
-            else -> stringResource(R.string.manga_reader_source_comix)
+            else -> stringResource(R.string.manga_reader_source_mangadex)
         },
         color = Color.White.copy(alpha = 0.6f),
         style = MaterialTheme.typography.labelMedium,
