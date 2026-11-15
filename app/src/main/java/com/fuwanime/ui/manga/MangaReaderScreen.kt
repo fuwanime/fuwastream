@@ -42,7 +42,6 @@ import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -111,6 +110,7 @@ import com.fuwanime.data.manga.previousChapter
 import com.fuwanime.data.manga.readerLanguage
 import com.fuwanime.data.manga.withChapter
 import com.fuwanime.ui.components.ErrorState
+import com.fuwanime.ui.components.SkeletonBox
 import com.fuwanime.util.UiText
 import com.fuwanime.util.UiTextException
 import com.fuwanime.util.friendlyText
@@ -303,7 +303,14 @@ fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
             state.error != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 ErrorState(state.error!!, onRetry = { vm.open(state.requestedId.ifEmpty { chapterId }) })
             }
-            chapter == null || originalPages == null -> CircularProgressIndicator(Modifier.align(Alignment.Center), color = Color.White)
+            chapter == null || originalPages == null -> Column(Modifier.fillMaxSize().padding(top = 64.dp)) {
+                repeat(3) {
+                    SkeletonBox(
+                        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp).aspectRatio(1f / 1.4f),
+                        shape = RoundedCornerShape(8.dp),
+                    )
+                }
+            }
             else -> key(chapter.id) {
                 val label = chapterLabel(chapter)
                 val translationAvailable = isComixId(chapter.id) || (!isShinigamiId(chapter.id) && !isKomikuId(chapter.id))
@@ -393,7 +400,7 @@ fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
                                 Spacer(Modifier.height(6.dp))
                                 Text("${translation.done}/${translation.total}", color = Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.bodySmall)
                             } else {
-                                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(28.dp))
+                                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                             }
                         } else if (translation.error != null) {
                             Text(translation.error ?: "", color = Color.White, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
@@ -549,7 +556,7 @@ private fun Page(url: String, index: Int, generation: Int, onFailed: () -> Unit)
                 Text(stringResource(R.string.manga_reader_reload), color = Color.White, modifier = Modifier.padding(start = 6.dp))
             }
             is AsyncImagePainter.State.Success -> Unit
-            else -> CircularProgressIndicator(color = Color.White.copy(alpha = 0.6f))
+            else -> SkeletonBox(Modifier.fillMaxWidth().aspectRatio(1f / 1.4f), shape = RoundedCornerShape(4.dp))
         }
     }
 }
@@ -575,7 +582,7 @@ private fun ReaderPage(url: String, index: Int, generation: Int, onFailed: () ->
         when (status) {
             is AsyncImagePainter.State.Error -> TextButton(onClick = onFailed) { Text(stringResource(R.string.manga_reader_reload), color = Color.White) }
             is AsyncImagePainter.State.Success -> Unit
-            else -> CircularProgressIndicator(color = Color.White.copy(alpha = 0.6f))
+            else -> SkeletonBox(Modifier.fillMaxWidth(0.85f).aspectRatio(1f / 1.4f), shape = RoundedCornerShape(8.dp))
         }
     }
 }
