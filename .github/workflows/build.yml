@@ -92,7 +92,8 @@ jobs:
         run: gradle bundleRelease -PabiSplits=false --stacktrace
 
       - name: Verify release signing certificate
-        if: env.HAS_SIGNING == 'true'
+        # Forks sign with their own keystore; the pin guards the upstream key only.
+        if: env.HAS_SIGNING == 'true' && github.repository == 'fuwanime/fuwastream'
         run: |
           APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
           APK=$(ls app/build/outputs/apk/release/*arm64-v8a*.apk 2>/dev/null | head -1)
