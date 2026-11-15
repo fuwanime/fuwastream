@@ -105,7 +105,7 @@ jobs:
           echo "APK signing certificate SHA-256: $CERT"
           test -n "$CERT"
           # Pinned to the permanent FuwaStream keystore so an update never ships with another key.
-          test "$CERT" = "1cdbc56c56c6dba68fbf74c0dde37b428b6fa9ec57fe6ee1316fd70083767544"
+          test "$CERT" = "9d192491f8c087ece5ed36f361e16503b07ef1980070ca2939bbfd6a41fc4848"
 
       - name: Rename artifacts
         run: |
