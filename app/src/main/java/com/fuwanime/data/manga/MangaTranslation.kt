@@ -12,8 +12,13 @@ import android.text.StaticLayout
 import android.text.TextPaint
 import android.util.Base64
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import java.util.concurrent.atomic.AtomicInteger
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONArray
@@ -298,11 +303,10 @@ private object IsAuth {
 }
 
 private class IsMangaApi(private val store: IsAccountStore) {
+    private val lock = Any()
     private var account: IsAccount? = null
-    private var visitId = UUID.randomUUID().toString()
-    private var deviceId = UUID.randomUUID().toString()
 
-    @Synchronized private fun ensureAccount(): IsAccount {
+    private fun ensureAccount(): IsAccount = synchronized(lock) {
         account?.let { return it }
         val accounts = store.load()
         if (accounts.isEmpty()) {
@@ -317,7 +321,11 @@ private class IsMangaApi(private val store: IsAccountStore) {
         val created = IsAuth.createAccount(); store.add(created); store.save(); account = created; return created
     }
 
-    private fun headers(): Map<String, String> = mapOf("Authorization" to (account?.idToken.orEmpty()), "ismanga-visit-id" to visitId, "ismanga-device-id" to deviceId)
+    private fun authToken(): String = synchronized(lock) { ensureAccount().idToken }
+
+    private fun refreshAccount() = synchronized(lock) {
+        val a = ensureAccount(); IsAuth.refresh(a); store.save(); account = a
+    }
 
     private fun isAuthExpired(res: JSONObject?): Boolean {
         val errs = res?.optJSONArray("errors") ?: return false
@@ -328,19 +336,17 @@ private class IsMangaApi(private val store: IsAccountStore) {
         return false
     }
 
-    @Synchronized fun newSession() { visitId = UUID.randomUUID().toString(); deviceId = UUID.randomUUID().toString() }
-
-    fun graphql(query: String, variables: JSONObject): JSONObject {
-        ensureAccount()
+    fun graphql(query: String, variables: JSONObject, visitId: String, deviceId: String): JSONObject {
         val body = JSONObject().apply { put("query", query); put("variables", variables) }
+        fun headers() = mapOf("Authorization" to authToken(), "ismanga-visit-id" to visitId, "ismanga-device-id" to deviceId)
         var res = IsHttp.postJson(ISMANGA_ENDPOINT, body, headers())
         if (isAuthExpired(res)) {
-            val a = ensureAccount(); IsAuth.refresh(a); store.save(); res = IsHttp.postJson(ISMANGA_ENDPOINT, body, headers())
+            refreshAccount(); res = IsHttp.postJson(ISMANGA_ENDPOINT, body, headers())
         }
         return res ?: JSONObject()
     }
 
-    @Synchronized fun signupNew() {
+    fun signupNew() = synchronized(lock) {
         val a = IsAuth.createAccount(); store.add(a); store.save(); account = a
     }
 }
@@ -361,30 +367,35 @@ class IsMangaChapterTranslator(
         onProgress: (done: Int, total: Int) -> Unit = { _, _ -> },
     ): List<String> = withContext(Dispatchers.IO) {
         val outDir = File(cacheDir, "ismanga/${chapterId.replace(':', '_').replace('/', '_')}")
-        // If fully cached, return immediately.
-        val cached = (pageUrls.indices).map { File(outDir, "p_${it.toString().padStart(4, '0')}.png") }
-        if (cached.isNotEmpty() && cached.all { it.exists() && it.length() > 0 }) {
-            onProgress(cached.size, cached.size)
-            return@withContext cached.map { "file://${it.absolutePath}" }
+        val outputFiles = (pageUrls.indices).map { File(outDir, "p_${it.toString().padStart(4, '0')}.png") }
+        if (outputFiles.isNotEmpty() && outputFiles.all { it.exists() && it.length() > 0 }) {
+            onProgress(outputFiles.size, outputFiles.size)
+            return@withContext outputFiles.map { "file://${it.absolutePath}" }
         }
         outDir.mkdirs()
-        val results = ArrayList<String>(pageUrls.size)
-        for ((i, url) in pageUrls.withIndex()) {
-            val outFile = File(outDir, "p_${i.toString().padStart(4, '0')}.png")
-            if (outFile.exists() && outFile.length() > 0) {
-                results += "file://${outFile.absolutePath}"
-                onProgress(i + 1, pageUrls.size)
-                continue
-            }
-            val bytes = downloadPage(url)
-            val bitmap = translateOne(bytes)
-            outFile.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-            bitmap.recycle()
-            results += "file://${outFile.absolutePath}"
-            onProgress(i + 1, pageUrls.size)
-            if (i < pageUrls.lastIndex) delay(400)
+
+        // Only process pages not yet cached; translate in parallel with bounded concurrency to overlap server work.
+        val pending = pageUrls.indices.filterNot { outputFiles[it].exists() && outputFiles[it].length() > 0 }.toMutableList()
+        val doneCount = java.util.concurrent.atomic.AtomicInteger(pageUrls.size - pending.size)
+        if (doneCount.get() > 0) onProgress(doneCount.get(), pageUrls.size)
+
+        val concurrency = 3.coerceAtMost(pending.size.coerceAtLeast(1))
+        val semaphore = kotlinx.coroutines.sync.Semaphore(concurrency)
+        kotlinx.coroutines.coroutineScope {
+            pending.map { i ->
+                kotlinx.coroutines.async {
+                    semaphore.withPermit {
+                        val bytes = downloadPage(pageUrls[i])
+                        val bitmap = translateOne(bytes)
+                        outputFiles[i].outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                        bitmap.recycle()
+                        val done = doneCount.incrementAndGet()
+                        onProgress(done, pageUrls.size)
+                    }
+                }
+            }.awaitAll()
         }
-        results
+        outputFiles.map { "file://${it.absolutePath}" }
     }
 
     private fun downloadPage(url: String): ByteArray {
@@ -411,11 +422,12 @@ class IsMangaChapterTranslator(
     private fun translateOne(imageBytes: ByteArray): Bitmap {
         var signups = 0
         while (true) {
-            api.newSession()
+            val visitId = UUID.randomUUID().toString()
+            val deviceId = UUID.randomUUID().toString()
             try {
-                val created = create(imageBytes)
+                val created = create(imageBytes, visitId, deviceId)
                 val result = if (created.code == IsCodes.SUCCESS && created.payload.isNotEmpty()) created
-                else poll(created.taskPayload ?: throw IsApiException("taskPayload kosong"))
+                else poll(created.taskPayload ?: throw IsApiException("taskPayload kosong"), visitId, deviceId)
                 return compose(imageBytes, result.payload)
             } catch (e: IsApiException) {
                 if (e.code == IsCodes.QUOTA_EXCEEDED) {
@@ -427,7 +439,7 @@ class IsMangaChapterTranslator(
         }
     }
 
-    private fun create(bytes: ByteArray): IsResult {
+    private fun create(bytes: ByteArray, visitId: String, deviceId: String): IsResult {
         val dataUrl = IsImage.toDataUrl(bytes)
         val vars = JSONObject().apply {
             put("dataUrl", dataUrl); put("dataUrlId", IsImage.dataUrlId(dataUrl))
@@ -443,7 +455,7 @@ class IsMangaChapterTranslator(
               }
             }
         """.trimIndent()
-        val res = api.graphql(q, vars)
+        val res = api.graphql(q, vars, visitId, deviceId)
         if (res.has("errors")) throw IsApiException("GraphQL error: ${res.optJSONArray("errors")}")
         val data = res.optJSONObject("data")?.optJSONObject("createMangaByDataUrl") ?: throw IsApiException("createMangaByDataUrl kosong")
         val result = parseIsResult(data)
@@ -453,7 +465,7 @@ class IsMangaChapterTranslator(
         throw IsApiException(IsCodes.message(result.code), result.code)
     }
 
-    private fun poll(task: IsTaskPayload, maxSeconds: Int = 180): IsResult {
+    private fun poll(task: IsTaskPayload, visitId: String, deviceId: String, maxSeconds: Int = 180): IsResult {
         val start = System.currentTimeMillis(); var noSuch = 0
         val q = """
             query PollTranslationQueue(${'$'}taskId: String!, ${'$'}isHighQuality: Boolean!, ${'$'}url: String!, ${'$'}isPseudoUrl: Boolean!, ${'$'}langCode: String!, ${'$'}shouldCache: Boolean!) {
@@ -469,13 +481,13 @@ class IsMangaChapterTranslator(
                 put("url", task.url ?: ""); put("isPseudoUrl", task.isPseudoUrl)
                 put("langCode", task.langCode ?: ""); put("shouldCache", task.shouldCache)
             }
-            val res = api.graphql(q, vars)
-            if (res.has("errors")) { Thread.sleep(1000); continue }
-            val data = res.optJSONObject("data")?.optJSONObject("pollTranslationQueue") ?: run { Thread.sleep(1000); continue }
+            val res = api.graphql(q, vars, visitId, deviceId)
+            if (res.has("errors")) { Thread.sleep(800); continue }
+            val data = res.optJSONObject("data")?.optJSONObject("pollTranslationQueue") ?: run { Thread.sleep(800); continue }
             val result = parseIsResult(data)
             when {
                 result.code == IsCodes.SUCCESS -> { if (result.payload.isEmpty()) throw IsApiException("Sukses tapi payload kosong"); return result }
-                result.code in IsCodes.PENDING -> Thread.sleep(1000)
+                result.code in IsCodes.PENDING -> Thread.sleep(800)
                 result.code == IsCodes.NO_SUCH_TASK && noSuch < 5 -> { noSuch++; Thread.sleep(1000) }
                 result.code == IsCodes.QUOTA_EXCEEDED -> throw IsApiException("Kuota habis", 10003)
                 else -> throw IsApiException(IsCodes.message(result.code), result.code)
