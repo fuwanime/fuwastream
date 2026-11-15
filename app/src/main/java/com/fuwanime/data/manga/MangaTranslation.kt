@@ -34,6 +34,7 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.sqrt
 
 // ============== IsManga workflow (adapted) ==============
 // Translates manga page images to Indonesian via IsManga GraphQL API (server-side),
@@ -41,6 +42,43 @@ import kotlin.math.min
 
 private const val ISMANGA_ENDPOINT = "https://api.ismanga.com/graphql"
 private const val FIREBASE_API_KEY = "AIzaSyApW93EPxiSW6FwUVFc42GT-Q8ILs9wtkk"
+
+internal data class TranslationUploadSize(val width: Int, val height: Int)
+
+/** Preserves aspect ratio while keeping an upload inside both side-length and total-pixel limits. */
+internal fun translationUploadSize(
+    width: Int,
+    height: Int,
+    maxDimension: Int = 4_096,
+    maxPixels: Long = 8_000_000L,
+): TranslationUploadSize {
+    if (width <= 0 || height <= 0) return TranslationUploadSize(1, 1)
+    val pixels = width.toDouble() * height.toDouble()
+    val scale = min(
+        1.0,
+        min(
+            min(maxDimension.toDouble() / width, maxDimension.toDouble() / height),
+            sqrt(maxPixels.toDouble() / pixels),
+        ),
+    )
+    return TranslationUploadSize(
+        width = (width * scale).toInt().coerceIn(1, maxDimension),
+        height = (height * scale).toInt().coerceIn(1, maxDimension),
+    )
+}
+
+private data class IsUploadLimits(
+    val maxDimension: Int,
+    val maxPixels: Long,
+    val maxBytes: Int,
+)
+
+/** Each retry is deliberately smaller for undocumented/variable IsManga GPU limits. */
+private val IS_UPLOAD_LIMITS = listOf(
+    IsUploadLimits(maxDimension = 4_096, maxPixels = 8_000_000L, maxBytes = 4_500_000),
+    IsUploadLimits(maxDimension = 3_072, maxPixels = 6_000_000L, maxBytes = 4_000_000),
+    IsUploadLimits(maxDimension = 2_048, maxPixels = 4_000_000L, maxBytes = 3_500_000),
+)
 
 private data class IsAccount(
     var email: String = "",
@@ -69,11 +107,13 @@ private class IsApiException(message: String, val code: Int? = null) : Exception
 
 private object IsCodes {
     const val SUCCESS = 1
+    const val FILE_TOO_LARGE = 9
     const val STILL_IN_QUEUE = 12
     const val PROCESSING = 13
     const val NO_SUCH_TASK = 15
     const val ENQUEUED = 16
     const val DUPLICATE = 17
+    const val DIMENSIONS_TOO_LARGE = 21
     const val QUOTA_EXCEEDED = 10003
     val PENDING = setOf(STILL_IN_QUEUE, PROCESSING, ENQUEUED, DUPLICATE)
     fun message(code: Int): String = when (code) {
@@ -180,6 +220,68 @@ private object IsImage {
     }
     fun toDataUrl(bytes: ByteArray): String = "data:${detectMime(bytes)};base64," + Base64.encodeToString(bytes, Base64.NO_WRAP)
     fun dataUrlId(dataUrl: String): String = buildString { var i = 0; while (i < dataUrl.length) { append(dataUrl[i]); i += 10000 } }
+
+    /**
+     * IsManga rejects files above 5 MB and some high-resolution pages with code 21. Keep ordinary pages byte-for-byte,
+     * but proportionally downsample/re-encode oversized pages before the base64 upload. [limits] becomes stricter on
+     * server rejection, which also covers limits that differ between IsManga workers.
+     */
+    fun prepareUpload(bytes: ByteArray, limits: IsUploadLimits): ByteArray {
+        val bounds = BitmapFactory.Options().also { it.inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) throw IsApiException("Gagal membaca dimensi gambar")
+
+        val target = translationUploadSize(bounds.outWidth, bounds.outHeight, limits.maxDimension, limits.maxPixels)
+        if (target.width == bounds.outWidth && target.height == bounds.outHeight && bytes.size <= limits.maxBytes) return bytes
+
+        var sample = 1
+        while (
+            bounds.outWidth / (sample * 2) >= target.width &&
+            bounds.outHeight / (sample * 2) >= target.height
+        ) sample *= 2
+        val decoded = BitmapFactory.decodeByteArray(
+            bytes,
+            0,
+            bytes.size,
+            BitmapFactory.Options().apply {
+                inSampleSize = sample
+                inPreferredConfig = Bitmap.Config.RGB_565
+            },
+        ) ?: throw IsApiException("Gagal decode gambar besar")
+
+        var working = if (decoded.width == target.width && decoded.height == target.height) {
+            decoded
+        } else {
+            Bitmap.createScaledBitmap(decoded, target.width, target.height, true).also { decoded.recycle() }
+        }
+        try {
+            var encoded = encodeJpeg(working, 90)
+            for (quality in listOf(82, 74, 66)) {
+                if (encoded.size <= limits.maxBytes) return encoded
+                encoded = encodeJpeg(working, quality)
+            }
+            // Unusually noisy PNG/WebP pages can remain large after JPEG compression. Reduce dimensions gradually.
+            repeat(4) {
+                if (encoded.size <= limits.maxBytes) return encoded
+                val nextWidth = (working.width * 0.82).toInt().coerceAtLeast(1)
+                val nextHeight = (working.height * 0.82).toInt().coerceAtLeast(1)
+                val smaller = Bitmap.createScaledBitmap(working, nextWidth, nextHeight, true)
+                if (smaller !== working) working.recycle()
+                working = smaller
+                encoded = encodeJpeg(working, 76)
+            }
+            return encoded
+        } finally {
+            if (!working.isRecycled) working.recycle()
+        }
+    }
+
+    private fun encodeJpeg(bitmap: Bitmap, quality: Int): ByteArray =
+        ByteArrayOutputStream().use { out ->
+            if (!bitmap.compress(Bitmap.CompressFormat.JPEG, quality, out)) throw IsApiException("Gagal mengompres gambar")
+            out.toByteArray()
+        }
+
     fun decodeJwtExp(token: String): Long = try {
         val parts = token.split('.')
         if (parts.size < 2) 0L else JSONObject(String(Base64.decode(parts[1], Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING))).optLong("exp", 0L)
@@ -203,7 +305,7 @@ private object IsImage {
 
 private class IsTextRenderer {
     fun draw(base: Bitmap, boxes: List<IsBox>): Bitmap {
-        val result = base.copy(Bitmap.Config.ARGB_8888, true)
+        val result = if (base.isMutable && base.config == Bitmap.Config.ARGB_8888) base else base.copy(Bitmap.Config.ARGB_8888, true)
         val canvas = Canvas(result)
         for (box in boxes) {
             val text = box.toLang?.script?.trim().orEmpty()
@@ -421,15 +523,28 @@ class IsMangaChapterTranslator(
 
     private fun translateOne(imageBytes: ByteArray): Bitmap {
         var signups = 0
+        var resizeAttempt = 0
+        var uploadBytes = IsImage.prepareUpload(imageBytes, IS_UPLOAD_LIMITS[resizeAttempt])
         while (true) {
             val visitId = UUID.randomUUID().toString()
             val deviceId = UUID.randomUUID().toString()
             try {
-                val created = create(imageBytes, visitId, deviceId)
+                val created = create(uploadBytes, visitId, deviceId)
                 val result = if (created.code == IsCodes.SUCCESS && created.payload.isNotEmpty()) created
                 else poll(created.taskPayload ?: throw IsApiException("taskPayload kosong"), visitId, deviceId)
-                return compose(imageBytes, result.payload)
+                return compose(uploadBytes, result.payload)
             } catch (e: IsApiException) {
+                val sizeRejected = e.code in setOf(IsCodes.FILE_TOO_LARGE, IsCodes.DIMENSIONS_TOO_LARGE) ||
+                    e.message.orEmpty().contains("too large", ignoreCase = true) ||
+                    e.message.orEmpty().contains("terlalu besar", ignoreCase = true)
+                if (
+                    sizeRejected &&
+                    resizeAttempt < IS_UPLOAD_LIMITS.lastIndex
+                ) {
+                    resizeAttempt++
+                    uploadBytes = IsImage.prepareUpload(imageBytes, IS_UPLOAD_LIMITS[resizeAttempt])
+                    continue
+                }
                 if (e.code == IsCodes.QUOTA_EXCEEDED) {
                     if (signups >= 3) throw IsApiException("Kuota habis, coba lagi nanti", 10003)
                     signups++; api.signupNew(); continue
@@ -497,11 +612,21 @@ class IsMangaChapterTranslator(
     }
 
     private fun compose(originalBytes: ByteArray, boxes: List<IsBox>): Bitmap {
-        val original = BitmapFactory.decodeByteArray(originalBytes, 0, originalBytes.size) ?: throw IsApiException("Gagal decode gambar")
+        val original = BitmapFactory.decodeByteArray(
+            originalBytes,
+            0,
+            originalBytes.size,
+            BitmapFactory.Options().apply {
+                inMutable = true
+                inPreferredConfig = Bitmap.Config.ARGB_8888
+            },
+        ) ?: throw IsApiException("Gagal decode gambar")
         val w = boxes.firstOrNull()?.imgWidth?.takeIf { it > 0 } ?: original.width
         val h = boxes.firstOrNull()?.imgHeight?.takeIf { it > 0 } ?: original.height
-        val base = Bitmap.createScaledBitmap(original, w, h, true).copy(Bitmap.Config.ARGB_8888, true)
-        if (original != base) original.recycle()
+        val scaled = if (original.width == w && original.height == h) original else Bitmap.createScaledBitmap(original, w, h, true)
+        if (scaled !== original) original.recycle()
+        val base = if (scaled.isMutable && scaled.config == Bitmap.Config.ARGB_8888) scaled else scaled.copy(Bitmap.Config.ARGB_8888, true)
+        if (base !== scaled) scaled.recycle()
         val canvas = Canvas(base)
         for (box in boxes) {
             val url = box.inpaintingUrl ?: continue
