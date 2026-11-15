@@ -108,6 +108,7 @@ import com.fuwanime.data.manga.firstReadable
 import com.fuwanime.ui.components.ErrorState
 import com.fuwanime.ui.components.MessageState
 import com.fuwanime.ui.components.NetImage
+import com.fuwanime.ui.components.SkeletonBox
 import com.fuwanime.ui.components.TagChip
 import com.fuwanime.ui.components.readableWidth
 import com.fuwanime.util.UiText
@@ -274,7 +275,7 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
         val manga = state.manga
         when {
             state.error != null -> Box(Modifier.fillMaxSize().statusBarsPadding(), contentAlignment = Alignment.Center) { ErrorState(state.error!!, vm::load) }
-            manga == null -> Unit
+            manga == null -> MangaDetailSkeleton()
             else -> {
                 // History stays under the opened title, whichever source a chapter comes from.
                 val readId = mangaId
@@ -468,6 +469,42 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
         )
     }
 }
+
+@Composable
+private fun MangaDetailSkeleton() {
+    LazyColumn(Modifier.fillMaxSize().readableWidth(), contentPadding = PaddingValues(bottom = 24.dp), userScrollEnabled = false) {
+        item {
+            Row(Modifier.statusBarsPadding().padding(start = 20.dp, end = 12.dp, top = 52.dp), verticalAlignment = Alignment.Bottom) {
+                SkeletonBox(Modifier.width(120.dp).aspectRatio(0.7f), shape = RoundedCornerShape(12.dp))
+                Column(Modifier.weight(1f).padding(start = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SkeletonBox(Modifier.fillMaxWidth(0.9f).height(22.dp), shape = RoundedCornerShape(6.dp))
+                    SkeletonBox(Modifier.fillMaxWidth(0.6f).height(16.dp), shape = RoundedCornerShape(6.dp))
+                    SkeletonBox(Modifier.fillMaxWidth(0.35f).height(14.dp), shape = RoundedCornerShape(6.dp))
+                }
+            }
+        }
+        item {
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                repeat(4) { SkeletonBox(Modifier.fillMaxWidth().height(40.dp), shape = RoundedCornerShape(12.dp)) }
+            }
+        }
+        item { SkeletonBox(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp).height(48.dp), shape = RoundedCornerShape(24.dp)) }
+        item {
+            Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                SkeletonBox(Modifier.fillMaxWidth().height(14.dp), shape = RoundedCornerShape(4.dp))
+                SkeletonBox(Modifier.fillMaxWidth().height(14.dp), shape = RoundedCornerShape(4.dp))
+                SkeletonBox(Modifier.fillMaxWidth(0.7f).height(14.dp), shape = RoundedCornerShape(4.dp))
+            }
+        }
+        item { SkeletonBox(Modifier.padding(start = 20.dp, top = 16.dp, bottom = 8.dp).width(140.dp).height(20.dp), shape = RoundedCornerShape(6.dp)) }
+        items(6) {
+            Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                repeat(3) { SkeletonBox(Modifier.weight(1f).height(54.dp), shape = RoundedCornerShape(12.dp)) }
+            }
+        }
+    }
+}
+
 
 private val SOURCE_NAMES = listOf("Shinigami", "Komiku", "Comix") // indexed by sourceRank
 private val LANG_LABELS = mapOf(ChapterLang.ID to R.string.manga_lang_id, ChapterLang.EN to R.string.manga_lang_en, ChapterLang.RAW to R.string.manga_lang_raw)
