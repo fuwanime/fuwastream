@@ -389,11 +389,23 @@ class IsMangaChapterTranslator(
 
     private fun downloadPage(url: String): ByteArray {
         if (url.startsWith("file://")) return File(url.removePrefix("file://")).readBytes()
-        val req = Request.Builder().url(url).header("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36").build()
-        httpClient.newCall(req).execute().use { resp ->
-            if (!resp.isSuccessful) throw IOException("Gagal mengunduh halaman: HTTP ${resp.code}")
-            return resp.body?.bytes() ?: throw IOException("Halaman kosong")
+        val candidates = mangaPageCandidates(url).ifEmpty { listOf(url) }
+        var lastError: IOException? = null
+        for (candidate in candidates) {
+            try {
+                val req = Request.Builder()
+                    .url(candidate)
+                    .header("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36")
+                    .build()
+                httpClient.newCall(req).execute().use { resp ->
+                    if (!resp.isSuccessful) throw IOException("HTTP ${resp.code}")
+                    return resp.body?.bytes() ?: throw IOException("Halaman kosong")
+                }
+            } catch (e: Exception) {
+                lastError = if (e is IOException) e else IOException(e.message ?: "Gagal mengunduh halaman", e)
+            }
         }
+        throw IOException("Gagal mengunduh halaman: ${lastError?.message ?: "unknown"}", lastError)
     }
 
     private fun translateOne(imageBytes: ByteArray): Bitmap {

@@ -243,21 +243,39 @@ class MangaReaderViewModel(
 
     fun translateCurrentChapter() {
         val chapter = _state.value.chapter ?: return
-        val pages = _state.value.pages ?: return
         if (_translation.value.running) return
-        _translation.value = ChapterTranslationState(running = true, total = pages.size)
         viewModelScope.launch {
-            try {
-                val translated = translator.translateChapter(chapter.id, pages, cacheDir) { done, total ->
-                    _translation.update { it.copy(running = true, done = done, total = total) }
+            var pages = _state.value.pages ?: return@launch
+            _translation.value = ChapterTranslationState(running = true, total = pages.size)
+            var retried = false
+            while (true) {
+                try {
+                    val translated = translator.translateChapter(chapter.id, pages, cacheDir) { done, total ->
+                        _translation.update { it.copy(running = true, done = done, total = total) }
+                    }
+                    _translation.value = ChapterTranslationState(running = false, done = translated.size, total = translated.size, pages = translated)
+                    settings.setMangaTranslate(true)
+                    return@launch
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    val msg = e.message.orEmpty()
+                    val stalePage = !retried &&
+                        pages.firstOrNull()?.startsWith("file://") != true &&
+                        (msg.contains("HTTP 404") || msg.contains("HTTP 403") || msg.contains("HTTP 410") || msg.contains("Gagal mengunduh halaman"))
+                    if (stalePage) {
+                        retried = true
+                        val fresh = runCatching { repo.pages(chapter.id) }.getOrNull()
+                        if (!fresh.isNullOrEmpty()) {
+                            pages = fresh
+                            _state.value = _state.value.copy(pages = fresh, generation = _state.value.generation + 1)
+                            _translation.value = ChapterTranslationState(running = true, total = fresh.size)
+                            continue
+                        }
+                    }
+                    _translation.update { it.copy(running = false, error = e.message ?: e.toString()) }
+                    return@launch
                 }
-                _translation.value = ChapterTranslationState(running = false, done = translated.size, total = translated.size, pages = translated)
-                // persist preference so chapters auto-open translated for this flow? keep explicit toggle
-                settings.setMangaTranslate(true)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _translation.update { it.copy(running = false, error = e.message ?: e.toString()) }
             }
         }
     }
