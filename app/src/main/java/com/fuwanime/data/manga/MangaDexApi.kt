@@ -47,7 +47,6 @@ data class MdMangaDto(
     @Json(name = "relationships") val relationships: List<MdRelationship> = emptyList(),
 )
 
-@JsonClass(generateAdapter = true)
 data class MdMangaAttributes(
     @Json(name = "title") val title: Map<String, String> = emptyMap(),
     @Json(name = "altTitles") val altTitles: List<Map<String, String>> = emptyList(),
