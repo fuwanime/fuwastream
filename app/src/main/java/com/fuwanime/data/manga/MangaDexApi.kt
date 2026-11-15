@@ -1,7 +1,6 @@
 package com.fuwanime.data.manga
 
 import com.squareup.moshi.Json
-import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import java.text.SimpleDateFormat
@@ -27,7 +26,6 @@ fun mangaDexCoverUrl(mangaId: String, fileName: String?): String? {
     return "https://uploads.mangadex.org/covers/$raw/$file.512.jpg"
 }
 
-@JsonClass(generateAdapter = true)
 data class MdListResponse<T>(
     @Json(name = "data") val data: List<T> = emptyList(),
     @Json(name = "total") val total: Int = 0,
@@ -35,12 +33,10 @@ data class MdListResponse<T>(
     @Json(name = "offset") val offset: Int = 0,
 )
 
-@JsonClass(generateAdapter = true)
 data class MdEntityResponse<T>(
     @Json(name = "data") val data: T? = null,
 )
 
-@JsonClass(generateAdapter = true)
 data class MdMangaDto(
     @Json(name = "id") val id: String = "",
     @Json(name = "attributes") val attributes: MdMangaAttributes = MdMangaAttributes(),
@@ -56,26 +52,22 @@ data class MdMangaAttributes(
     @Json(name = "tags") val tags: List<MdTagDto> = emptyList(),
 )
 
-@JsonClass(generateAdapter = true)
 data class MdTagDto(
     @Json(name = "id") val id: String = "",
     @Json(name = "attributes") val attributes: MdTagAttributes = MdTagAttributes(),
 )
 
-@JsonClass(generateAdapter = true)
 data class MdTagAttributes(
     @Json(name = "name") val name: Map<String, String> = emptyMap(),
     @Json(name = "group") val group: String? = null,
 )
 
-@JsonClass(generateAdapter = true)
 data class MdChapterDto(
     @Json(name = "id") val id: String = "",
     @Json(name = "attributes") val attributes: MdChapterAttributes = MdChapterAttributes(),
     @Json(name = "relationships") val relationships: List<MdRelationship> = emptyList(),
 )
 
-@JsonClass(generateAdapter = true)
 data class MdChapterAttributes(
     @Json(name = "chapter") val chapter: String? = null,
     @Json(name = "title") val title: String? = null,
@@ -86,14 +78,12 @@ data class MdChapterAttributes(
     @Json(name = "readableAt") val readableAt: String? = null,
 )
 
-@JsonClass(generateAdapter = true)
 data class MdRelationship(
     @Json(name = "id") val id: String = "",
     @Json(name = "type") val type: String = "",
     @Json(name = "attributes") val attributes: MdRelationshipAttributes? = null,
 )
 
-@JsonClass(generateAdapter = true)
 data class MdRelationshipAttributes(
     @Json(name = "fileName") val fileName: String? = null,
     @Json(name = "name") val name: String? = null,
@@ -101,20 +91,17 @@ data class MdRelationshipAttributes(
     @Json(name = "status") val status: String? = null,
 )
 
-@JsonClass(generateAdapter = true)
 data class MdAtHomeResponse(
     @Json(name = "baseUrl") val baseUrl: String = "",
     @Json(name = "chapter") val chapter: MdAtHomeChapter = MdAtHomeChapter(),
 )
 
-@JsonClass(generateAdapter = true)
 data class MdAtHomeChapter(
     @Json(name = "hash") val hash: String = "",
     @Json(name = "data") val data: List<String> = emptyList(),
     @Json(name = "dataSaver") val dataSaver: List<String> = emptyList(),
 )
 
-@JsonClass(generateAdapter = true)
 data class MdTagListResponse(
     @Json(name = "data") val data: List<MdTagDto> = emptyList(),
 )
