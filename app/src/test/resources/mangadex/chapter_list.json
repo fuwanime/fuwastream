@@ -1,0 +1,5 @@
+{"result":"ok","response":"collection","total":3,"data":[
+{"id":"ch2","type":"chapter","attributes":{"chapter":"6","title":null,"translatedLanguage":"id","pages":20,"externalUrl":null,"publishAt":"2026-11-08T12:00:00+00:00"},"relationships":[{"id":"m1","type":"manga","attributes":{"title":{"en":"Chainsaw Man"},"status":"ongoing"}},{"id":"g1","type":"scanlation_group","attributes":{"name":"Grup A"}}]},
+{"id":"ch1","type":"chapter","attributes":{"chapter":"5","title":null,"translatedLanguage":"id","pages":20,"externalUrl":null,"publishAt":"2026-11-08T10:00:00+00:00"},"relationships":[{"id":"m1","type":"manga","attributes":{"title":{"en":"Chainsaw Man"},"status":"ongoing"}}]},
+{"id":"ch3","type":"chapter","attributes":{"chapter":"3","title":null,"translatedLanguage":"id","pages":20,"externalUrl":null,"publishAt":"2026-11-08T09:00:00+00:00"},"relationships":[{"id":"m2","type":"manga","attributes":{"title":{"ja-ro":"Frieren"},"status":"completed"}}]}
+]}

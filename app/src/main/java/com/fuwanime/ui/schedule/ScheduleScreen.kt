@@ -38,6 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import java.util.Calendar
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,11 +53,14 @@ import com.fuwanime.ui.motion.sharedKey
 import com.fuwanime.ui.motion.OpenAnime
 import com.fuwanime.data.Anime
 import com.fuwanime.data.AnimeRepository
+import com.fuwanime.data.LibraryRepository
+import com.fuwanime.data.local.SettingsStore
 import com.fuwanime.ui.components.ErrorState
 import com.fuwanime.ui.components.MessageState
 import com.fuwanime.ui.components.NetImage
 import com.fuwanime.ui.components.Pill
 import com.fuwanime.ui.components.SkeletonBox
+import com.fuwanime.ui.components.TagChip
 import com.fuwanime.util.Day
 import com.fuwanime.util.airTime
 import com.fuwanime.util.compactNumber
@@ -64,8 +68,13 @@ import com.fuwanime.util.UiText
 import com.fuwanime.util.friendlyText
 import com.fuwanime.util.fuwaViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -76,9 +85,28 @@ data class DaySchedule(
     val error: UiText? = null,
 )
 
-class ScheduleViewModel(private val repo: AnimeRepository) : ViewModel() {
+class ScheduleViewModel(
+    private val repo: AnimeRepository,
+    library: LibraryRepository,
+    settingsStore: SettingsStore,
+) : ViewModel() {
     private val _days = MutableStateFlow(Day.entries.associateWith { DaySchedule() })
     val days: StateFlow<Map<Day, DaySchedule>> = _days.asStateFlow()
+
+    /** Collection ids; the schedule can be narrowed to these titles. */
+    val favoriteIds: StateFlow<Set<String>> = library.favoriteList
+        .map { list -> list.mapTo(HashSet()) { it.animeId } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
+    init {
+        viewModelScope.launch {
+            settingsStore.matureContent.distinctUntilChanged().drop(1).collect {
+                val loaded = _days.value.filterValues { day -> day.loaded }.keys
+                _days.value = Day.entries.associateWith { DaySchedule() }
+                loaded.forEach { ensureLoaded(it) }
+            }
+        }
+    }
 
     fun ensureLoaded(day: Day, force: Boolean = false) {
         val current = _days.value.getValue(day)
@@ -102,8 +130,12 @@ class ScheduleViewModel(private val repo: AnimeRepository) : ViewModel() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScheduleRoute(onAnimeClick: OpenAnime) {
-    val vm: ScheduleViewModel = fuwaViewModel { c, _ -> ScheduleViewModel(c.animeRepository) }
+    val vm: ScheduleViewModel = fuwaViewModel { c, _ ->
+        ScheduleViewModel(c.animeRepository, c.libraryRepository, c.settingsStore)
+    }
     val days by vm.days.collectAsStateWithLifecycle()
+    val favoriteIds by vm.favoriteIds.collectAsStateWithLifecycle()
+    var mineOnly by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
     val today = Day.today()
     // Pages 0–6 are the days; the last page is "Musim ini".
     val pager = rememberPagerState(initialPage = today.ordinal) { Day.entries.size + 1 }
@@ -123,6 +155,12 @@ fun ScheduleRoute(onAnimeClick: OpenAnime) {
             stringResource(R.string.browse_schedule_subtitle),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 20.dp, bottom = 8.dp),
+        )
+        TagChip(
+            stringResource(R.string.ux_schedule_mine),
+            onClick = { mineOnly = !mineOnly },
+            selected = mineOnly,
             modifier = Modifier.padding(start = 20.dp, bottom = 8.dp),
         )
         PrimaryScrollableTabRow(selectedTabIndex = pager.currentPage, edgePadding = 12.dp) {
@@ -153,10 +191,13 @@ fun ScheduleRoute(onAnimeClick: OpenAnime) {
                     state = seasonTabState(days.values),
                     onRetry = { Day.entries.forEach { vm.ensureLoaded(it, force = true) } },
                     onAnimeClick = onAnimeClick,
+                    favoriteIds = favoriteIds,
+                    mineOnly = mineOnly,
                 )
                 return@HorizontalPager
             }
             val schedule = days.getValue(day)
+            val shown = if (mineOnly) schedule.items.filter { it.id in favoriteIds } else schedule.items
             PullToRefreshBox(
                 isRefreshing = schedule.loading && schedule.loaded,
                 onRefresh = { vm.ensureLoaded(day, force = true) },
@@ -166,7 +207,7 @@ fun ScheduleRoute(onAnimeClick: OpenAnime) {
                     !schedule.loaded && schedule.error == null -> ScheduleSkeleton()
                     schedule.error != null && schedule.items.isEmpty() ->
                         ErrorState(schedule.error, { vm.ensureLoaded(day, force = true) })
-                    schedule.items.isEmpty() -> MessageState(
+                    shown.isEmpty() -> MessageState(
                         Icons.Rounded.EventBusy,
                         stringResource(R.string.browse_schedule_empty_title),
                         message = stringResource(R.string.browse_schedule_empty_message, stringResource(day.full)),
@@ -176,7 +217,7 @@ fun ScheduleRoute(onAnimeClick: OpenAnime) {
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.fillMaxSize(),
                     ) {
-                        items(schedule.items, key = { it.id }) { anime ->
+                        items(shown, key = { it.id }) { anime ->
                             ScheduleRow(anime, origin = "schedule-${day.apiValue}", onClick = { onAnimeClick(anime, "schedule-${day.apiValue}") })
                         }
                     }
@@ -188,7 +229,13 @@ fun ScheduleRoute(onAnimeClick: OpenAnime) {
 
 /** Everything airing this week, split into what premiered this season and what continues from before. */
 @Composable
-private fun SeasonPage(state: SeasonTab, onRetry: () -> Unit, onAnimeClick: OpenAnime) {
+private fun SeasonPage(
+    state: SeasonTab,
+    onRetry: () -> Unit,
+    onAnimeClick: OpenAnime,
+    favoriteIds: Set<String>,
+    mineOnly: Boolean,
+) {
     when (state) {
         SeasonTab.Loading -> ScheduleSkeleton()
         is SeasonTab.Error -> ErrorState(state.message, onRetry)
@@ -197,7 +244,10 @@ private fun SeasonPage(state: SeasonTab, onRetry: () -> Unit, onAnimeClick: Open
                 val c = Calendar.getInstance()
                 seasonOf(c.get(Calendar.YEAR), c.get(Calendar.MONTH) + 1)
             }
-            val (fresh, continuing) = remember(state.all, season) { splitBySeason(state.all, season) }
+            val visible = remember(state.all, favoriteIds, mineOnly) {
+                if (mineOnly) state.all.filter { it.id in favoriteIds } else state.all
+            }
+            val (fresh, continuing) = remember(visible, season) { splitBySeason(visible, season) }
             val sections = listOf(stringResource(R.string.browse_schedule_new_season) to fresh, stringResource(R.string.browse_schedule_continuing) to continuing)
             LazyColumn(
                 contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp + LocalNavBarPadding.current),

@@ -152,7 +152,7 @@ interface ShinigamiApi {
     }
 }
 
-/** Shinigami calls for [MangaRepository]: browse, detail, chapters, pages, and finding a MangaDex title there. */
+/** Shinigami calls for [MangaRepository]: browse, detail, chapters, pages, and finding a title there. */
 class ShinigamiSource(private val api: ShinigamiApi) {
     suspend fun browse(sort: String?, query: String?, page: Int = 1, format: String? = null): MangaPage {
         val dto = api.list(page, PAGE_SIZE, sort, query?.trim()?.ifEmpty { null }, format)

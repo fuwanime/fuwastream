@@ -1,12 +1,13 @@
 package com.fuwanime
 
+import com.fuwanime.data.manga.ComixWsSource
 import com.fuwanime.data.manga.KomikuSource
 import com.fuwanime.data.manga.ShinigamiApi
 import com.fuwanime.data.manga.ShinigamiSource
 import com.fuwanime.data.manga.WebtoonSource
 import com.fuwanime.data.manga.WT_REFERER
 import com.fuwanime.data.manga.isWebtoonImage
-import com.fuwanime.data.manga.MangaDexDns
+import com.fuwanime.data.manga.MangaDns
 import kotlinx.coroutines.flow.first
 import com.fuwanime.data.backup.BackupWorker
 import com.fuwanime.data.backup.BackupRepository
@@ -26,10 +27,9 @@ import com.fuwanime.data.ProfileRepository
 import com.fuwanime.data.manga.MangaLibrary
 import com.fuwanime.data.local.FuwaDatabase
 import com.fuwanime.data.local.SettingsStore
-import com.fuwanime.data.manga.MangaDexApi
 import com.fuwanime.data.manga.MangaDownloadRepository
 import com.fuwanime.data.manga.MangaRepository
-import com.fuwanime.data.manga.RateLimitInterceptor
+import com.fuwanime.data.manga.IsMangaChapterTranslator
 import com.fuwanime.data.meta.AniListApi
 import com.fuwanime.data.meta.AniSkipApi
 import com.fuwanime.data.meta.AnimeLinkRepository
@@ -43,6 +43,7 @@ import com.fuwanime.data.remote.NetworkStatus
 import com.fuwanime.data.remote.apiCacheClient
 import com.fuwanime.data.UpdateRepository
 import com.fuwanime.data.notify.EpisodeNotifyWorker
+import com.fuwanime.data.notify.ReleaseNotifyWorker
 import com.fuwanime.data.notify.AppUpdateWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -55,8 +56,8 @@ import okhttp3.OkHttpClient
 // Code contributor: Andra
 /** Manual DI: one instance of each dependency for the whole process. */
 class AppContainer(private val app: Application) {
-    // MangaDexDns only changes MangaDex hosts (blocked by Indonesian ISP DNS); everything derived from this client inherits it.
-    val httpClient: OkHttpClient = AnimeApiService.createHttpClient().newBuilder().dns(MangaDexDns()).build()
+    // MangaDns only changes blocked Indonesian manga hosts; everything derived from this client inherits it.
+    val httpClient: OkHttpClient = AnimeApiService.createHttpClient().newBuilder().dns(MangaDns()).build()
 
     /** Connectivity plus "showing cached data since"; drives the offline indicators. */
     val networkStatus = NetworkStatus().also { it.start(app) }
@@ -107,16 +108,13 @@ class AppContainer(private val app: Application) {
     val animeLinkRepository by lazy { AnimeLinkRepository(database.animeLinkDao(), AniListApi.create(metaHttpClient)) }
     val skipRepository by lazy { SkipRepository(AniSkipApi.create(metaHttpClient)) }
 
-    /** MangaDex asks for a descriptive User-Agent and caps requests per second. */
+    /** Shinigami's API answers browser-like clients; Comix, Komiku and Webtoon share this client. */
     val mangaHttpClient: OkHttpClient by lazy {
         metaHttpClient.newBuilder()
             .addInterceptor { chain ->
                 val req = chain.request()
                 chain.proceed(
                     when {
-                        req.url.host == "api.mangadex.org" ->
-                            req.newBuilder().header("User-Agent", "FuwaStream/${BuildConfig.VERSION_NAME} (github.com/SakamotoMrX/fuwanime)").build()
-                        // Shinigami's API answers browser-like clients.
                         req.url.host == "api.shngm.io" -> req.newBuilder()
                             .header("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36")
                             .header("Accept", "application/json")
@@ -129,7 +127,6 @@ class AppContainer(private val app: Application) {
                     },
                 )
             }
-            .addInterceptor(RateLimitInterceptor())
             .build()
     }
     /** Coil's client: same as [httpClient] plus the Referer Webtoon's image CDN demands (else thumbnails and panels get HTTP 403). */
@@ -145,12 +142,12 @@ class AppContainer(private val app: Application) {
     }
     val mangaRepository by lazy {
         MangaRepository(
-            MangaDexApi.create(mangaHttpClient),
             appLanguage = { app.resources.configuration.locales[0].language },
             shinigami = ShinigamiSource(ShinigamiApi.create(mangaHttpClient)),
             komiku = KomikuSource(mangaHttpClient),
+            comix = ComixWsSource(app, mature = { settingsStore.matureContent.first() }, client = mangaHttpClient),
             webtoon = WebtoonSource(mangaHttpClient),
-            mature = { settingsStore.mangaMature.first() },
+            mature = { settingsStore.matureContent.first() },
         )
     }
 
@@ -158,6 +155,9 @@ class AppContainer(private val app: Application) {
 
     /** Downloaded manga chapters (app-private files), fetched one at a time by MangaDownloadWorker. */
     val mangaDownloads by lazy { MangaDownloadRepository(app, mangaDownloadDao, settingsStore) }
+
+    /** IsManga server-side EN→ID translation for chapter pages. */
+    val mangaTranslator by lazy { IsMangaChapterTranslator(app, videoHttpClient) }
 
     /** Daily backup file in a folder the user picked; survives an uninstall. */
     val backupRepository by lazy { BackupRepository(app, libraryRepository, settingsStore) }
@@ -171,6 +171,7 @@ class FuwaApp : Application(), SingletonImageLoader.Factory {
         super.onCreate()
         container = AppContainer(this)
         EpisodeNotifyWorker.schedule(this)
+        ReleaseNotifyWorker.schedule(this)
         AppUpdateWorker.schedule(this)
         container.appScope.launch {
             val backup = container.settingsStore.backup.first()

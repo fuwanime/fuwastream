@@ -243,9 +243,12 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
     LaunchedEffect(initialTarget) {
         when (val target = initialTarget ?: return@LaunchedEffect) {
             is LaunchTarget.Anime -> nav.navigate(Routes.detail(target.id))
+            is LaunchTarget.Manga -> nav.navigate(Routes.mangaDetail(target.id))
             LaunchTarget.Search -> openExplore(null, true)
             LaunchTarget.Schedule -> nav.navigateTab(Routes.SCHEDULE)
             is LaunchTarget.Resume -> resumeRoute(container.libraryRepository.historyEntry(target.episodeId))?.let { nav.navigate(it) }
+            is LaunchTarget.Episode -> nav.navigate(Routes.player(target.animeId, target.episodeId, target.number))
+            is LaunchTarget.MangaChapter -> nav.navigate(Routes.mangaReader(target.mangaId, target.chapterId))
         }
         onInitialTargetConsumed()
     }
@@ -327,6 +330,7 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
                                             ),
                                         )
                                     },
+                                    onMangaContinue = { h -> nav.navigate(Routes.mangaReader(h.mangaId, h.chapterId)) },
                                     onSearch = { openExplore(null, true) },
                                     onSettings = { nav.navigate(Routes.SETTINGS) },
                                     onSchedule = { nav.navigateTab(Routes.SCHEDULE) },
@@ -345,6 +349,7 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
                                 ExploreRoute(
                                     focusSearch = entry.arguments?.getBoolean("focus") == true,
                                     onAnimeClick = openAnime,
+                                    onMangaClick = openManga,
                                 )
                             }
                         }

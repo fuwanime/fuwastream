@@ -42,6 +42,10 @@ data class AppSettings(
     val downloadAsk: Boolean = true,
     /** Periodic background check for new episodes of favorited, ongoing anime. */
     val notifyNewEpisodes: Boolean = true,
+    /** Release notifications for any ongoing anime, not only favourites. */
+    val notifyOngoingAnime: Boolean = true,
+    /** Release notifications for any ongoing manga (Comix). */
+    val notifyNewChapters: Boolean = true,
     /** Notify when a newer app version is published on GitHub Releases. */
     val notifyAppUpdates: Boolean = true,
     /** Skip a marked opening without waiting for a tap. */
@@ -70,6 +74,8 @@ internal object Keys {
     val downloadFolder = stringPreferencesKey("download_folder")
     val downloadAsk = booleanPreferencesKey("download_ask")
     val notifyNewEpisodes = booleanPreferencesKey("notify_new_episodes")
+    val notifyOngoingAnime = booleanPreferencesKey("notify_ongoing_anime")
+    val notifyNewChapters = booleanPreferencesKey("notify_new_chapters")
     val autoSkipOp = booleanPreferencesKey("auto_skip_op")
     val jumpAheadButton = booleanPreferencesKey("jump_ahead_button")
     val mobileDataQuality = intPreferencesKey("mobile_data_quality")
@@ -77,11 +83,13 @@ internal object Keys {
     val updateDismissedTag = stringPreferencesKey("update_dismissed_tag")
     val notifyAppUpdates = booleanPreferencesKey("notify_app_updates")
     val updateNotifiedTag = stringPreferencesKey("update_notified_tag")
+    /** Previous Beranda visit, used for the "since you last opened" release summary. */
+    val homeLastOpenMs = longPreferencesKey("home_last_open_ms")
     /** Age confirmation is a consent record, kept when user data is wiped. */
     val ageConfirmed = booleanPreferencesKey("age_confirmed")
     val backgroundAudio = booleanPreferencesKey("background_audio")
     val videoResize = stringPreferencesKey("video_resize")
-    val mangaDataSaver = booleanPreferencesKey("manga_data_saver")
+    val mangaTranslate = booleanPreferencesKey("manga_translate")
     val mangaMature = booleanPreferencesKey("manga_mature")
     val backupTreeUri = stringPreferencesKey("backup_tree_uri")
     val backupAuto = booleanPreferencesKey("backup_auto")
@@ -154,6 +162,12 @@ class SettingsStore(private val context: Context) {
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { it.toSettings() }
 
+    /** Timestamp of the previous Beranda visit; null on a fresh install. */
+    suspend fun lastHomeOpen(): Long? = context.dataStore.data.first()[Keys.homeLastOpenMs]
+
+    suspend fun markHomeOpened(now: Long = System.currentTimeMillis()) =
+        context.dataStore.edit { it[Keys.homeLastOpenMs] = now }
+
     /** False until the user confirms they are 13+ on the first launch. */
     val ageConfirmed: Flow<Boolean> = context.dataStore.data.map { it[Keys.ageConfirmed] ?: false }
 
@@ -182,6 +196,8 @@ class SettingsStore(private val context: Context) {
     suspend fun setDownloadAsk(enabled: Boolean) = context.dataStore.edit { it[Keys.downloadAsk] = enabled }
     suspend fun setDownloadFolder(treeUri: String?) = context.dataStore.edit { if (treeUri == null) it.remove(Keys.downloadFolder) else it[Keys.downloadFolder] = treeUri }
     suspend fun setNotifyNewEpisodes(enabled: Boolean) = context.dataStore.edit { it[Keys.notifyNewEpisodes] = enabled }
+    suspend fun setNotifyOngoingAnime(enabled: Boolean) = context.dataStore.edit { it[Keys.notifyOngoingAnime] = enabled }
+    suspend fun setNotifyNewChapters(enabled: Boolean) = context.dataStore.edit { it[Keys.notifyNewChapters] = enabled }
     suspend fun setNotifyAppUpdates(enabled: Boolean) = context.dataStore.edit { it[Keys.notifyAppUpdates] = enabled }
     suspend fun setAutoSkipOp(enabled: Boolean) = context.dataStore.edit { it[Keys.autoSkipOp] = enabled }
     suspend fun setJumpAheadButton(enabled: Boolean) = context.dataStore.edit { it[Keys.jumpAheadButton] = enabled }
@@ -189,9 +205,9 @@ class SettingsStore(private val context: Context) {
     suspend fun setBackgroundAudio(enabled: Boolean) = context.dataStore.edit { it[Keys.backgroundAudio] = enabled }
     suspend fun setVideoResize(mode: VideoResize) = context.dataStore.edit { it[Keys.videoResize] = mode.name }
 
-    /** Smaller MangaDex "data-saver" images in the reader. */
-    val mangaDataSaver: Flow<Boolean> = context.dataStore.data.map { it[Keys.mangaDataSaver] ?: false }
-    suspend fun setMangaDataSaver(enabled: Boolean) = context.dataStore.edit { it[Keys.mangaDataSaver] = enabled }
+    /** English image chapters (Comix) are translated to Indonesian on-device once the reader opts in. */
+    val mangaTranslate: Flow<Boolean> = context.dataStore.data.map { it[Keys.mangaTranslate] ?: false }
+    suspend fun setMangaTranslate(enabled: Boolean) = context.dataStore.edit { it[Keys.mangaTranslate] = enabled }
 
     /**
      * Global mature-content switch. The existing `manga_mature` storage key is retained so users and backups keep
@@ -227,6 +243,30 @@ class SettingsStore(private val context: Context) {
 
     suspend fun setNotifyBaseline(animeId: String, episode: Double) {
         context.dataStore.edit { it[doublePreferencesKey("notify_baseline_$animeId")] = episode }
+    }
+
+    /** Newest episode already auto-downloaded for one anime, independent of the notification mode. */
+    suspend fun episodeDownloadBaseline(animeId: String): Double? =
+        context.dataStore.data.map { it[doublePreferencesKey("download_baseline_$animeId")] }.firstOrNull()
+
+    suspend fun setEpisodeDownloadBaseline(animeId: String, episode: Double) {
+        context.dataStore.edit { it[doublePreferencesKey("download_baseline_$animeId")] = episode }
+    }
+
+    /** Newest episode already notified from the global ongoing-anime feed (per-anime key). */
+    suspend fun releaseBaseline(animeId: String): Double? =
+        context.dataStore.data.map { it[doublePreferencesKey("notify_release_$animeId")] }.firstOrNull()
+
+    suspend fun setReleaseBaseline(animeId: String, episode: Double) {
+        context.dataStore.edit { it[doublePreferencesKey("notify_release_$animeId")] = episode }
+    }
+
+    /** Newest chapter already notified from the global ongoing-manga feed (per-manga key). */
+    suspend fun mangaBaseline(mangaId: String): Double? =
+        context.dataStore.data.map { it[doublePreferencesKey("notify_manga_$mangaId")] }.firstOrNull()
+
+    suspend fun setMangaBaseline(mangaId: String, chapter: Double) {
+        context.dataStore.edit { it[doublePreferencesKey("notify_manga_$mangaId")] = chapter }
     }
 
     /** Koleksi → Favorit order; unknown stored names fall back to [FavoriteSort.ADDED]. */
@@ -280,6 +320,8 @@ internal fun Preferences.toSettings(): AppSettings {
         downloadFolder = this[Keys.downloadFolder],
         downloadAsk = this[Keys.downloadAsk] ?: d.downloadAsk,
         notifyNewEpisodes = this[Keys.notifyNewEpisodes] ?: d.notifyNewEpisodes,
+        notifyOngoingAnime = this[Keys.notifyOngoingAnime] ?: d.notifyOngoingAnime,
+        notifyNewChapters = this[Keys.notifyNewChapters] ?: d.notifyNewChapters,
         notifyAppUpdates = this[Keys.notifyAppUpdates] ?: d.notifyAppUpdates,
         autoSkipOp = this[Keys.autoSkipOp] ?: d.autoSkipOp,
         jumpAheadButton = this[Keys.jumpAheadButton] ?: d.jumpAheadButton,

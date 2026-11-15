@@ -75,6 +75,7 @@ class BackupRepository(
                 searches = snap.searches,
                 mangaFavorites = snap.mangaFavorites,
                 mangaHistory = snap.mangaHistory,
+                contentPreferences = snap.contentPreferences,
                 settings = settings.exportSettings(),
             ),
         )

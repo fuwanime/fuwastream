@@ -26,7 +26,7 @@ class MangaDownloadWorker(context: Context, params: WorkerParameters) : Coroutin
         val title = applicationContext.getString(R.string.manga_download_notif, row.mangaTitle, row.chapterLabel)
         return try {
             runCatching { setForeground(info(title, 0, 0)) } // a refused foreground start still lets the work run
-            val urls = c.mangaRepository.pages(chapterId, c.settingsStore.mangaDataSaver.first(), forceRefresh = true)
+            val urls = c.mangaRepository.pages(chapterId)
             dao.progress(chapterId, urls.size, 0, 0)
             val dir = chapterDir(c.mangaDownloads.root(), row.mangaId, chapterId)
             val finished = downloadPages(urls, dir, c.httpClient, keepGoing = { dao.get(chapterId) != null }) { done, bytes ->

@@ -1,5 +1,8 @@
 <resources>
     <string name="manga_error_not_found">Manga tidak ditemukan.</string>
+    <string name="manga_source_catalog_down">Comix tidak dapat diakses dari jaringan ini. Sumber Indonesia tetap tersedia.</string>
+    <string name="manga_source_catalog_retry">Coba lagi</string>
+    <string name="manga_source_catalog_filter">Filter genre dan status membutuhkan Comix. Hapus filter atau gunakan pencarian.</string>
     <string name="manga_status_ongoing">Berjalan</string>
     <string name="manga_status_completed">Tamat</string>
     <string name="manga_status_hiatus">Hiatus</string>
@@ -13,7 +16,6 @@
     <string name="manga_detail_resume">Lanjut %1$s</string>
     <string name="manga_detail_chapters">Chapter</string>
     <string name="manga_detail_no_chapters">Belum ada chapter berbahasa Indonesia atau Inggris</string>
-    <string name="manga_credit_mangadex">Data &amp; gambar dari MangaDex</string>
     <string name="manga_chapter_number">Ch. %1$s</string>
     <string name="manga_chapter_oneshot">Oneshot</string>
     <string name="manga_favorite_add">Tambah ke favorit</string>
@@ -26,10 +28,24 @@
     <string name="manga_reader_next">Chapter berikutnya</string>
     <string name="manga_reader_end">Akhir %1$s</string>
     <string name="manga_reader_last">Ini chapter terakhir yang tersedia</string>
-    <string name="manga_reader_scanlation">Scanlation: %1$s · via MangaDex</string>
-    <string name="manga_reader_scanlation_unknown">via MangaDex</string>
+    <string name="manga_reader_scanlation">Scanlation: %1$s</string>
     <string name="manga_reader_reload">Muat ulang gambar</string>
     <string name="manga_reader_page_cd">Halaman %1$d</string>
+    <string name="manga_reader_translate">Terjemahkan</string>
+    <string name="manga_reader_translate_title">Terjemahan Indonesia</string>
+    <string name="manga_reader_translating">Menerjemahkan halaman…</string>
+    <string name="manga_reader_translate_model">Menyiapkan model OCR dan terjemahan…</string>
+    <string name="manga_reader_translate_no_text">Tidak ada teks yang terdeteksi di halaman ini.</string>
+    <string name="manga_reader_translate_unavailable">Terjemahan tidak tersedia. Menampilkan teks asli (English).</string>
+    <string name="manga_reader_translate_failed">Terjemahan gagal. Periksa koneksi lalu coba lagi.</string>
+    <string name="manga_reader_translate_image_failed">Gambar tidak dapat diunduh untuk diterjemahkan. Muat ulang chapter lalu coba lagi.</string>
+    <string name="manga_reader_translate_ocr_model_failed">Model OCR belum siap. Tunggu sebentar lalu coba lagi.</string>
+    <string name="manga_reader_translate_ocr_failed">Teks pada gambar tidak dapat diproses oleh OCR.</string>
+    <string name="manga_reader_translate_decode_failed">Gambar halaman ini tidak dapat dibaca untuk diterjemahkan. Coba muat ulang halaman.</string>
+    <string name="manga_reader_translate_model_failed">Model terjemahan EN→ID gagal diunduh. Periksa koneksi dan ruang penyimpanan.</string>
+    <string name="manga_reader_translate_retry">Coba lagi</string>
+    <string name="manga_reader_translate_settings">Terjemahkan ke Indonesia</string>
+    <string name="manga_reader_translate_settings_desc">OCR dan terjemahan berjalan di perangkat. Model tambahan diunduh sekali.</string>
     <plurals name="manga_detail_chapters_count">
         <item quantity="other">%1$d chapter</item>
     </plurals>
@@ -40,19 +56,17 @@
     <string name="manga_library_remove">Hapus dari lanjut baca</string>
     <string name="manga_library_progress">%1$s · hlm. %2$d/%3$d</string>
     <string name="manga_settings_group">Manga</string>
-    <string name="manga_settings_data_saver">Hemat data saat membaca</string>
-    <string name="manga_settings_data_saver_desc">Gambar lebih kecil dari MangaDex</string>
     <string name="manga_restore_summary">Manga: %1$d favorit, %2$d riwayat baca.</string>
     <string name="manga_home_popular_id">Populer di Indonesia</string>
     <string name="manga_credit_shinigami">Data &amp; gambar dari Shinigami</string>
     <string name="manga_reader_source_shinigami">Sumber: Shinigami</string>
     <string name="manga_home_komiku">Klasik &amp; tamat lengkap</string>
     <string name="manga_settings_mature">Konten dewasa</string>
-    <string name="manga_settings_mature_desc">Tampilkan manga bertema dewasa (mis. Berserk, Vagabond) dari MangaDex</string>
+    <string name="manga_settings_mature_desc">Tampilkan anime ber-genre dewasa (Ecchi, Erotica, Hentai) dan manga bertema dewasa dari Comix</string>
     <string name="manga_credit_komiku">Data &amp; gambar dari Komiku</string>
     <string name="manga_reader_source_komiku">Sumber: Komiku</string>
-    <string name="manga_credit_webtoon">Data &amp; gambar dari WEBTOON</string>
-    <string name="manga_reader_source_webtoon">Sumber: WEBTOON</string>
+    <string name="manga_credit_comix">Data &amp; gambar dari Comix</string>
+    <string name="manga_reader_source_comix">Sumber: Comix</string>
     <string name="manga_home_genres">Jelajah genre</string>
     <string name="manga_genre_action">Aksi</string>
     <string name="manga_genre_romance">Romansa</string>
@@ -94,4 +108,11 @@
     </plurals>
     <string name="manga_download_delete_all_title">Hapus semua unduhan %1$s?</string>
     <string name="manga_download_delete_all">Hapus</string>
+    <string name="manga_reader_translate_chapter">Terjemahkan chapter ke Indonesia</string>
+    <string name="manga_reader_translating_chapter">Menerjemahkan chapter ke Indonesia…</string>
+    <string name="manga_reader_show_original">Tampilkan asli</string>
+    <string name="manga_reader_translate_auto">Terjemahkan otomatis</string>
+    <string name="manga_reader_translate_auto_desc">Saat membuka chapter, terjemahkan seluruh halaman ke Bahasa Indonesia.</string>
+    <string name="manga_reader_source_webtoon">WEBTOON</string>
+    <string name="manga_credit_webtoon">Sumber: WEBTOON</string>
 </resources>

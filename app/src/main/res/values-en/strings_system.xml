@@ -6,6 +6,15 @@
         <item quantity="one">%1$d new episode</item>
         <item quantity="other">%1$d new episodes</item>
     </plurals>
+    <string name="system_channel_new_chapters_name">New chapters</string>
+    <string name="system_channel_new_chapters_desc">New chapter notifications for ongoing manga</string>
+    <string name="system_new_chapter_text">Chapter %1$s is out!</string>
+    <string name="system_action_watch">Watch</string>
+    <string name="system_action_read">Read</string>
+    <plurals name="system_new_chapters_summary">
+        <item quantity="one">%1$d new chapter</item>
+        <item quantity="other">%1$d new chapters</item>
+    </plurals>
     <string name="system_shortcut_search_short">Search</string>
     <string name="system_shortcut_search_long">Search anime</string>
     <string name="system_shortcut_schedule_short">Schedule</string>

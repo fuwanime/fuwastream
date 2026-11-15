@@ -1,6 +1,7 @@
 package com.fuwanime.ui.manga
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,6 +22,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
@@ -45,12 +48,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.fuwanime.R
+import com.fuwanime.data.local.CollectionStatus
 import com.fuwanime.data.local.MangaFavoriteEntity
 import com.fuwanime.data.local.MangaHistoryEntity
 import com.fuwanime.data.manga.MangaLibrary
 import com.fuwanime.ui.components.LocalNavBarPadding
 import com.fuwanime.ui.components.MessageState
 import com.fuwanime.ui.components.NetImage
+import com.fuwanime.ui.components.TagChip
 import com.fuwanime.util.fuwaViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -79,7 +84,20 @@ fun MangaLibraryTab(onOpen: (mangaId: String) -> Unit, onRead: (mangaId: String,
     val favorites by vm.favorites.collectAsStateWithLifecycle()
     val r = reading ?: return
     val f = favorites ?: return
-    if (r.isEmpty() && f.isEmpty()) {
+    val d = dls ?: return
+    val ctx = LocalContext.current
+    var confirm by remember { mutableStateOf<DownloadedManga?>(null) }
+    var statusFilter by rememberSaveable { mutableStateOf<CollectionStatus?>(null) }
+    val shownFavorites = statusFilter?.let { status -> f.filter { it.collectionStatus == status.name } } ?: f
+    confirm?.let { dm ->
+        AlertDialog(
+            onDismissRequest = { confirm = null },
+            title = { Text(stringResource(R.string.manga_download_delete_all_title, dm.title)) },
+            confirmButton = { TextButton(onClick = { vm.deleteDownloads(dm.mangaId); confirm = null }) { Text(stringResource(R.string.manga_download_delete_all)) } },
+            dismissButton = { TextButton(onClick = { confirm = null }) { Text(stringResource(android.R.string.cancel)) } },
+        )
+    }
+    if (r.isEmpty() && f.isEmpty() && d.isEmpty()) {
         MessageState(Icons.AutoMirrored.Rounded.MenuBook, stringResource(R.string.manga_library_empty_title), message = stringResource(R.string.manga_library_empty_body))
         return
     }
@@ -94,7 +112,39 @@ fun MangaLibraryTab(onOpen: (mangaId: String) -> Unit, onRead: (mangaId: String,
         }
         if (f.isNotEmpty()) {
             item(key = "favTitle") { SectionTitle(stringResource(R.string.manga_library_favorites)) }
-            items(f, key = { "f-" + it.mangaId }) { fav -> ShelfRow(fav.title, fav.coverUrl, subtitle = null, onClick = { onOpen(fav.mangaId) }) }
+            item(key = "favFilter") {
+                Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(bottom = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    TagChip(stringResource(R.string.ux_status_all), onClick = { statusFilter = null }, selected = statusFilter == null)
+                    CollectionStatus.entries.forEach { status ->
+                        TagChip(
+                            stringResource(status.labelResource()),
+                            onClick = { statusFilter = status },
+                            selected = statusFilter == status,
+                        )
+                    }
+                }
+            }
+            if (shownFavorites.isEmpty()) {
+                item(key = "favEmpty") {
+                    Text(
+                        stringResource(R.string.ux_collection_empty_filter),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 8.dp),
+                    )
+                }
+            }
+            items(shownFavorites, key = { "f-" + it.mangaId }) { fav ->
+                ShelfRow(
+                    fav.title,
+                    fav.coverUrl,
+                    subtitle = stringResource(fav.collectionStatus.collectionStatusLabel()),
+                    onClick = { onOpen(fav.mangaId) },
+                )
+            }
         }
     }
 }
@@ -127,6 +177,18 @@ fun MangaDownloadRows(list: List<DownloadedManga>, onOpen: (mangaId: String) -> 
         }
     }
 }
+
+private fun CollectionStatus.labelResource() = when (this) {
+    CollectionStatus.PLANNED -> R.string.ux_status_planned
+    CollectionStatus.IN_PROGRESS -> R.string.ux_status_in_progress
+    CollectionStatus.WAITING -> R.string.ux_status_waiting
+    CollectionStatus.PAUSED -> R.string.ux_status_paused
+    CollectionStatus.COMPLETED -> R.string.ux_status_completed
+    CollectionStatus.DROPPED -> R.string.ux_status_dropped
+}
+
+private fun String.collectionStatusLabel() =
+    CollectionStatus.entries.firstOrNull { it.name == this }?.labelResource() ?: R.string.ux_status_planned
 
 @Composable
 private fun SectionTitle(text: String) {

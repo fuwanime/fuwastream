@@ -16,7 +16,13 @@ data class DohResponse(@Json(name = "Status") val status: Int = -1, @Json(name =
 @JsonClass(generateAdapter = true)
 data class DohAnswer(@Json(name = "type") val type: Int = 0, @Json(name = "TTL") val ttl: Int = 0, @Json(name = "data") val data: String = "")
 
-private val DOH_DOMAINS = listOf("mangadex.org", "mangadex.network", "shngm.io", "shngm.id", "komiku.org", "komiku.to")
+private val DOH_DOMAINS = listOf(
+    "comix.ws",
+    "shngm.io",
+    "shngm.id",
+    "komiku.org",
+    "komiku.to",
+)
 
 /** Manga hosts that Indonesian ISP DNS may block; they are resolved over HTTPS. */
 fun needsDoh(host: String): Boolean = DOH_DOMAINS.any { host == it || host.endsWith(".$it") }
@@ -26,11 +32,11 @@ fun dohAddresses(r: DohResponse): List<String> =
     if (r.status != 0) emptyList() else r.answer.filter { it.type == 1 || it.type == 28 }.map { it.data }
 
 /**
- * Indonesian ISP resolvers (Internet Positif) answer MangaDex hosts with a block page, so the app can't reach
- * the API or images. MangaDex hosts are resolved over HTTPS at Google's resolver instead; every other host,
+ * Indonesian ISP resolvers (Internet Positif) answer some manga hosts with a block page, so the app can't reach
+ * the API or images. Those hosts are resolved over HTTPS at Google's resolver instead; every other host,
  * and any DoH failure, uses the system resolver.
  */
-class MangaDexDns(
+class MangaDns(
     private val fallback: Dns = Dns.SYSTEM,
     private val now: () -> Long = System::currentTimeMillis,
     private val query: (String) -> DohResponse? = ::googleDoh,

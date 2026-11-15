@@ -17,7 +17,9 @@ import android.net.Uri
 import com.fuwanime.data.Anime
 import com.fuwanime.data.DownloadItem
 import com.fuwanime.data.DownloadRepository
-import com.fuwanime.data.closestTo
+import com.fuwanime.data.SourceReliability
+import com.fuwanime.data.reliabilityKey
+import com.fuwanime.data.smartOrder
 import com.fuwanime.data.AnimeRepository
 import com.fuwanime.data.Episode
 import com.fuwanime.data.LibraryRepository
@@ -51,6 +53,8 @@ data class PlayerUiState(
     val episode: Episode,
     val sources: List<StreamSource> = emptyList(),
     val source: StreamSource? = null,
+    /** Best source according to local reliability; the sheet labels it as recommended. */
+    val recommended: StreamSource? = null,
     /** Position to seek to once the current source is prepared. */
     val startPositionMs: Long = 0,
     val loading: Boolean = true,
@@ -123,6 +127,10 @@ class PlayerViewModel(
     /** Sources of the current episode that already failed, so fallback never loops. */
     private val failedUrls = mutableSetOf<String>()
 
+    /** Wall clock when the current source started preparing, for local Smart Source startup stats. */
+    private var sourceStartedAt = 0L
+    private var sourceSuccessRecordedFor: String? = null
+
     /** AniSkip segments paired with the episode they belong to; read through [segmentsFor]. */
     private val _segments = MutableStateFlow("" to emptyList<SkipSegment>())
     val segments: StateFlow<Pair<String, List<SkipSegment>>> = _segments.asStateFlow()
@@ -165,7 +173,7 @@ class PlayerViewModel(
         failedUrls.clear()
         _state.update {
             it.copy(
-                episode = episode, sources = emptyList(), source = null, loading = true, error = null,
+                episode = episode, sources = emptyList(), source = null, recommended = null, loading = true, error = null,
                 next = null, previous = null, offline = false,
             )
         }
@@ -188,21 +196,25 @@ class PlayerViewModel(
                 )
             } ?: episode
             val preferred = preferredHeight(settings.first(), isMetered(), sessionHeight)
+            val stats = runCatching {
+                library.sourceStats().associate { it.sourceKey to SourceReliability(it.successes, it.failures, it.startupTotalMs) }
+            }.getOrDefault(emptyMap())
+            val ranked = stream.sources.smartOrder(preferred, stats)
             _state.update {
                 it.copy(
                     episode = merged,
-                    sources = stream.sources,
-                    source = pickSource(stream.sources, preferred),
+                    sources = ranked,
+                    source = ranked.first(),
+                    recommended = ranked.first(),
                     startPositionMs = resumeAt,
                     loading = false,
                 )
             }
+            sourceStartedAt = System.currentTimeMillis()
+            sourceSuccessRecordedFor = null
             loadNeighbours(merged)
         }
     }
-
-    private fun pickSource(sources: List<StreamSource>, preferredHeight: Int): StreamSource =
-        sources.closestTo(preferredHeight) ?: sources.first()
 
     /** Plays the downloaded file when there is one. Returns false to fall back to streaming. */
     private suspend fun playOffline(episode: Episode, resumeAt: Long): Boolean {
@@ -223,6 +235,7 @@ class PlayerViewModel(
                 ),
                 sources = listOf(local),
                 source = local,
+                recommended = local,
                 startPositionMs = resumeAt,
                 loading = false,
                 offline = true,
@@ -266,7 +279,26 @@ class PlayerViewModel(
 
     fun selectSource(source: StreamSource, currentPositionMs: Long) {
         if (source.height > 0) sessionHeight = source.height
+        sourceStartedAt = System.currentTimeMillis()
+        sourceSuccessRecordedFor = null
         _state.update { it.copy(source = source, startPositionMs = currentPositionMs) }
+    }
+
+    /** Called on the first rendered frame: the source proved it works, so Smart Source learns from it. */
+    fun onSourceStarted() {
+        val s = _state.value
+        if (s.offline) return
+        val source = s.source ?: return
+        if (sourceSuccessRecordedFor == source.url) return
+        sourceSuccessRecordedFor = source.url
+        val elapsed = if (sourceStartedAt > 0) System.currentTimeMillis() - sourceStartedAt else 0
+        appScope.launch { runCatching { library.recordSourceOutcome(source.reliabilityKey(), success = true, startupMs = elapsed) } }
+    }
+
+    /** Remembers a failed source so the next episode prefers a working alternative. */
+    private fun recordSourceFailure(source: StreamSource) {
+        if (_state.value.offline) return
+        appScope.launch { runCatching { library.recordSourceOutcome(source.reliabilityKey(), success = false) } }
     }
 
     /**
@@ -278,10 +310,14 @@ class PlayerViewModel(
         val current = s.source ?: return false
         if (s.offline) return false
         failedUrls += current.url
+        recordSourceFailure(current)
         val lower = s.sources.nextLowerThan(current, failedUrls) ?: return false
+        sourceStartedAt = System.currentTimeMillis()
+        sourceSuccessRecordedFor = null
         _state.update {
             it.copy(
                 source = lower,
+                recommended = lower,
                 startPositionMs = positionMs,
                 message = UiText(R.string.watch_msg_quality_fallback, listOf(current.quality, lower.quality)),
             )

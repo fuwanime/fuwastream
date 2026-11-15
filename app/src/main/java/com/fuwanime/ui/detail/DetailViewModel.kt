@@ -16,6 +16,9 @@ import com.fuwanime.data.meta.AnimeLinkRepository
 import com.fuwanime.data.meta.AnimeMeta
 import com.fuwanime.data.rankSimilar
 import com.fuwanime.data.local.WatchHistoryEntity
+import com.fuwanime.data.local.CollectionStatus
+import com.fuwanime.data.local.ContentPreferenceEntity
+import com.fuwanime.data.local.TitleNotifyMode
 import com.fuwanime.data.remote.AnimeApiService.Companion.EPISODE_PAGE_SIZE
 import android.content.res.Resources
 import com.fuwanime.R
@@ -78,6 +81,12 @@ class DetailViewModel(
 
     val isFavorite: StateFlow<Boolean> =
         library.isFavorite(animeId).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    val collectionStatus: StateFlow<CollectionStatus?> =
+        library.collectionStatus(animeId).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    val preference: StateFlow<ContentPreferenceEntity?> =
+        library.titlePreference("ANIME", animeId).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     val progress: StateFlow<Map<String, WatchHistoryEntity>> =
         library.progressFor(animeId).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
@@ -294,6 +303,51 @@ class DetailViewModel(
     fun toggleFavorite() {
         val anime = _state.value.anime ?: return
         viewModelScope.launch { library.setFavorite(anime, !isFavorite.value) }
+    }
+
+    fun setCollectionStatus(status: CollectionStatus?) {
+        val anime = _state.value.anime ?: return
+        viewModelScope.launch { library.setCollectionStatus(anime, status) }
+    }
+
+    fun setHiddenFromContinue(hidden: Boolean) = viewModelScope.launch {
+        library.hideAnimeFromContinue(animeId, hidden)
+    }
+
+    fun setNotificationMode(mode: TitleNotifyMode) = viewModelScope.launch {
+        library.updateTitlePreference("ANIME", animeId) { it.copy(notifyMode = mode.name) }
+    }
+
+    fun setAutoDownload(enabled: Boolean) = viewModelScope.launch {
+        // The download worker follows the collection; enabling this for an unsaved title
+        // would otherwise look active but never download anything.
+        val anime = _state.value.anime
+        if (enabled && anime != null && !library.isFavorite(animeId).first()) {
+            library.setCollectionStatus(anime, CollectionStatus.PLANNED)
+        }
+        library.updateTitlePreference("ANIME", animeId) { it.copy(autoDownload = enabled) }
+    }
+
+    fun markEpisode(episode: Episode, watched: Boolean) {
+        val anime = _state.value.anime ?: return
+        viewModelScope.launch {
+            library.markEpisode(anime, episode, watched)
+            say(R.string.ux_progress_updated)
+        }
+    }
+
+    fun restartEpisode(episode: Episode) = viewModelScope.launch {
+        library.restartEpisode(episode.id)
+        say(R.string.ux_progress_updated)
+    }
+
+    fun markBefore(episode: Episode) {
+        val anime = _state.value.anime ?: return
+        val targets = _state.value.episodes.filter { it.sortKey < episode.sortKey }
+        viewModelScope.launch {
+            library.markEpisodes(anime, targets, true)
+            say(R.string.ux_progress_updated)
+        }
     }
 
     /** Displayed list respects the order toggle; search results keep relevance order. */

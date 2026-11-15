@@ -84,14 +84,26 @@ suspend fun downloadPages(
     var bytes = 0L
     urls.forEachIndexed { i, url ->
         if (!keepGoing()) return@withContext false
-        val file = File(dir, pageFileName(i + 1, url))
+        val candidates = mangaPageCandidates(url).ifEmpty { listOf(url) }
+        val file = File(dir, pageFileName(i + 1, candidates.first()))
         if (!(file.exists() && file.length() > 0)) {
             val part = File(dir, file.name + ".part")
             try {
-                client.newCall(Request.Builder().url(url).build()).execute().use { res ->
-                    if (!res.isSuccessful) throw IOException("HTTP ${res.code} for page ${i + 1}")
-                    part.outputStream().use { out -> res.body!!.byteStream().copyTo(out) }
+                var failure: IOException? = null
+                var downloaded = false
+                for (candidate in candidates) {
+                    try {
+                        client.newCall(Request.Builder().url(candidate).build()).execute().use { res ->
+                            if (!res.isSuccessful) throw IOException("HTTP ${res.code} for page ${i + 1}")
+                            part.outputStream().use { out -> res.body!!.byteStream().copyTo(out) }
+                        }
+                        downloaded = true
+                        break
+                    } catch (e: IOException) {
+                        failure = e
+                    }
                 }
+                if (!downloaded) throw failure ?: IOException("No usable host for page ${i + 1}")
                 if (!part.renameTo(file)) throw IOException("rename failed")
             } finally {
                 part.delete()

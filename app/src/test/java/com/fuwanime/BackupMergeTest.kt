@@ -2,8 +2,10 @@ package com.fuwanime
 
 import com.fuwanime.data.backup.mergeDaily
 import com.fuwanime.data.backup.mergeHistory
+import com.fuwanime.data.backup.mergePreferences
 import com.fuwanime.data.backup.mergeSearches
 import com.fuwanime.data.backup.newFavorites
+import com.fuwanime.data.local.ContentPreferenceEntity
 import com.fuwanime.data.local.FavoriteEntity
 import com.fuwanime.data.local.SearchHistoryEntity
 import com.fuwanime.data.local.WatchDailyEntity
@@ -43,4 +45,23 @@ class BackupMergeTest {
 
     @Test fun favoritesLocalNotOverwritten() =
         assertEquals(listOf(fav("b", "B")), newFavorites(listOf(fav("a", "Lokal")), listOf(fav("a", "Lama"), fav("b", "B"))))
+
+    private fun pref(id: String, at: Long, notify: String = "DEFAULT") =
+        ContentPreferenceEntity("ANIME:$id", "ANIME", id, notifyMode = notify, updatedAt = at)
+
+    @Test fun preferencesNewerBackupWins() =
+        assertEquals(listOf(pref("a", 200, "ALL")), mergePreferences(listOf(pref("a", 100)), listOf(pref("a", 200, "ALL"))))
+
+    @Test fun preferencesNewerLocalKept() =
+        assertEquals(emptyList<ContentPreferenceEntity>(), mergePreferences(listOf(pref("a", 300, "OFF")), listOf(pref("a", 200))))
+
+    @Test fun preferencesMissingLocallyAdded() =
+        assertEquals(listOf(pref("b", 50)), mergePreferences(emptyList(), listOf(pref("b", 50))))
+
+    @Test fun preferencesRestoreIsIdempotent() {
+        val local = listOf(pref("a", 300))
+        val backup = listOf(pref("a", 200), pref("b", 100))
+        val once = (local + mergePreferences(local, backup)).associateBy { it.key }.values.toList()
+        assertEquals(emptyList<ContentPreferenceEntity>(), mergePreferences(once, backup))
+    }
 }
