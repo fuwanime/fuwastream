@@ -1,5 +1,6 @@
 package com.fuwanime.ui.manga
 
+import com.fuwanime.ui.components.rememberDownloadGate
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -7,6 +8,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import com.fuwanime.data.manga.isKomikuId
 import com.fuwanime.data.manga.isComixId
 import com.fuwanime.data.manga.isShinigamiId
+import com.fuwanime.data.manga.isWebtoonId
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -197,11 +199,13 @@ class MangaDetailViewModel(
         repo.clearMerged(id)
         viewModelScope.launch {
             val manga = try { repo.detail(id) } catch (e: CancellationException) { throw e } catch (e: Exception) {
-                val error = when {
-                    e is UiTextException -> e.text
-                    else -> e.friendlyText()
+                val saved = runCatching { downloadRepo.offlineManga(id) }.getOrNull()
+                remote.value = if (saved != null) Remote(manga = saved, chapters = runCatching { downloadRepo.offline(id) }.getOrDefault(emptyList()))
+                else {
+                    val error = when (e) { is UiTextException -> e.text; else -> e.friendlyText() }
+                    Remote(error = error)
                 }
-                remote.value = Remote(error = error); return@launch
+                return@launch
             }
             remote.value = Remote(manga = manga)
             try {
@@ -210,7 +214,8 @@ class MangaDetailViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                remote.value = remote.value.copy(chaptersError = e.friendlyText())
+                val offline = downloadRepo.offline(id)
+                remote.value = if (offline.isNotEmpty()) remote.value.copy(chapters = offline) else remote.value.copy(chaptersError = e.friendlyText())
             }
         }
     }
@@ -263,9 +268,12 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
     val labelOf: (MangaChapter) -> String = { c ->
         c.number?.let { ctx.getString(R.string.manga_chapter_number, it) } ?: c.title?.takeIf { it.isNotBlank() } ?: ctx.getString(R.string.manga_chapter_oneshot)
     }
+    val gate = rememberDownloadGate()
     val queue: (List<MangaChapter>) -> Unit = { list ->
-        vm.download(list, labelOf) { n ->
-            if (n > 0) scope.launch { snackbar.showSnackbar(ctx.resources.getQuantityString(R.plurals.manga_download_queued, n, n)) }
+        gate {
+            vm.download(list, labelOf) { n ->
+                if (n > 0) scope.launch { snackbar.showSnackbar(ctx.resources.getQuantityString(R.plurals.manga_download_queued, n, n)) }
+            }
         }
     }
     var collectionOpen by rememberSaveable { mutableStateOf(false) }
@@ -321,6 +329,7 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
                             isShinigamiId(mangaId) -> "Shinigami"
                             isKomikuId(mangaId) -> "Komiku"
                             isComixId(mangaId) -> "Comix"
+                            isWebtoonId(mangaId) -> "WEBTOON"
                             else -> "Comix"
                         }
                         InfoTable(manga, sources.ifEmpty { listOf(own) }.joinToString(" + "), inApp?.maxOfOrNull { it.publishAt }?.takeIf { it > 0 })
@@ -433,6 +442,7 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
                                         isShinigamiId(mangaId) -> R.string.manga_credit_shinigami
                                         isKomikuId(mangaId) -> R.string.manga_credit_komiku
                                         isComixId(mangaId) -> R.string.manga_credit_comix
+                                        isWebtoonId(mangaId) -> R.string.manga_credit_webtoon
                                         else -> R.string.manga_credit_comix
                                     },
                                 )
@@ -505,8 +515,7 @@ private fun MangaDetailSkeleton() {
     }
 }
 
-
-private val SOURCE_NAMES = listOf("Shinigami", "Komiku", "Comix") // indexed by sourceRank
+private val SOURCE_NAMES = listOf("Shinigami", "Komiku", "Comix", "WEBTOON") // indexed by sourceRank
 private val LANG_LABELS = mapOf(ChapterLang.ID to R.string.manga_lang_id, ChapterLang.EN to R.string.manga_lang_en, ChapterLang.RAW to R.string.manga_lang_raw)
 
 /** "Ch. 12", or the chapter title for a oneshot without a number. */

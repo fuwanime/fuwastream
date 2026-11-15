@@ -1,5 +1,8 @@
 package com.fuwanime.ui.settings
 
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.Checkbox
 import androidx.compose.material.icons.rounded.Explicit
 import kotlinx.coroutines.flow.first
 import android.content.res.Resources
@@ -153,7 +156,7 @@ class SettingsViewModel(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit) {
+fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit, onOpenProfile: () -> Unit) {
     val vm: SettingsViewModel = fuwaViewModel { c, _ ->
         SettingsViewModel(c.settingsStore, c.libraryRepository, c.downloadRepository, c.backupRepository, c::refreshHomeSurfaces)
     }
@@ -237,6 +240,35 @@ fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit) {
         }
     }
 
+    val pickDownloadFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        // The move happens later in the background, so access must survive restarts.
+        val granted = runCatching {
+            context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+        }.isSuccess
+        if (!granted) say(res.getString(R.string.mine_backup_folder_unusable))
+        else scope.launch { vm.store.setDownloadFolder(uri.toString()) }
+    }
+    var chooseLocation by remember { mutableStateOf(false) }
+    if (chooseLocation) {
+        AlertDialog(
+            onDismissRequest = { chooseLocation = false },
+            title = { Text(stringResource(R.string.mine_download_location)) },
+            text = {
+                Column {
+                    Text(stringResource(R.string.mine_download_location_desc))
+                    val ask = s.downloadAsk
+                    Row(Modifier.fillMaxWidth().clickable { scope.launch { vm.store.setDownloadAsk(!ask) } }, verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = ask, onCheckedChange = { scope.launch { vm.store.setDownloadAsk(it) } })
+                        Text(stringResource(R.string.mine_download_ask))
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { chooseLocation = false; pickDownloadFolder.launch(null) }) { Text(stringResource(R.string.mine_download_location_pick)) } },
+            dismissButton = { TextButton(onClick = { chooseLocation = false; scope.launch { vm.store.setDownloadFolder(null) } }) { Text(stringResource(R.string.mine_download_location_app)) } },
+        )
+    }
+
     val hazeState = remember { HazeState() }
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -256,6 +288,7 @@ fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit) {
             Modifier.fillMaxHeight().readableWidth().hazeSource(hazeState),
             contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = 32.dp),
         ) {
+            item { ActionRow(Icons.Rounded.Person, stringResource(R.string.profile_title), stringResource(R.string.profile_settings_desc), onOpenProfile) }
             item { Group(stringResource(R.string.mine_group_display)) }
             item {
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
@@ -478,6 +511,17 @@ fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit) {
                     vm.update { setDownloadWifiOnly(it) }
                 }
             }
+            item {
+                ActionRow(
+                    Icons.Rounded.Folder,
+                    stringResource(R.string.mine_download_location),
+                    when {
+                        s.downloadAsk -> stringResource(R.string.mine_download_location_ask)
+                        s.downloadFolder != null -> folderName(res, Uri.parse(s.downloadFolder!!))
+                        else -> stringResource(R.string.mine_download_location_app)
+                    },
+                ) { chooseLocation = true }
+            }
 
             item { Group(stringResource(R.string.manga_settings_group)) }
             item { Group(stringResource(R.string.mine_group_backup)) }
@@ -667,5 +711,5 @@ private fun backupMessage(res: Resources, outcome: BackupOutcome): String = when
 }
 
 /** "Download/Anime" from a tree id like "primary:Download/Anime". */
-private fun folderName(res: Resources, tree: Uri): String =
+internal fun folderName(res: Resources, tree: Uri): String =
     runCatching { DocumentsContract.getTreeDocumentId(tree).substringAfterLast(':') }.getOrNull()?.ifEmpty { null } ?: res.getString(R.string.mine_backup_folder_storage)

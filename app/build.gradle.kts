@@ -33,7 +33,7 @@ android {
     // F-Droid & CI pass VERSION_CODE/VERSION_NAME as env vars. Fallback to fixed
     // values when not set (deterministic, not epoch minutes).
     versionCode = System.getenv("VERSION_CODE")?.toIntOrNull() ?: 13
-    versionName = System.getenv("VERSION_NAME") ?: "2.1.10"
+    versionName = System.getenv("VERSION_NAME") ?: "2.1.36"
     // Instrumented tests exercise the real Comix OCR/translation pipeline on an emulator.
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     // The in-app update checker looks at the repo this APK was built from (a fork checks its own releases).

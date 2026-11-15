@@ -4,6 +4,9 @@ import com.fuwanime.data.manga.ComixWsSource
 import com.fuwanime.data.manga.KomikuSource
 import com.fuwanime.data.manga.ShinigamiApi
 import com.fuwanime.data.manga.ShinigamiSource
+import com.fuwanime.data.manga.WebtoonSource
+import com.fuwanime.data.manga.WT_REFERER
+import com.fuwanime.data.manga.isWebtoonImage
 import com.fuwanime.data.manga.MangaDns
 import kotlinx.coroutines.flow.first
 import com.fuwanime.data.backup.BackupWorker
@@ -20,6 +23,7 @@ import okio.Path.Companion.toOkioPath
 import com.fuwanime.data.AnimeRepository
 import com.fuwanime.data.DownloadRepository
 import com.fuwanime.data.LibraryRepository
+import com.fuwanime.data.ProfileRepository
 import com.fuwanime.data.manga.MangaLibrary
 import com.fuwanime.data.local.FuwaDatabase
 import com.fuwanime.data.local.SettingsStore
@@ -66,19 +70,20 @@ class AppContainer(private val app: Application) {
     )
     private val database = FuwaDatabase.create(app)
     val settingsStore = SettingsStore(app)
+    val libraryRepository = LibraryRepository(database)
+    val profileRepository = ProfileRepository(database)
+    val mangaLibrary = MangaLibrary(database)
     val animeRepository = AnimeRepository(
         AnimeApiService.create(apiHttpClient),
         AnimeApiService.create(apiHttpClient.newBuilder().addInterceptor(ForceCache).build()),
         kuramanime = KuramanimeSource(httpClient, mature = { settingsStore.matureContent.first() }),
         mature = { settingsStore.matureContent.first() },
     )
-    val libraryRepository = LibraryRepository(database)
-    val mangaLibrary = MangaLibrary(database)
 
     /** For writes that must outlive the screen that started them (e.g. saving progress on exit). */
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    val downloadRepository = DownloadRepository(app, database.downloadDao(), animeRepository, appScope)
+    val downloadRepository = DownloadRepository(app, database.downloadDao(), animeRepository, appScope, settingsStore)
 
     /** Re-renders the "Lanjutkan" shortcut and widget after history changes. */
     fun refreshHomeSurfaces() {
@@ -103,7 +108,7 @@ class AppContainer(private val app: Application) {
     val animeLinkRepository by lazy { AnimeLinkRepository(database.animeLinkDao(), AniListApi.create(metaHttpClient)) }
     val skipRepository by lazy { SkipRepository(AniSkipApi.create(metaHttpClient)) }
 
-    /** Shinigami's API answers browser-like clients; Comix and Komiku share this client. */
+    /** Shinigami's API answers browser-like clients; Comix, Komiku and Webtoon share this client. */
     val mangaHttpClient: OkHttpClient by lazy {
         metaHttpClient.newBuilder()
             .addInterceptor { chain ->
@@ -114,8 +119,23 @@ class AppContainer(private val app: Application) {
                             .header("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36")
                             .header("Accept", "application/json")
                             .build()
+                        // Webtoon's panel CDN rejects requests without its own Referer (HTTP 403).
+                        isWebtoonImage(req.url.toString()) -> req.newBuilder()
+                            .header("Referer", WT_REFERER)
+                            .build()
                         else -> req
                     },
+                )
+            }
+            .build()
+    }
+    /** Coil's client: same as [httpClient] plus the Referer Webtoon's image CDN demands (else thumbnails and panels get HTTP 403). */
+    val imageHttpClient: OkHttpClient by lazy {
+        httpClient.newBuilder()
+            .addInterceptor { chain ->
+                val req = chain.request()
+                chain.proceed(
+                    if (isWebtoonImage(req.url.toString())) req.newBuilder().header("Referer", WT_REFERER).build() else req,
                 )
             }
             .build()
@@ -126,6 +146,7 @@ class AppContainer(private val app: Application) {
             shinigami = ShinigamiSource(ShinigamiApi.create(mangaHttpClient)),
             komiku = KomikuSource(mangaHttpClient),
             comix = ComixWsSource(app, mature = { settingsStore.matureContent.first() }, client = mangaHttpClient),
+            webtoon = WebtoonSource(mangaHttpClient),
             mature = { settingsStore.matureContent.first() },
         )
     }
@@ -151,6 +172,7 @@ class FuwaApp : Application(), SingletonImageLoader.Factory {
         container = AppContainer(this)
         EpisodeNotifyWorker.schedule(this)
         ReleaseNotifyWorker.schedule(this)
+        AppUpdateWorker.schedule(this)
         container.appScope.launch {
             val backup = container.settingsStore.backup.first()
             if (backup.treeUri != null && backup.auto) BackupWorker.schedule(this@FuwaApp)
@@ -159,7 +181,7 @@ class FuwaApp : Application(), SingletonImageLoader.Factory {
 
     // Coil 3 ignores HTTP cache headers by default, matching the old respectCacheHeaders(false).
     override fun newImageLoader(context: PlatformContext): ImageLoader = ImageLoader.Builder(context)
-        .components { add(OkHttpNetworkFetcherFactory(callFactory = { container.httpClient })) }
+        .components { add(OkHttpNetworkFetcherFactory(callFactory = { container.imageHttpClient })) }
         .memoryCache { MemoryCache.Builder().maxSizePercent(context, 0.25).build() }
         .diskCache {
             DiskCache.Builder()

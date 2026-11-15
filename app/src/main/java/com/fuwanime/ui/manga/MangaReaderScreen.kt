@@ -1,5 +1,8 @@
 package com.fuwanime.ui.manga
 
+import com.fuwanime.data.manga.isKomikuId
+import com.fuwanime.data.manga.isShinigamiId
+import com.fuwanime.data.manga.isWebtoonId
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
@@ -91,6 +94,8 @@ import coil3.compose.AsyncImagePainter
 import com.fuwanime.R
 import com.fuwanime.data.local.MangaDownloadState
 import com.fuwanime.data.local.ReaderMode
+import com.fuwanime.data.ProfileRepository
+import com.fuwanime.data.ProfileRules
 import com.fuwanime.data.local.SettingsStore
 import com.fuwanime.data.manga.ChapterTranslationState
 import com.fuwanime.data.manga.IsMangaChapterTranslator
@@ -159,6 +164,7 @@ class MangaReaderViewModel(
     private val translator: IsMangaChapterTranslator,
     private val appScope: kotlinx.coroutines.CoroutineScope,
     private val cacheDir: java.io.File,
+    private val profile: ProfileRepository? = null,
 ) : ViewModel() {
     private val _state = MutableStateFlow(ReaderState())
     val state: StateFlow<ReaderState> = _state.asStateFlow()
@@ -229,7 +235,11 @@ class MangaReaderViewModel(
 
     fun saveProgress(chapter: MangaChapter, page: Int, pageCount: Int, chapterLabel: String) {
         val manga = _state.value.manga ?: return
-        appScope.launch { library.saveProgress(manga, chapter, chapterLabel, page, pageCount) }
+        appScope.launch {
+            library.saveProgress(manga, chapter, chapterLabel, page, pageCount)
+            // Saved on every page turn; the quest counts each chapter id only once.
+            if (ProfileRules.chapterRead(page, pageCount)) profile?.onChapterRead(chapter.id)
+        }
     }
 
     fun setReaderMode(mode: ReaderMode) = viewModelScope.launch {
@@ -294,7 +304,7 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
 fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
     val ctx = LocalContext.current
     val vm: MangaReaderViewModel = fuwaViewModel(key = "reader-$mangaId-$chapterId") { c, _ ->
-        MangaReaderViewModel(mangaId, chapterId, c.mangaRepository, c.mangaLibrary, c.settingsStore, c.mangaDownloads, c.mangaTranslator, c.appScope, ctx.cacheDir)
+        MangaReaderViewModel(mangaId, chapterId, c.mangaRepository, c.mangaLibrary, c.settingsStore, c.mangaDownloads, c.mangaTranslator, c.appScope, ctx.cacheDir, c.profileRepository)
     }
     val state by vm.state.collectAsStateWithLifecycle()
     val readerMode by vm.readerMode.collectAsStateWithLifecycle()
@@ -539,6 +549,7 @@ private fun Credit(chapter: MangaChapter, modifier: Modifier = Modifier) {
             isShinigamiId(chapter.id) -> stringResource(R.string.manga_reader_source_shinigami)
             isKomikuId(chapter.id) -> stringResource(R.string.manga_reader_source_komiku)
             isComixId(chapter.id) -> stringResource(R.string.manga_reader_source_comix)
+            isWebtoonId(chapter.id) -> stringResource(R.string.manga_reader_source_webtoon)
             chapter.group != null -> stringResource(R.string.manga_reader_scanlation, chapter.group)
             else -> stringResource(R.string.manga_reader_source_comix)
         },

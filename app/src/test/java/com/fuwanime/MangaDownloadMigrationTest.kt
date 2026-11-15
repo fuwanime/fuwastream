@@ -25,17 +25,18 @@ class MangaDownloadMigrationTest {
             .build()
         val db = FrameworkSQLiteOpenHelperFactory().create(config).writableDatabase
         FuwaDatabase.MIGRATION_5_6.migrate(db)
+        FuwaDatabase.MIGRATION_6_7.migrate(db)
         // name -> (type, notnull, pk)
         val cols = HashMap<String, Triple<String, Int, Int>>()
         db.query("PRAGMA table_info(manga_downloads)").use { c ->
             while (c.moveToNext()) cols[c.getString(1)] = Triple(c.getString(2), c.getInt(3), c.getInt(5))
         }
-        val text = setOf("chapterId", "mangaId", "mangaTitle", "coverUrl", "chapterNumber", "chapterLabel", "language", "state")
+        val text = setOf("chapterId", "mangaId", "mangaTitle", "coverUrl", "chapterNumber", "chapterLabel", "language", "state", "fileUri")
         val ints = setOf("pageCount", "pagesDone", "bytes", "createdAt")
         assertEquals(text + ints, cols.keys)
         text.forEach { assertEquals(it, "TEXT", cols[it]!!.first) }
         ints.forEach { assertEquals(it, "INTEGER", cols[it]!!.first) }
-        cols.forEach { (name, v) -> assertEquals(name, if (name == "coverUrl" || name == "chapterNumber") 0 else 1, v.second) }
+        cols.forEach { (name, v) -> assertEquals(name, if (name == "coverUrl" || name == "chapterNumber" || name == "fileUri") 0 else 1, v.second) }
         assertEquals(1, cols["chapterId"]!!.third)
     }
 }

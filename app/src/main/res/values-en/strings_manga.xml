@@ -117,4 +117,6 @@
     <string name="manga_reader_show_original">Show original</string>
     <string name="manga_reader_translate_auto">Auto-translate</string>
     <string name="manga_reader_translate_auto_desc">When opening a chapter, translate all pages to Indonesian.</string>
+    <string name="manga_reader_source_webtoon">WEBTOON</string>
+    <string name="manga_credit_webtoon">Source: WEBTOON</string>
 </resources>

@@ -1,5 +1,9 @@
 package com.fuwanime.ui.player
 
+import com.fuwanime.data.ProfileRepository
+import com.fuwanime.data.ProfileRules
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 import androidx.lifecycle.SavedStateHandle
 import com.fuwanime.data.SeasonEntry
 import com.fuwanime.data.meta.AnimeLinkRepository
@@ -81,6 +85,7 @@ class PlayerViewModel(
     private val refreshHomeSurfaces: () -> Unit = {},
     private val links: AnimeLinkRepository? = null,
     private val skips: SkipRepository? = null,
+    private val profile: ProfileRepository? = null,
 ) : ViewModel() {
 
     private val animeId: String = checkNotNull(saved["animeId"])
@@ -98,6 +103,9 @@ class PlayerViewModel(
         ),
     )
     val state: StateFlow<PlayerUiState> = _state.asStateFlow()
+
+    /** New level numbers, shown as a snackbar while watching. */
+    val levelUps: Flow<Int> = profile?.levelUps ?: emptyFlow()
 
     val settings: StateFlow<AppSettings> =
         settingsStore.settings.stateIn(viewModelScope, SharingStarted.Eagerly, AppSettings())
@@ -212,7 +220,10 @@ class PlayerViewModel(
     private suspend fun playOffline(episode: Episode, resumeAt: Long): Boolean {
         val saved = downloads.completed(episode.id) ?: return false
         val e = saved.entity
-        val local = StreamSource(Uri.fromFile(File(e.filePath)).toString(), e.quality, "")
+        val local = StreamSource(
+            // Episodes moved to a picked folder are content:// documents; the rest are files in the app folder.
+            if (e.filePath.startsWith("content://")) e.filePath else Uri.fromFile(File(e.filePath)).toString(), e.quality, "",
+        )
         _state.update {
             it.copy(
                 // Offline there may be no detail response, so rebuild the essentials from the download row.
@@ -343,7 +354,11 @@ class PlayerViewModel(
         val anime = s.anime ?: return null
         // Ignore the first few seconds so merely opening an episode doesn't clutter history.
         if (durationMs <= 0 || positionMs < 5_000) return null
-        return appScope.launch { library.saveProgress(anime, s.episode, positionMs, durationMs) }
+        return appScope.launch {
+            library.saveProgress(anime, s.episode, positionMs, durationMs)
+            // saveProgress runs every 5 s; the quest counts each episode id only once, so repeats are no-ops.
+            if (ProfileRules.episodeWatched(positionMs, durationMs)) profile?.onEpisodeWatched(s.episode.id)
+        }
     }
 
     /** Leaving the episode (stopped, ended): save, then let launcher surfaces show it. */
@@ -357,6 +372,9 @@ class PlayerViewModel(
 
     /** Real playing time for statistics, independent of playback speed. */
     fun addWatchTime(ms: Long) {
-        appScope.launch { library.addWatchTime(ms) }
+        appScope.launch {
+            library.addWatchTime(ms)
+            profile?.recordWatch(ms)
+        }
     }
 }

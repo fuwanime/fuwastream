@@ -34,6 +34,7 @@ class LibraryRepository(private val db: FuwaDatabase) {
     private val mangaFavorites = db.mangaFavoriteDao()
     private val mangaHistory = db.mangaHistoryDao()
     private val preferences = db.contentPreferenceDao()
+    private val profile = db.profileDao()
 
     val favoriteList: Flow<List<FavoriteEntity>> = favorites.observeAll()
 
@@ -205,6 +206,10 @@ class LibraryRepository(private val db: FuwaDatabase) {
         mangaHistory.clear()
         preferences.clear()
         db.sourceStatDao().clear()
+        profile.clearProfile()
+        profile.clearQuests()
+        profile.clearCounted()
+        profile.clearBorders()
     }
 
     data class Snapshot(

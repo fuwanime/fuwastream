@@ -36,6 +36,10 @@ data class AppSettings(
     /** Downloads default lower than streaming to save storage. */
     val downloadQuality: Int = 480,
     val downloadWifiOnly: Boolean = false,
+    /** Folder (tree URI) finished episodes move into; null keeps them in the app's private folder. */
+    val downloadFolder: String? = null,
+    /** Ask "save where?" on every download until the user ticks "always use this". */
+    val downloadAsk: Boolean = true,
     /** Periodic background check for new episodes of favorited, ongoing anime. */
     val notifyNewEpisodes: Boolean = true,
     /** Release notifications for any ongoing anime, not only favourites. */
@@ -67,6 +71,8 @@ internal object Keys {
     val doubleTapSeekSeconds = intPreferencesKey("double_tap_seek_seconds")
     val downloadQuality = intPreferencesKey("download_quality")
     val downloadWifiOnly = booleanPreferencesKey("download_wifi_only")
+    val downloadFolder = stringPreferencesKey("download_folder")
+    val downloadAsk = booleanPreferencesKey("download_ask")
     val notifyNewEpisodes = booleanPreferencesKey("notify_new_episodes")
     val notifyOngoingAnime = booleanPreferencesKey("notify_ongoing_anime")
     val notifyNewChapters = booleanPreferencesKey("notify_new_chapters")
@@ -187,6 +193,8 @@ class SettingsStore(private val context: Context) {
     suspend fun setDoubleTapSeekSeconds(seconds: Int) = context.dataStore.edit { it[Keys.doubleTapSeekSeconds] = seconds }
     suspend fun setDownloadQuality(height: Int) = context.dataStore.edit { it[Keys.downloadQuality] = height }
     suspend fun setDownloadWifiOnly(enabled: Boolean) = context.dataStore.edit { it[Keys.downloadWifiOnly] = enabled }
+    suspend fun setDownloadAsk(enabled: Boolean) = context.dataStore.edit { it[Keys.downloadAsk] = enabled }
+    suspend fun setDownloadFolder(treeUri: String?) = context.dataStore.edit { if (treeUri == null) it.remove(Keys.downloadFolder) else it[Keys.downloadFolder] = treeUri }
     suspend fun setNotifyNewEpisodes(enabled: Boolean) = context.dataStore.edit { it[Keys.notifyNewEpisodes] = enabled }
     suspend fun setNotifyOngoingAnime(enabled: Boolean) = context.dataStore.edit { it[Keys.notifyOngoingAnime] = enabled }
     suspend fun setNotifyNewChapters(enabled: Boolean) = context.dataStore.edit { it[Keys.notifyNewChapters] = enabled }
@@ -207,6 +215,10 @@ class SettingsStore(private val context: Context) {
      */
     val matureContent: Flow<Boolean> = context.dataStore.data.map { it[Keys.mangaMature] ?: false }
     suspend fun setMatureContent(enabled: Boolean) = context.dataStore.edit { it[Keys.mangaMature] = enabled }
+
+    /** Compat alias used by existing manga UI. */
+    val mangaMature: Flow<Boolean> get() = matureContent
+    suspend fun setMangaMature(enabled: Boolean) = setMatureContent(enabled)
 
     /** Opening marked by the user for an anime; the same range applies to all its episodes. */
     fun opMark(animeId: String): Flow<OpMark?> = context.dataStore.data.map { prefs ->
@@ -305,6 +317,8 @@ internal fun Preferences.toSettings(): AppSettings {
         doubleTapSeekSeconds = this[Keys.doubleTapSeekSeconds] ?: d.doubleTapSeekSeconds,
         downloadQuality = this[Keys.downloadQuality] ?: d.downloadQuality,
         downloadWifiOnly = this[Keys.downloadWifiOnly] ?: d.downloadWifiOnly,
+        downloadFolder = this[Keys.downloadFolder],
+        downloadAsk = this[Keys.downloadAsk] ?: d.downloadAsk,
         notifyNewEpisodes = this[Keys.notifyNewEpisodes] ?: d.notifyNewEpisodes,
         notifyOngoingAnime = this[Keys.notifyOngoingAnime] ?: d.notifyOngoingAnime,
         notifyNewChapters = this[Keys.notifyNewChapters] ?: d.notifyNewChapters,

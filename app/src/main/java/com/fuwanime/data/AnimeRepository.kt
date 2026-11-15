@@ -48,6 +48,9 @@ class AnimeRepository(
         if (anime.id.isNotBlank()) animeCache.putIfAbsent(anime.id, anime)
     }
 
+    private suspend fun visible(list: List<Anime>): List<Anime> =
+        if (mature()) list else list.filterNot { it.hasMatureGenre() }
+
     /** Lower-case genre name -> id for the genre endpoint; fetched once. */
     @Volatile
     private var genreIds: Map<String, String>? = null

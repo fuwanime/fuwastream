@@ -4,6 +4,10 @@ import android.app.DownloadManager
 import android.content.Context
 import android.net.Uri
 import android.os.Environment
+import android.provider.DocumentsContract
+import com.fuwanime.data.local.SettingsStore
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import com.fuwanime.R
 import com.fuwanime.util.localizedContext
 import com.fuwanime.data.local.DownloadDao
@@ -45,7 +49,8 @@ class DownloadRepository(
     private val context: Context,
     private val dao: DownloadDao,
     private val anime: AnimeRepository,
-    appScope: CoroutineScope,
+    private val appScope: CoroutineScope,
+    private val settings: SettingsStore,
 ) {
     private val manager = context.getSystemService(DownloadManager::class.java)
 
@@ -56,6 +61,7 @@ class DownloadRepository(
                 while (true) {
                     val items = rows.map(::status)
                     emit(items)
+                    items.filter { it.state == DownloadState.DONE && !isContent(it.entity.filePath) }.forEach { appScope.launch { relocate(it.entity) } }
                     if (items.none { it.inProgress }) break
                     delay(1_000)
                 }
@@ -95,7 +101,8 @@ class DownloadRepository(
                     if (current.inProgress || current.state == DownloadState.DONE) return@runCatching
                     removeFiles(existing)
                 }
-                val relative = "fuwanime/${safeName(show.id)}_${safeName(episode.id)}_${safeName(source.quality)}.mkv"
+                // One folder per anime, files named by episode so they list in order.
+                val relative = "fuwanime/${cleanFileName(show.title).ifEmpty { safeName(show.id) }}/${episodeFileName(show.title, episode.number, source.quality)}"
                 val dir = context.getExternalFilesDir(Environment.DIRECTORY_MOVIES)
                     ?: error(localizedContext(context).getString(R.string.system_download_no_storage))
                 val target = File(dir, relative)
@@ -143,10 +150,49 @@ class DownloadRepository(
 
     private fun removeFiles(entity: DownloadEntity) {
         runCatching { manager.remove(entity.systemId) }
-        File(entity.filePath).delete()
+        if (isContent(entity.filePath)) runCatching { DocumentsContract.deleteDocument(context.contentResolver, Uri.parse(entity.filePath)) }
+        else File(entity.filePath).delete()
     }
 
+    private val moving = java.util.Collections.synchronizedSet(HashSet<String>())
+
+    /**
+     * Moves a finished episode from the app folder into the folder picked in settings (DownloadManager can only write to
+     * the app folder). On any failure the file stays where it is, so nothing is lost.
+     */
+    private suspend fun relocate(entity: DownloadEntity) = withContext(Dispatchers.IO) {
+        val folder = settings.settings.first().downloadFolder ?: return@withContext
+        if (isContent(entity.filePath) || !moving.add(entity.episodeId)) return@withContext
+        var target: Uri? = null
+        try {
+            val parent = subFolder(context.contentResolver, Uri.parse(folder), cleanFileName(entity.animeTitle)) ?: return@withContext
+            val name = episodeFileName(entity.animeTitle, entity.episodeNumber, entity.quality)
+            target = DocumentsContract.createDocument(context.contentResolver, parent, "video/x-matroska", name) ?: return@withContext
+            val source = File(entity.filePath)
+            context.contentResolver.openOutputStream(target)!!.use { out -> source.inputStream().use { it.copyTo(out) } }
+            dao.upsert(entity.copy(filePath = target.toString()))
+            source.delete()
+        } catch (e: Exception) {
+            target?.let { runCatching { DocumentsContract.deleteDocument(context.contentResolver, it) } }
+        } finally {
+            moving.remove(entity.episodeId)
+        }
+    }
+
+    private fun isContent(path: String) = path.startsWith("content://")
+
+    /** Size of a moved episode, or -1 when the document is gone or access was revoked. */
+    private fun contentSize(path: String): Long = runCatching {
+        context.contentResolver.query(Uri.parse(path), arrayOf(DocumentsContract.Document.COLUMN_SIZE), null, null, null)?.use { c ->
+            if (c.moveToFirst()) c.getLong(0) else -1L
+        } ?: -1L
+    }.getOrDefault(-1L)
+
     private fun status(entity: DownloadEntity): DownloadItem {
+        if (isContent(entity.filePath)) {
+            val size = contentSize(entity.filePath)
+            return DownloadItem(entity, if (size > 0) DownloadState.DONE else DownloadState.FAILED, size.coerceAtLeast(0), size.coerceAtLeast(0))
+        }
         val file = File(entity.filePath)
         manager.query(DownloadManager.Query().setFilterById(entity.systemId))?.use { c ->
             if (c.moveToFirst()) {

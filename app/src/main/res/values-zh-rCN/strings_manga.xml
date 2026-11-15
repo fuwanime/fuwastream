@@ -113,4 +113,6 @@
     <string name="manga_reader_show_original">显示原文</string>
     <string name="manga_reader_translate_auto">自动翻译</string>
     <string name="manga_reader_translate_auto_desc">打开章节时，将所有页面翻译成印尼语。</string>
+    <string name="manga_reader_source_webtoon">WEBTOON</string>
+    <string name="manga_credit_webtoon">来源：WEBTOON</string>
 </resources>

@@ -24,6 +24,8 @@ class MangaRepository(
     private val komiku: KomikuSource? = null,
     /** Primary English catalogue backed directly by comix.ws; ids start with "cx:". */
     private val comix: ComixWsSource? = null,
+    /** Fourth source (official, originals + canvas in id/en); ids starting with "wt:". */
+    private val webtoon: WebtoonSource? = null,
     /** "Konten dewasa" setting: also show Comix titles rated erotica; never pornographic. */
     private val mature: suspend () -> Boolean = { false },
 ) {
@@ -51,30 +53,18 @@ class MangaRepository(
     suspend fun popularIndonesia(page: Int = 1, type: MangaType? = null): MangaPage =
         shinigami?.browse("popularity", null, page, type?.slug) ?: MangaPage(emptyList(), 0, 0)
 
-    /** Shinigami and Komiku search results for [query]; empty when a source is off or fails. */
+    /** Shinigami, Komiku and Webtoon search results for [query]; empty when a source is off or fails. */
     suspend fun searchIndonesia(query: String): List<Manga> {
-        val shinigamiHits = try {
-            shinigami?.browse(null, query)?.items.orEmpty()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (_: Exception) {
-            emptyList()
-        }
-        val komikuHits = try {
-            komiku?.search(query).orEmpty()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (_: Exception) {
-            emptyList()
-        }
-        return shinigamiHits + komikuHits
+        val shinigamiHits = runCatching { shinigami?.browse(null, query)?.items.orEmpty() }.getOrDefault(emptyList())
+        val komikuHits = runCatching { komiku?.search(query).orEmpty() }.getOrDefault(emptyList())
+        val webtoonHits = runCatching { webtoon?.search(query).orEmpty() }.getOrDefault(emptyList())
+        return shinigamiHits + komikuHits + webtoonHits
     }
 
     /** English Comix results; empty when its protected client module is unavailable or too slow for a search. */
     suspend fun searchComix(query: String): List<Manga> = try {
         withTimeoutOrNull(COMIX_SEARCH_TIMEOUT_MS) { comix?.search(query).orEmpty() }.orEmpty()
     } catch (e: CancellationException) {
-        // Never let a cancelled query keep running and overwrite newer hits.
         throw e
     } catch (_: Exception) {
         emptyList()
@@ -110,6 +100,7 @@ class MangaRepository(
             if (isShinigamiId(manga.id)) null else async { look { shinigami?.find(names) } },
             if (isKomikuId(manga.id)) null else async { look { komiku?.find(names) } },
             if (isComixId(manga.id)) null else async { look { comix?.find(names) } },
+            if (isWebtoonId(manga.id)) null else async { look { webtoon?.find(names) } },
         ).awaitAll().filterNotNull()
         (listOf(manga) + others).also { sourceCache[manga.id] = it }
     }
@@ -137,12 +128,14 @@ class MangaRepository(
     suspend fun detail(id: String): Manga {
         if (isShinigamiId(id)) return shinigami?.detail(id) ?: throw notFound()
         if (isKomikuId(id)) return komiku?.detail(id) ?: throw notFound()
+        if (isWebtoonId(id)) return webtoon?.detail(id) ?: throw notFound()
         return comix?.detail(comixId(id)) ?: throw notFound()
     }
 
     suspend fun chapters(id: String): List<MangaChapter> {
         if (isShinigamiId(id)) return shinigami?.chapters(id).orEmpty()
         if (isKomikuId(id)) return komiku?.chapters(id).orEmpty()
+        if (isWebtoonId(id)) return webtoon?.chapters(id).orEmpty()
         return comix?.chapters(comixId(id)).orEmpty()
     }
 
@@ -155,9 +148,11 @@ class MangaRepository(
         return releases
     }
 
-    suspend fun pages(chapterId: String): List<String> {
+    /** [dataSaver]/[forceRefresh] are accepted for upstream compatibility; Comix/Shinigami/Komiku/Webtoon ignore them. */
+    suspend fun pages(chapterId: String, dataSaver: Boolean = false, forceRefresh: Boolean = false): List<String> {
         if (isShinigamiId(chapterId)) return shinigami?.pages(chapterId).orEmpty()
         if (isKomikuId(chapterId)) return komiku?.pages(chapterId).orEmpty()
+        if (isWebtoonId(chapterId)) return webtoon?.pages(chapterId).orEmpty()
         return comix?.pages(chapterId).orEmpty()
     }
 

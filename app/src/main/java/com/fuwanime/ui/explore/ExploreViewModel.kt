@@ -174,29 +174,9 @@ class ExploreViewModel(
         }
         mangaJob = viewModelScope.launch {
             _state.update { it.copy(mangaLoading = true) }
-            // runCatching would also swallow cancellation, letting a slow old query overwrite newer hits.
-            val local = try {
-                mangaRepository.searchIndonesia(q)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: Exception) {
-                emptyList()
-            }
-            val dex = try {
-                mangaRepository.browse(MangaOrder.RELEVANCE, q).items
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: Exception) {
-                emptyList()
-            }
-            val comix = try {
-                mangaRepository.searchComix(q)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: Exception) {
-                emptyList()
-            }
-            // Different sources give the same title different ids; keep the first (local) hit per title.
+            val local = try { mangaRepository.searchIndonesia(q) } catch (e: CancellationException) { throw e } catch (_: Exception) { emptyList() }
+            val dex = try { mangaRepository.browse(MangaOrder.RELEVANCE, q).items } catch (e: CancellationException) { throw e } catch (_: Exception) { emptyList() }
+            val comix = try { mangaRepository.searchComix(q) } catch (e: CancellationException) { throw e } catch (_: Exception) { emptyList() }
             val merged = (local + comix + dex).distinctBy { it.id }.distinctBy { it.title.trim().lowercase() }.take(12)
             _state.update { it.copy(mangaResults = merged, mangaLoading = false) }
         }
@@ -261,7 +241,8 @@ class ExploreViewModel(
                 f.type.matches(a.type)
         }
         val krFiltered = kuramanimeRaw.filter { a ->
-            // For explicit searches, trust the source's keyword match; for browse, apply local filters.
+<<<<<<< HEAD
+
             (f.query.trim().length >= 2 || matchesGenres(a, f.genres)) &&
                 when (f.status) {
                     StatusFilter.ALL -> true
@@ -270,7 +251,8 @@ class ExploreViewModel(
                 } &&
                 f.type.matches(a.type)
         }
-        // Kuramanime items merged in (deduped) so all sources appear as one list.
+<<<<<<< HEAD
+
         val merged = (filtered + krFiltered)
             .distinctBy { it.id }
             .distinctBy { it.title.trim().lowercase() }

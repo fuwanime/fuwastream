@@ -1,0 +1,169 @@
+name: Release Build
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+*"
+  workflow_dispatch:
+    inputs:
+      bump_type:
+        description: "Tipe rilis versi (SemVer rule)"
+        required: true
+        type: choice
+        default: "patch"
+        options:
+          - "patch"   # Fix / code fix / bug fix (+0.0.1)
+          - "minor"   # Update feat / fitur baru (+0.1.0)
+          - "major"   # Update besar (+1.0.0)
+          - "custom"  # Tentukan versi manual
+      custom_version:
+        description: "Versi kustom (diisi jika memilih 'custom', contoh: 2.2.0)"
+        required: false
+        type: string
+        default: ""
+      prerelease:
+        description: "Tandai rilis sebagai pre-release"
+        required: false
+        type: boolean
+        default: false
+      dry_run:
+        description: "Dry run (hanya build APK/AAB dan test, tanpa membuat tag & release)"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & Publish Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.3.1"
+
+      - name: Hitung versi SemVer
+        id: semver
+        run: |
+          set -e
+
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            TAG_NAME="${GITHUB_REF_NAME}"
+            VERSION_NAME="${TAG_NAME#v}"
+            echo "Dipicu oleh push tag: $TAG_NAME"
+          else
+            BUMP_TYPE="${{ inputs.bump_type }}"
+            CUSTOM_VER="${{ inputs.custom_version }}"
+
+            # Cari tag SemVer terbaru (format vX.Y.Z)
+            LATEST_TAG=$(git tag -l 'v*.*.*' | sort -V -r | head -n 1)
+            if [[ -z "$LATEST_TAG" ]]; then
+              LATEST_TAG="v2.1.0"
+            fi
+            echo "Tag SemVer dasar: $LATEST_TAG"
+
+            CLEAN_VER="${LATEST_TAG#v}"
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$CLEAN_VER"
+            MAJOR="${MAJOR:-2}"
+            MINOR="${MINOR:-1}"
+            PATCH="${PATCH:-0}"
+
+            case "$BUMP_TYPE" in
+              patch)
+                # 0.0.1: Fix / code fix / bug fix
+                PATCH=$((PATCH + 1))
+                VERSION_NAME="${MAJOR}.${MINOR}.${PATCH}"
+                ;;
+              minor)
+                # 0.1.0: Update feat / fitur baru
+                MINOR=$((MINOR + 1))
+                PATCH=0
+                VERSION_NAME="${MAJOR}.${MINOR}.${PATCH}"
+                ;;
+              major)
+                # 1.0.0 (misal 2.0.0 atau 3.0.0): Update besar
+                MAJOR=$((MAJOR + 1))
+                MINOR=0
+                PATCH=0
+                VERSION_NAME="${MAJOR}.${MINOR}.${PATCH}"
+                ;;
+              custom)
+                CLEAN_CUSTOM="${CUSTOM_VER#v}"
+                if [[ ! "$CLEAN_CUSTOM" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                  echo "Error: Format versi custom tidak valid: '$CUSTOM_VER'. Harus berupa X.Y.Z (contoh: 2.2.0)" >&2
+                  exit 1
+                fi
+                VERSION_NAME="$CLEAN_CUSTOM"
+                ;;
+              *)
+                echo "Error: Tipe bump tidak dikenal: '$BUMP_TYPE'" >&2
+                exit 1
+                ;;
+            esac
+            TAG_NAME="v${VERSION_NAME}"
+            echo "Versi baru dihitung: $VERSION_NAME (Tag: $TAG_NAME)"
+          fi
+
+          echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
+          echo "TAG_NAME=$TAG_NAME" >> "$GITHUB_ENV"
+          # Monotonik version code di atas instalasi lama (30M offset)
+          echo "VERSION_CODE=$((30000000 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
+
+      - name: Decode signing keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        if: env.KEYSTORE_BASE64 != ''
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          echo "KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+
+      - name: Build APK + AAB
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: gradle testDebugUnitTest assembleRelease bundleRelease --stacktrace
+
+      - name: Rename artifacts
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/apk/release/*.apk "dist/FuwaStream-${VERSION_NAME}.apk"
+          cp app/build/outputs/bundle/release/*.aab "dist/FuwaStream-${VERSION_NAME}.aab"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FuwaStream-${{ env.VERSION_NAME }}
+          path: dist/*
+
+      - name: Create and push Git tag
+        if: github.event_name == 'workflow_dispatch' && !inputs.dry_run
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if ! git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+            git tag -a "$TAG_NAME" -m "FuwaStream $VERSION_NAME"
+            git push origin "$TAG_NAME"
+          else
+            echo "Tag $TAG_NAME sudah ada."
+          fi
+
+      - name: Publish GitHub Release
+        if: (!inputs.dry_run)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG_NAME }}
+          name: FuwaStream ${{ env.VERSION_NAME }}
+          target_commitish: ${{ github.sha }}
+          files: dist/*
+          generate_release_notes: true
+          make_latest: ${{ !inputs.prerelease }}
+          prerelease: ${{ inputs.prerelease || false }}

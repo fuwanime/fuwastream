@@ -1,5 +1,6 @@
 package com.fuwanime.ui.player
 
+import com.fuwanime.ui.components.rememberDownloadGate
 import com.fuwanime.util.text
 import com.fuwanime.ui.components.IconWithTooltip
 import android.app.Activity
@@ -257,6 +258,7 @@ fun PlayerRoute(
     /** Opens another anime's Detail (the next season at the end of this one). */
     onOpenAnime: (Anime) -> Unit = {},
 ) {
+    val gate = rememberDownloadGate()
     val appContext = LocalContext.current.applicationContext
     val vm: PlayerViewModel = fuwaViewModel { c, h ->
         PlayerViewModel(
@@ -266,12 +268,16 @@ fun PlayerRoute(
             refreshHomeSurfaces = c::refreshHomeSurfaces,
             links = c.animeLinkRepository,
             skips = c.skipRepository,
+            profile = c.profileRepository,
         )
     }
     val state by vm.state.collectAsStateWithLifecycle()
     val download by vm.download.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val res = LocalContext.current.resources
+    LaunchedEffect(vm) {
+        vm.levelUps.collect { level -> snackbar.showSnackbar(res.getString(R.string.profile_level_up, level)) }
+    }
     LaunchedEffect(state.message) {
         state.message?.let {
             vm.messageShown()
@@ -525,7 +531,7 @@ fun PlayerRoute(
                     onPlay = vm::play,
                     onNext = vm::playNext,
                     onPrevious = vm::playPrevious,
-                    onDownload = vm::downloadCurrent,
+                    onDownload = { source -> gate { vm.downloadCurrent(source) } },
                     onDeleteDownload = vm::deleteDownload,
                 )
             }
@@ -609,7 +615,7 @@ private fun VideoSurface(
     val context = LocalContext.current
     val activity = remember(context) { context.findActivity() }
     val scope = rememberCoroutineScope()
-    var controlsVisible by remember { mutableStateOf(true) }
+    var controlsVisible by remember { mutableStateOf(false) }
     var hideJob by remember { mutableStateOf<Job?>(null) }
     var seekFeedback by remember { mutableStateOf<Pair<Boolean, Int>?>(null) } // (forward, seconds)
     var gestureLevel by remember { mutableStateOf<Pair<ImageVector, Float>?>(null) }
@@ -637,8 +643,9 @@ private fun VideoSurface(
             if (player.isPlaying) controlsVisible = false
         }
     }
-    LaunchedEffect(playback.isPlaying) {
-        if (!playback.isPlaying) controlsVisible = true
+    // Controls come up on their own only when playback stops (paused, ended); while it buffers, the spinner alone shows.
+    LaunchedEffect(playback.isPlaying, playback.buffering) {
+        if (!playback.isPlaying && !playback.buffering) controlsVisible = true
         scheduleHide()
     }
 

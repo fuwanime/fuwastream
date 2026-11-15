@@ -38,6 +38,7 @@ class MangaDownloadWorker(context: Context, params: WorkerParameters) : Coroutin
                 return Result.success()
             }
             dao.setState(chapterId, MangaDownloadState.DONE.name)
+            c.mangaDownloads.packCbz(row)
             Result.success()
         } catch (e: CancellationException) {
             throw e
