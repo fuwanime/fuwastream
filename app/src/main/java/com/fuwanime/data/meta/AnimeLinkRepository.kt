@@ -62,7 +62,7 @@ class AnimeLinkRepository(
         dao.put(
             AnimeLinkEntity(
                 animeId, LinkState.LINKED.name, m.id, m.idMal, meta.score, meta.tags.joinToString("\n"),
-                meta.nextEpisode, meta.nextAiringAt, now(), meta.sourceTitles.joinToString("\n"),
+                meta.nextEpisode, meta.nextAiringAt, now(), meta.sourceTitles.joinToString("\n"), encodeCast(meta.cast),
             ),
         )
         return meta
@@ -79,7 +79,7 @@ class AnimeLinkRepository(
     }
 
     private fun AnimeLinkEntity.meta() =
-        AnimeMeta(score, tags.lines().filter { it.isNotEmpty() }, nextEpisode, nextAiringAt, sourceTitles.lines().filter { it.isNotEmpty() })
+        AnimeMeta(score, tags.lines().filter { it.isNotEmpty() }, nextEpisode, nextAiringAt, sourceTitles.lines().filter { it.isNotEmpty() }, decodeCast(cast))
 
     private companion object {
         const val TAG = "FuwaMeta"

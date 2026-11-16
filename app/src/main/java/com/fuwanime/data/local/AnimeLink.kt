@@ -22,6 +22,8 @@ data class AnimeLinkEntity(
     val fetchedAt: Long,
     /** Source manga names separated by newlines; empty when there is none (or the row predates v9). */
     val sourceTitles: String = "",
+    /** Cast as encoded by [com.fuwanime.data.meta.encodeCast]; empty when unknown (or the row predates v10). */
+    val cast: String = "",
 )
 
 @Dao

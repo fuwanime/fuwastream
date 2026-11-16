@@ -86,6 +86,9 @@
     <string name="watch_previous">Sebelumnya</string>
     <string name="watch_next">Seterusnya</string>
     <string name="watch_quality">Kualiti</string>
+    <string name="watch_cast">Watak &amp; Pelakon Suara</string>
+    <string name="watch_cast_main">Utama</string>
+    <string name="watch_cast_supporting">Sampingan</string>
     <string name="watch_read_manga">Baca versi manga</string>
     <string name="watch_manga_not_found">Versi manga belum tersedia di FuwaStream</string>
     <string name="watch_open_external">Buka dalam pemain lain</string>

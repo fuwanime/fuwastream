@@ -24,7 +24,7 @@ class AnimeLinkMigrationTest {
         return out
     }
 
-    @Test fun migration8to9AddsSourceTitles() {
+    @Test fun migrations8to10AddSourceTitlesAndCast() {
         val config = SupportSQLiteOpenHelper.Configuration.builder(ApplicationProvider.getApplicationContext())
             .name(null)
             .callback(object : SupportSQLiteOpenHelper.Callback(8) {
@@ -41,10 +41,12 @@ class AnimeLinkMigrationTest {
         )
         migrated.execSQL("INSERT INTO anime_link VALUES ('a1', 'LINKED', 7, 1007, 80, 'Action', NULL, NULL, 1)")
         FuwaDatabase.MIGRATION_8_9.migrate(migrated)
+        FuwaDatabase.MIGRATION_9_10.migrate(migrated)
 
-        migrated.query("SELECT sourceTitles FROM anime_link WHERE animeId = 'a1'").use { c ->
+        migrated.query("SELECT sourceTitles, `cast` FROM anime_link WHERE animeId = 'a1'").use { c ->
             c.moveToFirst()
             assertEquals("", c.getString(0))
+            assertEquals("", c.getString(1))
         }
         val room = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), FuwaDatabase::class.java).build()
         try {
