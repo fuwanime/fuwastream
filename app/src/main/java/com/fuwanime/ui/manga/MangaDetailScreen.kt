@@ -49,7 +49,6 @@ import java.util.Date
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -354,8 +353,9 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
                     item(key = "synopsis") { Synopsis(manga) }
                     if (manga.tags.isNotEmpty()) {
                         item(key = "tags") {
-                            FlowRow(Modifier.padding(horizontal = 20.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                manga.tags.forEach { TagChip(it, onClick = { onGenre(it) }, selected = true) }
+                            // One swipeable row: sources tag a title with 20+ themes, which as a wrapped grid pushed the chapters off screen.
+                            LazyRow(contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                items(manga.tags) { TagChip(it, onClick = { onGenre(it) }, selected = true) }
                             }
                         }
                     }
