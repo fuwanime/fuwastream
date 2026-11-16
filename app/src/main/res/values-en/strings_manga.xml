@@ -117,6 +117,9 @@
     <string name="manga_reader_show_original">Show original</string>
     <string name="manga_reader_translate_auto">Auto-translate</string>
     <string name="manga_reader_translate_auto_desc">When opening a chapter, translate all pages to Indonesian.</string>
+    <string name="manga_reader_auto_scroll">Auto-scroll</string>
+    <string name="manga_reader_auto_scroll_desc">In Webtoon mode, pages scroll down automatically and continue to the next chapter.</string>
+    <string name="manga_reader_continue_hint">Scroll again or tap to continue to the next chapter</string>
     <string name="manga_reader_source_webtoon">WEBTOON</string>
     <string name="manga_credit_webtoon">Source: WEBTOON</string>
 </resources>

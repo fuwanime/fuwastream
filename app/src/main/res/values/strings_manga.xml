@@ -113,6 +113,9 @@
     <string name="manga_reader_show_original">Tampilkan asli</string>
     <string name="manga_reader_translate_auto">Terjemahkan otomatis</string>
     <string name="manga_reader_translate_auto_desc">Saat membuka chapter, terjemahkan seluruh halaman ke Bahasa Indonesia.</string>
+    <string name="manga_reader_auto_scroll">Gulir otomatis</string>
+    <string name="manga_reader_auto_scroll_desc">Dalam mode Webtoon, halaman bergerak turun otomatis dan melanjutkan ke chapter berikutnya.</string>
+    <string name="manga_reader_continue_hint">Gulir lagi atau ketuk untuk lanjut ke chapter berikutnya</string>
     <string name="manga_reader_source_webtoon">WEBTOON</string>
     <string name="manga_credit_webtoon">Sumber: WEBTOON</string>
 </resources>

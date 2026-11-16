@@ -113,6 +113,9 @@
     <string name="manga_reader_show_original">显示原文</string>
     <string name="manga_reader_translate_auto">自动翻译</string>
     <string name="manga_reader_translate_auto_desc">打开章节时，将所有页面翻译成印尼语。</string>
+    <string name="manga_reader_auto_scroll">自动滚动</string>
+    <string name="manga_reader_auto_scroll_desc">在条漫模式下自动向下滚动，并在结尾继续下一章。</string>
+    <string name="manga_reader_continue_hint">再次滚动或点击即可继续下一章</string>
     <string name="manga_reader_source_webtoon">WEBTOON</string>
     <string name="manga_credit_webtoon">来源：WEBTOON</string>
 </resources>
