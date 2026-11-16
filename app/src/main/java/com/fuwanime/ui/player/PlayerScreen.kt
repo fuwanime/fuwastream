@@ -5,7 +5,9 @@ import com.fuwanime.util.text
 import com.fuwanime.ui.components.IconWithTooltip
 import android.app.Activity
 import android.content.Context
+import android.content.ActivityNotFoundException
 import android.content.ContextWrapper
+import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.media.AudioManager
@@ -17,6 +19,9 @@ import android.util.Log
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
@@ -123,6 +128,8 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalView
@@ -543,8 +550,32 @@ fun PlayerRoute(
         )
     }
 
+    // Another app played the stream; pick up where it stopped, or where we paused if it did not say.
+    var externalFrom by remember { mutableLongStateOf(0L) }
+    val externalLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val pos = externalEndPosition(result.data) ?: externalFrom
+        player.seekTo(pos)
+        if (player.duration > 0) vm.saveProgress(pos, player.duration)
+    }
+    val externalScope = rememberCoroutineScope()
+
     if (showSettings) {
+        val streamSource = state.source?.takeUnless { it.isLocal() }
         PlayerSettingsSheet(
+            onOpenExternal = streamSource?.let { s ->
+                {
+                    externalFrom = player.currentPosition
+                    player.pause()
+                    showSettings = false
+                    val title = nowPlaying(res, state.episode, state.anime).let { np -> listOf(np.artist, np.title).filter { it.isNotBlank() }.joinToString(" · ") }
+                    try {
+                        // No chooser: it would swallow ActivityNotFoundException and may drop the other app's result.
+                        externalLauncher.launch(externalPlayerIntent(s.url, title, externalFrom))
+                    } catch (e: ActivityNotFoundException) {
+                        externalScope.launch { snackbar.showSnackbar(res.getString(R.string.watch_no_external_player)) }
+                    }
+                }
+            },
             sources = state.sources,
             current = state.source,
             recommended = state.recommended,
@@ -620,6 +651,8 @@ private fun VideoSurface(
     var seekFeedback by remember { mutableStateOf<Pair<Boolean, Int>?>(null) } // (forward, seconds)
     var gestureLevel by remember { mutableStateOf<Pair<ImageVector, Float>?>(null) }
     var boosting by remember { mutableStateOf(false) }
+    var boostLevel by remember { mutableIntStateOf(0) }
+    val haptic = LocalHapticFeedback.current
     val baseSpeed by rememberUpdatedState(speed)
     var locked by remember { mutableStateOf(false) }
     /** Where the last auto-skip jumped from, while its "Batalkan" chip shows. */
@@ -699,15 +732,23 @@ private fun VideoSurface(
                 .fillMaxSize()
                 // Two-finger pinch switches Pas/Isi layar. It runs first (Initial pass) and consumes the gesture once
                 // a second finger lands, so tap, double-tap seek, hold-2x and the level drags never fire with it.
+                // While holding at 2x, sliding right steps up to 3x/4x. Not consumed: that would cancel the hold.
                 .pointerInput(resize, locked) {
                     if (locked) return@pointerInput
                     awaitEachGesture {
-                        awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                        val downX = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial).position.x
                         var startDistance = 0f
                         do {
                             val event = awaitPointerEvent(PointerEventPass.Initial)
                             val pressed = event.changes.filter { it.pressed }
-                            if (pressed.size >= 2) {
+                            if (boosting && pressed.size == 1) {
+                                val level = ((pressed[0].position.x - downX) / (size.width / 6f)).toInt().coerceIn(0, 2)
+                                if (level != boostLevel) {
+                                    boostLevel = level
+                                    player.setPlaybackSpeed(boostedSpeed(baseSpeed, level))
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                }
+                            } else if (pressed.size >= 2) {
                                 val distance = (pressed[0].position - pressed[1].position).getDistance()
                                 if (startDistance == 0f) {
                                     startDistance = distance
@@ -738,6 +779,7 @@ private fun VideoSurface(
                                 boost.cancel()
                                 if (boosting) {
                                     boosting = false
+                                    boostLevel = 0
                                     player.setPlaybackSpeed(baseSpeed)
                                 }
                             }
@@ -761,8 +803,9 @@ private fun VideoSurface(
                         },
                     )
                 }
-                .pointerInput(fullscreen) {
-                    if (!fullscreen) return@pointerInput
+                // Off while boosting: a slide's vertical drift would start a level drag, whose consume ends the hold.
+                .pointerInput(fullscreen, boosting) {
+                    if (!fullscreen || boosting) return@pointerInput
                     val audio = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
                     val maxVolume = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC).toFloat()
                     var leftSide = false
@@ -807,7 +850,7 @@ private fun VideoSurface(
                 Row(Modifier.padding(horizontal = 14.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.FastForward, null, tint = Color.White, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("${boostedSpeed(baseSpeed)}x".replace(".0x", "x"), color = Color.White, style = MaterialTheme.typography.labelLarge)
+                    Text("${boostedSpeed(baseSpeed, boostLevel)}x".replace(".0x", "x"), color = Color.White, style = MaterialTheme.typography.labelLarge)
                 }
             }
         }
@@ -1402,9 +1445,21 @@ private fun PlayerSettingsSheet(
     onMarkOpEnd: () -> Unit,
     onClearOpMark: () -> Unit,
     onSleep: (SleepOption) -> Unit,
+    /** Null for a downloaded episode: its file can't be handed to another app. */
+    onOpenExternal: (() -> Unit)?,
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
+            if (onOpenExternal != null) {
+                item {
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.watch_open_external)) },
+                        leadingContent = { Icon(Icons.AutoMirrored.Rounded.OpenInNew, null) },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        modifier = Modifier.clickable(onClick = onOpenExternal),
+                    )
+                }
+            }
             item { SheetTitle(stringResource(R.string.watch_quality)) }
             items(sources, key = { it.url }) { s ->
                 ListItem(

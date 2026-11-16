@@ -62,6 +62,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.MenuBook
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
@@ -169,8 +171,9 @@ fun DetailRoute(
     onPlay: (anime: Anime, episode: Episode, sharedKey: String?, thumb: String) -> Unit,
     onAnimeClick: OpenAnime,
     onGenre: (String) -> Unit,
+    onOpenManga: (mangaId: String) -> Unit = {},
 ) {
-    val vm: DetailViewModel = fuwaViewModel(key = "detail") { c, h -> DetailViewModel(c.animeRepository, c.libraryRepository, c.downloadRepository, c.settingsStore, c.animeLinkRepository, h) }
+    val vm: DetailViewModel = fuwaViewModel(key = "detail") { c, h -> DetailViewModel(c.animeRepository, c.libraryRepository, c.downloadRepository, c.settingsStore, c.animeLinkRepository, c.mangaRepository, h) }
     val state by vm.state.collectAsStateWithLifecycle()
     val favorite by vm.isFavorite.collectAsStateWithLifecycle()
     val collectionStatus by vm.collectionStatus.collectAsStateWithLifecycle()
@@ -185,6 +188,9 @@ fun DetailRoute(
             vm.messageShown()
             snackbar.showSnackbar(it(res))
         }
+    }
+    LaunchedEffect(state.mangaLookup) {
+        (state.mangaLookup as? MangaLookup.Found)?.let { vm.mangaOpened(); onOpenManga(it.mangaId) }
     }
     Box(Modifier.fillMaxSize()) {
         DetailScreen(
@@ -375,6 +381,11 @@ private fun DetailScreen(
                 }
                 item(key = "synopsis") { Box(Modifier.navEnter(180)) { Synopsis(anime.synopsis) } }
                 item(key = "info") { Box(Modifier.navEnter(200)) { InfoGrid(anime) } }
+                if (state.meta?.sourceTitles?.isNotEmpty() == true) {
+                    item(key = "read-manga") {
+                        ReadMangaButton(state.mangaLookup, vm::openManga, Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp))
+                    }
+                }
                 if (state.meta != null) {
                     item(key = "anilist") { AniListFooter(onUnlink = vm::unlinkMeta) }
                 }
@@ -1023,5 +1034,16 @@ private fun EpisodeDownloadButton(download: DownloadItem?, onDownload: () -> Uni
             confirmButton = { TextButton(onClick = { confirm = false; onDelete() }) { Text(stringResource(if (running) R.string.watch_stop_download else R.string.watch_delete)) } },
             dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.watch_close)) } },
         )
+    }
+}
+
+/** Opens the manga this anime adapts. */
+@Composable
+private fun ReadMangaButton(lookup: MangaLookup, onClick: () -> Unit, modifier: Modifier) {
+    OutlinedButton(onClick = onClick, modifier = modifier) {
+        if (lookup == MangaLookup.Searching) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+        else Icon(Icons.AutoMirrored.Rounded.MenuBook, null, Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(stringResource(R.string.watch_read_manga))
     }
 }

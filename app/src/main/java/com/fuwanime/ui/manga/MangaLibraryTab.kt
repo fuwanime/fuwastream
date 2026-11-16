@@ -78,7 +78,7 @@ class MangaShelfViewModel(private val library: MangaLibrary, private val downloa
 
 /** Koleksi › Manga: what the user is reading, then their favourite titles. */
 @Composable
-fun MangaLibraryTab(onOpen: (mangaId: String) -> Unit, onRead: (mangaId: String, chapterId: String) -> Unit) {
+fun MangaLibraryTab(onOpen: (mangaId: String) -> Unit) {
     val vm: MangaShelfViewModel = fuwaViewModel { c, _ -> MangaShelfViewModel(c.mangaLibrary, c.mangaDownloads) }
     val reading by vm.continueReading.collectAsStateWithLifecycle()
     val favorites by vm.favorites.collectAsStateWithLifecycle()
@@ -94,7 +94,7 @@ fun MangaLibraryTab(onOpen: (mangaId: String) -> Unit, onRead: (mangaId: String,
         if (r.isNotEmpty()) {
             item(key = "readingTitle") { SectionTitle(stringResource(R.string.manga_home_continue)) }
             items(r, key = { "r-" + it.mangaId }) { h ->
-                ShelfRow(h.mangaTitle, h.coverUrl, subtitle = stringResource(R.string.manga_library_progress, h.chapterLabel, h.page + 1, h.pageCount), onClick = { onRead(h.mangaId, h.chapterId) }) {
+                ShelfRow(h.mangaTitle, h.coverUrl, subtitle = stringResource(R.string.manga_library_progress, h.chapterLabel, h.page + 1, h.pageCount), onClick = { onOpen(h.mangaId) }) {
                     IconButton(onClick = { vm.remove(h.mangaId) }) { Icon(Icons.Rounded.Close, stringResource(R.string.manga_library_remove)) }
                 }
             }

@@ -21,6 +21,14 @@ class UpdateCheckTest {
     }
 
     @Test
+    fun ciBuilds_seeTheNextRelease() {
+        // CI names builds after the last tag, e.g. 2.1.0-ci.105, so the app reports v2.1.0-ci.105.
+        assertTrue(isNewerRelease("v2.1.1", "v2.1.0-ci.105"))
+        assertTrue(isNewerRelease("v2.2.0", "v2.1.0-ci.105"))
+        assertFalse(isNewerRelease("v2.1.0", "v2.1.0-ci.105")) // built after v2.1.0, so not older
+    }
+
+    @Test
     fun semverMigration_offersSemVerOverBuildTags() {
         assertTrue(isNewerRelease("v2.1.0", "build-91"))
         assertTrue(isNewerRelease("v2.0.1", "build-51"))

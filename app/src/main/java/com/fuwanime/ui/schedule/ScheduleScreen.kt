@@ -248,6 +248,15 @@ private fun SeasonPage(
                 if (mineOnly) state.all.filter { it.id in favoriteIds } else state.all
             }
             val (fresh, continuing) = remember(visible, season) { splitBySeason(visible, season) }
+            if (fresh.isEmpty() && continuing.isEmpty()) {
+                MessageState(
+                    Icons.Rounded.EventBusy,
+                    stringResource(R.string.browse_schedule_empty_title),
+                    modifier = Modifier.padding(bottom = LocalNavBarPadding.current),
+                    message = stringResource(R.string.browse_schedule_season_empty_message),
+                )
+                return
+            }
             val sections = listOf(stringResource(R.string.browse_schedule_new_season) to fresh, stringResource(R.string.browse_schedule_continuing) to continuing)
             LazyColumn(
                 contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp + LocalNavBarPadding.current),

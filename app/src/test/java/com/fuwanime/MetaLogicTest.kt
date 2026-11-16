@@ -12,6 +12,10 @@ import com.fuwanime.data.meta.SegmentKind
 import com.fuwanime.data.meta.SkipSegment
 import com.fuwanime.data.meta.airedYearOf
 import com.fuwanime.data.meta.metaOf
+import com.fuwanime.data.meta.AniListRelationEdge
+import com.fuwanime.data.meta.AniListRelationNode
+import com.fuwanime.data.meta.AniListRelations
+import com.fuwanime.data.meta.sourceMangaTitles
 import com.fuwanime.data.meta.needsRefresh
 import com.fuwanime.data.meta.normTitle
 import com.fuwanime.data.meta.pickMatch
@@ -106,4 +110,21 @@ class MetaLogicTest {
     @Test fun segmentsDropInvertedIntervals() = assertTrue(skipSegments(listOf(r("op", 50.0, 40.0, 1420.0)), 1_420_000).isEmpty())
 
     @Test fun segmentsIgnoreUnknownTypes() = assertTrue(skipSegments(listOf(r("preview", 1.0, 40.0, 1420.0)), 1_420_000).isEmpty())
+
+    private fun withRelations(vararg edges: AniListRelationEdge) = media(1, "X", 2023).copy(relations = AniListRelations(edges.toList()))
+
+    @Test fun sourceTitlesPickMangaSource() {
+        val m = withRelations(
+            AniListRelationEdge("SEQUEL", AniListRelationNode("ANIME", "TV", AniListTitle("Sousou no Frieren 2nd Season", null, null))),
+            AniListRelationEdge("SOURCE", AniListRelationNode("MANGA", "MANGA", AniListTitle("Sousou no Frieren", "Frieren: Beyond Journey's End", "葬送のフリーレン"), listOf("Sousou no Frieren", " "))),
+        )
+        assertEquals(listOf("Sousou no Frieren", "Frieren: Beyond Journey's End"), sourceMangaTitles(m))
+        assertEquals(listOf("Sousou no Frieren", "Frieren: Beyond Journey's End"), metaOf(m).sourceTitles)
+    }
+
+    @Test fun sourceTitlesIgnoreNovels() {
+        val m = withRelations(AniListRelationEdge("SOURCE", AniListRelationNode("MANGA", "NOVEL", AniListTitle("Re:Zero kara Hajimeru Isekai Seikatsu", null, null))))
+        assertEquals(emptyList<String>(), sourceMangaTitles(m))
+        assertEquals(emptyList<String>(), sourceMangaTitles(media(1, "X", 2023)))
+    }
 }

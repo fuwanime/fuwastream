@@ -138,4 +138,15 @@ class AnimeLinkRepositoryTest {
         assertEquals(70, repo.link(bnha2)?.score)
         assertEquals(now - 13 * h, dao.rows["a1"]?.fetchedAt)
     }
+
+    @Test fun linkCachesSourceTitles() = runBlocking {
+        val withSource = """{"id":7,"idMal":1007,"seasonYear":2017,"title":{"romaji":"Boku no Hero Academia S2","english":null},"synonyms":[],"averageScore":80,"tags":[],"nextAiringEpisode":null,""" +
+            """"relations":{"edges":[{"relationType":"SOURCE","node":{"type":"MANGA","format":"MANGA","title":{"romaji":"Boku no Hero Academia","english":"My Hero Academia"},"synonyms":[]}}]}}"""
+        server.enqueue(page(withSource))
+        assertEquals(listOf("Boku no Hero Academia", "My Hero Academia"), repo.link(bnha2)?.sourceTitles)
+        assertEquals("Boku no Hero Academia\nMy Hero Academia", dao.rows["a1"]?.sourceTitles)
+        // Fresh cache: no second request, same titles.
+        assertEquals(listOf("Boku no Hero Academia", "My Hero Academia"), repo.link(bnha2)?.sourceTitles)
+        assertEquals(1, server.requestCount)
+    }
 }

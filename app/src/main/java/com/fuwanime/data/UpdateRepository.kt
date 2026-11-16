@@ -11,13 +11,14 @@ import kotlinx.coroutines.withContext
 /**
  * True when [candidate] is a newer release than [current].
  * - "build-N" vs "build-M": numeric comparison.
- * - "vX.Y.Z" vs "vA.B.C": SemVer numerical comparison.
+ * - "vX.Y.Z" vs "vA.B.C": SemVer numerical comparison; a "-suffix" is ignored.
  * - "vX.Y.Z" vs "build-N": always offered as an update (SemVer migration).
  * - Downgrades, identical tags, or unknown tag formats return false.
  */
 fun isNewerRelease(candidate: String, current: String): Boolean {
     fun build(tag: String) = tag.removePrefix("build-").takeIf { tag.startsWith("build-") }?.toIntOrNull()
-    fun version(tag: String) = tag.takeIf { it.startsWith("v") }?.drop(1)?.split('.')?.map { it.toIntOrNull() ?: return null }
+    // CI builds carry a pre-release suffix ("v2.1.0-ci.105"); they rank as the release they were built after.
+    fun version(tag: String) = tag.takeIf { it.startsWith("v") }?.drop(1)?.substringBefore('-')?.split('.')?.map { it.toIntOrNull() ?: return null }
 
     val cBuild = build(candidate)
     val curBuild = build(current)

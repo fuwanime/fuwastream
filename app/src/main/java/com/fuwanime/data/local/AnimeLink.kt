@@ -20,6 +20,8 @@ data class AnimeLinkEntity(
     /** Epoch milliseconds. */
     val nextAiringAt: Long?,
     val fetchedAt: Long,
+    /** Source manga names separated by newlines; empty when there is none (or the row predates v9). */
+    val sourceTitles: String = "",
 )
 
 @Dao

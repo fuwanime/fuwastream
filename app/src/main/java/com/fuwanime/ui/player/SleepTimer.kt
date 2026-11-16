@@ -23,5 +23,5 @@ fun sleepDeadline(option: SleepOption, nowMs: Long): Long? = option.minutes?.let
 fun autoPlayAllowed(autoPlayNext: Boolean, sleep: SleepOption, sleepExpired: Boolean = false): Boolean =
     autoPlayNext && sleep != SleepOption.END_OF_EPISODE && !sleepExpired
 
-/** Speed while the video is held down. */
-fun boostedSpeed(base: Float): Float = maxOf(base, 2f)
+/** Speed while the video is held down; each [level] (0-2, from sliding right) adds 1x, capped at 4x. */
+fun boostedSpeed(base: Float, level: Int = 0): Float = minOf(maxOf(base, 2f) + level.coerceIn(0, 2), 4f)

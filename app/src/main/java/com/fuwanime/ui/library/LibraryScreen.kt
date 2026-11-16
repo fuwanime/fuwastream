@@ -208,7 +208,6 @@ fun LibraryRoute(
     onStats: () -> Unit,
     onSettings: () -> Unit,
     onMangaClick: (String) -> Unit,
-    onMangaRead: (String, String) -> Unit,
 ) {
     val vm: LibraryViewModel = fuwaViewModel { c, _ -> LibraryViewModel(c.libraryRepository, c.downloadRepository, c.settingsStore, c::refreshHomeSurfaces) }
     val downloads by vm.downloads.collectAsStateWithLifecycle()
@@ -258,7 +257,7 @@ fun LibraryRoute(
             when (page) {
                 0 -> HistoryList(history, onResume, onAnimeClick, onRemove = { vm.removeHistory(it) }, selection, vm::toggleSelect)
                 1 -> FavoriteGrid(favoriteCards, favoriteSort, vm::setFavoriteSort, onAnimeClick, selection, vm::toggleSelect)
-                2 -> MangaLibraryTab(onOpen = onMangaClick, onRead = onMangaRead)
+                2 -> MangaLibraryTab(onOpen = onMangaClick)
                 else -> Column(Modifier.fillMaxSize()) {
                     // Manga downloads sit above the anime ones, one row per title.
                     MangaDownloadRows(mangaDownloads.orEmpty(), onOpen = onMangaClick, onDelete = mangaVm::deleteDownloads)

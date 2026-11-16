@@ -395,7 +395,6 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
                                     onStats = { nav.navigate(Routes.STATS) },
                                     onSettings = { nav.navigate(Routes.SETTINGS) },
                                     onMangaClick = openManga,
-                                    onMangaRead = { m, c -> nav.navigate(Routes.mangaReader(m, c)) },
                                 )
                             }
                         }
@@ -414,6 +413,7 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
                                     onPlay = { anime, ep, shared, thumb -> play(anime.id, ep, shared, thumb) },
                                     onAnimeClick = openAnime,
                                     onGenre = { g -> openExplore(g, false) },
+                                    onOpenManga = openManga,
                                 )
                             }
                         }

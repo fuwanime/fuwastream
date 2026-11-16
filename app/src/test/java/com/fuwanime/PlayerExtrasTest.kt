@@ -35,4 +35,13 @@ class PlayerExtrasTest {
         assertEquals(2f, boostedSpeed(2f))
         assertEquals(2f, boostedSpeed(0.5f))
     }
+
+    @Test
+    fun boostedSpeed_slideAddsUpTo4x() {
+        assertEquals(3f, boostedSpeed(1f, 1))
+        assertEquals(4f, boostedSpeed(1f, 2))
+        assertEquals(4f, boostedSpeed(1f, 5))
+        assertEquals(2f, boostedSpeed(1f, -1))
+        assertEquals(4f, boostedSpeed(2f, 2))
+    }
 }
