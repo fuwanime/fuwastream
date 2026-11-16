@@ -75,11 +75,10 @@ android {
   testOptions { unitTests { isIncludeAndroidResources = true } }
   dependenciesInfo {
     includeInApk = false
-    includeInBundle = false
   }
   splits {
     abi {
-      // AAB builds cannot use ABI splits; CI disables them for bundleRelease.
+      // Releases pass -PabiSplits=false for one universal APK, which the in-app updater installs.
       isEnable = (findProperty("abiSplits") as String?)?.toBooleanStrictOrNull() ?: true
       reset()
       // x86_64 keeps the CI emulator smoke test installable; phones use the arm64 build.

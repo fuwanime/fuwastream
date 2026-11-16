@@ -231,4 +231,4 @@ git push upstream v3.0.0
 ### In-App Update Invariants
 - In-app update checker (`app/src/main/java/com/fuwanime/data/UpdateRepository.kt`) compares versions numerically using `isNewerRelease()`.
 - Valid SemVer tags (`vX.Y.Z`) are always recognized as newer than legacy `build-N` releases.
-- Release titles must follow `FuwaStream X.Y.Z` with tag `vX.Y.Z` and attached artifacts `FuwaStream-X.Y.Z.apk` / `FuwaStream-X.Y.Z.aab`.
+- Release titles must follow `FuwaStream X.Y.Z` with tag `vX.Y.Z` and attached artifact `FuwaStream-X.Y.Z.apk` (one universal APK; the app is distributed only as an APK, not on app stores).
