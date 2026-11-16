@@ -204,7 +204,7 @@ APK debug ada di `app/build/outputs/apk/debug/app-debug.apk`.
 
 | Pemicu GitHub Actions | Hasil |
 |---|---|
-| Push ke `main` / PR | Menjalankan unit test dan kompilasi APK/AAB sebagai artefak verifikasi CI |
+| Push ke `main` / PR | Menjalankan unit test dan kompilasi APK sebagai artefak verifikasi CI |
 | Rilis SemVer manual (`workflow_dispatch`) | Bump versi SemVer (Major/Minor/Patch) dan publikasi rilis di [Releases](https://github.com/fuwanime/fuwastream/releases) |
 | Tag `v*.*.*` | Build rilis dan publikasi otomatis sesuai tag SemVer |
 | Manual · `smoke` / `qa` | Uji di emulator Android dengan tangkapan layar dan rekaman |
@@ -260,7 +260,7 @@ Punya ide fitur atau menemukan bug? [Buat Issue](https://github.com/fuwanime/fuw
 
 ## 🔐 Privasi &amp; kepatuhan
 
-[Kebijakan Privasi](./docs/legal/privacy.md) · [Ketentuan Layanan](./docs/legal/terms.md) · [Checklist Kepatuhan Play Store](./docs/compliance.md) · [Audit SDK Pihak Ketiga](./docs/third-party-sdk-audit.md) · [Jawaban Data Safety](./docs/play-data-safety.md)
+[Kebijakan Privasi](./docs/legal/privacy.md) · [Ketentuan Layanan](./docs/legal/terms.md) · [Audit SDK Pihak Ketiga](./docs/third-party-sdk-audit.md)
 
 Kode sumber dilisensikan di bawah **[GNU General Public License v3.0](./LICENSE)**. Lisensi kode tidak memberikan hak atas nama, logo, merek, maupun aset FuwaStream.
 

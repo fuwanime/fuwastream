@@ -85,12 +85,6 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         run: gradle testDebugUnitTest assembleRelease --stacktrace
 
-      - name: Build AAB
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-        # ABI splits and app bundles cannot be built in the same invocation.
-        run: gradle bundleRelease -PabiSplits=false --stacktrace
-
       - name: Verify release signing certificate
         # Forks sign with their own keystore; the pin guards the upstream key only.
         if: env.HAS_SIGNING == 'true' && github.repository == 'fuwanime/fuwastream'
@@ -115,7 +109,6 @@ jobs:
             abi=$(basename "$apk" | sed -E 's/^app-(.*)-release\.apk$/\1/')
             cp "$apk" "dist/FuwaStream-${VERSION_NAME}-${abi}.apk"
           done
-          cp app/build/outputs/bundle/release/*.aab "dist/FuwaStream-${VERSION_NAME}.aab"
 
       - uses: actions/upload-artifact@v4
         with:
