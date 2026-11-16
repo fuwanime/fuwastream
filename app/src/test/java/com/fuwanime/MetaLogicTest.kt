@@ -12,6 +12,17 @@ import com.fuwanime.data.meta.SegmentKind
 import com.fuwanime.data.meta.SkipSegment
 import com.fuwanime.data.meta.airedYearOf
 import com.fuwanime.data.meta.metaOf
+import com.fuwanime.data.meta.AniListCharacter
+import com.fuwanime.data.meta.AniListCharacterEdge
+import com.fuwanime.data.meta.AniListCharacters
+import com.fuwanime.data.meta.AniListImage
+import com.fuwanime.data.meta.AniListName
+import com.fuwanime.data.meta.AniListPerson
+import com.fuwanime.data.meta.CastEntry
+import com.fuwanime.data.meta.CastRole
+import com.fuwanime.data.meta.castOf
+import com.fuwanime.data.meta.decodeCast
+import com.fuwanime.data.meta.encodeCast
 import com.fuwanime.data.meta.AniListRelationEdge
 import com.fuwanime.data.meta.AniListRelationNode
 import com.fuwanime.data.meta.AniListRelations
@@ -126,5 +137,40 @@ class MetaLogicTest {
         val m = withRelations(AniListRelationEdge("SOURCE", AniListRelationNode("MANGA", "NOVEL", AniListTitle("Re:Zero kara Hajimeru Isekai Seikatsu", null, null))))
         assertEquals(emptyList<String>(), sourceMangaTitles(m))
         assertEquals(emptyList<String>(), sourceMangaTitles(media(1, "X", 2023)))
+    }
+
+    private fun edge(role: String?, name: String?, va: String? = null, img: String? = null) =
+        AniListCharacterEdge(role, AniListCharacter(AniListName(name), AniListImage(img)), listOfNotNull(va?.let { AniListPerson(AniListName(it)) }))
+
+    @Test fun castKeepsMainAndSupportingDropsBackgroundAndNameless() {
+        val m = media(1, "X", 2023).copy(
+            characters = AniListCharacters(
+                listOf(
+                    edge("MAIN", "Frieren", "Atsumi Tanezaki", "https://img/f.png"),
+                    edge("BACKGROUND", "Villager"),
+                    edge("SUPPORTING", "Himmel"),
+                    edge("MAIN", "  "),
+                ),
+            ),
+        )
+        assertEquals(
+            listOf(
+                CastEntry("Frieren", "https://img/f.png", CastRole.MAIN, "Atsumi Tanezaki"),
+                CastEntry("Himmel", null, CastRole.SUPPORTING, null),
+            ),
+            castOf(m),
+        )
+        assertEquals(castOf(m), metaOf(m).cast)
+    }
+
+    @Test fun castSurvivesTheCacheRoundTrip() {
+        val cast = listOf(
+            CastEntry("Frieren", "https://img/f.png", CastRole.MAIN, "Atsumi Tanezaki"),
+            CastEntry("Tab\tName", null, CastRole.SUPPORTING, null),
+        )
+        val back = decodeCast(encodeCast(cast))
+        assertEquals(cast[0], back[0])
+        assertEquals(CastEntry("Tab Name", null, CastRole.SUPPORTING, null), back[1])
+        assertEquals(emptyList<CastEntry>(), decodeCast(""))
     }
 }

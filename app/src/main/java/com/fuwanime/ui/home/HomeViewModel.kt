@@ -9,6 +9,9 @@ import com.fuwanime.data.AnimeRepository
 import com.fuwanime.data.LatestRelease
 import com.fuwanime.data.LibraryRepository
 import com.fuwanime.data.UpdateRepository
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import com.fuwanime.data.AppInstaller
 import com.fuwanime.data.local.SettingsStore
 import com.fuwanime.data.remote.NetworkStatus
 import com.fuwanime.data.local.ContentPreferenceEntity
@@ -95,6 +98,7 @@ class HomeViewModel(
     val backup: BackupRepository,
     private val mangaLibrary: MangaLibrary,
     private val mangaRepository: MangaRepository,
+    private val installer: AppInstaller? = null,
 ) : ViewModel() {
 
     /** A fresh install (nothing watched or saved) gets one offer to restore a backup file. */
@@ -132,6 +136,51 @@ class HomeViewModel(
 
     fun toggleFavorite(anime: Anime) {
         viewModelScope.launch { library.setFavorite(anime, anime.id !in favoriteIds.value) }
+    }
+
+    /** Where the in-app update stands: idle, downloading (0..1, or -1 when the size is unknown), or failed. */
+    sealed interface Install {
+        data object Idle : Install
+        data class Downloading(val progress: Float) : Install
+        data object NeedsPermission : Install
+        data object Failed : Install
+    }
+
+    private val _install = MutableStateFlow<Install>(Install.Idle)
+    val install: StateFlow<Install> = _install.asStateFlow()
+    private var installJob: Job? = null
+
+    /** Downloads the update and opens the system installer; asks for the install permission first when missing. */
+    fun installUpdate() {
+        val installer = installer ?: return
+        val url = _update.value?.apkUrl ?: return
+        if (_install.value is Install.Downloading) return
+        if (!installer.canInstall()) {
+            _install.value = Install.NeedsPermission
+            return
+        }
+        installJob = viewModelScope.launch {
+            _install.value = Install.Downloading(0f)
+            _install.value = try {
+                val apk = installer.download(url) { p -> _install.value = Install.Downloading(p) }
+                installer.install(apk)
+                Install.Idle
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Install.Failed
+            }
+        }
+    }
+
+    fun permissionIntent() = installer?.installPermissionIntent()
+
+    /** Back from the permission screen: try again when it was granted. */
+    fun onPermissionResult() {
+        if (installer?.canInstall() == true) {
+            _install.value = Install.Idle
+            installUpdate()
+        }
     }
 
     /** Hides the update banner until the next release. */

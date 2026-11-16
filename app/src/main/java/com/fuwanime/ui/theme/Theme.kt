@@ -26,7 +26,7 @@ import com.fuwanime.data.local.AppSettings
 import com.fuwanime.data.local.ThemeMode
 
 // "Yozakura" palette: lavender primary, sakura secondary, sky tertiary on a near-black cinematic night.
-private val DarkScheme = darkColorScheme(
+internal val DarkScheme = darkColorScheme(
     primary = Color(0xFFD4BBFF),
     onPrimary = Color(0xFF3A1B76),
     primaryContainer = Color(0xFF52348E),
@@ -64,7 +64,7 @@ private val DarkScheme = darkColorScheme(
     surfaceContainerHighest = Color(0xFF312D39),
 )
 
-private val LightScheme = lightColorScheme(
+internal val LightScheme = lightColorScheme(
     primary = Color(0xFF6A4BC4),
     onPrimary = Color(0xFFFFFFFF),
     primaryContainer = Color(0xFFEBDCFF),

@@ -4,7 +4,6 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import androidx.core.app.NotificationCompat
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
@@ -20,7 +19,6 @@ import com.fuwanime.FuwaApp
 import com.fuwanime.MainActivity
 import com.fuwanime.R
 import com.fuwanime.data.isNewerRelease
-import com.fuwanime.data.selectApkUrl
 import com.fuwanime.data.remote.GitHubApi
 import com.fuwanime.util.localizedContext
 import kotlinx.coroutines.flow.first
@@ -50,14 +48,9 @@ class AppUpdateWorker(context: Context, params: WorkerParameters) : CoroutineWor
         if (release.tagName == dismissed || release.tagName == notified) return Result.success()
 
         val title = release.name?.takeIf { it.isNotBlank() } ?: "FuwaStream ${release.tagName.removePrefix("v")}"
-        val pageUrl = release.htmlUrl
-        val apkUrl = selectApkUrl(release.assets)
-
         val posted = AppUpdateNotifier(applicationContext).notifyUpdate(
             tag = release.tagName,
             title = title,
-            pageUrl = pageUrl,
-            apkUrl = apkUrl,
         )
         if (posted) container.settingsStore.setUpdateNotifiedTag(release.tagName)
         return Result.success()
@@ -113,30 +106,21 @@ class AppUpdateNotifier(private val context: Context) {
     )
 
     /**
-     * Shows an update notification. Opens the release page (or app) on tap.
+     * Shows an update notification. Opens the app on tap, where the update installs in one step.
      * Returns true when posted (or handed to the system).
      */
-    fun notifyUpdate(tag: String, title: String, pageUrl: String, apkUrl: String?): Boolean {
+    fun notifyUpdate(tag: String, title: String): Boolean {
         if (!ready()) return false
 
-        val openUrl = pageUrl.ifBlank { apkUrl.orEmpty() }
-        val contentIntent = if (openUrl.isNotBlank()) {
-            PendingIntent.getActivity(
-                context,
-                tag.hashCode(),
-                Intent(Intent.ACTION_VIEW, Uri.parse(openUrl)),
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-            )
-        } else {
-            PendingIntent.getActivity(
-                context,
-                tag.hashCode(),
-                Intent(context, MainActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
-                },
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-            )
-        }
+        // Opens the app, whose Beranda shows the update banner with the one-tap install; no browser, no GitHub page.
+        val contentIntent = PendingIntent.getActivity(
+            context,
+            tag.hashCode(),
+            Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_fuwa)

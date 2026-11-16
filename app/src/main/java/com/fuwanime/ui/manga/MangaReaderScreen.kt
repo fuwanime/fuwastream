@@ -179,6 +179,8 @@ class MangaReaderViewModel(
     private val appScope: kotlinx.coroutines.CoroutineScope,
     private val cacheDir: java.io.File,
     private val profile: ProfileRepository? = null,
+    /** Updates the launcher widget and shortcut after progress is stored (saves are debounced to about one a second). */
+    private val refreshHomeSurfaces: () -> Unit = {},
 ) : ViewModel() {
     private val _state = MutableStateFlow(ReaderState())
     val state: StateFlow<ReaderState> = _state.asStateFlow()
@@ -277,6 +279,7 @@ class MangaReaderViewModel(
         val manga = _state.value.manga ?: return
         appScope.launch {
             library.saveProgress(manga, chapter, chapterLabel, page, pageCount)
+            refreshHomeSurfaces()
             // Saved on every page turn; the quest counts each chapter id only once.
             if (ProfileRules.chapterRead(page, pageCount)) profile?.onChapterRead(chapter.id)
         }
@@ -348,7 +351,7 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
 fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
     val ctx = LocalContext.current
     val vm: MangaReaderViewModel = fuwaViewModel(key = "reader-$mangaId-$chapterId") { c, _ ->
-        MangaReaderViewModel(mangaId, chapterId, c.mangaRepository, c.mangaLibrary, c.settingsStore, c.mangaDownloads, c.mangaTranslator, c.appScope, ctx.cacheDir, c.profileRepository)
+        MangaReaderViewModel(mangaId, chapterId, c.mangaRepository, c.mangaLibrary, c.settingsStore, c.mangaDownloads, c.mangaTranslator, c.appScope, ctx.cacheDir, c.profileRepository, c::refreshHomeSurfaces)
     }
     val state by vm.state.collectAsStateWithLifecycle()
     val readerMode by vm.readerMode.collectAsStateWithLifecycle()

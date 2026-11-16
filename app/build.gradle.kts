@@ -37,8 +37,9 @@ android {
     versionName = System.getenv("VERSION_NAME") ?: "2.1.36"
     // Instrumented tests exercise the real Comix OCR/translation pipeline on an emulator.
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-    // The in-app update checker looks at the repo this APK was built from (a fork checks its own releases).
-    buildConfigField("String", "UPDATE_REPO", "\"${System.getenv("GITHUB_REPOSITORY") ?: "LT-SYAII/fuwastream"}\"")
+    // Where the in-app updater looks for releases. Pinned to the official repo: a fork build or CI run must not
+    // point users at another repo (UPDATE_REPO overrides it for a fork that ships its own releases).
+    buildConfigField("String", "UPDATE_REPO", "\"${System.getenv("UPDATE_REPO") ?: "fuwanime/fuwastream"}\"")
   }
 
   signingConfigs {
@@ -75,11 +76,10 @@ android {
   testOptions { unitTests { isIncludeAndroidResources = true } }
   dependenciesInfo {
     includeInApk = false
-    includeInBundle = false
   }
   splits {
     abi {
-      // AAB builds cannot use ABI splits; CI disables them for bundleRelease.
+      // Releases pass -PabiSplits=false for one universal APK, which the in-app updater installs.
       isEnable = (findProperty("abiSplits") as String?)?.toBooleanStrictOrNull() ?: true
       reset()
       // x86_64 keeps the CI emulator smoke test installable; phones use the arm64 build.
@@ -117,6 +117,7 @@ dependencies {
   implementation(libs.media3.session)
   implementation(libs.androidx.work.runtime.ktx)
   implementation(libs.androidx.glance.appwidget)
+  implementation(libs.androidx.glance.material3)
   implementation(libs.moshi.kotlin)
   implementation(libs.okhttp)
   implementation(libs.androidx.profileinstaller)

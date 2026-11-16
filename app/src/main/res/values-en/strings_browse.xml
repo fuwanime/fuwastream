@@ -15,8 +15,10 @@
     <string name="browse_restore">Restore</string>
     <string name="browse_restore_dismiss_cd">Dismiss restore offer</string>
     <string name="browse_update_no_notes">No release notes.</string>
-    <string name="browse_update_download">Download APK</string>
-    <string name="browse_update_github_cd">Open on GitHub</string>
+    <string name="browse_update_install">Update now</string>
+    <string name="browse_update_downloading">Downloading update…</string>
+    <string name="browse_update_failed">Download failed. Check your connection and try again.</string>
+    <string name="browse_update_install_hint">Android will ask you to confirm the install. Your data and history stay.</string>
     <string name="browse_search">Search</string>
     <string name="browse_settings">Settings</string>
     <string name="browse_hero_rank">#%1$d THIS SEASON</string>

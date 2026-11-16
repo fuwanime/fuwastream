@@ -188,7 +188,7 @@ interface DownloadDao {
 
 @Database(
     entities = [FavoriteEntity::class, WatchHistoryEntity::class, SearchHistoryEntity::class, DownloadEntity::class, WatchDailyEntity::class, AnimeLinkEntity::class, MangaFavoriteEntity::class, MangaHistoryEntity::class, MangaDownloadEntity::class, ContentPreferenceEntity::class, SourceStatEntity::class, ProfileEntity::class, QuestEntity::class, CountedEntity::class, BorderEntity::class],
-    version = 9,
+    version = 10,
     exportSchema = false,
 )
 abstract class FuwaDatabase : RoomDatabase() {
@@ -208,7 +208,7 @@ abstract class FuwaDatabase : RoomDatabase() {
     companion object {
         fun create(context: Context): FuwaDatabase =
             Room.databaseBuilder(context, FuwaDatabase::class.java, "fuwanime.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
                 .build()
 
         /** v2 adds offline downloads; existing favourites and history are kept. */
@@ -292,6 +292,15 @@ abstract class FuwaDatabase : RoomDatabase() {
          * idempotent: the fork's v2.2.0 reached v8 through a v7 that only added `fileUri`, so those installs lack
          * the collection columns and tables that upstream's v7 creates.
          */
+        /** v10 caches the cast (characters and voice actors) with the AniList link; old rows get it on their next refresh. */
+        internal val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                if (!columnExists(db, "anime_link", "cast")) {
+                    db.execSQL("ALTER TABLE `anime_link` ADD COLUMN `cast` TEXT NOT NULL DEFAULT ''")
+                }
+            }
+        }
+
         internal val MIGRATION_8_9 = object : Migration(8, 9) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 MIGRATION_6_7.migrate(db)

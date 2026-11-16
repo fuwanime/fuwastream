@@ -25,7 +25,7 @@ The keystore itself is **not** committed. It is stored in the GitHub Actions sec
 export KEYSTORE_PATH=/secure/path/fuwanime-release.jks
 export KEYSTORE_PASSWORD='…'
 export KEY_ALIAS=fuwanime
-gradle assembleRelease bundleRelease
+gradle assembleRelease -PabiSplits=false
 ```
 
 Without those variables the release task fails with a clear message; debug builds are

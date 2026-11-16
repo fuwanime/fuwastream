@@ -2,10 +2,13 @@
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/widget_continue_desc"
     android:initialLayout="@layout/glance_default_loading_layout"
+    android:previewLayout="@layout/widget_continue_preview"
     android:minWidth="110dp"
     android:minHeight="110dp"
     android:targetCellWidth="2"
     android:targetCellHeight="2"
     android:resizeMode="horizontal|vertical"
+    android:maxResizeWidth="530dp"
+    android:maxResizeHeight="450dp"
     android:updatePeriodMillis="0"
     android:widgetCategory="home_screen" />

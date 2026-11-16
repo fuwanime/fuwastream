@@ -12,7 +12,13 @@ data class AnimeMeta(
     val nextEpisode: Int?,
     val nextAiringAt: Long?,
     val sourceTitles: List<String> = emptyList(),
+    /** Main and supporting characters with their Japanese voice actor, main first. */
+    val cast: List<CastEntry> = emptyList(),
 )
+
+enum class CastRole { MAIN, SUPPORTING }
+
+data class CastEntry(val character: String, val imageUrl: String?, val role: CastRole, val voiceActor: String?)
 
 enum class SegmentKind { OP, ED, RECAP }
 
@@ -50,7 +56,31 @@ fun metaOf(m: AniListMedia): AnimeMeta = AnimeMeta(
     nextEpisode = m.nextAiringEpisode?.episode,
     nextAiringAt = m.nextAiringEpisode?.airingAt?.times(1000),
     sourceTitles = sourceMangaTitles(m),
+    cast = castOf(m),
 )
+
+/** Main and supporting characters (background ones are left out), in AniList's order. */
+fun castOf(m: AniListMedia): List<CastEntry> = m.characters?.edges.orEmpty().mapNotNull { e ->
+    val role = when (e.role) {
+        "MAIN" -> CastRole.MAIN
+        "SUPPORTING" -> CastRole.SUPPORTING
+        else -> return@mapNotNull null
+    }
+    val name = e.node?.name?.full?.trim()?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+    CastEntry(name, e.node.image?.medium, role, e.voiceActors.firstOrNull()?.name?.full?.trim()?.takeIf { it.isNotEmpty() })
+}
+
+/** One cast entry per line, fields tab-separated, for the anime_link cache. */
+fun encodeCast(cast: List<CastEntry>): String = cast.joinToString("\n") { c ->
+    listOf(c.role.name, c.character, c.voiceActor.orEmpty(), c.imageUrl.orEmpty()).joinToString("\t") { it.replace('\t', ' ').replace('\n', ' ') }
+}
+
+fun decodeCast(text: String): List<CastEntry> = text.lines().mapNotNull { line ->
+    val f = line.split('\t')
+    if (f.size < 4) return@mapNotNull null
+    val role = CastRole.entries.firstOrNull { it.name == f[0] } ?: return@mapNotNull null
+    CastEntry(f[1], f[3].ifEmpty { null }, role, f[2].ifEmpty { null })
+}
 
 /**
  * Names of the manga this anime adapts (AniList SOURCE relation), romaji first; empty for light novels and originals.

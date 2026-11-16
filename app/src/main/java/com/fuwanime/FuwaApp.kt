@@ -41,6 +41,7 @@ import com.fuwanime.data.remote.ForceCache
 import com.fuwanime.data.remote.KuramanimeSource
 import com.fuwanime.data.remote.NetworkStatus
 import com.fuwanime.data.remote.apiCacheClient
+import com.fuwanime.data.AppInstaller
 import com.fuwanime.data.UpdateRepository
 import com.fuwanime.data.notify.EpisodeNotifyWorker
 import com.fuwanime.data.notify.ReleaseNotifyWorker
@@ -95,6 +96,9 @@ class AppContainer(private val app: Application) {
 
     /** Video requests get the same UA as the API but none of its JSON headers. */
     val videoHttpClient: OkHttpClient = httpClient.newBuilder().apply { interceptors().clear() }.build()
+
+    /** Downloads a release APK and opens the system installer, so updating needs no browser. */
+    val appInstaller by lazy { AppInstaller(app, videoHttpClient) }
 
     val playbackHolder by lazy { PlaybackHolder(app, videoHttpClient) }
 

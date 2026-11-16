@@ -27,7 +27,7 @@ on:
         type: boolean
         default: false
       dry_run:
-        description: "Dry run (hanya build APK/AAB dan test, tanpa membuat tag & release)"
+        description: "Dry run (hanya build APK dan test, tanpa membuat tag & release)"
         required: false
         type: boolean
         default: false
@@ -150,11 +150,6 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         run: gradle testDebugUnitTest assembleRelease -PabiSplits=false --stacktrace
 
-      - name: Build AAB
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-        run: gradle bundleRelease -PabiSplits=false --stacktrace
-
       - name: Verify release signing certificate
         # Forks sign with their own keystore; the pin guards the upstream key only.
         if: github.repository == 'fuwanime/fuwastream'
@@ -171,10 +166,8 @@ jobs:
         run: |
           mkdir -p dist
           APK=$(find app/build/outputs/apk/release -maxdepth 1 -name '*.apk' | head -1)
-          AAB=$(find app/build/outputs/bundle/release -maxdepth 1 -name '*.aab' | head -1)
-          test -n "$APK" && test -n "$AAB"
+          test -n "$APK"
           cp "$APK" "dist/FuwaStream-${VERSION_NAME}.apk"
-          cp "$AAB" "dist/FuwaStream-${VERSION_NAME}.aab"
 
       - uses: actions/upload-artifact@v4
         with:
