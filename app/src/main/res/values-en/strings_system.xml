@@ -21,11 +21,12 @@
     <string name="system_shortcut_schedule_long">Airing schedule</string>
     <string name="system_shortcut_continue_long">Continue %1$s</string>
     <string name="widget_continue_name">Continue watching</string>
-    <string name="widget_continue_desc">Continue the anime you watched last</string>
+    <string name="widget_continue_desc">Continue the anime and manga you opened last</string>
     <string name="system_widget_continue">Continue</string>
-    <string name="system_widget_empty">Nothing watched yet</string>
+    <string name="system_widget_empty">Nothing watched or read yet</string>
     <string name="system_widget_explore">Explore</string>
     <string name="system_widget_episode">Ep %1$s</string>
+    <string name="system_widget_chapter">%1$s · p. %2$d/%3$d</string>
     <string name="system_download_title">%1$s • Episode %2$s</string>
     <string name="system_download_no_source">No video source for this episode yet.</string>
     <string name="system_download_no_storage">Storage is unavailable.</string>

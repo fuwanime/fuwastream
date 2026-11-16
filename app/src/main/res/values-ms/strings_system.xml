@@ -19,11 +19,12 @@
     <string name="system_shortcut_schedule_long">Jadual tayangan</string>
     <string name="system_shortcut_continue_long">Sambung %1$s</string>
     <string name="widget_continue_name">Sambung menonton</string>
-    <string name="widget_continue_desc">Sambung anime yang terakhir ditonton</string>
+    <string name="widget_continue_desc">Sambung anime dan manga yang terakhir dibuka</string>
     <string name="system_widget_continue">Sambung</string>
-    <string name="system_widget_empty">Belum ada tontonan</string>
+    <string name="system_widget_empty">Belum ada tontonan atau bacaan</string>
     <string name="system_widget_explore">Terokai</string>
     <string name="system_widget_episode">Ep %1$s</string>
+    <string name="system_widget_chapter">%1$s · hlm %2$d/%3$d</string>
     <string name="system_download_title">%1$s • Episod %2$s</string>
     <string name="system_download_no_source">Belum ada sumber video untuk episod ini.</string>
     <string name="system_download_no_storage">Storan tidak tersedia.</string>

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Launcher widget corner radius; Android 12+ takes the system value (values-v31). -->
+    <dimen name="widget_radius">20dp</dimen>
+</resources>
