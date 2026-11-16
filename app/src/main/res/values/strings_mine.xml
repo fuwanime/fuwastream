@@ -12,6 +12,7 @@
     <string name="mine_tab_history">Riwayat</string>
     <string name="mine_tab_favorites">Favorit</string>
     <string name="mine_tab_downloads">Unduhan</string>
+    <string name="mine_tab_collection">Koleksi</string>
     <string name="mine_tab_with_count">%1$s · %2$d</string>
     <string name="mine_delete_history_selected">Progres tontonan anime yang dipilih akan dihapus.</string>
     <string name="mine_delete_favorites_selected">Anime yang dipilih akan dihapus dari Favorit.</string>

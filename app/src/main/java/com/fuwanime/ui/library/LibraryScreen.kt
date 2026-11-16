@@ -248,7 +248,7 @@ fun LibraryRoute(
         }
         week?.takeIf { !selecting }?.let { WeekCard(it, onStats) }
         SegmentedTabs(
-            listOf(R.string.mine_tab_history to history?.size, R.string.ux_collection to favorites?.size, R.string.manga_tab to null, R.string.mine_tab_downloads to downloads?.size?.plus(mangaDownloads?.size ?: 0))
+            listOf(R.string.mine_tab_history to history?.size, R.string.mine_tab_collection to favorites?.size, R.string.manga_tab to null, R.string.mine_tab_downloads to downloads?.size?.plus(mangaDownloads?.size ?: 0))
                 .map { (label, count) -> stringResource(label).let { if (count != null && count > 0) stringResource(R.string.mine_tab_with_count, it, count) else it } },
             selected = pager.currentPage,
             onSelect = { scope.launch { pager.animateScrollToPage(it) } },
@@ -443,6 +443,9 @@ private fun SegmentedTabs(titles: List<String>, selected: Int, onSelect: (Int) -
                     fontWeight = if (on) FontWeight.Bold else FontWeight.SemiBold,
                     color = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
+                    // Four tabs share a phone's width; a label that still doesn't fit ends in "…" instead of being cut mid-word.
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(horizontal = 4.dp),
                 )
             }
         }

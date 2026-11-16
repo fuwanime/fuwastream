@@ -198,4 +198,17 @@ class ComixMappingTest {
         val chunks = translationChunks("x".repeat(250), limit = 100)
         assertEquals(listOf("x".repeat(100), "x".repeat(100), "x".repeat(50)), chunks)
     }
+
+    @Test fun synopsisHtmlBecomesPlainText() {
+        val manga = comixManga(
+            mapOf(
+                "hid" to "x1",
+                "title" to "The Patron of Villains",
+                "synopsis" to "A patron story.<br>\n<br>\n<b>Official Translations:</b> <br>\n" +
+                    "<a href=\"https://www.webtoons.com/en/x\" target=\"_blank\" rel=\"noopener noreferrer\">English</a>, " +
+                    "<a href=\"https://www.webtoons.com/id/x\">Indonesian</a> &amp; more",
+            ),
+        )
+        assertEquals("A patron story.\n\nOfficial Translations:\nEnglish, Indonesian & more", manga.description)
+    }
 }

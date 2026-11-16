@@ -66,4 +66,6 @@ class KomikuTest {
     }
 
     @Test fun entities() = assertEquals("Berserker’s & \"Test\"", htmlText("Berserker&#8217;s &amp; &quot;Test&quot;"))
+
+    @Test fun lineBreaksSurvive() = assertEquals("One\nTwo\n\nThree", htmlText("One<br>Two<br/>\n<br />  Three"))
 }

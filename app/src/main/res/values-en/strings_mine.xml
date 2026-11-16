@@ -12,6 +12,7 @@
     <string name="mine_tab_history">History</string>
     <string name="mine_tab_favorites">Favorites</string>
     <string name="mine_tab_downloads">Downloads</string>
+    <string name="mine_tab_collection">Collection</string>
     <string name="mine_tab_with_count">%1$s · %2$d</string>
     <string name="mine_delete_history_selected">Watch progress for the selected anime will be deleted.</string>
     <string name="mine_delete_favorites_selected">The selected anime will be removed from Favorites.</string>

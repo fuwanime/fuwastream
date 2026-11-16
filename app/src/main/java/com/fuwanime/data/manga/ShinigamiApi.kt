@@ -79,7 +79,7 @@ fun ShMangaDto.toManga() = Manga(
     id = SH_PREFIX + mangaId,
     title = title.trim(),
     coverUrl = (coverPortrait ?: cover)?.takeIf { it.isNotBlank() },
-    description = description.orEmpty().trim(),
+    description = htmlText(description.orEmpty()),
     tags = taxonomy?.genre.orEmpty().map { it.name }.filter { it.isNotBlank() },
     status = when (status) {
         1 -> MangaStatus.ONGOING

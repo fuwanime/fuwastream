@@ -15,11 +15,20 @@ fun isKomikuId(id: String): Boolean = id.startsWith(KM_PREFIX)
 
 private val ENTITY = Regex("&#(\\d+);")
 
-/** Plain text from an HTML fragment: tags dropped, the entities Komiku uses decoded, whitespace collapsed. */
-fun htmlText(s: String): String = s.replace(Regex("<[^>]+>"), "")
+private val BR = Regex("(?i)\\s*<br\\s*/?>\\s*")
+
+/**
+ * Plain text from an HTML fragment (source synopses): `<br>` becomes a line break, other tags are dropped, common
+ * entities decoded, spaces collapsed within each line and at most one blank line kept.
+ */
+fun htmlText(s: String): String = s.replace(BR, "\n").replace(Regex("<[^>]+>"), "")
     .replace(ENTITY) { it.groupValues[1].toInt().toChar().toString() }
     .replace("&amp;", "&").replace("&quot;", "\"").replace("&lt;", "<").replace("&gt;", ">").replace("&nbsp;", " ")
-    .replace(Regex("\\s+"), " ").trim()
+    .lines().joinToString("\n") { it.replace(Regex("[ \\t]+"), " ").trim() }
+    .replace(Regex("\n{3,}"), "\n\n").trim()
+
+/** [htmlText] on one line, for titles, labels and genres. */
+fun htmlLine(s: String): String = htmlText(s).replace(Regex("\\s+"), " ")
 
 private fun slugOf(href: String): String? = Regex("/manga/([^/]+)/?").find(href)?.groupValues?.get(1)
 
@@ -31,8 +40,8 @@ fun parseKomikuList(html: String): List<Manga> =
             val slug = slugOf(m.groupValues[1]) ?: return@mapNotNull null
             Manga(
                 id = KM_PREFIX + slug,
-                title = htmlText(m.groupValues[3]),
-                coverUrl = htmlText(m.groupValues[2]),
+                title = htmlLine(m.groupValues[3]),
+                coverUrl = htmlLine(m.groupValues[2]),
                 description = "",
                 tags = emptyList(),
                 status = MangaStatus.UNKNOWN,
@@ -55,7 +64,7 @@ fun parseKomikuDetail(html: String, slug: String): Manga {
         title = title,
         coverUrl = Regex("""<meta property="og:image" content="([^"]+)"""").find(html)?.groupValues?.get(1)?.substringBefore('?'),
         description = Regex("""<p class="desc"[^>]*>(.*?)</p>""", RegexOption.DOT_MATCHES_ALL).find(html)?.groupValues?.get(1)?.let(::htmlText).orEmpty(),
-        tags = Regex("""<li class="genre">.*?<span>(.*?)</span>""", RegexOption.DOT_MATCHES_ALL).findAll(html).map { htmlText(it.groupValues[1]) }.distinct().toList(),
+        tags = Regex("""<li class="genre">.*?<span>(.*?)</span>""", RegexOption.DOT_MATCHES_ALL).findAll(html).map { htmlLine(it.groupValues[1]) }.distinct().toList(),
         status = when (infoRow(html, "Status")?.lowercase()) {
             "ongoing" -> MangaStatus.ONGOING
             "end", "completed", "tamat" -> MangaStatus.COMPLETED
@@ -74,7 +83,7 @@ fun parseKomikuChapters(html: String): List<MangaChapter> {
     return Regex("""<td class="judulseries">.*?<a href="(/[^"]+)"[^>]*>.*?<b>(.*?)</b>.*?<td class="tanggalseries">\s*([^<]*?)\s*</td>""", RegexOption.DOT_MATCHES_ALL)
         .findAll(html)
         .map { m ->
-            val label = htmlText(m.groupValues[2])
+            val label = htmlLine(m.groupValues[2])
             MangaChapter(
                 id = KM_PREFIX + m.groupValues[1],
                 number = Regex("""(\d+(?:\.\d+)?)""").find(label)?.groupValues?.get(1)?.trimStart('0')?.ifEmpty { "0" },
@@ -93,7 +102,7 @@ fun parseKomikuChapters(html: String): List<MangaChapter> {
 fun parseKomikuPages(html: String): List<String> {
     val start = html.indexOf("id=\"Baca_Komik\"").takeIf { it >= 0 } ?: 0
     return Regex("""<img[^>]+src="(https://img\.komiku[^"]+)"""").findAll(html, start)
-        .map { htmlText(it.groupValues[1]) }
+        .map { htmlLine(it.groupValues[1]) }
         .filter { "/upload" in it }
         .distinct()
         .toList()

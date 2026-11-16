@@ -73,7 +73,7 @@ internal fun comixManga(data: Any?): Manga {
         id = CX_PREFIX + hid,
         title = title,
         coverUrl = absoluteComixUrl(poster.firstString("large", "medium", "cT", "Tr", "sP", "HS", "QC", "Kq")),
-        description = m.firstString("synopsis", "Ht", "U$", "U7", "fK").orEmpty(),
+        description = htmlText(m.firstString("synopsis", "Ht", "U$", "U7", "fK").orEmpty()),
         tags = m.tagNames("tags", "_v", "Tw", "QT", "Il", "Dx", "gS", "UR", "J5", "hV", "A5", "dE"),
         status = when (m.firstString("status", "cB", "yx", "oF")) {
             "releasing" -> MangaStatus.ONGOING
