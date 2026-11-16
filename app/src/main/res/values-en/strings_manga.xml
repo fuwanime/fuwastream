@@ -38,6 +38,7 @@
     <string name="manga_reader_translate_no_text">No text detected on this page.</string>
     <string name="manga_reader_translate_unavailable">Translation unavailable. Showing original English text.</string>
     <string name="manga_reader_translate_failed">Translation failed. Check your connection and try again.</string>
+    <string name="manga_reader_translate_busy">The translation server is busy. Try again in a moment.</string>
     <string name="manga_reader_translate_image_failed">The image could not be downloaded for translation. Reload the chapter and try again.</string>
     <string name="manga_reader_translate_ocr_model_failed">The OCR model is not ready yet. Wait a moment and try again.</string>
     <string name="manga_reader_translate_ocr_failed">The text in this image could not be processed by OCR.</string>
@@ -117,6 +118,9 @@
     <string name="manga_reader_show_original">Show original</string>
     <string name="manga_reader_translate_auto">Auto-translate</string>
     <string name="manga_reader_translate_auto_desc">When opening a chapter, translate all pages to Indonesian.</string>
+    <string name="manga_reader_auto_scroll">Auto-scroll</string>
+    <string name="manga_reader_auto_scroll_desc">In Webtoon mode, pages scroll down automatically and continue to the next chapter.</string>
+    <string name="manga_reader_continue_hint">Scroll again or tap to continue to the next chapter</string>
     <string name="manga_reader_source_webtoon">WEBTOON</string>
     <string name="manga_credit_webtoon">Source: WEBTOON</string>
 </resources>
