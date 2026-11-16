@@ -113,11 +113,14 @@ class ScheduleViewModel(
         if (current.loading || (current.loaded && !force)) return
         _days.update { it + (day to current.copy(loading = true, error = null)) }
         viewModelScope.launch {
+            val ak = repo.animekompiSchedule(day.apiValue.replaceFirstChar { it.uppercase() }).getOrDefault(emptyList())
             val result = repo.schedule(day.apiValue)
             _days.update { map ->
                 map + (day to DaySchedule(
                     // Earliest release first; unknown times sink to the bottom.
-                    items = result.getOrDefault(emptyList()).sortedBy { airTime(it.nextAirTime).ifBlank { "99" } },
+                    items = (result.getOrDefault(emptyList()) + ak)
+                        .distinctBy { it.title.trim().lowercase() }
+                        .sortedBy { airTime(it.nextAirTime).ifBlank { "99" } },
                     loading = false,
                     loaded = result.isSuccess,
                     error = result.exceptionOrNull()?.friendlyText(),
