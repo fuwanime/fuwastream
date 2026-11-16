@@ -15,8 +15,10 @@
     <string name="browse_restore">Pulihkan</string>
     <string name="browse_restore_dismiss_cd">Tutup tawaran pulihkan</string>
     <string name="browse_update_no_notes">Tanpa catatan rilis.</string>
-    <string name="browse_update_download">Unduh APK</string>
-    <string name="browse_update_github_cd">Buka di GitHub</string>
+    <string name="browse_update_install">Update sekarang</string>
+    <string name="browse_update_downloading">Mengunduh update…</string>
+    <string name="browse_update_failed">Unduhan gagal. Cek koneksi lalu coba lagi.</string>
+    <string name="browse_update_install_hint">Android akan menanyakan konfirmasi pemasangan. Data dan riwayat tetap aman.</string>
     <string name="browse_search">Cari</string>
     <string name="browse_settings">Pengaturan</string>
     <string name="browse_hero_rank">#%1$d MUSIM INI</string>

@@ -90,9 +90,9 @@ class UpdateRepository(private val settingsStore: SettingsStore) {
     /** Returns update info when a newer release exists, null when up to date (or on failure). */
     suspend fun check(): UpdateInfo? = withContext(Dispatchers.IO) {
         val currentTag = currentTag()
-        if (!settingsStore.shouldCheckUpdate(currentTag)) return@withContext null
+        // Every Beranda open asks once; the 6 h throttle is for the background worker only, which shared it before
+        // and so hid the banner whenever the worker had just run.
         val release = GitHubApi.latest() ?: return@withContext null
-        settingsStore.markUpdateChecked()
         if (!isNewerRelease(release.tagName, currentTag)) return@withContext null
 
         UpdateInfo(
