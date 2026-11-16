@@ -52,6 +52,8 @@ jobs:
           if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ]; then
             echo "Release signing secrets are missing; building unsigned artifacts (expected for fork PRs)."
             echo "HAS_SIGNING=false" >> "$GITHUB_ENV"
+            # app/build.gradle.kts only tolerates a missing keystore on pull_request or when this is set.
+            echo "ALLOW_UNSIGNED_RELEASE=true" >> "$GITHUB_ENV"
             exit 0
           fi
           echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
@@ -106,8 +108,10 @@ jobs:
         run: |
           mkdir -p dist
           for apk in app/build/outputs/apk/release/*.apk; do
-            abi=$(basename "$apk" | sed -E 's/^app-(.*)-release\.apk$/\1/')
-            cp "$apk" "dist/FuwaStream-${VERSION_NAME}-${abi}.apk"
+            abi=$(basename "$apk" | sed -E 's/^app-(.*)-release(-unsigned)?\.apk$/\1/')
+            suffix=""
+            [ "$HAS_SIGNING" = "true" ] || suffix="-unsigned"
+            cp "$apk" "dist/FuwaStream-${VERSION_NAME}-${abi}${suffix}.apk"
           done
 
       - uses: actions/upload-artifact@v4
