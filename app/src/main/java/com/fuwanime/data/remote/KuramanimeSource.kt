@@ -42,9 +42,34 @@ data class KrAnimePage(val items: List<Anime>, val hasMore: Boolean)
 class KuramanimeSource(
     private val client: OkHttpClient,
     private val mature: suspend () -> Boolean = { false },
+    /** Overridable for tests; production always talks to [BASE]. */
+    private val base: String = BASE,
 ) {
 
     private val random = SecureRandom()
+
+    /** Cloudflare's player token needs the cookies from the token response; keep them per source. */
+    private val cookies = LinkedHashMap<String, String>()
+
+    @Synchronized
+    private fun rememberCookies(headers: okhttp3.Headers) {
+        for (raw in headers.values("Set-Cookie")) {
+            val pair = raw.substringBefore(';').trim()
+            val eq = pair.indexOf('=')
+            if (eq > 0) cookies[pair.substring(0, eq).trim()] = pair.substring(eq + 1).trim()
+        }
+    }
+
+    @Synchronized
+    private fun cookieHeader(extra: String? = null): String? = (listOfNotNull(extra) + cookies.map { (k, v) -> "$k=$v" })
+        .filter { it.isNotBlank() }
+        .joinToString("; ")
+        .ifBlank { null }
+
+    private fun applyHeaders(builder: Request.Builder, extraHeaders: Map<String, String>, extraCookie: String? = null) {
+        cookieHeader(extraCookie)?.let { builder.header("Cookie", it) }
+        extraHeaders.forEach { (k, v) -> builder.header(k, v) }
+    }
 
     private suspend fun get(
         url: String,
@@ -54,12 +79,13 @@ class KuramanimeSource(
         withContext(Dispatchers.IO) {
             val req = Request.Builder().url(url).header("User-Agent", UA)
                 .header("Accept", "text/html,application/xhtml+xml,application/json,*/*")
-                .header("Referer", BASE)
+                .header("Referer", base)
             // Kuramanime cards do not expose genres. Let its own catalog filter remove Hentai
             // before parsing; detail/episode URLs stay accessible from existing history/favorites.
-            if (filterMatureCatalog && !mature()) req.header("Cookie", "show_genre=only_not_hentai")
-            extraHeaders.forEach { (k, v) -> req.header(k, v) }
+            val matureCookie = if (filterMatureCatalog && !mature()) "show_genre=only_not_hentai" else null
+            applyHeaders(req, extraHeaders, matureCookie)
             client.newCall(req.build()).execute().use { r ->
+                rememberCookies(r.headers)
                 if (!r.isSuccessful) throw IOException("Kuramanime HTTP ${r.code}")
                 r.body?.string().orEmpty()
             }
@@ -69,16 +95,17 @@ class KuramanimeSource(
         withContext(Dispatchers.IO) {
             val body = FormBody.Builder().apply { fields.forEach { (k, v) -> add(k, v) } }.build()
             val req = Request.Builder().url(url).post(body).header("User-Agent", UA)
-                .header("Referer", BASE)
-            extraHeaders.forEach { (k, v) -> req.header(k, v) }
+                .header("Referer", base)
+            applyHeaders(req, extraHeaders)
             client.newCall(req.build()).execute().use { r ->
+                rememberCookies(r.headers)
                 if (!r.isSuccessful) throw IOException("Kuramanime HTTP ${r.code}")
                 r.body?.string().orEmpty()
             }
         }
 
     suspend fun browse(order: String = "popular", page: Int = 1): KrAnimePage {
-        val html = get("$BASE/anime?order_by=$order&page=$page", filterMatureCatalog = true)
+        val html = get("$base/anime?order_by=$order&page=$page", filterMatureCatalog = true)
         val items = parseGrid(html)
         return KrAnimePage(items, items.isNotEmpty())
     }
@@ -89,7 +116,7 @@ class KuramanimeSource(
         val q = query.trim()
         if (q.isEmpty()) return emptyList()
         val html = get(
-            "$BASE/anime?search=" + URLEncoder.encode(q, "UTF-8") + "&order_by=popular&page=1",
+            "$base/anime?search=" + URLEncoder.encode(q, "UTF-8") + "&order_by=popular&page=1",
             filterMatureCatalog = true,
         )
         return parseGrid(html)
@@ -98,24 +125,46 @@ class KuramanimeSource(
     /** Tries search first; falls back to resolving direct slug-like url patterns is not needed. */
     suspend fun schedule(day: String): List<Anime> {
         // day: monday..sunday (English lowercase) — kuramanime uses same names
-        val html = get("$BASE/schedule?scheduled_day=$day", filterMatureCatalog = true)
+        val html = get("$base/schedule?scheduled_day=$day", filterMatureCatalog = true)
         return parseGrid(html)
     }
 
     suspend fun detail(animeId: String): Anime {
         val (siteId, slug, _) = KuramanimeId.parts(animeId) ?: throw IOException("Invalid Kuramanime id")
-        val html = get("$BASE/anime/$siteId/$slug")
+        val html = get("$base/anime/$siteId/$slug")
         return parseDetail(html, siteId, slug)
     }
 
     suspend fun episodes(animeId: String): List<Episode> {
         val (siteId, slug, _) = KuramanimeId.parts(animeId) ?: throw IOException("Invalid Kuramanime id")
-        // Episode list is usually present on an episode page; fall back to the detail page.
-        val epHtml = runCatching { get("$BASE/anime/$siteId/$slug/episode/1") }.getOrDefault("")
-        val parsed = parseEpisodes(epHtml, siteId, slug)
-        if (parsed.isNotEmpty()) return parsed
-        val detailHtml = get("$BASE/anime/$siteId/$slug")
-        return parseEpisodes(detailHtml, siteId, slug)
+        // The site paginates 13 episode links per page. Long-running titles may not have /episode/1
+        // (One Piece starts at 989), so fall back to the detail page's ?page=N episode list.
+        val fromEpisodePages = collectEpisodes(siteId, slug) { page ->
+            "$base/anime/$siteId/$slug/episode/1?page=$page"
+        }
+        if (fromEpisodePages.isNotEmpty()) return fromEpisodePages
+        return collectEpisodes(siteId, slug) { page ->
+            "$base/anime/$siteId/$slug?page=$page"
+        }
+    }
+
+    /** Reads pages until a page adds no new episode number (or fails); strips the duplicate range. */
+    private suspend fun collectEpisodes(siteId: String, slug: String, url: (Int) -> String): List<Episode> {
+        val episodes = LinkedHashMap<String, Episode>()
+        for (page in 1..MAX_EPISODE_PAGES) {
+            val html = try {
+                get(url(page))
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (page == 1) return emptyList() else break
+            }
+            val parsed = parseEpisodes(html, siteId, slug)
+            val added = parsed.count { episodes.putIfAbsent(it.number, it) == null }
+            // Out-of-range pages repeat the last window, so "nothing new" is the stop signal.
+            if (parsed.isEmpty() || added == 0) break
+        }
+        return episodes.values.toList()
     }
 
     suspend fun stream(episodeId: String): EpisodeStream {
@@ -124,7 +173,7 @@ class KuramanimeSource(
         // 1) page token
         val token = fetchPageToken()
         // 2) fetch authorized player fragment
-        val url = "$BASE/anime/$siteId/$slug/episode/$ep?$PAGE_TOKEN_KEY=${enc(token)}&$SERVER_KEY=kuramadrive&page=1"
+        val url = "$base/anime/$siteId/$slug/episode/$ep?$PAGE_TOKEN_KEY=${enc(token)}&$SERVER_KEY=kuramadrive&page=1"
         val html = postForm(url, mapOf("authorization" to AUTH_VALUE), extraHeaders = mapOf("X-Requested-With" to "XMLHttpRequest"))
         val sources = parseSources(html)
         val currentEp = Episode(
@@ -138,7 +187,7 @@ class KuramanimeSource(
     private suspend fun fetchPageToken(): String {
         val reqId = randomId(6)
         return get(
-            "$BASE/$AUTH_ROUTE_PREFIX$AUTH_ROUTE_FILE",
+            "$base/$AUTH_ROUTE_PREFIX$AUTH_ROUTE_FILE",
             extraHeaders = mapOf(
                 "X-Fuck-ID" to "$AUTH_KEY:$AUTH_TOKEN",
                 "X-Request-ID" to reqId,
@@ -207,7 +256,9 @@ class KuramanimeSource(
             .find(html)?.groupValues?.get(1)?.let(::htmlToText).orEmpty()
         val poster = Regex("""<meta property="og:image" content="([^"]+)"""").find(html)?.groupValues?.get(1).orEmpty()
         val genres = Regex("""<a href="[^"]*/properties/genre/[^"]*"[^>]*>([^<]+)</a>""", RegexOption.IGNORE_CASE)
-            .findAll(html).map { cleanText(it.groupValues[1]) }.filter { it.isNotBlank() }.distinct().toList()
+            // The detail markup sometimes leaves the separator inside the link ("Action,").
+            .findAll(html).map { cleanText(it.groupValues[1]).trim().trimEnd(',').trim() }
+            .filter { it.isNotBlank() && it != "-" }.distinct().toList()
         val type = infoField(html, "Tipe").ifBlank { infoField(html, "Type") }
         val statusRaw = infoField(html, "Status")
         val status = when {
@@ -241,9 +292,10 @@ class KuramanimeSource(
     }
 
     private fun parseEpisodes(html: String, siteId: String, slug: String): List<Episode> {
-        // Accept any episode link for this title (class/text may vary across layouts).
+        // Episode pages use double quotes and absolute URLs; the detail page's episode popover uses
+        // single quotes (and may be relative), so accept both in every layout.
         val re = Regex(
-            """href="https?://[^"]+/anime/$siteId/${Regex.escape(slug)}/episode/(\d+)"""",
+            """href=["'](?:https?://[^/"']+)?/anime/$siteId/${Regex.escape(slug)}/episode/(\d+)["']""",
             RegexOption.IGNORE_CASE,
         )
         val nums = LinkedHashSet<String>()
@@ -309,5 +361,8 @@ class KuramanimeSource(
         private const val SERVER_KEY = "C2XAPerzX1BM7V9"
         // From leviathan.js (captured 2026-11-10)
         private const val AUTH_VALUE = "kJuHHkaqcBFXiGMHQf6bJw8YAyDcwGD8Ur"
+
+        /** 13 episodes per page; 200 pages covers even the longest ongoing series. */
+        private const val MAX_EPISODE_PAGES = 200
     }
 }

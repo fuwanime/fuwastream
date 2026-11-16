@@ -21,6 +21,7 @@ import com.fuwanime.data.local.CollectionStatus
 import com.fuwanime.data.local.ContentPreferenceEntity
 import com.fuwanime.data.local.TitleNotifyMode
 import com.fuwanime.data.remote.AnimeApiService.Companion.EPISODE_PAGE_SIZE
+import com.fuwanime.data.remote.isKuramanimeId
 import android.content.res.Resources
 import com.fuwanime.R
 import com.fuwanime.util.UiText
@@ -181,6 +182,8 @@ class DetailViewModel(
             }
             val latest = newest.maxOfOrNull { it.sortKey }?.takeIf { it != Double.MAX_VALUE }
             val pageCount = when {
+                // Kuramanime returns the whole list on page 0, regardless of episode number.
+                isKuramanimeId(animeId) -> 1
                 newest.size < EPISODE_PAGE_SIZE || latest == null -> 1
                 else -> ceil(latest / EPISODE_PAGE_SIZE).toInt().coerceAtLeast(1)
             }
@@ -293,8 +296,12 @@ class DetailViewModel(
             }
             val pageCount = ceil(newest.sortKey / EPISODE_PAGE_SIZE).toInt().coerceAtLeast(1)
             val inFlight = downloads.forAnime(animeId).first()
-            val all = (pageCount - 1 downTo 0).flatMap { page ->
-                repo.episodePage(animeId, page).getOrNull().orEmpty()
+            val all = if (isKuramanimeId(animeId)) {
+                repo.episodePage(animeId, 0).getOrNull().orEmpty()
+            } else {
+                (pageCount - 1 downTo 0).flatMap { page ->
+                    repo.episodePage(animeId, page).getOrNull().orEmpty()
+                }
             }
             val targets = all
                 .filter { ep -> inFlight[ep.id]?.let { it.state == DownloadState.DONE || it.inProgress } != true }
