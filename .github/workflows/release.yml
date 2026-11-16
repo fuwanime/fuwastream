@@ -129,14 +129,7 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
           if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ]; then
-            if [ "${{ inputs.dry_run }}" = "true" ]; then
-              # Dry run only checks that tests and the build pass; nothing is published.
-              echo "::warning::Signing secrets are missing; dry run builds an unsigned APK."
-              echo "HAS_SIGNING=false" >> "$GITHUB_ENV"
-              echo "ALLOW_UNSIGNED_RELEASE=true" >> "$GITHUB_ENV"
-              exit 0
-            fi
-            echo "::error::Release signing secrets are missing. Add KEYSTORE_BASE64, KEYSTORE_PASSWORD and KEY_ALIAS under Settings > Secrets and variables > Actions, or run with dry_run enabled."
+            echo "::error::Release signing secrets are missing."
             exit 1
           fi
           echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
@@ -151,7 +144,6 @@ jobs:
           fi
           echo "KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
           echo "KEY_ALIAS=$EFFECTIVE_ALIAS" >> "$GITHUB_ENV"
-          echo "HAS_SIGNING=true" >> "$GITHUB_ENV"
 
       - name: Test and build universal APK
         env:
@@ -160,7 +152,7 @@ jobs:
 
       - name: Verify release signing certificate
         # Forks sign with their own keystore; the pin guards the upstream key only.
-        if: env.HAS_SIGNING == 'true' && github.repository == 'fuwanime/fuwastream'
+        if: github.repository == 'fuwanime/fuwastream'
         run: |
           APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
           APK=$(find app/build/outputs/apk/release -maxdepth 1 -name '*.apk' | head -1)
@@ -175,9 +167,7 @@ jobs:
           mkdir -p dist
           APK=$(find app/build/outputs/apk/release -maxdepth 1 -name '*.apk' | head -1)
           test -n "$APK"
-          suffix=""
-          [ "$HAS_SIGNING" = "true" ] || suffix="-unsigned"
-          cp "$APK" "dist/FuwaStream-${VERSION_NAME}${suffix}.apk"
+          cp "$APK" "dist/FuwaStream-${VERSION_NAME}.apk"
 
       - uses: actions/upload-artifact@v4
         with:
