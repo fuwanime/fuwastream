@@ -64,6 +64,21 @@ private fun Map<String, Any?>.tagNames(vararg keys: String): List<String> =
 
 private fun absoluteComixUrl(path: String?): String? = path?.let { if (it.startsWith("http")) it else COMIX_ORIGIN + it }
 
+/**
+ * Genre tags from Comix's browse options. Moshi reads untyped JSON numbers as Double, so an id would print as "13.0"
+ * and later fail `toIntOrNull()`, silently dropping the genre filter; ids are kept as whole numbers.
+ */
+internal fun comixGenres(raw: Any?): List<MangaTag> = (raw as? List<*>).orEmpty().mapNotNull { item ->
+    val map = item as? Map<*, *> ?: return@mapNotNull null
+    val id = when (val v = map["id"]) {
+        is Number -> v.toLong().toString()
+        is String -> v.takeIf { it.isNotBlank() }
+        else -> null
+    } ?: return@mapNotNull null
+    val label = map["label"] as? String ?: return@mapNotNull null
+    MangaTag(id, label, "genre")
+}
+
 internal fun comixManga(data: Any?): Manga {
     val m = data.map()
     val hid = m.firstString("hid", "rU", "SZ", "fH").orEmpty()
@@ -279,12 +294,7 @@ class ComixWsSource(
         val root = jsonAdapter.fromJson(raw) as? Map<*, *> ?: return@withContext emptyList()
         val list = root["list"] as? Map<*, *> ?: return@withContext emptyList()
         val options = list["options"] as? Map<*, *> ?: return@withContext emptyList()
-        (options["genres"] as? List<*>).orEmpty().mapNotNull { item ->
-            val map = item as? Map<*, *> ?: return@mapNotNull null
-            val id = map["id"]?.toString() ?: return@mapNotNull null
-            val label = map["label"] as? String ?: return@mapNotNull null
-            MangaTag(id, label, "genre")
-        }
+        comixGenres(options["genres"])
     }
 
     private suspend fun ratings(): List<String> =

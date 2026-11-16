@@ -2,6 +2,7 @@ package com.fuwanime
 
 import com.fuwanime.data.manga.MangaStatus
 import com.fuwanime.data.manga.comixChapter
+import com.fuwanime.data.manga.comixGenres
 import com.fuwanime.data.manga.comixManga
 import com.fuwanime.data.manga.comixPageUrls
 import com.fuwanime.data.manga.mangaPageCandidates
@@ -210,5 +211,12 @@ class ComixMappingTest {
             ),
         )
         assertEquals("A patron story.\n\nOfficial Translations:\nEnglish, Indonesian & more", manga.description)
+    }
+
+    @Test fun genreIdsStayWholeNumbersSoTheFilterIsSent() {
+        // What Moshi gives for {"id":13,...}: a Double.
+        val tags = comixGenres(listOf(mapOf("id" to 13.0, "label" to "Girls Love", "slug" to "girls-love"), mapOf("id" to "8", "label" to "Boys Love")))
+        assertEquals(listOf("13", "8"), tags.map { it.id })
+        assertEquals(listOf(13, 8), tags.mapNotNull { it.id.toIntOrNull() })
     }
 }
