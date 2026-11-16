@@ -111,6 +111,8 @@ class BackupCodecTest {
         assertFalse(settingTypeAccepted("op_end_42", "string"))
         assertTrue(settingTypeAccepted("notify_ongoing_anime", "boolean"))
         assertFalse(settingTypeAccepted("notify_new_chapters", "int"))
+        assertTrue(settingTypeAccepted("manga_auto_scroll", "boolean"))
+        assertFalse(settingTypeAccepted("manga_auto_scroll", "int"))
         assertTrue(settingTypeAccepted("some_future_key", "string"))
         assertFalse(settingTypeAccepted("theme_mode", "blob"))
     }

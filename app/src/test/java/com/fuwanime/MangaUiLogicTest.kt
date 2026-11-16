@@ -16,6 +16,7 @@ import com.fuwanime.ui.manga.genreTagId
 import com.fuwanime.ui.manga.rangeLabel
 import com.fuwanime.ui.manga.readerChapter
 import com.fuwanime.ui.manga.readerStartIndex
+import com.fuwanime.ui.manga.shouldAdvanceReaderOnTap
 import com.fuwanime.ui.manga.resumeTarget
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -67,6 +68,13 @@ class MangaUiLogicTest {
         assertEquals(9, readerStartIndex(25, 10))
         assertEquals(0, readerStartIndex(-3, 10))
         assertEquals(0, readerStartIndex(5, 0))
+    }
+
+    @Test fun tapAdvancesOnlyFromLastPageWhenNextChapterExists() {
+        assertEquals(false, shouldAdvanceReaderOnTap(currentPage = 3, pageCount = 10, hasNext = true))
+        assertEquals(true, shouldAdvanceReaderOnTap(currentPage = 9, pageCount = 10, hasNext = true))
+        assertEquals(false, shouldAdvanceReaderOnTap(currentPage = 9, pageCount = 10, hasNext = false))
+        assertEquals(false, shouldAdvanceReaderOnTap(currentPage = 0, pageCount = 0, hasNext = true))
     }
 
     @Test fun pickChaptersPrefersReadableOverNewerExternal() {
