@@ -90,6 +90,7 @@ internal object Keys {
     val backgroundAudio = booleanPreferencesKey("background_audio")
     val videoResize = stringPreferencesKey("video_resize")
     val mangaTranslate = booleanPreferencesKey("manga_translate")
+    val mangaAutoScroll = booleanPreferencesKey("manga_auto_scroll")
     val mangaMature = booleanPreferencesKey("manga_mature")
     val backupTreeUri = stringPreferencesKey("backup_tree_uri")
     val backupAuto = booleanPreferencesKey("backup_auto")
@@ -208,6 +209,10 @@ class SettingsStore(private val context: Context) {
     /** English image chapters (Comix) are translated to Indonesian on-device once the reader opts in. */
     val mangaTranslate: Flow<Boolean> = context.dataStore.data.map { it[Keys.mangaTranslate] ?: false }
     suspend fun setMangaTranslate(enabled: Boolean) = context.dataStore.edit { it[Keys.mangaTranslate] = enabled }
+
+    /** Continuously advances the vertical manga reader; off by default so existing reading behavior never changes. */
+    val mangaAutoScroll: Flow<Boolean> = context.dataStore.data.map { it[Keys.mangaAutoScroll] ?: false }
+    suspend fun setMangaAutoScroll(enabled: Boolean) = context.dataStore.edit { it[Keys.mangaAutoScroll] = enabled }
 
     /**
      * Global mature-content switch. The existing `manga_mature` storage key is retained so users and backups keep

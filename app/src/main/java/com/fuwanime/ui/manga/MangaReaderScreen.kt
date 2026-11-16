@@ -11,6 +11,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -70,12 +71,18 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -119,9 +126,12 @@ import com.fuwanime.ui.components.SkeletonBox
 import com.fuwanime.util.UiText
 import com.fuwanime.util.UiTextException
 import com.fuwanime.util.friendlyText
+import com.fuwanime.util.text
 import com.fuwanime.util.fuwaViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -135,6 +145,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.async
+import kotlinx.coroutines.isActive
 
 fun readerChapter(chapters: List<MangaChapter>, chapterId: String, savedLabel: String?): MangaChapter =
     chapters.firstOrNull { it.id == chapterId }
@@ -142,6 +153,9 @@ fun readerChapter(chapters: List<MangaChapter>, chapterId: String, savedLabel: S
 
 fun readerStartIndex(savedPage: Int?, pageCount: Int): Int =
     if (pageCount <= 0) 0 else (savedPage ?: 0).coerceIn(0, pageCount - 1)
+
+fun shouldAdvanceReaderOnTap(currentPage: Int, pageCount: Int, hasNext: Boolean): Boolean =
+    hasNext && pageCount > 0 && currentPage >= pageCount - 1
 
 data class ReaderState(
     val manga: Manga? = null,
@@ -175,6 +189,9 @@ class MangaReaderViewModel(
     val translationEnabled: StateFlow<Boolean> = settings.mangaTranslate
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
+    val autoScrollEnabled: StateFlow<Boolean> = settings.mangaAutoScroll
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
     val readerMode: StateFlow<ReaderMode> = library.preference(mangaId).map { pref ->
         pref?.readerMode?.let { raw -> ReaderMode.entries.firstOrNull { it.name == raw } } ?: ReaderMode.WEBTOON
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ReaderMode.WEBTOON)
@@ -184,6 +201,29 @@ class MangaReaderViewModel(
     private fun errorText(e: Throwable): UiText = when {
         e is UiTextException -> e.text
         else -> e.friendlyText()
+    }
+
+    /** Translation failures are localised; raw IsManga/internal exception text must never reach the reader. */
+    private fun translationErrorText(e: Throwable): UiText {
+        if (e is UiTextException) return e.text
+        val msg = e.message.orEmpty()
+        return when {
+            msg.contains("HTTP 4", ignoreCase = true) ||
+                msg.contains("Gagal mengunduh halaman", ignoreCase = true) ||
+                msg.contains("Halaman kosong", ignoreCase = true) ->
+                UiText(R.string.manga_reader_translate_image_failed)
+            msg.contains("decode", ignoreCase = true) ||
+                msg.contains("membaca dimensi gambar", ignoreCase = true) ||
+                msg.contains("mengompres gambar", ignoreCase = true) ->
+                UiText(R.string.manga_reader_translate_decode_failed)
+            msg.contains("Kuota habis", ignoreCase = true) ||
+                msg.contains("Antrian", ignoreCase = true) ||
+                msg.contains("throttle", ignoreCase = true) ||
+                msg.contains("GPU", ignoreCase = true) ||
+                msg.contains("Timeout", ignoreCase = true) ->
+                UiText(R.string.manga_reader_translate_busy)
+            else -> UiText(R.string.manga_reader_translate_failed)
+        }
     }
 
     fun open(chapterId: String) {
@@ -251,6 +291,10 @@ class MangaReaderViewModel(
         if (!enabled) _translation.value = ChapterTranslationState()
     }
 
+    fun setAutoScrollEnabled(enabled: Boolean) = viewModelScope.launch {
+        settings.setMangaAutoScroll(enabled)
+    }
+
     fun translateCurrentChapter() {
         val chapter = _state.value.chapter ?: return
         if (_translation.value.running) return
@@ -283,7 +327,7 @@ class MangaReaderViewModel(
                             continue
                         }
                     }
-                    _translation.update { it.copy(running = false, error = e.message ?: e.toString()) }
+                    _translation.update { it.copy(running = false, error = translationErrorText(e)) }
                     return@launch
                 }
             }
@@ -310,6 +354,7 @@ fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
     val readerMode by vm.readerMode.collectAsStateWithLifecycle()
     val translation by vm.translation.collectAsStateWithLifecycle()
     val translationEnabled by vm.translationEnabled.collectAsStateWithLifecycle()
+    val autoScrollEnabled by vm.autoScrollEnabled.collectAsStateWithLifecycle()
     var barsVisible by rememberSaveable { mutableStateOf(true) }
     var pickerOpen by rememberSaveable { mutableStateOf(false) }
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
@@ -345,16 +390,38 @@ fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
                 val showingTranslated = translation.pages != null
                 val pages = translation.pages ?: originalPages
                 val startPage = state.startPage.coerceIn(0, (pages.size - 1).coerceAtLeast(0))
-                val listState = rememberLazyListState(initialFirstVisibleItemIndex = if (startPage == 0) 0 else startPage + 1)
-                val pagerState = rememberPagerState(initialPage = startPage) { pages.size }
                 val readable = remember(state.chapters) { state.chapters.filter { it.externalUrl == null && it.pages > 0 } }
                 val next = nextChapter(readable, chapter.id)
                 val previous = previousChapter(readable, chapter.id)
+                val listState = rememberLazyListState(initialFirstVisibleItemIndex = if (startPage == 0) 0 else startPage + 1)
+                val pagerState = rememberPagerState(initialPage = startPage) { pages.size + if (next != null) 1 else 0 }
+                var openingNext by remember(chapter.id) { mutableStateOf(false) }
+                val openNext = {
+                    if (!openingNext) {
+                        next?.let {
+                            openingNext = true
+                            vm.open(it.id)
+                        }
+                    }
+                }
+                val openNextState = rememberUpdatedState(openNext)
+                val endScrollConnection = remember(listState, next?.id) {
+                    object : NestedScrollConnection {
+                        override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                            if (
+                                source == NestedScrollSource.UserInput &&
+                                available.y < -1f &&
+                                !listState.canScrollForward
+                            ) openNextState.value()
+                            return Offset.Zero
+                        }
+                    }
+                }
                 val currentPage by remember(readerMode, pages.size) {
                     derivedStateOf {
                         if (readerMode == ReaderMode.WEBTOON) {
                             (listState.firstVisibleItemIndex - 1).coerceIn(0, (pages.size - 1).coerceAtLeast(0))
-                        } else pagerState.currentPage
+                        } else pagerState.currentPage.coerceIn(0, (pages.size - 1).coerceAtLeast(0))
                     }
                 }
                 var lastPage by remember { mutableIntStateOf(startPage) }
@@ -368,7 +435,7 @@ fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
                     snapshotFlow {
                         if (readerMode == ReaderMode.WEBTOON) {
                             (listState.firstVisibleItemIndex - 1).coerceIn(0, (pages.size - 1).coerceAtLeast(0))
-                        } else pagerState.currentPage
+                        } else pagerState.currentPage.coerceIn(0, (pages.size - 1).coerceAtLeast(0))
                     }.drop(1).collect { lastPage = it }
                 }
                 LaunchedEffect(chapter.id, readerMode) {
@@ -384,18 +451,59 @@ fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
                     }
                 }
 
+                val autoScrollPxPerSecond = with(LocalDensity.current) { 42.dp.toPx() }
+                LaunchedEffect(
+                    chapter.id,
+                    readerMode,
+                    autoScrollEnabled,
+                    settingsOpen,
+                    pickerOpen,
+                    translation.running,
+                    next?.id,
+                ) {
+                    if (
+                        readerMode == ReaderMode.WEBTOON &&
+                        autoScrollEnabled &&
+                        !settingsOpen &&
+                        !pickerOpen &&
+                        !translation.running
+                    ) {
+                        var previousFrame = withFrameNanos { it }
+                        while (currentCoroutineContext().isActive) {
+                            val frame = withFrameNanos { it }
+                            val seconds = ((frame - previousFrame) / 1_000_000_000f).coerceIn(0f, 0.05f)
+                            previousFrame = frame
+                            listState.scrollBy(autoScrollPxPerSecond * seconds)
+                            if (!listState.canScrollForward) {
+                                if (next != null) {
+                                    delay(700)
+                                    openNext()
+                                }
+                                break
+                            }
+                        }
+                    }
+                }
+
+                LaunchedEffect(chapter.id, readerMode, pagerState.settledPage, pages.size, next?.id) {
+                    if (readerMode != ReaderMode.WEBTOON && pagerState.settledPage >= pages.size) openNext()
+                }
+
                 if (readerMode == ReaderMode.WEBTOON) {
                     LazyColumn(
                         state = listState,
-                        modifier = Modifier.fillMaxSize().clickable(
+                        modifier = Modifier.fillMaxSize().nestedScroll(endScrollConnection).clickable(
                             interactionSource = remember { MutableInteractionSource() }, indication = null,
-                        ) { barsVisible = !barsVisible },
+                        ) {
+                            if (next != null && !listState.canScrollForward) openNext()
+                            else barsVisible = !barsVisible
+                        },
                     ) {
                         item(key = "credit-top") { Credit(chapter, Modifier.statusBarsPadding().padding(top = 56.dp, bottom = 8.dp)) }
                         itemsIndexed(pages, key = { i, _ -> "${chapter.id}-${showingTranslated}-$i" }) { i, url ->
                             Page(url = url, index = i, generation = state.generation, onFailed = vm::refreshPages)
                         }
-                        item(key = "end") { EndCard(label, chapter, next, onNext = { next?.let { vm.open(it.id) } }) }
+                        item(key = "end") { EndCard(label, chapter, next, onNext = openNext) }
                     }
                 } else {
                     HorizontalPager(
@@ -404,11 +512,20 @@ fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
                         modifier = Modifier.fillMaxSize(),
                         key = { "${chapter.id}-${showingTranslated}-$it" },
                     ) { page ->
-                        Box(
-                            Modifier.fillMaxSize().clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { barsVisible = !barsVisible },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            ReaderPage(url = pages[page], index = page, generation = state.generation, onFailed = vm::refreshPages)
+                        if (page >= pages.size) {
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                EndCard(label, chapter, next, onNext = openNext)
+                            }
+                        } else {
+                            Box(
+                                Modifier.fillMaxSize().clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
+                                    if (shouldAdvanceReaderOnTap(page, pages.size, next != null)) openNext()
+                                    else barsVisible = !barsVisible
+                                },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                ReaderPage(url = pages[page], index = page, generation = state.generation, onFailed = vm::refreshPages)
+                            }
                         }
                     }
                 }
@@ -431,7 +548,7 @@ fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
                                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                             }
                         } else if (translation.error != null) {
-                            Text(translation.error ?: "", color = Color.White, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
+                            Text(translation.error!!.text(), color = Color.White, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
                             Spacer(Modifier.height(8.dp))
                             Row {
                                 TextButton(onClick = { vm.translateCurrentChapter() }) { Text(stringResource(R.string.manga_reader_translate_retry), color = Color.White) }
@@ -502,6 +619,8 @@ fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
                 }
                 if (settingsOpen) ReaderSettingsSheet(
                     selected = readerMode, onSelect = vm::setReaderMode,
+                    autoScrollEnabled = autoScrollEnabled,
+                    onAutoScrollChange = vm::setAutoScrollEnabled,
                     translationAvailable = translationAvailable, translationEnabled = translationEnabled,
                     showingTranslated = showingTranslated,
                     onTranslate = { vm.translateCurrentChapter() }, onShowOriginal = { vm.showOriginal() },
@@ -620,6 +739,7 @@ private fun ReaderPage(url: String, index: Int, generation: Int, onFailed: () ->
 @Composable
 private fun ReaderSettingsSheet(
     selected: ReaderMode, onSelect: (ReaderMode) -> Unit,
+    autoScrollEnabled: Boolean, onAutoScrollChange: (Boolean) -> Unit,
     translationAvailable: Boolean, translationEnabled: Boolean, showingTranslated: Boolean,
     onTranslate: () -> Unit, onShowOriginal: () -> Unit, onTranslationPrefChange: (Boolean) -> Unit,
     onDismiss: () -> Unit,
@@ -636,6 +756,31 @@ private fun ReaderSettingsSheet(
                 Text(stringResource(label), modifier = Modifier.weight(1f))
                 if (mode == selected) Icon(Icons.Rounded.Check, null, tint = MaterialTheme.colorScheme.primary)
             }
+        }
+        HorizontalDivider(Modifier.padding(horizontal = 20.dp))
+        val autoScrollAvailable = selected == ReaderMode.WEBTOON
+        Row(
+            Modifier.fillMaxWidth().clickable(enabled = autoScrollAvailable) { onAutoScrollChange(!autoScrollEnabled) }
+                .padding(horizontal = 20.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    stringResource(R.string.manga_reader_auto_scroll),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = if (autoScrollAvailable) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    stringResource(R.string.manga_reader_auto_scroll_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Switch(
+                checked = autoScrollEnabled && autoScrollAvailable,
+                onCheckedChange = onAutoScrollChange,
+                enabled = autoScrollAvailable,
+            )
         }
         if (translationAvailable) {
             HorizontalDivider(Modifier.padding(horizontal = 20.dp))
@@ -660,7 +805,15 @@ private fun EndCard(label: String, chapter: MangaChapter, next: MangaChapter?, o
     Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 24.dp, vertical = 40.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(stringResource(R.string.manga_reader_end, label), color = Color.White, style = MaterialTheme.typography.titleMedium)
         Credit(chapter)
-        if (next != null) Button(onClick = onNext) { Text(stringResource(R.string.manga_reader_next)) }
+        if (next != null) {
+            Button(onClick = onNext) { Text(stringResource(R.string.manga_reader_next)) }
+            Text(
+                stringResource(R.string.manga_reader_continue_hint),
+                color = Color.White.copy(alpha = 0.65f),
+                style = MaterialTheme.typography.bodySmall,
+                textAlign = TextAlign.Center,
+            )
+        }
         else Text(stringResource(R.string.manga_reader_last), color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.bodyMedium)
     }
 }
