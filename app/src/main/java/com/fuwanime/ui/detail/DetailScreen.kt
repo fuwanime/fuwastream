@@ -17,6 +17,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.fuwanime.R
+import com.fuwanime.data.meta.CastRole
+import com.fuwanime.data.meta.CastEntry
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.shape.CircleShape
 import com.fuwanime.util.text
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
@@ -384,6 +388,15 @@ private fun DetailScreen(
                 if (state.meta?.sourceTitles?.isNotEmpty() == true) {
                     item(key = "read-manga") {
                         ReadMangaButton(state.mangaLookup, vm::openManga, Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp))
+                    }
+                }
+                state.meta?.cast?.takeIf { it.isNotEmpty() }?.let { cast ->
+                    item(key = "cast") {
+                        Column(Modifier.padding(top = 24.dp)) {
+                            SectionHeader(stringResource(R.string.watch_cast))
+                            Spacer(Modifier.height(12.dp))
+                            CastRow(cast)
+                        }
                     }
                 }
                 if (state.meta != null) {
@@ -1045,5 +1058,31 @@ private fun ReadMangaButton(lookup: MangaLookup, onClick: () -> Unit, modifier: 
         else Icon(Icons.AutoMirrored.Rounded.MenuBook, null, Modifier.size(18.dp))
         Spacer(Modifier.width(8.dp))
         Text(stringResource(R.string.watch_read_manga))
+    }
+}
+
+/** Characters and their Japanese voice actors from AniList, main cast first; swipe for more. */
+@Composable
+private fun CastRow(cast: List<CastEntry>) {
+    LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        items(cast, key = { it.role.name + it.character + it.voiceActor.orEmpty() }) { c ->
+            val role = stringResource(if (c.role == CastRole.MAIN) R.string.watch_cast_main else R.string.watch_cast_supporting)
+            Column(
+                Modifier.width(88.dp).semantics(mergeDescendants = true) {},
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                NetImage(c.imageUrl.orEmpty(), Modifier.size(72.dp).clip(CircleShape))
+                Spacer(Modifier.height(6.dp))
+                Text(c.character, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+                Text(
+                    c.voiceActor ?: role,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
     }
 }
