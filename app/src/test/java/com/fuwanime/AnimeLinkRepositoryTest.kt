@@ -139,6 +139,29 @@ class AnimeLinkRepositoryTest {
         assertEquals(now - 13 * h, dao.rows["a1"]?.fetchedAt)
     }
 
+    @Test fun cachesStatsAndEpisodeThumbnails() = runBlocking {
+        val withStats = """{"id":7,"idMal":1007,"seasonYear":2017,"title":{"romaji":"Boku no Hero Academia S2","english":null},"synonyms":[],""" +
+            """"averageScore":80,"popularity":123456,"favourites":7890,"episodes":25,"duration":24,""" +
+            """"studios":{"nodes":[{"name":"Bones"}]},"tags":[],"nextAiringEpisode":null,""" +
+            """"streamingEpisodes":[{"title":"Episode 1 - Izuku Midoriya: Origin","thumbnail":"https://img/1.jpg"},""" +
+            """{"title":"Episode 2 - What It Takes to Be a Hero","thumbnail":"https://img/2.jpg"}]}"""
+        server.enqueue(page(withStats))
+        val meta = repo.link(bnha2)!!
+        assertEquals(123456, meta.popularity)
+        assertEquals(7890, meta.favourites)
+        assertEquals(25, meta.totalEpisodes)
+        assertEquals(24, meta.durationMinutes)
+        assertEquals("Bones", meta.studio)
+        assertEquals(2017, meta.year)
+        assertEquals(mapOf("1" to "https://img/1.jpg", "2" to "https://img/2.jpg"), meta.episodeThumbnails)
+        assertEquals("1\thttps://img/1.jpg\n2\thttps://img/2.jpg", dao.rows["a1"]?.episodeThumbnails)
+        // The fresh cache serves the same enrichment without another request.
+        val cached = repo.link(bnha2)!!
+        assertEquals(meta.popularity, cached.popularity)
+        assertEquals(meta.episodeThumbnails, cached.episodeThumbnails)
+        assertEquals(1, server.requestCount)
+    }
+
     @Test fun linkCachesSourceTitles() = runBlocking {
         val withSource = """{"id":7,"idMal":1007,"seasonYear":2017,"title":{"romaji":"Boku no Hero Academia S2","english":null},"synonyms":[],"averageScore":80,"tags":[],"nextAiringEpisode":null,""" +
             """"relations":{"edges":[{"relationType":"SOURCE","node":{"type":"MANGA","format":"MANGA","title":{"romaji":"Boku no Hero Academia","english":"My Hero Academia"},"synonyms":[]}}]}}"""

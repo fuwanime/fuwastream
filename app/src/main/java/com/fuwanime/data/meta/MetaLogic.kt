@@ -14,6 +14,16 @@ data class AnimeMeta(
     val sourceTitles: List<String> = emptyList(),
     /** Main and supporting characters with their Japanese voice actor, main first. */
     val cast: List<CastEntry> = emptyList(),
+    /** Users with this title on an AniList list; the closest public equivalent of MAL members. */
+    val popularity: Int? = null,
+    val favourites: Int? = null,
+    val totalEpisodes: Int? = null,
+    /** Typical episode length in minutes. */
+    val durationMinutes: Int? = null,
+    val studio: String? = null,
+    val year: Int? = null,
+    /** Episode number -> thumbnail from AniList's streaming links. */
+    val episodeThumbnails: Map<String, String> = emptyMap(),
 )
 
 enum class CastRole { MAIN, SUPPORTING }
@@ -57,7 +67,50 @@ fun metaOf(m: AniListMedia): AnimeMeta = AnimeMeta(
     nextAiringAt = m.nextAiringEpisode?.airingAt?.times(1000),
     sourceTitles = sourceMangaTitles(m),
     cast = castOf(m),
+    popularity = m.popularity,
+    favourites = m.favourites,
+    totalEpisodes = m.episodes?.takeIf { it > 0 },
+    durationMinutes = m.duration?.takeIf { it > 0 },
+    studio = m.studios?.nodes?.firstOrNull()?.name?.trim()?.takeIf { it.isNotEmpty() },
+    year = m.seasonYear ?: m.startDate?.year,
+    episodeThumbnails = episodeThumbnailsOf(m.streamingEpisodes),
 )
+
+private val PURE_NUMBER = Regex("""^\s*(\d+(?:\.\d+)?)\s*$""")
+private val EPISODE_WORD = Regex("""(?i)\b(?:episode|ep\.?|e)\s*(\d+(?:\.\d+)?)\b""")
+
+/** "Episode 12 - The Rose Bride" -> "12"; null when the title carries no explicit episode number. */
+fun episodeNumberFromTitle(title: String?): String? {
+    if (title.isNullOrBlank()) return null
+    val raw = PURE_NUMBER.find(title)?.groupValues?.get(1)
+        ?: EPISODE_WORD.find(title)?.groupValues?.get(1)
+        ?: return null
+    return raw.toDoubleOrNull()?.let { if (it % 1.0 == 0.0) it.toLong().toString() else it.toString() }
+}
+
+/** AniList streaming episodes -> number/thumbnail map; the first usable thumbnail per number wins. */
+fun episodeThumbnailsOf(episodes: List<AniListStreamingEpisode>): Map<String, String> {
+    val out = LinkedHashMap<String, String>()
+    for (episode in episodes) {
+        val number = episodeNumberFromTitle(episode.title) ?: continue
+        val thumbnail = episode.thumbnail?.trim().orEmpty()
+        if (thumbnail.isNotEmpty()) out.putIfAbsent(number, thumbnail)
+    }
+    return out
+}
+
+/** One "number\tthumbnail" pair per line for the anime_link cache. */
+fun encodeEpisodeThumbnails(thumbnails: Map<String, String>): String = thumbnails.entries.joinToString("\n") { (number, url) ->
+    "$number\t${url.replace('\t', ' ').replace('\n', ' ')}"
+}
+
+fun decodeEpisodeThumbnails(text: String): Map<String, String> = text.lines().mapNotNull { line ->
+    val tab = line.indexOf('\t')
+    if (tab <= 0) return@mapNotNull null
+    val number = line.substring(0, tab).trim()
+    val url = line.substring(tab + 1).trim()
+    if (number.isEmpty() || url.isEmpty()) null else number to url
+}.toMap()
 
 /** Main and supporting characters (background ones are left out), in AniList's order. */
 fun castOf(m: AniListMedia): List<CastEntry> = m.characters?.edges.orEmpty().mapNotNull { e ->

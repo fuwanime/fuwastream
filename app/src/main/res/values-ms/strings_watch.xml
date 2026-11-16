@@ -1,5 +1,6 @@
 <resources>
     <string name="watch_stat_views">tontonan</string>
+    <string name="watch_stat_members">peminat</string>
     <string name="watch_stat_favorites">kegemaran</string>
     <string name="watch_continue_ep">Sambung EP %1$s</string>
     <string name="watch_watch_ep">Tonton EP %1$s</string>
@@ -26,6 +27,8 @@
     <string name="watch_info_aired">Mula tayangan</string>
     <string name="watch_info_year">Tahun</string>
     <string name="watch_info_type">Jenis</string>
+    <string name="watch_info_total_episodes">Jumlah episod</string>
+    <string name="watch_info_duration">Tempoh</string>
     <string name="watch_episodes_title">Episod</string>
     <string name="watch_download_all">Muat turun semua</string>
     <string name="watch_search_close">Tutup carian episod</string>

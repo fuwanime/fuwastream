@@ -1,5 +1,6 @@
 <resources>
     <string name="watch_stat_views">次观看</string>
+    <string name="watch_stat_members">成员</string>
     <string name="watch_stat_favorites">人收藏</string>
     <string name="watch_continue_ep">继续观看 第%1$s集</string>
     <string name="watch_watch_ep">观看 第%1$s集</string>
@@ -26,6 +27,8 @@
     <string name="watch_info_aired">首播</string>
     <string name="watch_info_year">年份</string>
     <string name="watch_info_type">类型</string>
+    <string name="watch_info_total_episodes">总集数</string>
+    <string name="watch_info_duration">时长</string>
     <string name="watch_episodes_title">剧集</string>
     <string name="watch_download_all">全部下载</string>
     <string name="watch_search_close">关闭剧集搜索</string>

@@ -1,5 +1,6 @@
 <resources>
     <string name="watch_stat_views">views</string>
+    <string name="watch_stat_members">members</string>
     <string name="watch_stat_favorites">favorites</string>
     <string name="watch_continue_ep">Resume EP %1$s</string>
     <string name="watch_watch_ep">Watch EP %1$s</string>
@@ -26,6 +27,8 @@
     <string name="watch_info_aired">First aired</string>
     <string name="watch_info_year">Year</string>
     <string name="watch_info_type">Type</string>
+    <string name="watch_info_total_episodes">Total episodes</string>
+    <string name="watch_info_duration">Duration</string>
     <string name="watch_episodes_title">Episodes</string>
     <string name="watch_download_all">Download all</string>
     <string name="watch_search_close">Close episode search</string>

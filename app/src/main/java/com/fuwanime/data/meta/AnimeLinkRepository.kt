@@ -61,8 +61,24 @@ class AnimeLinkRepository(
         val meta = metaOf(m)
         dao.put(
             AnimeLinkEntity(
-                animeId, LinkState.LINKED.name, m.id, m.idMal, meta.score, meta.tags.joinToString("\n"),
-                meta.nextEpisode, meta.nextAiringAt, now(), meta.sourceTitles.joinToString("\n"), encodeCast(meta.cast),
+                animeId = animeId,
+                state = LinkState.LINKED.name,
+                anilistId = m.id,
+                malId = m.idMal,
+                score = meta.score,
+                tags = meta.tags.joinToString("\n"),
+                nextEpisode = meta.nextEpisode,
+                nextAiringAt = meta.nextAiringAt,
+                fetchedAt = now(),
+                sourceTitles = meta.sourceTitles.joinToString("\n"),
+                cast = encodeCast(meta.cast),
+                popularity = meta.popularity,
+                favourites = meta.favourites,
+                totalEpisodes = meta.totalEpisodes,
+                durationMinutes = meta.durationMinutes,
+                studio = meta.studio,
+                year = meta.year,
+                episodeThumbnails = encodeEpisodeThumbnails(meta.episodeThumbnails),
             ),
         )
         return meta
@@ -78,8 +94,21 @@ class AnimeLinkRepository(
         null
     }
 
-    private fun AnimeLinkEntity.meta() =
-        AnimeMeta(score, tags.lines().filter { it.isNotEmpty() }, nextEpisode, nextAiringAt, sourceTitles.lines().filter { it.isNotEmpty() }, decodeCast(cast))
+    private fun AnimeLinkEntity.meta() = AnimeMeta(
+        score = score,
+        tags = tags.lines().filter { it.isNotEmpty() },
+        nextEpisode = nextEpisode,
+        nextAiringAt = nextAiringAt,
+        sourceTitles = sourceTitles.lines().filter { it.isNotEmpty() },
+        cast = decodeCast(cast),
+        popularity = popularity,
+        favourites = favourites,
+        totalEpisodes = totalEpisodes,
+        durationMinutes = durationMinutes,
+        studio = studio,
+        year = year,
+        episodeThumbnails = decodeEpisodeThumbnails(episodeThumbnails),
+    )
 
     private companion object {
         const val TAG = "FuwaMeta"

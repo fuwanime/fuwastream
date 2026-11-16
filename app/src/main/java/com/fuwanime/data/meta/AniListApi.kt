@@ -25,7 +25,8 @@ interface AniListApi {
 }
 
 private const val MEDIA_FIELDS = "id idMal format seasonYear startDate{year} title{romaji english native} synonyms " +
-    "averageScore tags{name rank isMediaSpoiler} nextAiringEpisode{episode airingAt} " +
+    "averageScore popularity favourites episodes duration studios(isMain:true){nodes{name}} " +
+    "tags{name rank isMediaSpoiler} nextAiringEpisode{episode airingAt} streamingEpisodes{title thumbnail} " +
     "relations{edges{relationType(version:2) node{type format title{romaji english native} synonyms}}} " +
     "characters(perPage:12,sort:[ROLE,RELEVANCE,ID]){edges{role node{name{full} image{medium}} " +
     "voiceActors(language:JAPANESE,sort:[RELEVANCE,ID]){name{full}}}}"
@@ -58,11 +59,28 @@ data class AniListMedia(
     val title: AniListTitle = AniListTitle(),
     val synonyms: List<String> = emptyList(),
     val averageScore: Int? = null,
+    /** AniList users who have this title on a list (the closest public equivalent of MAL members). */
+    val popularity: Int? = null,
+    val favourites: Int? = null,
+    val episodes: Int? = null,
+    /** Typical episode length in minutes. */
+    val duration: Int? = null,
+    val studios: AniListStudios? = null,
     val tags: List<AniListTag> = emptyList(),
     val nextAiringEpisode: AiringEpisode? = null,
+    val streamingEpisodes: List<AniListStreamingEpisode> = emptyList(),
     val relations: AniListRelations? = null,
     val characters: AniListCharacters? = null,
 )
+
+@JsonClass(generateAdapter = true)
+data class AniListStudios(val nodes: List<AniListStudio> = emptyList())
+
+@JsonClass(generateAdapter = true)
+data class AniListStudio(val name: String? = null)
+
+@JsonClass(generateAdapter = true)
+data class AniListStreamingEpisode(val title: String? = null, val thumbnail: String? = null)
 
 @JsonClass(generateAdapter = true)
 data class FuzzyDate(val year: Int? = null)

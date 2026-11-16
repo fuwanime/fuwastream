@@ -188,7 +188,7 @@ interface DownloadDao {
 
 @Database(
     entities = [FavoriteEntity::class, WatchHistoryEntity::class, SearchHistoryEntity::class, DownloadEntity::class, WatchDailyEntity::class, AnimeLinkEntity::class, MangaFavoriteEntity::class, MangaHistoryEntity::class, MangaDownloadEntity::class, ContentPreferenceEntity::class, SourceStatEntity::class, ProfileEntity::class, QuestEntity::class, CountedEntity::class, BorderEntity::class],
-    version = 10,
+    version = 11,
     exportSchema = false,
 )
 abstract class FuwaDatabase : RoomDatabase() {
@@ -208,7 +208,7 @@ abstract class FuwaDatabase : RoomDatabase() {
     companion object {
         fun create(context: Context): FuwaDatabase =
             Room.databaseBuilder(context, FuwaDatabase::class.java, "fuwanime.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
                 .build()
 
         /** v2 adds offline downloads; existing favourites and history are kept. */
@@ -298,6 +298,23 @@ abstract class FuwaDatabase : RoomDatabase() {
                 if (!columnExists(db, "anime_link", "cast")) {
                     db.execSQL("ALTER TABLE `anime_link` ADD COLUMN `cast` TEXT NOT NULL DEFAULT ''")
                 }
+            }
+        }
+
+        /** v11 adds the public AniList stats and per-episode thumbnails; old rows fill in on their next refresh. */
+        internal val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                if (!columnExists(db, "anime_link", "popularity")) db.execSQL("ALTER TABLE `anime_link` ADD COLUMN `popularity` INTEGER")
+                if (!columnExists(db, "anime_link", "favourites")) db.execSQL("ALTER TABLE `anime_link` ADD COLUMN `favourites` INTEGER")
+                if (!columnExists(db, "anime_link", "totalEpisodes")) db.execSQL("ALTER TABLE `anime_link` ADD COLUMN `totalEpisodes` INTEGER")
+                if (!columnExists(db, "anime_link", "durationMinutes")) db.execSQL("ALTER TABLE `anime_link` ADD COLUMN `durationMinutes` INTEGER")
+                if (!columnExists(db, "anime_link", "studio")) db.execSQL("ALTER TABLE `anime_link` ADD COLUMN `studio` TEXT")
+                if (!columnExists(db, "anime_link", "year")) db.execSQL("ALTER TABLE `anime_link` ADD COLUMN `year` INTEGER")
+                if (!columnExists(db, "anime_link", "episodeThumbnails")) {
+                    db.execSQL("ALTER TABLE `anime_link` ADD COLUMN `episodeThumbnails` TEXT NOT NULL DEFAULT ''")
+                }
+                // Old rows have no stats/thumbnails yet; mark them stale so the first detail visit refreshes.
+                db.execSQL("UPDATE `anime_link` SET `fetchedAt` = 0 WHERE `state` = 'LINKED'")
             }
         }
 

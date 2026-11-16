@@ -285,19 +285,26 @@ private fun DetailScreen(
             if (anime != null) {
                 item(key = "stats") {
                     val res = LocalContext.current.resources
-                    val viewsLabel = stringResource(R.string.watch_stat_views)
-                    val favoritesLabel = stringResource(R.string.watch_stat_favorites)
-                    Text(
-                        buildAnnotatedString {
-                            withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)) { append(compactNumber(res, anime.views)) }
-                            append(" $viewsLabel      ")
-                            withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)) { append(compactNumber(res, anime.favorites)) }
-                            append(" $favoritesLabel")
-                        },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.navEnter().padding(start = 20.dp, end = 20.dp, top = 16.dp),
-                    )
+                    val meta = state.meta
+                    // Kuramanime has no public counters; AniList popularity/favourites fill the gap.
+                    val siteViews = anime.views.takeIf { it > 0 }
+                    val views = siteViews ?: meta?.popularity?.toLong() ?: 0
+                    val favorites = anime.favorites.takeIf { it > 0 } ?: meta?.favourites?.toLong() ?: 0
+                    if (views > 0 || favorites > 0) {
+                        val viewsLabel = stringResource(if (siteViews == null) R.string.watch_stat_members else R.string.watch_stat_views)
+                        val favoritesLabel = stringResource(R.string.watch_stat_favorites)
+                        Text(
+                            buildAnnotatedString {
+                                withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)) { append(compactNumber(res, views)) }
+                                append(" $viewsLabel      ")
+                                withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)) { append(compactNumber(res, favorites)) }
+                                append(" $favoritesLabel")
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.navEnter().padding(start = 20.dp, end = 20.dp, top = 16.dp),
+                        )
+                    }
                 }
             }
 
@@ -384,7 +391,7 @@ private fun DetailScreen(
                     item(key = "meta") { MetaRow(meta, Modifier.navEnter(170).padding(start = 20.dp, end = 20.dp, top = 12.dp)) }
                 }
                 item(key = "synopsis") { Box(Modifier.navEnter(180)) { Synopsis(anime.synopsis) } }
-                item(key = "info") { Box(Modifier.navEnter(200)) { InfoGrid(anime) } }
+                item(key = "info") { Box(Modifier.navEnter(200)) { InfoGrid(anime, state.meta) } }
                 if (state.meta?.sourceTitles?.isNotEmpty() == true) {
                     item(key = "read-manga") {
                         ReadMangaButton(state.mangaLookup, vm::openManga, Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp))
@@ -475,18 +482,20 @@ private fun DetailScreen(
                     )
                 }
                 else -> itemsIndexed(episodes, key = { _, e -> e.id }) { index, ep ->
+                    // The source has no thumbnails; borrow AniList's streaming stills by episode number.
+                    val shown = ep.copy(thumbnail = ep.thumbnail.ifBlank { state.meta?.episodeThumbnails?.get(ep.number).orEmpty() })
                     Box(Modifier.animateItem().staggerIn(stagger, ep.id, index)) {
                     EpisodeRow(
-                        ep,
+                        shown,
                         progress[ep.id],
                         isResume = resume?.episodeId == ep.id,
                         download = downloads[ep.id],
-                        onDownload = { gate { vm.download(ep) } },
+                        onDownload = { gate { vm.download(shown) } },
                         onDeleteDownload = { vm.deleteDownload(ep) },
                         onMark = { vm.markEpisode(ep, it) },
                         onRestart = { vm.restartEpisode(ep) },
                         onMarkBefore = { vm.markBefore(ep) },
-                        onClick = { anime?.let { onPlay(it, ep, sharedEpisodeKey(ep.id, "detail"), ep.thumbnail) } },
+                        onClick = { anime?.let { onPlay(it, shown, sharedEpisodeKey(ep.id, "detail"), shown.thumbnail) } },
                     )
                     }
                 }
@@ -683,12 +692,23 @@ private fun Synopsis(text: String) {
 }
 
 @Composable
-private fun InfoGrid(anime: Anime) {
+private fun InfoGrid(anime: Anime, meta: AnimeMeta?) {
+    // Kuramanime omits these fields; fall back to AniList when it has them.
+    val studio = anime.studio.ifBlank { meta?.studio.orEmpty() }
+    val year = anime.displayYear.ifBlank { meta?.year?.toString().orEmpty() }
+    val totalEpisodes = meta?.totalEpisodes?.takeIf { it > 0 }
+    val duration = meta?.durationMinutes?.takeIf { it > 0 }
     val rows = listOfNotNull(
-        anime.studio.takeIf { it.isNotBlank() }?.let { stringResource(R.string.watch_info_studio) to it },
+        studio.takeIf { it.isNotBlank() }?.let { stringResource(R.string.watch_info_studio) to it },
         anime.airedStart.takeIf { it.isNotBlank() }?.let { stringResource(R.string.watch_info_aired) to it },
-        anime.displayYear.takeIf { it.isNotBlank() }?.let { stringResource(R.string.watch_info_year) to it },
+        year.takeIf { it.isNotBlank() }?.let { stringResource(R.string.watch_info_year) to it },
         anime.type.takeIf { it.isNotBlank() }?.let { stringResource(R.string.watch_info_type) to it },
+        totalEpisodes?.let {
+            stringResource(R.string.watch_info_total_episodes) to stringResource(R.string.watch_episode_count, it.toString())
+        },
+        duration?.let {
+            stringResource(R.string.watch_info_duration) to stringResource(R.string.stats_minutes, it)
+        },
     )
     if (rows.isEmpty()) return
     Surface(

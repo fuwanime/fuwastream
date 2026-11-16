@@ -20,9 +20,14 @@ import com.fuwanime.data.meta.AniListName
 import com.fuwanime.data.meta.AniListPerson
 import com.fuwanime.data.meta.CastEntry
 import com.fuwanime.data.meta.CastRole
+import com.fuwanime.data.meta.AniListStreamingEpisode
 import com.fuwanime.data.meta.castOf
 import com.fuwanime.data.meta.decodeCast
+import com.fuwanime.data.meta.decodeEpisodeThumbnails
 import com.fuwanime.data.meta.encodeCast
+import com.fuwanime.data.meta.encodeEpisodeThumbnails
+import com.fuwanime.data.meta.episodeNumberFromTitle
+import com.fuwanime.data.meta.episodeThumbnailsOf
 import com.fuwanime.data.meta.AniListRelationEdge
 import com.fuwanime.data.meta.AniListRelationNode
 import com.fuwanime.data.meta.AniListRelations
@@ -161,6 +166,35 @@ class MetaLogicTest {
             castOf(m),
         )
         assertEquals(castOf(m), metaOf(m).cast)
+    }
+
+    @Test fun episodeNumbersComeFromStreamingTitles() {
+        assertEquals("12", episodeNumberFromTitle("Episode 12 - The Rose Bride"))
+        assertEquals("12", episodeNumberFromTitle("EP. 12"))
+        assertEquals("7", episodeNumberFromTitle("E7"))
+        assertEquals("12.5", episodeNumberFromTitle("Episode 12.5 - Special"))
+        assertEquals("3", episodeNumberFromTitle("3"))
+        assertNull(episodeNumberFromTitle("The Rose Bride"))
+        assertNull(episodeNumberFromTitle(null))
+    }
+
+    @Test fun streamingEpisodesMapNumbersAndSkipEmptyThumbnails() {
+        val map = episodeThumbnailsOf(
+            listOf(
+                AniListStreamingEpisode("Episode 1 - Start", "https://img/1.jpg"),
+                AniListStreamingEpisode("Episode 1 - Duplicate", "https://img/other.jpg"),
+                AniListStreamingEpisode("Episode 2 - Next", null),
+                AniListStreamingEpisode("Special", "https://img/sp.jpg"),
+                AniListStreamingEpisode("Episode 3", "https://img/3.jpg"),
+            ),
+        )
+        assertEquals(mapOf("1" to "https://img/1.jpg", "3" to "https://img/3.jpg"), map)
+    }
+
+    @Test fun episodeThumbnailsSurviveTheCacheRoundTrip() {
+        val thumbs = mapOf("1" to "https://img/1.jpg", "2" to "https://img/2.jpg")
+        assertEquals(thumbs, decodeEpisodeThumbnails(encodeEpisodeThumbnails(thumbs)))
+        assertEquals(emptyMap<String, String>(), decodeEpisodeThumbnails(""))
     }
 
     @Test fun castSurvivesTheCacheRoundTrip() {
