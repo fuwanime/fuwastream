@@ -38,6 +38,7 @@
     <string name="manga_reader_translate_no_text">Tiada teks dikesan pada halaman ini.</string>
     <string name="manga_reader_translate_unavailable">Terjemahan tidak tersedia. Memaparkan teks asal (English).</string>
     <string name="manga_reader_translate_failed">Terjemahan gagal. Semak sambungan kemudian cuba lagi.</string>
+    <string name="manga_reader_translate_busy">Pelayan terjemahan sedang sibuk. Cuba lagi sebentar.</string>
     <string name="manga_reader_translate_image_failed">Imej tidak dapat dimuat turun untuk terjemahan. Muat semula chapter kemudian cuba lagi.</string>
     <string name="manga_reader_translate_ocr_model_failed">Model OCR belum sedia. Tunggu sebentar kemudian cuba lagi.</string>
     <string name="manga_reader_translate_ocr_failed">Teks dalam imej ini tidak dapat diproses oleh OCR.</string>

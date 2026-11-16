@@ -11,6 +11,7 @@ import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
 import android.util.Base64
+import com.fuwanime.util.UiText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -73,6 +74,14 @@ private data class IsUploadLimits(
     val maxBytes: Int,
 )
 
+/**
+ * IsManga sometimes returns success with no text boxes for a page that does have dialogue. Retry once with a fresh
+ * task; if it happens again the page is kept as-is (textless pages are valid) instead of failing the whole chapter.
+ */
+internal const val EMPTY_PAYLOAD_RETRY_LIMIT = 1
+
+internal fun shouldRetryEmptyTranslation(attempt: Int): Boolean = attempt < EMPTY_PAYLOAD_RETRY_LIMIT
+
 /** Each retry is deliberately smaller for undocumented/variable IsManga GPU limits. */
 private val IS_UPLOAD_LIMITS = listOf(
     IsUploadLimits(maxDimension = 4_096, maxPixels = 8_000_000L, maxBytes = 4_500_000),
@@ -107,6 +116,9 @@ private class IsApiException(message: String, val code: Int? = null) : Exception
 
 private object IsCodes {
     const val SUCCESS = 1
+
+    /** Internal marker: IsManga reported success but returned no text boxes (e.g. a page without dialogue). */
+    const val EMPTY_PAYLOAD = -2
     const val FILE_TOO_LARGE = 9
     const val STILL_IN_QUEUE = 12
     const val PROCESSING = 13
@@ -524,6 +536,7 @@ class IsMangaChapterTranslator(
     private fun translateOne(imageBytes: ByteArray): Bitmap {
         var signups = 0
         var resizeAttempt = 0
+        var emptyPayloadAttempts = 0
         var uploadBytes = IsImage.prepareUpload(imageBytes, IS_UPLOAD_LIMITS[resizeAttempt])
         while (true) {
             val visitId = UUID.randomUUID().toString()
@@ -548,6 +561,15 @@ class IsMangaChapterTranslator(
                 if (e.code == IsCodes.QUOTA_EXCEEDED) {
                     if (signups >= 3) throw IsApiException("Kuota habis, coba lagi nanti", 10003)
                     signups++; api.signupNew(); continue
+                }
+                if (e.code == IsCodes.EMPTY_PAYLOAD) {
+                    if (shouldRetryEmptyTranslation(emptyPayloadAttempts)) {
+                        emptyPayloadAttempts++
+                        Thread.sleep(600)
+                        continue
+                    }
+                    // Pages without dialogue legitimately have no boxes; show the original instead of failing.
+                    return compose(uploadBytes, emptyList())
                 }
                 throw e
             }
@@ -575,7 +597,10 @@ class IsMangaChapterTranslator(
         val data = res.optJSONObject("data")?.optJSONObject("createMangaByDataUrl") ?: throw IsApiException("createMangaByDataUrl kosong")
         val result = parseIsResult(data)
         if (result.code == IsCodes.QUOTA_EXCEEDED) throw IsApiException("Kuota habis", 10003)
-        if (result.code == IsCodes.SUCCESS && result.payload.isNotEmpty()) return result
+        if (result.code == IsCodes.SUCCESS) {
+            if (result.payload.isEmpty()) throw IsApiException("Tidak ada teks terdeteksi", IsCodes.EMPTY_PAYLOAD)
+            return result
+        }
         if (result.code in IsCodes.PENDING) { if (result.taskPayload == null) throw IsApiException("Tidak ada taskId"); return result }
         throw IsApiException(IsCodes.message(result.code), result.code)
     }
@@ -601,7 +626,10 @@ class IsMangaChapterTranslator(
             val data = res.optJSONObject("data")?.optJSONObject("pollTranslationQueue") ?: run { Thread.sleep(800); continue }
             val result = parseIsResult(data)
             when {
-                result.code == IsCodes.SUCCESS -> { if (result.payload.isEmpty()) throw IsApiException("Sukses tapi payload kosong"); return result }
+                result.code == IsCodes.SUCCESS -> {
+                    if (result.payload.isEmpty()) throw IsApiException("Tidak ada teks terdeteksi", IsCodes.EMPTY_PAYLOAD)
+                    return result
+                }
                 result.code in IsCodes.PENDING -> Thread.sleep(800)
                 result.code == IsCodes.NO_SUCH_TASK && noSuch < 5 -> { noSuch++; Thread.sleep(1000) }
                 result.code == IsCodes.QUOTA_EXCEEDED -> throw IsApiException("Kuota habis", 10003)
@@ -653,7 +681,8 @@ data class ChapterTranslationState(
     val total: Int = 0,
     /** Translated page URIs (file://) when complete. */
     val pages: List<String>? = null,
-    val error: String? = null,
+    /** Localized failure message; internal exception text is never shown to the reader. */
+    val error: UiText? = null,
 )
 
 /** Splits text at line boundaries for chunked processing; keeps every line. */

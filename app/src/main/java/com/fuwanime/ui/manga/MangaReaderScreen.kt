@@ -126,6 +126,7 @@ import com.fuwanime.ui.components.SkeletonBox
 import com.fuwanime.util.UiText
 import com.fuwanime.util.UiTextException
 import com.fuwanime.util.friendlyText
+import com.fuwanime.util.text
 import com.fuwanime.util.fuwaViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.FlowPreview
@@ -200,6 +201,29 @@ class MangaReaderViewModel(
     private fun errorText(e: Throwable): UiText = when {
         e is UiTextException -> e.text
         else -> e.friendlyText()
+    }
+
+    /** Translation failures are localised; raw IsManga/internal exception text must never reach the reader. */
+    private fun translationErrorText(e: Throwable): UiText {
+        if (e is UiTextException) return e.text
+        val msg = e.message.orEmpty()
+        return when {
+            msg.contains("HTTP 4", ignoreCase = true) ||
+                msg.contains("Gagal mengunduh halaman", ignoreCase = true) ||
+                msg.contains("Halaman kosong", ignoreCase = true) ->
+                UiText(R.string.manga_reader_translate_image_failed)
+            msg.contains("decode", ignoreCase = true) ||
+                msg.contains("membaca dimensi gambar", ignoreCase = true) ||
+                msg.contains("mengompres gambar", ignoreCase = true) ->
+                UiText(R.string.manga_reader_translate_decode_failed)
+            msg.contains("Kuota habis", ignoreCase = true) ||
+                msg.contains("Antrian", ignoreCase = true) ||
+                msg.contains("throttle", ignoreCase = true) ||
+                msg.contains("GPU", ignoreCase = true) ||
+                msg.contains("Timeout", ignoreCase = true) ->
+                UiText(R.string.manga_reader_translate_busy)
+            else -> UiText(R.string.manga_reader_translate_failed)
+        }
     }
 
     fun open(chapterId: String) {
@@ -303,7 +327,7 @@ class MangaReaderViewModel(
                             continue
                         }
                     }
-                    _translation.update { it.copy(running = false, error = e.message ?: e.toString()) }
+                    _translation.update { it.copy(running = false, error = translationErrorText(e)) }
                     return@launch
                 }
             }
@@ -524,7 +548,7 @@ fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
                                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                             }
                         } else if (translation.error != null) {
-                            Text(translation.error ?: "", color = Color.White, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
+                            Text(translation.error!!.text(), color = Color.White, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
                             Spacer(Modifier.height(8.dp))
                             Row {
                                 TextButton(onClick = { vm.translateCurrentChapter() }) { Text(stringResource(R.string.manga_reader_translate_retry), color = Color.White) }
