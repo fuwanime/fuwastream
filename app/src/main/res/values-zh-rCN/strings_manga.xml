@@ -38,6 +38,7 @@
     <string name="manga_reader_translate_no_text">本页未检测到文字。</string>
     <string name="manga_reader_translate_unavailable">翻译不可用。正在显示原始英文文本。</string>
     <string name="manga_reader_translate_failed">翻译失败。请检查网络后重试。</string>
+    <string name="manga_reader_translate_busy">翻译服务器繁忙，请稍后再试。</string>
     <string name="manga_reader_translate_image_failed">无法下载用于翻译的图片。请重新加载章节后重试。</string>
     <string name="manga_reader_translate_ocr_model_failed">OCR 模型尚未准备好。请稍候再试。</string>
     <string name="manga_reader_translate_ocr_failed">无法使用 OCR 处理此图片中的文字。</string>
