@@ -117,6 +117,7 @@ dependencies {
   implementation(libs.media3.session)
   implementation(libs.androidx.work.runtime.ktx)
   implementation(libs.androidx.glance.appwidget)
+  implementation(libs.androidx.glance.material3)
   implementation(libs.moshi.kotlin)
   implementation(libs.okhttp)
   implementation(libs.androidx.profileinstaller)
