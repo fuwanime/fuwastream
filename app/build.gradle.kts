@@ -37,8 +37,9 @@ android {
     versionName = System.getenv("VERSION_NAME") ?: "2.1.36"
     // Instrumented tests exercise the real Comix OCR/translation pipeline on an emulator.
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-    // The in-app update checker looks at the repo this APK was built from (a fork checks its own releases).
-    buildConfigField("String", "UPDATE_REPO", "\"${System.getenv("GITHUB_REPOSITORY") ?: "LT-SYAII/fuwastream"}\"")
+    // Where the in-app updater looks for releases. Pinned to the official repo: a fork build or CI run must not
+    // point users at another repo (UPDATE_REPO overrides it for a fork that ships its own releases).
+    buildConfigField("String", "UPDATE_REPO", "\"${System.getenv("UPDATE_REPO") ?: "fuwanime/fuwastream"}\"")
   }
 
   signingConfigs {

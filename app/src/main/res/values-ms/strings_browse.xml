@@ -15,8 +15,10 @@
     <string name="browse_restore">Pulihkan</string>
     <string name="browse_restore_dismiss_cd">Tutup tawaran pulihkan</string>
     <string name="browse_update_no_notes">Tiada catatan keluaran.</string>
-    <string name="browse_update_download">Muat turun APK</string>
-    <string name="browse_update_github_cd">Buka di GitHub</string>
+    <string name="browse_update_install">Kemas kini sekarang</string>
+    <string name="browse_update_downloading">Memuat turun kemas kini…</string>
+    <string name="browse_update_failed">Muat turun gagal. Semak sambungan dan cuba lagi.</string>
+    <string name="browse_update_install_hint">Android akan meminta pengesahan pemasangan. Data dan sejarah kekal selamat.</string>
     <string name="browse_search">Cari</string>
     <string name="browse_settings">Tetapan</string>
     <string name="browse_hero_rank">#%1$d MUSIM INI</string>

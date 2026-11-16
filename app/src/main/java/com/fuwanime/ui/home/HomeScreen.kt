@@ -1,6 +1,10 @@
 package com.fuwanime.ui.home
 
 import com.fuwanime.R
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.ui.res.stringResource
 import com.fuwanime.ui.settings.rememberRestoreFlow
 import androidx.compose.material3.SnackbarHostState
@@ -40,8 +44,6 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Search
@@ -146,11 +148,16 @@ fun HomeRoute(
     val vm: HomeViewModel = fuwaViewModel { c, _ ->
         HomeViewModel(
             c.animeRepository, c.libraryRepository, c.updateRepository, c.settingsStore,
-            c.networkStatus, c.backupRepository, c.mangaLibrary, c.mangaRepository,
+            c.networkStatus, c.backupRepository, c.mangaLibrary, c.mangaRepository, c.appInstaller,
         )
     }
     val state by vm.state.collectAsStateWithLifecycle()
     val update by vm.update.collectAsStateWithLifecycle()
+    val install by vm.install.collectAsStateWithLifecycle()
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { vm.onPermissionResult() }
+    LaunchedEffect(install) {
+        if (install is HomeViewModel.Install.NeedsPermission) vm.permissionIntent()?.let { permissionLauncher.launch(it) }
+    }
     val favoriteIds by vm.favoriteIds.collectAsStateWithLifecycle()
     val showRestore by vm.showRestorePrompt.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { vm.onOpened() }
@@ -169,6 +176,8 @@ fun HomeRoute(
             todayLabel = stringResource(vm.today.full),
             onRefresh = vm::refresh,
             update = update,
+            install = install,
+            onInstallUpdate = vm::installUpdate,
             onDismissUpdate = vm::dismissUpdate,
             showRestore = showRestore,
             onRestore = restore,
@@ -198,6 +207,8 @@ private fun HomeScreen(
     todayLabel: String,
     onRefresh: () -> Unit,
     update: UpdateRepository.UpdateInfo?,
+    install: HomeViewModel.Install,
+    onInstallUpdate: () -> Unit,
     onDismissUpdate: () -> Unit,
     showRestore: Boolean,
     onRestore: () -> Unit,
@@ -372,7 +383,7 @@ private fun HomeScreen(
     }
 
     if (showUpdateSheet && update != null) {
-        UpdateSheet(update, onDismiss = { showUpdateSheet = false })
+        UpdateSheet(update, install, onInstall = onInstallUpdate, onDismiss = { showUpdateSheet = false })
     }
 }
 
@@ -524,55 +535,45 @@ private fun RestoreBanner(onRestore: () -> Unit, onDismiss: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun UpdateSheet(info: UpdateRepository.UpdateInfo, onDismiss: () -> Unit) {
-    val context = androidx.compose.ui.platform.LocalContext.current
+private fun UpdateSheet(info: UpdateRepository.UpdateInfo, install: HomeViewModel.Install, onInstall: () -> Unit, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(Modifier.padding(horizontal = 20.dp)) {
+        Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.SystemUpdateAlt, null, tint = MaterialTheme.colorScheme.primary)
-                Text(
-                    info.title,
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.padding(start = 10.dp),
-                )
+                Text(info.title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(start = 10.dp))
             }
-            Text(
-                info.tag.removePrefix("v"),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(top = 4.dp),
-            )
-            Spacer(Modifier.height(12.dp))
+            Text(info.tag.removePrefix("v"), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
             Text(
                 info.notes.ifBlank { stringResource(R.string.browse_update_no_notes) },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.heightIn(max = 280.dp).verticalScroll(rememberScrollState()),
             )
-            Spacer(Modifier.height(16.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(bottom = 20.dp)) {
-                Button(
-                    onClick = {
-                        info.apkUrl?.let { url ->
-                            context.startActivity(
-                                android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)),
-                            )
-                        }
-                    },
-                    enabled = info.apkUrl != null,
-                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
-                ) {
-                    Icon(Icons.Rounded.Info, null, Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(stringResource(R.string.browse_update_download))
+            when (install) {
+                is HomeViewModel.Install.Downloading -> {
+                    Text(stringResource(R.string.browse_update_downloading), style = MaterialTheme.typography.labelLarge)
+                    if (install.progress >= 0f) LinearProgressIndicator(progress = { install.progress }, modifier = Modifier.fillMaxWidth())
+                    else LinearProgressIndicator(Modifier.fillMaxWidth())
                 }
-                OutlinedIconButton(
-                    onClick = {
-                        context.startActivity(
-                            android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(info.pageUrl)),
-                        )
-                    },
-                ) {
-                    Icon(Icons.Rounded.OpenInNew, stringResource(R.string.browse_update_github_cd))
+                else -> {
+                    if (install == HomeViewModel.Install.Failed) {
+                        Text(stringResource(R.string.browse_update_failed), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    }
+                    Button(
+                        onClick = onInstall,
+                        enabled = info.apkUrl != null,
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(vertical = 12.dp),
+                    ) {
+                        Icon(Icons.Rounded.SystemUpdateAlt, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.browse_update_install))
+                    }
+                    Text(
+                        stringResource(R.string.browse_update_install_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }

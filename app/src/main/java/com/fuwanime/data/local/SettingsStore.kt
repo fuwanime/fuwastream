@@ -79,7 +79,6 @@ internal object Keys {
     val autoSkipOp = booleanPreferencesKey("auto_skip_op")
     val jumpAheadButton = booleanPreferencesKey("jump_ahead_button")
     val mobileDataQuality = intPreferencesKey("mobile_data_quality")
-    val updateLastCheckMs = longPreferencesKey("update_last_check_ms")
     val updateDismissedTag = stringPreferencesKey("update_dismissed_tag")
     val notifyAppUpdates = booleanPreferencesKey("notify_app_updates")
     val updateNotifiedTag = stringPreferencesKey("update_notified_tag")
@@ -287,16 +286,6 @@ class SettingsStore(private val context: Context) {
             val id = key.name.removePrefix("notify_baseline_")
             if (id != key.name && value is Double) id to value else null
         }.toMap()
-    }
-
-    /** Update check runs at most once every 6 hours (unless the installed tag changed). */
-    suspend fun shouldCheckUpdate(currentTag: String): Boolean {
-        val last = context.dataStore.data.map { it[Keys.updateLastCheckMs] ?: 0L }.firstOrNull() ?: 0L
-        return System.currentTimeMillis() - last > 6 * 60 * 60 * 1000L
-    }
-
-    suspend fun markUpdateChecked() {
-        context.dataStore.edit { it[Keys.updateLastCheckMs] = System.currentTimeMillis() }
     }
 
     suspend fun dismissedUpdateTag(): String? =
