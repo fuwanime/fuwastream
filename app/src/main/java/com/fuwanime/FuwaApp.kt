@@ -97,7 +97,23 @@ class AppContainer(private val app: Application) {
     val updateRepository = UpdateRepository(settingsStore)
 
     /** Video requests get the same UA as the API but none of its JSON headers. */
-    val videoHttpClient: OkHttpClient = httpClient.newBuilder().apply { interceptors().clear() }.build()
+    val videoHttpClient: OkHttpClient = httpClient.newBuilder().apply {
+        interceptors().clear()
+        // Animekompi's /api/episodes/stream proxy refuses requests that do not look like they come from its own page.
+        addInterceptor { chain ->
+            val req = chain.request()
+            chain.proceed(
+                if (req.url.host.endsWith("animekompi.sbs")) {
+                    req.newBuilder()
+                        .header("Referer", AnimekompiSource.BASE + "/")
+                        .header("Origin", AnimekompiSource.BASE)
+                        .build()
+                } else {
+                    req
+                },
+            )
+        }
+    }.build()
 
     /** Downloads a release APK and opens the system installer, so updating needs no browser. */
     val appInstaller by lazy { AppInstaller(app, videoHttpClient) }
