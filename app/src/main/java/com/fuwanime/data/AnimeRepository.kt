@@ -5,7 +5,9 @@ import com.fuwanime.util.UiText
 import com.fuwanime.util.UiTextException
 import androidx.annotation.StringRes
 import com.fuwanime.data.remote.AnimeApiService
+import com.fuwanime.data.remote.AnimekompiSource
 import com.fuwanime.data.remote.KuramanimeSource
+import com.fuwanime.data.remote.isAnimekompiId
 import com.fuwanime.data.remote.isKuramanimeId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -31,6 +33,7 @@ class AnimeRepository(
     private val api: AnimeApiService,
     private val cachedApi: AnimeApiService = api,
     private val kuramanime: KuramanimeSource? = null,
+    private val animekompi: AnimekompiSource? = null,
     /** Global "Mature content" preference; false hides anime carrying explicit mature genres. */
     private val mature: suspend () -> Boolean = { false },
 ) {
@@ -132,7 +135,11 @@ class AnimeRepository(
 
     /** Detail plus the franchise list ("S1", "Movie", …) that only the detail response carries. */
     suspend fun detailWithSeasons(id: String): Result<AnimeDetail> = io {
-        if (isKuramanimeId(id)) {
+        if (isAnimekompiId(id)) {
+            val ak = animekompi ?: throw UiTextException(UiText(R.string.common_error_anime_not_found))
+            val anime = ak.detail(id)
+            AnimeDetail(animeCache.merge(id, anime, ::mergeAnime)!!, emptyList())
+        } else if (isKuramanimeId(id)) {
             val kr = kuramanime ?: throw UiTextException(UiText(R.string.common_error_anime_not_found))
             val anime = kr.detail(id)
             AnimeDetail(animeCache.merge(id, anime, ::mergeAnime)!!, emptyList())
@@ -152,12 +159,18 @@ class AnimeRepository(
         if (!forceRefresh) {
             episodePages[animeId]?.get(page)?.let { return@io it }
         }
-        val episodes = if (isKuramanimeId(animeId)) {
-            // Kuramanime lists all episodes in one page; return newest-first on page 0 to match app convention.
-            if (page != 0) emptyList()
-            else (kuramanime?.episodes(animeId).orEmpty()).sortedByDescending { it.sortKey }
-        } else {
-            api.episodes(animeId, page = page).data?.episode.orEmpty().map { it.toEpisode() }
+        val episodes = when {
+            isAnimekompiId(animeId) ->
+                // Animekompi returns the full list with the detail payload; newest-first on page 0.
+                if (page != 0) emptyList()
+                else (animekompi?.episodes(animeId).orEmpty())
+            isKuramanimeId(animeId) ->
+                // Kuramanime lists all episodes in one page; return newest-first on page 0 to match app convention.
+                if (page != 0) emptyList()
+                else (kuramanime?.episodes(animeId).orEmpty()).sortedByDescending { it.sortKey }
+            else -> {
+                api.episodes(animeId, page = page).data?.episode.orEmpty().map { it.toEpisode() }
+            }
         }
         episodeLock.withLock {
             episodePages.getOrPut(animeId) { ConcurrentHashMap() }[page] = episodes
@@ -167,7 +180,11 @@ class AnimeRepository(
 
     /** Server-side substring match on the episode number, e.g. "10" -> 10, 100–109, 110, 210… */
     suspend fun searchEpisodes(animeId: String, query: String): Result<List<Episode>> = io {
-        if (isKuramanimeId(animeId)) {
+        if (isAnimekompiId(animeId)) {
+            val q = query.trim()
+            val all = episodePages[animeId]?.get(0) ?: animekompi?.episodes(animeId).orEmpty()
+            all.filter { it.number.contains(q, ignoreCase = true) || it.title.contains(q, ignoreCase = true) }
+        } else if (isKuramanimeId(animeId)) {
             val q = query.trim()
             val all = episodePages[animeId]?.get(0) ?: kuramanime?.episodes(animeId).orEmpty().sortedByDescending { it.sortKey }
             all.filter { it.number.contains(q, ignoreCase = true) || it.title.contains(q, ignoreCase = true) }
@@ -201,7 +218,7 @@ class AnimeRepository(
 
     /** For episodes opened from history: estimate the page from the episode number, then verify. */
     private suspend fun locatePage(animeId: String, episode: Episode): Int? {
-        if (isKuramanimeId(animeId)) {
+        if (isAnimekompiId(animeId) || isKuramanimeId(animeId)) {
             val page = pageOf(animeId, episode.id)
             if (page != null) return page
             // ensure page 0 loaded
@@ -221,7 +238,12 @@ class AnimeRepository(
     }
 
     suspend fun stream(episodeId: String): Result<EpisodeStream> = io {
-        if (isKuramanimeId(episodeId)) {
+        if (isAnimekompiId(episodeId)) {
+            val ak = animekompi ?: throw UiTextException(UiText(R.string.common_error_stream_unavailable))
+            val stream = ak.stream(episodeId)
+            if (stream.sources.isEmpty()) throw UiTextException(UiText(R.string.common_error_stream_unavailable))
+            stream
+        } else if (isKuramanimeId(episodeId)) {
             val kr = kuramanime ?: throw UiTextException(UiText(R.string.common_error_stream_unavailable))
             val stream = kr.stream(episodeId)
             if (stream.sources.isEmpty()) throw UiTextException(UiText(R.string.common_error_stream_unavailable))
@@ -258,6 +280,28 @@ class AnimeRepository(
     suspend fun kuramanimeSchedule(day: String): Result<List<Anime>> = io {
         val kr = kuramanime ?: return@io emptyList()
         remember(visible(kr.schedule(day)))
+    }
+
+    // --- Animekompi browse/search (additive source) ---
+
+    suspend fun animekompiBrowse(order: String = "popular", page: Int = 1): Result<List<Anime>> = io {
+        val ak = animekompi ?: return@io emptyList()
+        remember(visible(ak.browse(order, page).items))
+    }
+
+    suspend fun animekompiLatest(page: Int = 1): Result<List<Anime>> = io {
+        val ak = animekompi ?: return@io emptyList()
+        remember(visible(ak.latest(page).items))
+    }
+
+    suspend fun animekompiSearch(query: String): Result<List<Anime>> = io {
+        val ak = animekompi ?: return@io emptyList()
+        remember(visible(ak.search(query)))
+    }
+
+    suspend fun animekompiSchedule(day: String): Result<List<Anime>> = io {
+        val ak = animekompi ?: return@io emptyList()
+        remember(visible(ak.schedule(day)))
     }
 
     private suspend fun <T> io(block: suspend () -> T): Result<T> = withContext(Dispatchers.IO) {

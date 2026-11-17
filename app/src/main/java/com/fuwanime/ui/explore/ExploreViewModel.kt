@@ -73,6 +73,7 @@ data class ExploreUiState(
     val mangaResults: List<Manga> = emptyList(),
     val mangaLoading: Boolean = false,
     val kuramanimeLoading: Boolean = false,
+    val animekompiLoading: Boolean = false,
 )
 
 class ExploreViewModel(
@@ -102,6 +103,8 @@ class ExploreViewModel(
     private var mangaJob: Job? = null
     private var kuramanimeJob: Job? = null
     private var kuramanimeRaw = emptyList<Anime>()
+    private var animekompiJob: Job? = null
+    private var animekompiRaw = emptyList<Anime>()
 
     init {
         reload()
@@ -158,10 +161,12 @@ class ExploreViewModel(
         seen.clear()
         nextPage = 0
         kuramanimeRaw = emptyList()
+        animekompiRaw = emptyList()
         _state.update { it.copy(results = emptyList(), loading = true, endReached = false, error = null) }
         loadMore()
         searchManga(_state.value.filters.query)
         searchKuramanime(_state.value.filters.query)
+        searchAnimekompi(_state.value.filters.query)
     }
 
     /** Universal search: anime and manga in one query, without waiting for the anime pager to finish. */
@@ -197,6 +202,25 @@ class ExploreViewModel(
             }
             kuramanimeRaw = result.getOrDefault(emptyList()).take(if (q.length >= 2) 30 else 18)
             _state.update { it.copy(kuramanimeLoading = false) }
+            refilter(fillPage = false)
+        }
+    }
+
+    /** Animekompi as an additive anime source: search when typing, popular browse when query is empty. */
+    private fun searchAnimekompi(query: String) {
+        animekompiJob?.cancel()
+        val q = query.trim()
+        animekompiJob = viewModelScope.launch {
+            _state.update { it.copy(animekompiLoading = true) }
+            val result = try {
+                if (q.length >= 2) repo.animekompiSearch(q) else repo.animekompiBrowse("popular", 1)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+            animekompiRaw = result.getOrDefault(emptyList()).take(if (q.length >= 2) 30 else 18)
+            _state.update { it.copy(animekompiLoading = false) }
             refilter(fillPage = false)
         }
     }
@@ -250,8 +274,17 @@ class ExploreViewModel(
                 } &&
                 f.type.matches(a.type)
         }
-        // Kuramanime items merged in (deduped) so all sources appear as one list.
-        val merged = (filtered + krFiltered)
+        val akFiltered = animekompiRaw.filter { a ->
+            (f.query.trim().length >= 2 || matchesGenres(a, f.genres)) &&
+                when (f.status) {
+                    StatusFilter.ALL -> true
+                    StatusFilter.ONGOING -> a.isOngoing
+                    StatusFilter.FINISHED -> !a.isOngoing && !a.isUpcoming
+                } &&
+                f.type.matches(a.type)
+        }
+        // Kuramanime + Animekompi items merged in (deduped) so all sources appear as one list.
+        val merged = (filtered + krFiltered + akFiltered)
             .distinctBy { it.id }
             .distinctBy { it.title.trim().lowercase() }
         _state.update { it.copy(results = merged) }

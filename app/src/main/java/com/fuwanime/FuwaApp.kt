@@ -38,6 +38,7 @@ import com.fuwanime.playback.PlaybackHolder
 import java.util.concurrent.TimeUnit
 import com.fuwanime.data.remote.AnimeApiService
 import com.fuwanime.data.remote.ForceCache
+import com.fuwanime.data.remote.AnimekompiSource
 import com.fuwanime.data.remote.KuramanimeSource
 import com.fuwanime.data.remote.NetworkStatus
 import com.fuwanime.data.remote.apiCacheClient
@@ -78,6 +79,7 @@ class AppContainer(private val app: Application) {
         AnimeApiService.create(apiHttpClient),
         AnimeApiService.create(apiHttpClient.newBuilder().addInterceptor(ForceCache).build()),
         kuramanime = KuramanimeSource(httpClient, mature = { settingsStore.matureContent.first() }),
+        animekompi = AnimekompiSource(httpClient, mature = { settingsStore.matureContent.first() }),
         mature = { settingsStore.matureContent.first() },
     )
 

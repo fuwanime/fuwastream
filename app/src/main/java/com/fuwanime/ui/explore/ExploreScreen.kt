@@ -369,7 +369,7 @@ private fun ResultsGrid(
     val branch = when {
         state.loading && state.results.isEmpty() && state.mangaResults.isEmpty() -> ResultsBranch.LOADING
         state.error != null && state.results.isEmpty() && state.mangaResults.isEmpty() -> ResultsBranch.ERROR
-        state.results.isEmpty() && state.mangaResults.isEmpty() && !state.loadingMore && !state.mangaLoading && !state.kuramanimeLoading -> ResultsBranch.EMPTY
+        state.results.isEmpty() && state.mangaResults.isEmpty() && !state.loadingMore && !state.mangaLoading && !state.kuramanimeLoading && !state.animekompiLoading -> ResultsBranch.EMPTY
         else -> ResultsBranch.RESULTS
     }
     Crossfade(branch, animationSpec = tween(Motion.Medium), label = "exploreResults") { shown ->
@@ -435,7 +435,7 @@ private fun ResultsGrid(
                     sharedOrigin = "explore",
                 )
             }
-            if (state.mangaLoading || state.kuramanimeLoading) {
+            if (state.mangaLoading || state.kuramanimeLoading || state.animekompiLoading) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     Box(Modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
