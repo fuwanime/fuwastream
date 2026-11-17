@@ -1,316 +1,226 @@
 package com.fuwanime.data
 
+import android.app.DownloadManager
+import android.content.Context
+import android.net.Uri
+import android.os.Environment
+import android.provider.DocumentsContract
+import com.fuwanime.data.local.SettingsStore
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import com.fuwanime.R
-import com.fuwanime.util.UiText
-import com.fuwanime.util.UiTextException
-import androidx.annotation.StringRes
+import com.fuwanime.util.localizedContext
+import com.fuwanime.data.local.DownloadDao
+import com.fuwanime.data.local.DownloadEntity
 import com.fuwanime.data.remote.AnimeApiService
 import com.fuwanime.data.remote.AnimekompiSource
-import com.fuwanime.data.remote.KuramanimeSource
 import com.fuwanime.data.remote.isAnimekompiId
-import com.fuwanime.data.remote.isKuramanimeId
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.withContext
-import java.util.concurrent.ConcurrentHashMap
+import java.io.File
 
-enum class SortOrder(val apiValue: String, @StringRes val label: Int) {
-    POPULAR("views", R.string.common_sort_popular),
-    TITLE("alphabet", R.string.common_sort_title),
-    LATEST("latest", R.string.common_sort_latest),
+enum class DownloadState { QUEUED, RUNNING, PAUSED, DONE, FAILED }
+
+data class DownloadItem(
+    val entity: DownloadEntity,
+    val state: DownloadState,
+    val downloadedBytes: Long,
+    val totalBytes: Long,
+) {
+    val progress: Float get() = if (totalBytes > 0) (downloadedBytes.toFloat() / totalBytes).coerceIn(0f, 1f) else 0f
+    val inProgress: Boolean get() = state == DownloadState.QUEUED || state == DownloadState.RUNNING || state == DownloadState.PAUSED
 }
 
 /**
- * Remote data with a small in-memory cache so screens can show what they already know
- * (e.g. a poster tapped on Home) while the full payload loads.
+ * Offline episodes. Files are fetched by the system DownloadManager (notification, retries and
+ * background work for free) into the app's private Movies folder, and tracked in Room.
  */
-/** [cachedApi] answers from the disk cache only (see ForceCache); it backs the cache-first read on Beranda. */
-class AnimeRepository(
-    private val api: AnimeApiService,
-    private val cachedApi: AnimeApiService = api,
-    private val kuramanime: KuramanimeSource? = null,
-    private val animekompi: AnimekompiSource? = null,
-    /** Global "Mature content" preference; false hides anime carrying explicit mature genres. */
-    private val mature: suspend () -> Boolean = { false },
+@OptIn(ExperimentalCoroutinesApi::class)
+class DownloadRepository(
+    private val context: Context,
+    private val dao: DownloadDao,
+    private val anime: AnimeRepository,
+    private val appScope: CoroutineScope,
+    private val settings: SettingsStore,
 ) {
+    private val manager = context.getSystemService(DownloadManager::class.java)
 
-    private val animeCache = ConcurrentHashMap<String, Anime>()
-
-    /** animeId -> (page -> episodes newest-first). Pages are fixed windows of 30 from the API. */
-    private val episodePages = ConcurrentHashMap<String, MutableMap<Int, List<Episode>>>()
-    private val episodeLock = Mutex()
-
-    fun cachedAnime(id: String): Anime? = animeCache[id]
-
-    /** Seeds the cache with what a list already shows, so the next screen can draw it before loading. */
-    fun prime(anime: Anime) {
-        if (anime.id.isNotBlank()) animeCache.putIfAbsent(anime.id, anime)
-    }
-
-    private suspend fun visible(list: List<Anime>): List<Anime> =
-        if (mature()) list else list.filterNot { it.hasMatureGenre() }
-
-    /** Lower-case genre name -> id for the genre endpoint; fetched once. */
-    @Volatile
-    private var genreIds: Map<String, String>? = null
-
-    private fun remember(list: List<Anime>): List<Anime> {
-        list.forEach { anime -> animeCache.merge(anime.id, anime, ::mergeAnime) }
-        return list
-    }
-
-    /** Detail responses carry fields (studio) list responses lack, and vice versa; feeds without genres keep known ones. */
-    private fun mergeAnime(old: Anime, new: Anime) = new.copy(
-        studio = new.studio.ifBlank { old.studio },
-        nextAirTime = new.nextAirTime.ifBlank { old.nextAirTime },
-        cover = new.cover.ifBlank { old.cover },
-        poster = new.poster.ifBlank { old.poster },
-        genres = new.genres.ifEmpty { old.genres },
-    )
-
-    suspend fun explore(
-        page: Int,
-        sort: SortOrder = SortOrder.POPULAR,
-        keyword: String = "",
-        type: String? = null,
-        cacheOnly: Boolean = false,
-    ): Result<List<Anime>> =
-        io {
-            val source = if (cacheOnly) cachedApi else api
-            // The type endpoint ignores keywords, so searches use the keyword endpoint and callers filter by type.
-            val response = if (type != null && keyword.isBlank()) {
-                source.exploreByType(type = type, page = page, sort = sort.apiValue)
-            } else {
-                source.explore(page = page, sort = sort.apiValue, keyword = keyword.trim())
+    /** All downloads with live progress; polls the system once a second while anything is in flight. */
+    val downloads: Flow<List<DownloadItem>> = dao.observeAll()
+        .flatMapLatest { rows ->
+            flow {
+                while (true) {
+                    val items = rows.map(::status)
+                    emit(items)
+                    items.filter { it.state == DownloadState.DONE && !isContent(it.entity.filePath) }.forEach { appScope.launch { relocate(it.entity) } }
+                    if (items.none { it.inProgress }) break
+                    delay(1_000)
+                }
             }
-            val items = response.data?.movie.orEmpty()
-            remember(visible(items.map { it.toAnime() }.distinctBy { it.id }))
         }
+        .flowOn(Dispatchers.IO)
+        .distinctUntilChanged()
+        .shareIn(appScope, SharingStarted.WhileSubscribed(5_000), replay = 1)
+
+    fun forAnime(animeId: String): Flow<Map<String, DownloadItem>> =
+        downloads.map { list -> list.filter { it.entity.animeId == animeId }.associateBy { it.entity.episodeId } }
+
+    fun forEpisode(episodeId: String): Flow<DownloadItem?> =
+        downloads.map { list -> list.firstOrNull { it.entity.episodeId == episodeId } }
+
+    /** The finished download for this episode, if its file is still on disk. */
+    suspend fun completed(episodeId: String): DownloadItem? = withContext(Dispatchers.IO) {
+        dao.get(episodeId)?.let(::status)?.takeIf { it.state == DownloadState.DONE }
+    }
+
+    /** Resolves the stream links and queues the source closest to [preferredHeight]. */
+    suspend fun download(show: Anime, episode: Episode, preferredHeight: Int, wifiOnly: Boolean): Result<Unit> {
+        val stream = anime.stream(episode.id).getOrElse { return Result.failure(it) }
+        val source = stream.sources.closestTo(preferredHeight)
+            ?: return Result.failure(IllegalStateException(localizedContext(context).getString(R.string.system_download_no_source)))
+        val merged = stream.episode?.let { info ->
+            episode.copy(thumbnail = episode.thumbnail.ifBlank { info.thumbnail }, number = episode.number.ifBlank { info.number })
+        } ?: episode
+        return enqueue(show, merged, source, wifiOnly)
+    }
+
+    suspend fun enqueue(show: Anime, episode: Episode, source: StreamSource, wifiOnly: Boolean): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                dao.get(episode.id)?.let { existing ->
+                    val current = status(existing)
+                    if (current.inProgress || current.state == DownloadState.DONE) return@runCatching
+                    removeFiles(existing)
+                }
+                // One folder per anime, files named by episode so they list in order.
+                val relative = "fuwanime/${cleanFileName(show.title).ifEmpty { safeName(show.id) }}/${episodeFileName(show.title, episode.number, source.quality)}"
+                val dir = context.getExternalFilesDir(Environment.DIRECTORY_MOVIES)
+                    ?: error(localizedContext(context).getString(R.string.system_download_no_storage))
+                val target = File(dir, relative)
+                target.parentFile?.mkdirs()
+                target.delete()
+
+                val request = DownloadManager.Request(Uri.parse(source.url))
+                    .addRequestHeader("User-Agent", AnimeApiService.USER_AGENT)
+                    .apply {
+                        if (isAnimekompiId(episode.id)) {
+                            addRequestHeader("Referer", AnimekompiSource.BASE + "/")
+                            addRequestHeader("Origin", AnimekompiSource.BASE)
+                        }
+                    }
+                    .setTitle(localizedContext(context).getString(R.string.system_download_title, show.title, episode.number))
+                    .setDescription("FuwaNime • ${source.quality}")
+                    .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                    .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_MOVIES, relative)
+                    .setAllowedOverMetered(!wifiOnly)
+                    .setAllowedOverRoaming(!wifiOnly)
+
+                val id = manager.enqueue(request)
+                dao.upsert(
+                    DownloadEntity(
+                        episodeId = episode.id,
+                        animeId = show.id,
+                        animeTitle = show.title,
+                        animePoster = show.poster,
+                        episodeNumber = episode.number,
+                        episodeTitle = episode.title,
+                        episodeThumbnail = episode.thumbnail,
+                        quality = source.quality,
+                        systemId = id,
+                        filePath = target.absolutePath,
+                        createdAt = System.currentTimeMillis(),
+                    ),
+                )
+            }
+        }
+
+    suspend fun delete(episodeId: String) = withContext(Dispatchers.IO) {
+        dao.get(episodeId)?.let(::removeFiles)
+        dao.delete(episodeId)
+    }
+
+    /** Cancels every download, deletes its files, and clears the tracking table. */
+    suspend fun clearAll() = withContext(Dispatchers.IO) {
+        dao.all().forEach(::removeFiles)
+        dao.clear()
+    }
+
+    private fun removeFiles(entity: DownloadEntity) {
+        runCatching { manager.remove(entity.systemId) }
+        if (isContent(entity.filePath)) runCatching { DocumentsContract.deleteDocument(context.contentResolver, Uri.parse(entity.filePath)) }
+        else File(entity.filePath).delete()
+    }
+
+    private val moving = java.util.Collections.synchronizedSet(HashSet<String>())
 
     /**
-     * Pool for "Anime Serupa": the most watched titles of this anime's two most specific genres, filtered by the
-     * server. Falls back to the general popular list when the genre list is unavailable. Rank with [rankSimilar].
+     * Moves a finished episode from the app folder into the folder picked in settings (DownloadManager can only write to
+     * the app folder). On any failure the file stays where it is, so nothing is lost.
      */
-    suspend fun similarCandidates(anime: Anime): Result<List<Anime>> = io {
-        val ids = genreIds ?: try {
-            api.genres().data?.genre.orEmpty()
-                .filter { it.id.isNotBlank() && it.name.isNotBlank() }
-                .associate { it.name.trim().lowercase() to it.id }
-                .also { if (it.isNotEmpty()) genreIds = it }
-        } catch (e: kotlinx.coroutines.CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            emptyMap()
-        }
-        val seeds = seedGenres(anime.genres).mapNotNull { ids[it.trim().lowercase()] }
-        val items = if (seeds.isEmpty()) {
-            api.explore(page = 0, sort = SortOrder.POPULAR.apiValue, keyword = "").data?.movie.orEmpty()
-        } else {
-            coroutineScope {
-                seeds.map { id -> async { api.exploreByGenre(id, 0, SortOrder.POPULAR.apiValue).data?.movie.orEmpty() } }
-                    .awaitAll()
-                    .flatten()
-            }
-        }
-        remember(visible(items.map { it.toAnime() }.distinctBy { it.id }))
-    }
-
-    suspend fun latestReleases(limit: Int = 20, cacheOnly: Boolean = false): Result<List<LatestRelease>> = io {
-        val releases = (if (cacheOnly) cachedApi else api).latestEpisodes(limit).data?.movie.orEmpty()
-            .filter { it.id.isNotBlank() }
-            .map { it.toLatestRelease() }
-            .distinctBy { it.anime.id }
-        remember(releases.map { it.anime })
-        val merged = releases.map { r -> r.copy(anime = animeCache[r.anime.id] ?: r.anime) }
-        if (mature()) merged else merged.filterNot { it.anime.hasMatureGenre() }
-    }
-
-    suspend fun schedule(day: String, cacheOnly: Boolean = false): Result<List<Anime>> = io {
-        remember(visible((if (cacheOnly) cachedApi else api).schedule(day.lowercase()).data?.movie.orEmpty().map { it.toAnime() }))
-    }
-
-    /** Detail plus the franchise list ("S1", "Movie", …) that only the detail response carries. */
-    suspend fun detailWithSeasons(id: String): Result<AnimeDetail> = io {
-        if (isAnimekompiId(id)) {
-            val ak = animekompi ?: throw UiTextException(UiText(R.string.common_error_anime_not_found))
-            val anime = ak.detail(id)
-            AnimeDetail(animeCache.merge(id, anime, ::mergeAnime)!!, emptyList())
-        } else if (isKuramanimeId(id)) {
-            val kr = kuramanime ?: throw UiTextException(UiText(R.string.common_error_anime_not_found))
-            val anime = kr.detail(id)
-            AnimeDetail(animeCache.merge(id, anime, ::mergeAnime)!!, emptyList())
-        } else {
-            val data = api.detail(id).data
-            val anime = data?.movie?.toAnime() ?: throw UiTextException(UiText(R.string.common_error_anime_not_found))
-            val seasons = data.season.orEmpty()
-                .filter { it.id.isNotBlank() }
-                .map { SeasonEntry(it.toAnime(), it.season?.trim().orEmpty()) }
-            AnimeDetail(animeCache.merge(id, anime, ::mergeAnime)!!, seasons)
-        }
-    }
-
-    suspend fun detail(id: String): Result<Anime> = detailWithSeasons(id).map { it.anime }
-
-    suspend fun episodePage(animeId: String, page: Int, forceRefresh: Boolean = false): Result<List<Episode>> = io {
-        if (!forceRefresh) {
-            episodePages[animeId]?.get(page)?.let { return@io it }
-        }
-        val episodes = when {
-            isAnimekompiId(animeId) ->
-                // Animekompi returns the full list with the detail payload; newest-first on page 0.
-                if (page != 0) emptyList()
-                else (animekompi?.episodes(animeId).orEmpty())
-            isKuramanimeId(animeId) ->
-                // Kuramanime lists all episodes in one page; return newest-first on page 0 to match app convention.
-                if (page != 0) emptyList()
-                else (kuramanime?.episodes(animeId).orEmpty()).sortedByDescending { it.sortKey }
-            else -> {
-                api.episodes(animeId, page = page).data?.episode.orEmpty().map { it.toEpisode() }
-            }
-        }
-        episodeLock.withLock {
-            episodePages.getOrPut(animeId) { ConcurrentHashMap() }[page] = episodes
-        }
-        episodes
-    }
-
-    /** Server-side substring match on the episode number, e.g. "10" -> 10, 100–109, 110, 210… */
-    suspend fun searchEpisodes(animeId: String, query: String): Result<List<Episode>> = io {
-        if (isAnimekompiId(animeId)) {
-            val q = query.trim()
-            val all = episodePages[animeId]?.get(0) ?: animekompi?.episodes(animeId).orEmpty()
-            all.filter { it.number.contains(q, ignoreCase = true) || it.title.contains(q, ignoreCase = true) }
-        } else if (isKuramanimeId(animeId)) {
-            val q = query.trim()
-            val all = episodePages[animeId]?.get(0) ?: kuramanime?.episodes(animeId).orEmpty().sortedByDescending { it.sortKey }
-            all.filter { it.number.contains(q, ignoreCase = true) || it.title.contains(q, ignoreCase = true) }
-        } else {
-            api.episodes(animeId, page = 0, search = query.trim()).data?.episode.orEmpty().map { it.toEpisode() }
-        }
-    }
-
-    fun pageOf(animeId: String, episodeId: String): Int? =
-        episodePages[animeId]?.entries?.firstOrNull { (_, eps) -> eps.any { it.id == episodeId } }?.key
-
-    /**
-     * Finds the chronologically adjacent episode, loading the neighbouring page when the
-     * episode sits on a page boundary. [newer] = true means the next episode to watch.
-     */
-    suspend fun adjacentEpisode(animeId: String, episode: Episode, newer: Boolean): Episode? {
-        val page = pageOf(animeId, episode.id) ?: locatePage(animeId, episode) ?: return null
-        val list = episodePages[animeId]?.get(page) ?: return null
-        val i = list.indexOfFirst { it.id == episode.id }
-        if (i < 0) return null
-        // Pages are newest-first, so "newer" means a lower index.
-        return if (newer) {
-            if (i > 0) list[i - 1]
-            else if (page > 0) episodePage(animeId, page - 1).getOrNull()?.lastOrNull()
-            else null
-        } else {
-            if (i < list.lastIndex) list[i + 1]
-            else episodePage(animeId, page + 1).getOrNull()?.firstOrNull()
-        }
-    }
-
-    /** For episodes opened from history: estimate the page from the episode number, then verify. */
-    private suspend fun locatePage(animeId: String, episode: Episode): Int? {
-        if (isAnimekompiId(animeId) || isKuramanimeId(animeId)) {
-            val page = pageOf(animeId, episode.id)
-            if (page != null) return page
-            // ensure page 0 loaded
-            episodePage(animeId, 0).getOrNull()
-            return pageOf(animeId, episode.id)
-        }
-        val latest = episodePage(animeId, 0).getOrNull()?.firstOrNull()?.sortKey ?: return null
-        pageOf(animeId, episode.id)?.let { return it }
-        val target = episode.sortKey
-        if (target == Double.MAX_VALUE) return null
-        val estimate = ((latest - target) / AnimeApiService.EPISODE_PAGE_SIZE).toInt().coerceAtLeast(0)
-        for (candidate in listOf(estimate, estimate - 1, estimate + 1).filter { it >= 0 }) {
-            val eps = episodePage(animeId, candidate).getOrNull() ?: continue
-            if (eps.any { it.id == episode.id }) return candidate
-        }
-        return null
-    }
-
-    suspend fun stream(episodeId: String): Result<EpisodeStream> = io {
-        if (isAnimekompiId(episodeId)) {
-            val ak = animekompi ?: throw UiTextException(UiText(R.string.common_error_stream_unavailable))
-            val stream = ak.stream(episodeId)
-            if (stream.sources.isEmpty()) throw UiTextException(UiText(R.string.common_error_stream_unavailable))
-            stream
-        } else if (isKuramanimeId(episodeId)) {
-            val kr = kuramanime ?: throw UiTextException(UiText(R.string.common_error_stream_unavailable))
-            val stream = kr.stream(episodeId)
-            if (stream.sources.isEmpty()) throw UiTextException(UiText(R.string.common_error_stream_unavailable))
-            stream
-        } else {
-            val data = api.stream(episodeId).data ?: throw UiTextException(UiText(R.string.common_error_stream_unavailable))
-            val servers = data.server.orEmpty().filter { it.link.isNotBlank() }
-            // Prefer direct files; other types are embed pages the native player can't open.
-            val direct = servers.filter { it.type.equals("direct", ignoreCase = true) }
-            val sources = (direct.ifEmpty { servers }).map { it.toSource() }
-                .distinctBy { it.url }
-                .sortedByDescending { it.height }
-            EpisodeStream(episode = data.episode?.toEpisode(), sources = sources)
-        }
-    }
-
-    // --- Kuramanime browse/search (additive source) ---
-
-    suspend fun kuramanimeBrowse(order: String = "popular", page: Int = 1): Result<List<Anime>> = io {
-        val kr = kuramanime ?: return@io emptyList()
-        remember(visible(kr.browse(order, page).items))
-    }
-
-    suspend fun kuramanimeLatest(page: Int = 1): Result<List<Anime>> = io {
-        val kr = kuramanime ?: return@io emptyList()
-        remember(visible(kr.latest(page).items))
-    }
-
-    suspend fun kuramanimeSearch(query: String): Result<List<Anime>> = io {
-        val kr = kuramanime ?: return@io emptyList()
-        remember(visible(kr.search(query)))
-    }
-
-    suspend fun kuramanimeSchedule(day: String): Result<List<Anime>> = io {
-        val kr = kuramanime ?: return@io emptyList()
-        remember(visible(kr.schedule(day)))
-    }
-
-    // --- Animekompi browse/search (additive source) ---
-
-    suspend fun animekompiBrowse(order: String = "popular", page: Int = 1): Result<List<Anime>> = io {
-        val ak = animekompi ?: return@io emptyList()
-        remember(visible(ak.browse(order, page).items))
-    }
-
-    suspend fun animekompiLatest(page: Int = 1): Result<List<Anime>> = io {
-        val ak = animekompi ?: return@io emptyList()
-        remember(visible(ak.latest(page).items))
-    }
-
-    suspend fun animekompiSearch(query: String): Result<List<Anime>> = io {
-        val ak = animekompi ?: return@io emptyList()
-        remember(visible(ak.search(query)))
-    }
-
-    suspend fun animekompiSchedule(day: String): Result<List<Anime>> = io {
-        val ak = animekompi ?: return@io emptyList()
-        remember(visible(ak.schedule(day)))
-    }
-
-    private suspend fun <T> io(block: suspend () -> T): Result<T> = withContext(Dispatchers.IO) {
+    private suspend fun relocate(entity: DownloadEntity) = withContext(Dispatchers.IO) {
+        val folder = settings.settings.first().downloadFolder ?: return@withContext
+        if (isContent(entity.filePath) || !moving.add(entity.episodeId)) return@withContext
+        var target: Uri? = null
         try {
-            Result.success(block())
-        } catch (e: kotlinx.coroutines.CancellationException) {
-            throw e
+            val parent = subFolder(context.contentResolver, Uri.parse(folder), cleanFileName(entity.animeTitle)) ?: return@withContext
+            val name = episodeFileName(entity.animeTitle, entity.episodeNumber, entity.quality)
+            target = DocumentsContract.createDocument(context.contentResolver, parent, "video/x-matroska", name) ?: return@withContext
+            val source = File(entity.filePath)
+            context.contentResolver.openOutputStream(target)!!.use { out -> source.inputStream().use { it.copyTo(out) } }
+            dao.upsert(entity.copy(filePath = target.toString()))
+            source.delete()
         } catch (e: Exception) {
-            Result.failure(e)
+            target?.let { runCatching { DocumentsContract.deleteDocument(context.contentResolver, it) } }
+        } finally {
+            moving.remove(entity.episodeId)
         }
     }
+
+    private fun isContent(path: String) = path.startsWith("content://")
+
+    /** Size of a moved episode, or -1 when the document is gone or access was revoked. */
+    private fun contentSize(path: String): Long = runCatching {
+        context.contentResolver.query(Uri.parse(path), arrayOf(DocumentsContract.Document.COLUMN_SIZE), null, null, null)?.use { c ->
+            if (c.moveToFirst()) c.getLong(0) else -1L
+        } ?: -1L
+    }.getOrDefault(-1L)
+
+    private fun status(entity: DownloadEntity): DownloadItem {
+        if (isContent(entity.filePath)) {
+            val size = contentSize(entity.filePath)
+            return DownloadItem(entity, if (size > 0) DownloadState.DONE else DownloadState.FAILED, size.coerceAtLeast(0), size.coerceAtLeast(0))
+        }
+        val file = File(entity.filePath)
+        manager.query(DownloadManager.Query().setFilterById(entity.systemId))?.use { c ->
+            if (c.moveToFirst()) {
+                val done = c.getLong(c.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR))
+                val total = c.getLong(c.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
+                val state = when (c.getInt(c.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))) {
+                    DownloadManager.STATUS_PENDING -> DownloadState.QUEUED
+                    DownloadManager.STATUS_RUNNING -> DownloadState.RUNNING
+                    DownloadManager.STATUS_PAUSED -> DownloadState.PAUSED
+                    DownloadManager.STATUS_SUCCESSFUL ->
+                        if (file.exists()) DownloadState.DONE else DownloadState.FAILED
+                    else -> DownloadState.FAILED
+                }
+                return DownloadItem(entity, state, done, total)
+            }
+        }
+        // The system forgets finished downloads after a while; the file on disk is the source of truth.
+        val size = if (file.exists()) file.length() else 0L
+        return DownloadItem(entity, if (size > 0) DownloadState.DONE else DownloadState.FAILED, size, size)
+    }
+
+    private fun safeName(value: String) = value.replace(Regex("[^A-Za-z0-9._-]"), "_")
 }
