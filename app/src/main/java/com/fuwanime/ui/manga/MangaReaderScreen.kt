@@ -6,6 +6,8 @@ import com.fuwanime.data.manga.isWebtoonId
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -106,6 +108,7 @@ import com.fuwanime.data.ProfileRules
 import com.fuwanime.data.local.SettingsStore
 import com.fuwanime.data.manga.ChapterTranslationState
 import com.fuwanime.data.manga.IsMangaChapterTranslator
+import com.fuwanime.data.manga.MangaTranslateWorker
 import com.fuwanime.data.manga.Manga
 import com.fuwanime.data.manga.MangaChapter
 import com.fuwanime.data.manga.MangaDownloadRepository
@@ -181,6 +184,7 @@ class MangaReaderViewModel(
     private val profile: ProfileRepository? = null,
     /** Updates the launcher widget and shortcut after progress is stored (saves are debounced to about one a second). */
     private val refreshHomeSurfaces: () -> Unit = {},
+    private val appContext: Context,
 ) : ViewModel() {
     private val _state = MutableStateFlow(ReaderState())
     val state: StateFlow<ReaderState> = _state.asStateFlow()
@@ -302,38 +306,21 @@ class MangaReaderViewModel(
         val chapter = _state.value.chapter ?: return
         if (_translation.value.running) return
         viewModelScope.launch {
-            var pages = _state.value.pages ?: return@launch
-            _translation.value = ChapterTranslationState(running = true, total = pages.size)
-            var retried = false
-            while (true) {
-                try {
-                    val translated = translator.translateChapter(chapter.id, pages, cacheDir) { done, total ->
-                        _translation.update { it.copy(running = true, done = done, total = total) }
-                    }
-                    _translation.value = ChapterTranslationState(running = false, done = translated.size, total = translated.size, pages = translated)
-                    settings.setMangaTranslate(true)
-                    return@launch
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    val msg = e.message.orEmpty()
-                    val stalePage = !retried &&
-                        pages.firstOrNull()?.startsWith("file://") != true &&
-                        (msg.contains("HTTP 404") || msg.contains("HTTP 403") || msg.contains("HTTP 410") || msg.contains("Gagal mengunduh halaman"))
-                    if (stalePage) {
-                        retried = true
-                        val fresh = runCatching { repo.pages(chapter.id) }.getOrNull()
-                        if (!fresh.isNullOrEmpty()) {
-                            pages = fresh
-                            _state.value = _state.value.copy(pages = fresh, generation = _state.value.generation + 1)
-                            _translation.value = ChapterTranslationState(running = true, total = fresh.size)
-                            continue
-                        }
-                    }
-                    _translation.update { it.copy(running = false, error = translationErrorText(e)) }
-                    return@launch
-                }
+            val pages = _state.value.pages ?: return@launch
+            val cached = translator.cachedChapterPages(cacheDir, chapter.id, pages.size)
+            if (cached != null) {
+                _translation.value = ChapterTranslationState(running = false, done = cached.size, total = cached.size, pages = cached)
+                settings.setMangaTranslate(true)
+                return@launch
             }
+            _translation.value = ChapterTranslationState(running = true, total = pages.size)
+            MangaTranslateWorker.enqueue(
+                appContext,
+                chapter.id,
+                _state.value.manga?.title.orEmpty(),
+                chapterLabel(chapter),
+            )
+            settings.setMangaTranslate(true)
         }
     }
 
@@ -351,7 +338,7 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
 fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
     val ctx = LocalContext.current
     val vm: MangaReaderViewModel = fuwaViewModel(key = "reader-$mangaId-$chapterId") { c, _ ->
-        MangaReaderViewModel(mangaId, chapterId, c.mangaRepository, c.mangaLibrary, c.settingsStore, c.mangaDownloads, c.mangaTranslator, c.appScope, ctx.cacheDir, c.profileRepository, c::refreshHomeSurfaces)
+        MangaReaderViewModel(mangaId, chapterId, c.mangaRepository, c.mangaLibrary, c.settingsStore, c.mangaDownloads, c.mangaTranslator, c.appScope, ctx.cacheDir, c.profileRepository, c::refreshHomeSurfaces, ctx.applicationContext)
     }
     val state by vm.state.collectAsStateWithLifecycle()
     val readerMode by vm.readerMode.collectAsStateWithLifecycle()
@@ -776,6 +763,51 @@ private fun ReaderSettingsSheet(
                 Text(
                     stringResource(R.string.manga_reader_auto_scroll_desc),
                     style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Switch(
+                checked = autoScrollEnabled && autoScrollAvailable,
+                onCheckedChange = onAutoScrollChange,
+                enabled = autoScrollAvailable,
+            )
+        }
+        if (translationAvailable) {
+            HorizontalDivider(Modifier.padding(horizontal = 20.dp))
+            Text(stringResource(R.string.manga_reader_translate_settings), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp))
+            Row(Modifier.fillMaxWidth().clickable { if (showingTranslated) onShowOriginal() else onTranslate() }.padding(horizontal = 20.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(if (showingTranslated) R.string.manga_reader_show_original else R.string.manga_reader_translate_chapter), modifier = Modifier.weight(1f))
+                Icon(Icons.Rounded.Translate, null, tint = if (showingTranslated) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+            }
+            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.manga_reader_translate_auto), style = MaterialTheme.typography.bodyLarge)
+                    Text(stringResource(R.string.manga_reader_translate_auto_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(checked = translationEnabled, onCheckedChange = onTranslationPrefChange)
+            }
+        }
+    }
+}
+
+@Composable
+private fun EndCard(label: String, chapter: MangaChapter, next: MangaChapter?, onNext: () -> Unit) {
+    Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 24.dp, vertical = 40.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(stringResource(R.string.manga_reader_end, label), color = Color.White, style = MaterialTheme.typography.titleMedium)
+        Credit(chapter)
+        if (next != null) {
+            Button(onClick = onNext) { Text(stringResource(R.string.manga_reader_next)) }
+            Text(
+                stringResource(R.string.manga_reader_continue_hint),
+                color = Color.White.copy(alpha = 0.65f),
+                style = MaterialTheme.typography.bodySmall,
+                textAlign = TextAlign.Center,
+            )
+        }
+        else Text(stringResource(R.string.manga_reader_last), color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.bodyMedium)
+    }
+}
+Theme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }

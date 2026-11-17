@@ -90,6 +90,11 @@
     <string name="manga_detail_finding_sources">Looking for chapters on every source…</string>
     <string name="manga_download_channel">Manga downloads</string>
     <string name="manga_download_notif">%1$s · %2$s</string>
+    <string name="manga_translate_channel">Manga translation</string>
+    <string name="manga_translate_notif">%1$s · %2$s</string>
+    <string name="manga_translate_notif_fallback">Translating manga</string>
+    <string name="manga_translate_running">Preparing translation…</string>
+    <string name="manga_translate_progress">%1$d of %2$d pages</string>
     <string name="manga_download">Download</string>
     <string name="manga_download_delete">Delete download</string>
     <string name="manga_download_range">Download %1$s</string>
