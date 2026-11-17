@@ -482,8 +482,13 @@ private fun DetailScreen(
                     )
                 }
                 else -> itemsIndexed(episodes, key = { _, e -> e.id }) { index, ep ->
-                    // The source has no thumbnails; borrow AniList's streaming stills by episode number.
-                    val shown = ep.copy(thumbnail = ep.thumbnail.ifBlank { state.meta?.episodeThumbnails?.get(ep.number).orEmpty() })
+                    // Prefer the source's own thumbnail, then AniList's streaming still for this episode number,
+                    // then the anime's artwork so a row never shows an empty box.
+                    val shown = ep.copy(
+                        thumbnail = ep.thumbnail
+                            .ifBlank { state.meta?.episodeThumbnails?.get(ep.number).orEmpty() }
+                            .ifBlank { anime?.let { a -> a.cover.ifBlank { a.poster } }.orEmpty() },
+                    )
                     Box(Modifier.animateItem().staggerIn(stagger, ep.id, index)) {
                     EpisodeRow(
                         shown,
