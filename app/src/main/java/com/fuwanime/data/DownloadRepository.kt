@@ -13,6 +13,8 @@ import com.fuwanime.util.localizedContext
 import com.fuwanime.data.local.DownloadDao
 import com.fuwanime.data.local.DownloadEntity
 import com.fuwanime.data.remote.AnimeApiService
+import com.fuwanime.data.remote.AnimekompiSource
+import com.fuwanime.data.remote.isAnimekompiId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -111,6 +113,12 @@ class DownloadRepository(
 
                 val request = DownloadManager.Request(Uri.parse(source.url))
                     .addRequestHeader("User-Agent", AnimeApiService.USER_AGENT)
+                    .apply {
+                        if (isAnimekompiId(episode.id)) {
+                            addRequestHeader("Referer", AnimekompiSource.BASE + "/")
+                            addRequestHeader("Origin", AnimekompiSource.BASE)
+                        }
+                    }
                     .setTitle(localizedContext(context).getString(R.string.system_download_title, show.title, episode.number))
                     .setDescription("FuwaNime • ${source.quality}")
                     .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
