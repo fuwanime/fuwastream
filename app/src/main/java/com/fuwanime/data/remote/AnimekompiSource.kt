@@ -47,8 +47,15 @@ data class AkAnimePage(val items: List<Anime>, val hasMore: Boolean)
  * - Genres: GET /api/genres → [{slug,name,count}].
  * - Detail: GET /api/anime/<slug> → {anime, genres[], episodes[], batchDownloads[]}.
  * - Episode: GET /api/episodes/<episodeSlug> → {episode, anime, genres, sources[], downloads[], prev, next, episodeList}.
- *   sources[].kind "direct" (incl. same-origin /api/episodes/stream/<token> proxy that serves the
- *   mp4 directly) is playable; "embed" is an iframe page the native player cannot open.
+ *   Since 2026-11 the API no longer returns playable direct files; sources[] entries are almost all
+ *   kind "embed" (Blogger video.g, abyssplayer, vidhide, mp4upload) or PixeDrain links. stream() now
+ *   resolves the playable ones on the fly:
+ *   - PixeDrain (/u/<id> or /api/file/<id>) → https://pixeldrain.com/api/file/<id> serves video/mp4
+ *     directly (kind may say "embed"; it is a direct file anyway).
+ *   - Blogger https://www.blogger.com/video.g?token=... → GET the page and pull the
+ *     streamingData.formats[] googlevideo mp4 URLs (360p/720p) out of the escaped JSON.
+ *   - abyssplayer / vidhide (packed JS) / mp4upload load their stream only via JS, so they are
+ *     dropped rather than offered as sources ExoPlayer cannot open.
  */
 class AnimekompiSource(
     private val client: OkHttpClient,
@@ -176,9 +183,11 @@ class AnimekompiSource(
         val json = getJson("/api/episodes/$real")
         val ep = json.optJSONObject("episode") ?: throw IOException("Animekompi episode empty")
 
-        // The native player only opens direct files (mp4/m3u8/webm, incl. the same-origin
-        // /api/episodes/stream/<token> proxy). Embed pages are iframes and always fail in ExoPlayer,
-        // so they are dropped instead of being offered as "recommended" sources.
+        // The native player only opens direct files (mp4/m3u8/webm). The API now hands out
+        // embed pages for most servers, so the playable ones are resolved here on the fly:
+        // PixeDrain links are rewritten to its direct API URL and Blogger pages are scraped
+        // for their googlevideo mp4 formats. Everything else (vidhide, abyssplayer, mp4upload)
+        // needs JS to reveal the stream and is dropped instead of failing in ExoPlayer.
         val sources = ArrayList<StreamSource>()
         val srcs = json.optJSONArray("sources").orEmpty()
         for (i in 0 until srcs.length()) {
@@ -186,13 +195,22 @@ class AnimekompiSource(
             val rawUrl = s.firstStr("url", "src", "file", "link")
             if (rawUrl.isBlank()) continue
             val url = absolute(rawUrl)
-            if (url.isBlank() || !isDirect(s.str("kind"), url)) continue
+            if (url.isBlank()) continue
             val label = s.firstStr("label", "name", "server").ifBlank { "Server ${i + 1}" }
-            sources += StreamSource(
-                url = url,
-                quality = qualityLabel(s.firstStr("quality", "resolution", "height"), label, url),
-                server = "AK $label",
-            )
+            when {
+                isDirect(s.str("kind"), url) -> sources += StreamSource(
+                    url = url,
+                    quality = qualityLabel(s.firstStr("quality", "resolution", "height"), label, url),
+                    server = "AK $label",
+                )
+                // PixeDrain serves the file directly at /api/file/<id>, whatever kind claims.
+                isPixeldrain(url) -> sources += StreamSource(
+                    url = pixeldrainDirect(url),
+                    quality = qualityLabel(s.firstStr("quality", "resolution", "height"), label, url),
+                    server = "AK $label",
+                )
+                isBloggerVideo(url) -> sources += resolveBlogger(url, label)
+            }
         }
         val ordered = sources.sortedByDescending { it.height }
         val episode = Episode(
@@ -251,6 +269,65 @@ class AnimekompiSource(
         return "/api/episodes/stream/" in path ||
             DIRECT_EXTENSIONS.any { path.endsWith(it) }
     }
+
+    // --- Embed resolvers ---
+
+    private fun isPixeldrain(url: String): Boolean = "pixeldrain.com" in url
+
+    /** https://pixeldrain.com/u/<id> (page) → https://pixeldrain.com/api/file/<id> (direct mp4). */
+    private fun pixeldrainDirect(url: String): String {
+        val id = Regex("""pixeldrain\.com/(?:u|api/file)/([A-Za-z0-9]+)""").find(url)?.groupValues?.get(1)
+        return id?.let { "https://pixeldrain.com/api/file/$it" } ?: url
+    }
+
+    private fun isBloggerVideo(url: String): Boolean =
+        url.startsWith("https://www.blogger.com/video.g?token=")
+
+    // Blogger progressive mp4 formats: itag -> playback height.
+    private val BLOGGER_ITAG_HEIGHT = mapOf(17 to 144, 18 to 360, 22 to 720, 34 to 360, 35 to 480, 36 to 240, 37 to 1080, 43 to 360, 59 to 480, 78 to 480)
+
+    /**
+     * The Blogger video.g page carries a streamingData block whose formats[] list a googlevideo
+     * videoplayback URL per itag. Unescape the HTML entities, cut at serverAbrStreamingUrl (the
+     * same URLs repeat there), map itag -> height and hand the mp4 URLs back as direct sources.
+     * The URLs are signed for the requesting device, so no headers are needed.
+     */
+    private fun resolveBlogger(url: String, label: String): List<StreamSource> {
+        val page = fetchText(url) ?: return emptyList()
+        val html = page
+            .replace("&quot;", "\"")
+            .replace("\\u0026", "&")
+            .replace("\\u003d", "=")
+        val start = html.indexOf("streamingData")
+        if (start < 0) return emptyList()
+        // Formats live before serverAbrStreamingUrl; past it the URLs repeat without labels.
+        val end = html.indexOf("serverAbrStreamingUrl", start).takeIf { it > 0 } ?: html.length
+        val found = ArrayList<StreamSource>()
+        val seen = HashSet<String>()
+        for (m in Regex("""https://[a-z0-9.\-]+googlevideo\.com/videoplayback\?[^"\\\s]+""").findAll(html, start).takeWhile { it.range.first < end }) {
+            val streamUrl = m.value
+            if (!seen.add(streamUrl.substringBefore("&sig="))) continue
+            val itag = Regex("""itag=(\d+)""").find(streamUrl)?.groupValues?.get(1)?.toIntOrNull()
+            val height = itag?.let { BLOGGER_ITAG_HEIGHT[it] }
+            found += StreamSource(
+                url = streamUrl,
+                quality = height?.let { "${it}p" } ?: "Auto",
+                server = "AK $label",
+            )
+        }
+        return found
+    }
+
+    private fun fetchText(url: String): String? = runCatching {
+        val req = Request.Builder()
+            .url(url)
+            .header("User-Agent", UA)
+            .header("Referer", BASE + "/")
+            .build()
+        client.newCall(req).execute().use { r ->
+            if (!r.isSuccessful) null else r.body?.string()
+        }
+    }.getOrNull()
 
     /** "720" -> "720p"; falls back to a resolution found in the label or URL, then "Auto". */
     private fun qualityLabel(quality: String, label: String, url: String): String {
