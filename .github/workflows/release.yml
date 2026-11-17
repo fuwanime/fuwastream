@@ -148,6 +148,8 @@ jobs:
       - name: Test and build universal APK
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          # Fork builds must check for updates in the fork, not the production repository.
+          UPDATE_REPO: ${{ github.repository }}
         run: gradle testDebugUnitTest assembleRelease -PabiSplits=false --stacktrace
 
       - name: Verify release signing certificate
