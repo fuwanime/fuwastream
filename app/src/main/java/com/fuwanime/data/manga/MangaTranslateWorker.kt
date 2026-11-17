@@ -40,7 +40,8 @@ class MangaTranslateWorker(context: Context, params: WorkerParameters) : Corouti
                 return Result.success(workDataOf(KEY_DONE to pages.size, KEY_TOTAL to pages.size))
             }
             val translated = c.mangaTranslator.translateChapter(chapterId, pages, applicationContext.cacheDir) { done, total ->
-                runCatching { setForeground(info(title, done, total)) }
+                // Progress callbacks are not suspending; use the async WorkManager APIs here.
+                runCatching { setForegroundAsync(info(title, done, total)) }
                 setProgressAsync(workDataOf(KEY_DONE to done, KEY_TOTAL to total))
             }
             Result.success(workDataOf(KEY_DONE to translated.size, KEY_TOTAL to translated.size))

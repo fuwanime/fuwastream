@@ -192,6 +192,8 @@ class MangaReaderViewModel(
     private val _translation = MutableStateFlow(ChapterTranslationState())
     val translation: StateFlow<ChapterTranslationState> = _translation.asStateFlow()
 
+    private var translationWorkJob: kotlinx.coroutines.Job? = null
+
     val translationEnabled: StateFlow<Boolean> = settings.mangaTranslate
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
@@ -318,9 +320,49 @@ class MangaReaderViewModel(
                 appContext,
                 chapter.id,
                 _state.value.manga?.title.orEmpty(),
-                chapterLabel(chapter),
+                chapter.number?.let { appContext.getString(R.string.manga_chapter_number, it) }
+                    ?: chapter.title.orEmpty(),
             )
             settings.setMangaTranslate(true)
+            watchTranslationWork(chapter.id, pages.size)
+        }
+    }
+
+    /** Mirrors the foreground notification's WorkManager state while the reader is open. */
+    private fun watchTranslationWork(chapterId: String, pageCount: Int) {
+        translationWorkJob?.cancel()
+        translationWorkJob = viewModelScope.launch {
+            WorkManager.getInstance(appContext)
+                .getWorkInfosForUniqueWorkFlow(MangaTranslateWorker.uniqueName(chapterId))
+                .collect { infos ->
+                    val work = infos.firstOrNull() ?: return@collect
+                    val done = work.progress.getInt(MangaTranslateWorker.KEY_DONE, 0)
+                    val total = work.progress.getInt(MangaTranslateWorker.KEY_TOTAL, pageCount)
+                    when (work.state) {
+                        WorkInfo.State.ENQUEUED, WorkInfo.State.BLOCKED, WorkInfo.State.RUNNING ->
+                            _translation.update { it.copy(running = true, done = done, total = total) }
+                        WorkInfo.State.SUCCEEDED -> {
+                            val cached = translator.cachedChapterPages(cacheDir, chapterId, pageCount)
+                            if (cached != null) {
+                                _translation.value = ChapterTranslationState(
+                                    running = false,
+                                    done = cached.size,
+                                    total = cached.size,
+                                    pages = cached,
+                                )
+                            }
+                            translationWorkJob?.cancel()
+                        }
+                        WorkInfo.State.FAILED -> {
+                            _translation.update { it.copy(running = false, error = UiText(R.string.manga_reader_translate_failed)) }
+                            translationWorkJob?.cancel()
+                        }
+                        WorkInfo.State.CANCELLED -> {
+                            _translation.update { it.copy(running = false) }
+                            translationWorkJob?.cancel()
+                        }
+                    }
+                }
         }
     }
 
@@ -763,51 +805,6 @@ private fun ReaderSettingsSheet(
                 Text(
                     stringResource(R.string.manga_reader_auto_scroll_desc),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Switch(
-                checked = autoScrollEnabled && autoScrollAvailable,
-                onCheckedChange = onAutoScrollChange,
-                enabled = autoScrollAvailable,
-            )
-        }
-        if (translationAvailable) {
-            HorizontalDivider(Modifier.padding(horizontal = 20.dp))
-            Text(stringResource(R.string.manga_reader_translate_settings), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp))
-            Row(Modifier.fillMaxWidth().clickable { if (showingTranslated) onShowOriginal() else onTranslate() }.padding(horizontal = 20.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(if (showingTranslated) R.string.manga_reader_show_original else R.string.manga_reader_translate_chapter), modifier = Modifier.weight(1f))
-                Icon(Icons.Rounded.Translate, null, tint = if (showingTranslated) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
-            }
-            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.manga_reader_translate_auto), style = MaterialTheme.typography.bodyLarge)
-                    Text(stringResource(R.string.manga_reader_translate_auto_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Switch(checked = translationEnabled, onCheckedChange = onTranslationPrefChange)
-            }
-        }
-    }
-}
-
-@Composable
-private fun EndCard(label: String, chapter: MangaChapter, next: MangaChapter?, onNext: () -> Unit) {
-    Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 24.dp, vertical = 40.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(stringResource(R.string.manga_reader_end, label), color = Color.White, style = MaterialTheme.typography.titleMedium)
-        Credit(chapter)
-        if (next != null) {
-            Button(onClick = onNext) { Text(stringResource(R.string.manga_reader_next)) }
-            Text(
-                stringResource(R.string.manga_reader_continue_hint),
-                color = Color.White.copy(alpha = 0.65f),
-                style = MaterialTheme.typography.bodySmall,
-                textAlign = TextAlign.Center,
-            )
-        }
-        else Text(stringResource(R.string.manga_reader_last), color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.bodyMedium)
-    }
-}
-Theme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
