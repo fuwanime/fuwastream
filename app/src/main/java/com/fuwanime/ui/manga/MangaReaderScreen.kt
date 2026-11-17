@@ -6,6 +6,8 @@ import com.fuwanime.data.manga.isWebtoonId
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -106,6 +108,7 @@ import com.fuwanime.data.ProfileRules
 import com.fuwanime.data.local.SettingsStore
 import com.fuwanime.data.manga.ChapterTranslationState
 import com.fuwanime.data.manga.IsMangaChapterTranslator
+import com.fuwanime.data.manga.MangaTranslateWorker
 import com.fuwanime.data.manga.Manga
 import com.fuwanime.data.manga.MangaChapter
 import com.fuwanime.data.manga.MangaDownloadRepository
@@ -181,12 +184,15 @@ class MangaReaderViewModel(
     private val profile: ProfileRepository? = null,
     /** Updates the launcher widget and shortcut after progress is stored (saves are debounced to about one a second). */
     private val refreshHomeSurfaces: () -> Unit = {},
+    private val appContext: Context,
 ) : ViewModel() {
     private val _state = MutableStateFlow(ReaderState())
     val state: StateFlow<ReaderState> = _state.asStateFlow()
 
     private val _translation = MutableStateFlow(ChapterTranslationState())
     val translation: StateFlow<ChapterTranslationState> = _translation.asStateFlow()
+
+    private var translationWorkJob: kotlinx.coroutines.Job? = null
 
     val translationEnabled: StateFlow<Boolean> = settings.mangaTranslate
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
@@ -302,38 +308,61 @@ class MangaReaderViewModel(
         val chapter = _state.value.chapter ?: return
         if (_translation.value.running) return
         viewModelScope.launch {
-            var pages = _state.value.pages ?: return@launch
+            val pages = _state.value.pages ?: return@launch
+            val cached = translator.cachedChapterPages(cacheDir, chapter.id, pages.size)
+            if (cached != null) {
+                _translation.value = ChapterTranslationState(running = false, done = cached.size, total = cached.size, pages = cached)
+                settings.setMangaTranslate(true)
+                return@launch
+            }
             _translation.value = ChapterTranslationState(running = true, total = pages.size)
-            var retried = false
-            while (true) {
-                try {
-                    val translated = translator.translateChapter(chapter.id, pages, cacheDir) { done, total ->
-                        _translation.update { it.copy(running = true, done = done, total = total) }
-                    }
-                    _translation.value = ChapterTranslationState(running = false, done = translated.size, total = translated.size, pages = translated)
-                    settings.setMangaTranslate(true)
-                    return@launch
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    val msg = e.message.orEmpty()
-                    val stalePage = !retried &&
-                        pages.firstOrNull()?.startsWith("file://") != true &&
-                        (msg.contains("HTTP 404") || msg.contains("HTTP 403") || msg.contains("HTTP 410") || msg.contains("Gagal mengunduh halaman"))
-                    if (stalePage) {
-                        retried = true
-                        val fresh = runCatching { repo.pages(chapter.id) }.getOrNull()
-                        if (!fresh.isNullOrEmpty()) {
-                            pages = fresh
-                            _state.value = _state.value.copy(pages = fresh, generation = _state.value.generation + 1)
-                            _translation.value = ChapterTranslationState(running = true, total = fresh.size)
-                            continue
+            MangaTranslateWorker.enqueue(
+                appContext,
+                chapter.id,
+                _state.value.manga?.title.orEmpty(),
+                chapter.number?.let { appContext.getString(R.string.manga_chapter_number, it) }
+                    ?: chapter.title.orEmpty(),
+            )
+            settings.setMangaTranslate(true)
+            watchTranslationWork(chapter.id, pages.size)
+        }
+    }
+
+    /** Mirrors the foreground notification's WorkManager state while the reader is open. */
+    private fun watchTranslationWork(chapterId: String, pageCount: Int) {
+        translationWorkJob?.cancel()
+        translationWorkJob = viewModelScope.launch {
+            WorkManager.getInstance(appContext)
+                .getWorkInfosForUniqueWorkFlow(MangaTranslateWorker.uniqueName(chapterId))
+                .collect { infos ->
+                    val work = infos.firstOrNull() ?: return@collect
+                    val done = work.progress.getInt(MangaTranslateWorker.KEY_DONE, 0)
+                    val total = work.progress.getInt(MangaTranslateWorker.KEY_TOTAL, pageCount)
+                    when (work.state) {
+                        WorkInfo.State.ENQUEUED, WorkInfo.State.BLOCKED, WorkInfo.State.RUNNING ->
+                            _translation.update { it.copy(running = true, done = done, total = total) }
+                        WorkInfo.State.SUCCEEDED -> {
+                            val cached = translator.cachedChapterPages(cacheDir, chapterId, pageCount)
+                            if (cached != null) {
+                                _translation.value = ChapterTranslationState(
+                                    running = false,
+                                    done = cached.size,
+                                    total = cached.size,
+                                    pages = cached,
+                                )
+                            }
+                            translationWorkJob?.cancel()
+                        }
+                        WorkInfo.State.FAILED -> {
+                            _translation.update { it.copy(running = false, error = UiText(R.string.manga_reader_translate_failed)) }
+                            translationWorkJob?.cancel()
+                        }
+                        WorkInfo.State.CANCELLED -> {
+                            _translation.update { it.copy(running = false) }
+                            translationWorkJob?.cancel()
                         }
                     }
-                    _translation.update { it.copy(running = false, error = translationErrorText(e)) }
-                    return@launch
                 }
-            }
         }
     }
 
@@ -351,7 +380,7 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
 fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
     val ctx = LocalContext.current
     val vm: MangaReaderViewModel = fuwaViewModel(key = "reader-$mangaId-$chapterId") { c, _ ->
-        MangaReaderViewModel(mangaId, chapterId, c.mangaRepository, c.mangaLibrary, c.settingsStore, c.mangaDownloads, c.mangaTranslator, c.appScope, ctx.cacheDir, c.profileRepository, c::refreshHomeSurfaces)
+        MangaReaderViewModel(mangaId, chapterId, c.mangaRepository, c.mangaLibrary, c.settingsStore, c.mangaDownloads, c.mangaTranslator, c.appScope, ctx.cacheDir, c.profileRepository, c::refreshHomeSurfaces, ctx.applicationContext)
     }
     val state by vm.state.collectAsStateWithLifecycle()
     val readerMode by vm.readerMode.collectAsStateWithLifecycle()

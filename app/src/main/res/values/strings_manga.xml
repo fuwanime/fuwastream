@@ -89,6 +89,11 @@
     <string name="manga_detail_finding_sources">Mencari chapter di semua sumber…</string>
     <string name="manga_download_channel">Unduhan manga</string>
     <string name="manga_download_notif">%1$s · %2$s</string>
+    <string name="manga_translate_channel">Terjemahan manga</string>
+    <string name="manga_translate_notif">%1$s · %2$s</string>
+    <string name="manga_translate_notif_fallback">Menerjemahkan manga</string>
+    <string name="manga_translate_running">Menyiapkan terjemahan…</string>
+    <string name="manga_translate_progress">%1$d dari %2$d halaman</string>
     <string name="manga_download">Unduh</string>
     <string name="manga_download_delete">Hapus unduhan</string>
     <string name="manga_download_range">Unduh %1$s</string>

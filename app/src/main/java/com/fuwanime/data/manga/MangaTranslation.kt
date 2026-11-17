@@ -473,6 +473,18 @@ class IsMangaChapterTranslator(
     private val api = IsMangaApi(store)
     private val renderer = IsTextRenderer()
 
+    /** Directory that holds translated PNGs for [chapterId]. */
+    fun chapterDir(cacheDir: File, chapterId: String): File =
+        File(cacheDir, "ismanga/${chapterId.replace(':', '_').replace('/', '_')}")
+
+    /** `file://` URIs of cached translated pages when every page in the chapter is ready. */
+    fun cachedChapterPages(cacheDir: File, chapterId: String, pageCount: Int): List<String>? {
+        if (pageCount <= 0) return null
+        val dir = chapterDir(cacheDir, chapterId)
+        val files = (0 until pageCount).map { File(dir, "p_${it.toString().padStart(4, '0')}.png") }
+        return if (files.all { it.exists() && it.length() > 0 }) files.map { "file://${it.absolutePath}" } else null
+    }
+
     /** Translate all pages of a chapter and return local file:// URIs for the translated PNGs (cached). */
     suspend fun translateChapter(
         chapterId: String,
@@ -480,7 +492,7 @@ class IsMangaChapterTranslator(
         cacheDir: File,
         onProgress: (done: Int, total: Int) -> Unit = { _, _ -> },
     ): List<String> = withContext(Dispatchers.IO) {
-        val outDir = File(cacheDir, "ismanga/${chapterId.replace(':', '_').replace('/', '_')}")
+        val outDir = chapterDir(cacheDir, chapterId)
         val outputFiles = (pageUrls.indices).map { File(outDir, "p_${it.toString().padStart(4, '0')}.png") }
         if (outputFiles.isNotEmpty() && outputFiles.all { it.exists() && it.length() > 0 }) {
             onProgress(outputFiles.size, outputFiles.size)
