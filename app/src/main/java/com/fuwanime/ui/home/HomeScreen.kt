@@ -1,6 +1,7 @@
 package com.fuwanime.ui.home
 
 import com.fuwanime.R
+import com.fuwanime.util.typeLabel
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.activity.result.contract.ActivityResultContracts
@@ -700,7 +701,7 @@ private fun HeroPager(items: List<Anime>, favoriteIds: Set<String>, onToggleFavo
                                 .background(MaterialTheme.colorScheme.primary)
                                 .padding(horizontal = 8.dp, vertical = 4.dp),
                         )
-                        val kind = listOf(anime.type, anime.displayYear).filter { it.isNotBlank() }.joinToString(" · ")
+                        val kind = listOf(anime.type.takeIf { it.isNotBlank() }?.let { typeLabel(LocalContext.current.resources, it) }.orEmpty(), anime.displayYear).filter { it.isNotBlank() }.joinToString(" · ")
                         if (kind.isNotBlank()) {
                             Text(
                                 kind,

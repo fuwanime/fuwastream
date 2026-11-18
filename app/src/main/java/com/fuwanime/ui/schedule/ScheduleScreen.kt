@@ -1,6 +1,7 @@
 package com.fuwanime.ui.schedule
 
 import com.fuwanime.R
+import com.fuwanime.data.manga.titleKey
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.fuwanime.ui.components.LocalNavBarPadding
@@ -119,7 +120,7 @@ class ScheduleViewModel(
                 map + (day to DaySchedule(
                     // Earliest release first; unknown times sink to the bottom.
                     items = (result.getOrDefault(emptyList()) + ak)
-                        .distinctBy { it.title.trim().lowercase() }
+                        .distinctBy { titleKey(it.title).ifEmpty { it.title.trim().lowercase() } }
                         .sortedBy { airTime(it.nextAirTime).ifBlank { "99" } },
                     loading = false,
                     loaded = result.isSuccess,

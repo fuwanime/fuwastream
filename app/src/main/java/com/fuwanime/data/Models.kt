@@ -27,7 +27,10 @@ data class Anime(
 ) {
     val isOngoing: Boolean get() = status.equals("ONGOING", ignoreCase = true)
     val isUpcoming: Boolean get() = status.equals("UPCOMING", true) || status.equals("NOT_YET_AIRED", true)
-    val displayYear: String get() = year.takeUnless { it.isBlank() || it.equals("UNKNOWN", true) }.orEmpty()
+    /** The premiere year from [airedStart] when known: the catalog's [year] is often the airing year, not the first. */
+    val displayYear: String
+        get() = airedStart.take(4).takeIf { it.length == 4 && it.all(Char::isDigit) }
+            ?: year.takeUnless { it.isBlank() || it.equals("UNKNOWN", true) }.orEmpty()
     val backdrop: String get() = cover.ifBlank { poster }
 }
 

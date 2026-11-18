@@ -3,6 +3,7 @@ package com.fuwanime.util
 import android.content.res.Resources
 import androidx.annotation.StringRes
 import com.fuwanime.R
+import com.fuwanime.ui.explore.TypeFilter
 import java.text.DateFormatSymbols
 import java.text.DecimalFormatSymbols
 import java.text.SimpleDateFormat
@@ -154,6 +155,11 @@ fun Throwable.friendlyText(): UiText = when (this) {
 }
 
 fun Throwable.friendlyMessage(res: Resources): String = friendlyText().resolve(res)
+
+/** The localised name of an API anime type ("SERIES" -> "Series"/"系列"); an unknown type is shown as it came, in sentence case. */
+fun typeLabel(res: Resources, type: String): String =
+    TypeFilter.entries.firstOrNull { it.apiType != null && it.matches(type) }?.let { res.getString(it.label) }
+        ?: type.trim().lowercase().replaceFirstChar { it.titlecase(res.configuration.locales[0]) }
 
 fun statusLabel(res: Resources, status: String): String = when (status.uppercase()) {
     "ONGOING" -> res.getString(R.string.common_status_airing)

@@ -1,6 +1,7 @@
 package com.fuwanime.ui.explore
 
 import com.fuwanime.R
+import com.fuwanime.data.manga.titleKey
 import androidx.annotation.StringRes
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -291,7 +292,7 @@ class ExploreViewModel(
         // Kuramanime + Animekompi items merged in (deduped) so all sources appear as one list.
         val merged = (filtered + krFiltered + akFiltered)
             .distinctBy { it.id }
-            .distinctBy { it.title.trim().lowercase() }
+            .distinctBy { titleKey(it.title).ifEmpty { it.title.trim().lowercase() } }
         _state.update { it.copy(results = merged) }
         if (fillPage) {
             if (merged.size < MIN_BATCH && !_state.value.endReached) loadMore()
