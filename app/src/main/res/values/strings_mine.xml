@@ -103,8 +103,6 @@
     <string name="mine_notify_new_desc">Cek anime favorit yang masih tayang setiap 6 jam</string>
     <string name="mine_notify_releases">Notifikasi rilis anime</string>
     <string name="mine_notify_releases_desc">Episode baru dari semua anime yang sedang tayang, bukan hanya favorit</string>
-    <string name="mine_notify_chapters">Notifikasi chapter manga</string>
-    <string name="mine_notify_chapters_desc">Chapter baru dari manga yang sedang berjalan (Comix)</string>
     <string name="mine_notify_app_updates">Notifikasi pembaruan aplikasi</string>
     <string name="mine_notify_app_updates_desc">Beri tahu saat versi baru FuwaStream tersedia (dicek saat aplikasi dibuka dan berkala)</string>
     <string name="mine_notify_blocked_title">Notifikasi diblokir</string>

@@ -56,7 +56,6 @@
     <string name="manga_library_empty_body">Manga yang anda baca atau gemari akan muncul di sini.</string>
     <string name="manga_library_remove">Buang daripada sambung baca</string>
     <string name="manga_library_progress">%1$s · hlm. %2$d/%3$d</string>
-    <string name="manga_settings_group">Manga</string>
     <string name="manga_restore_summary">Manga: %1$d kegemaran, %2$d sejarah bacaan.</string>
     <string name="manga_home_popular_id">Popular di Indonesia</string>
     <string name="manga_credit_shinigami">Data &amp; imej daripada Shinigami</string>
@@ -66,8 +65,6 @@
     <string name="manga_settings_mature_desc">Tunjukkan anime bergenre dewasa (Ecchi, Erotica, Hentai) dan manga bertema dewasa daripada Comix</string>
     <string name="manga_credit_komiku">Data &amp; imej daripada Komiku</string>
     <string name="manga_reader_source_komiku">Sumber: Komiku</string>
-    <string name="manga_credit_comix">Data &amp; imej daripada Comix</string>
-    <string name="manga_reader_source_comix">Sumber: Comix</string>
     <string name="manga_home_genres">Teroka genre</string>
     <string name="manga_genre_action">Aksi</string>
     <string name="manga_genre_romance">Romantik</string>

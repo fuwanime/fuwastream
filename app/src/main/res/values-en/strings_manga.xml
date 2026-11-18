@@ -57,7 +57,6 @@
     <string name="manga_library_empty_body">Manga you read or favorite will show up here.</string>
     <string name="manga_library_remove">Remove from continue reading</string>
     <string name="manga_library_progress">%1$s · p. %2$d/%3$d</string>
-    <string name="manga_settings_group">Manga</string>
     <string name="manga_restore_summary">Manga: %1$d favorites, %2$d reading history.</string>
     <string name="manga_home_popular_id">Popular in Indonesia</string>
     <string name="manga_credit_shinigami">Data &amp; images from Shinigami</string>
@@ -67,8 +66,6 @@
     <string name="manga_settings_mature_desc">Show anime with mature genres (Ecchi, Erotica, Hentai) and mature-themed manga</string>
     <string name="manga_credit_komiku">Data &amp; images from Komiku</string>
     <string name="manga_reader_source_komiku">Source: Komiku</string>
-    <string name="manga_credit_comix">Data &amp; images from Comix</string>
-    <string name="manga_reader_source_comix">Source: Comix</string>
     <string name="manga_home_genres">Browse genres</string>
     <string name="manga_genre_action">Action</string>
     <string name="manga_genre_romance">Romance</string>
