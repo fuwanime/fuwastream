@@ -56,6 +56,10 @@
     <string name="watch_msg_queued_episode">Episode %1$s masuk antrean download</string>
     <string name="watch_msg_no_episodes_download">Belum ada episode untuk diunduh.</string>
     <string name="watch_msg_all_saved">Semua episode sudah tersimpan atau sedang diunduh.</string>
+    <string name="watch_bulk_from">Dari episode</string>
+    <string name="watch_bulk_to">Sampai episode</string>
+    <string name="watch_msg_none_in_range">Tidak ada episode di rentang itu.</string>
+    <string name="watch_msg_more_in_range">Rentang ini lebih dari %1$d episode. Yang masuk antrean %1$d pertama; ulangi dengan rentang berikutnya untuk sisanya.</string>
     <string name="watch_msg_download_removed">Download Episode %1$s dihapus</string>
     <string name="watch_range_all">Semua</string>
     <string name="watch_err_connection">Koneksi terputus saat memutar video.</string>
@@ -127,7 +131,7 @@
     <string name="watch_skip_ed">Lewati ED</string>
     <string name="watch_skip_recap">Lewati recap</string>
     <plurals name="watch_bulk_message">
-        <item quantity="other">Mengantre hingga %1$d episode terbaru yang belum tersimpan, memakai kualitas download dan opsi Wi-Fi dari Pengaturan.</item>
+        <item quantity="other">Mengantre hingga %1$d episode dalam rentang ini yang belum tersimpan, mulai dari yang terkecil. Kualitas dan opsi Wi-Fi dari Pengaturan.</item>
     </plurals>
     <plurals name="watch_msg_preparing_count">
         <item quantity="other">Menyiapkan %1$d episode…</item>

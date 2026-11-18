@@ -56,6 +56,10 @@
     <string name="watch_msg_queued_episode">Episod %1$s masuk giliran muat turun</string>
     <string name="watch_msg_no_episodes_download">Belum ada episod untuk dimuat turun.</string>
     <string name="watch_msg_all_saved">Semua episod sudah disimpan atau sedang dimuat turun.</string>
+    <string name="watch_bulk_from">Dari episod</string>
+    <string name="watch_bulk_to">Hingga episod</string>
+    <string name="watch_msg_none_in_range">Tiada episod dalam julat itu.</string>
+    <string name="watch_msg_more_in_range">Julat ini melebihi %1$d episod. %1$d yang pertama diberatkan; ulang dengan julat seterusnya untuk selebihnya.</string>
     <string name="watch_msg_download_removed">Muat turun Episod %1$s dipadam</string>
     <string name="watch_range_all">Semua</string>
     <string name="watch_err_connection">Sambungan terputus semasa memainkan video.</string>
@@ -127,7 +131,7 @@
     <string name="watch_skip_ed">Langkau ED</string>
     <string name="watch_skip_recap">Langkau recap</string>
     <plurals name="watch_bulk_message">
-        <item quantity="other">Beratur sehingga %1$d episod terbaharu yang belum disimpan, menggunakan kualiti muat turun dan pilihan Wi-Fi daripada Tetapan.</item>
+        <item quantity="other">Beratur sehingga %1$d episod dalam julat ini yang belum disimpan, bermula dari yang terkecil. Kualiti dan pilihan Wi-Fi daripada Tetapan.</item>
     </plurals>
     <plurals name="watch_msg_preparing_count">
         <item quantity="other">Menyediakan %1$d episod…</item>

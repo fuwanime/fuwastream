@@ -753,6 +753,8 @@ private fun EpisodeHeader(state: DetailUiState, vm: DetailViewModel) {
     val gate = rememberDownloadGate()
     var searching by rememberSaveable { mutableStateOf(false) }
     var confirmDownloadAll by rememberSaveable { mutableStateOf(false) }
+    var rangeFrom by rememberSaveable { mutableStateOf("") }
+    var rangeTo by rememberSaveable { mutableStateOf("") }
     Column(Modifier.padding(top = 24.dp)) {
         val episodesTitle = stringResource(R.string.watch_episodes_title)
         val title: @Composable (Modifier) -> Unit = { m ->
@@ -771,7 +773,11 @@ private fun EpisodeHeader(state: DetailUiState, vm: DetailViewModel) {
             )
         }
         val actions: @Composable () -> Unit = {
-            TextButton(onClick = { confirmDownloadAll = true }) {
+            TextButton(onClick = {
+                rangeFrom = "1"
+                rangeTo = state.latestEpisode?.let { if (it % 1.0 == 0.0) it.toLong().toString() else it.toString() }.orEmpty()
+                confirmDownloadAll = true
+            }) {
                 Icon(Icons.Rounded.Download, null, Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
                 Text(stringResource(R.string.watch_download_all))
@@ -817,10 +823,33 @@ private fun EpisodeHeader(state: DetailUiState, vm: DetailViewModel) {
             icon = { Icon(Icons.Rounded.Download, null) },
             title = { Text(stringResource(R.string.watch_bulk_title)) },
             text = {
-                Text(pluralStringResource(R.plurals.watch_bulk_message, 30, 30))
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(pluralStringResource(R.plurals.watch_bulk_message, 30, 30))
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OutlinedTextField(
+                            value = rangeFrom,
+                            onValueChange = { rangeFrom = it.filter { c -> c.isDigit() || c == '.' } },
+                            label = { Text(stringResource(R.string.watch_bulk_from)) },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f),
+                        )
+                        OutlinedTextField(
+                            value = rangeTo,
+                            onValueChange = { rangeTo = it.filter { c -> c.isDigit() || c == '.' } },
+                            label = { Text(stringResource(R.string.watch_bulk_to)) },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
             },
             confirmButton = {
-                TextButton(onClick = { confirmDownloadAll = false; gate { vm.downloadAllEpisodes() } }) { Text(stringResource(R.string.watch_bulk_confirm)) }
+                TextButton(onClick = {
+                    confirmDownloadAll = false
+                    gate { vm.downloadEpisodes(rangeFrom.toDoubleOrNull(), rangeTo.toDoubleOrNull()) }
+                }) { Text(stringResource(R.string.watch_bulk_confirm)) }
             },
             dismissButton = { TextButton(onClick = { confirmDownloadAll = false }) { Text(stringResource(R.string.watch_cancel)) } },
         )

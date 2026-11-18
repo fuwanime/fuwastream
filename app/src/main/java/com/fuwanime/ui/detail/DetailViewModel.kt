@@ -285,8 +285,11 @@ class DetailViewModel(
         }
     }
 
-    /** Bulk-download up to [MAX_BULK_DOWNLOAD] episodes, skipping ones already stored or queued. */
-    fun downloadAllEpisodes() {
+    /**
+     * Bulk-download episodes [from]..[to] (inclusive; null = no bound), oldest first, skipping ones already stored or
+     * queued. At most [MAX_BULK_DOWNLOAD] per tap, starting at the low end, so "90 to 120" queues 90 first.
+     */
+    fun downloadEpisodes(from: Double?, to: Double?) {
         val anime = _state.value.anime ?: return
         viewModelScope.launch {
             val newest = repo.episodePage(animeId, 0).getOrNull()?.maxByOrNull { it.sortKey }
@@ -303,18 +306,18 @@ class DetailViewModel(
                     repo.episodePage(animeId, page).getOrNull().orEmpty()
                 }
             }
-            val targets = all
-                .filter { ep -> inFlight[ep.id]?.let { it.state == DownloadState.DONE || it.inProgress } != true }
-                .sortedByDescending { it.sortKey }
-                .take(MAX_BULK_DOWNLOAD)
+            val pending = all.filter { ep -> inFlight[ep.id]?.let { it.state == DownloadState.DONE || it.inProgress } != true }
+            val inRange = episodesInRange(pending, from, to)
+            val targets = inRange.take(MAX_BULK_DOWNLOAD)
             if (targets.isEmpty()) {
-                say(R.string.watch_msg_all_saved)
+                say(if (all.any { episodesInRange(listOf(it), from, to).isNotEmpty() }) R.string.watch_msg_all_saved else R.string.watch_msg_none_in_range)
                 return@launch
             }
+            if (inRange.size > targets.size) say(R.string.watch_msg_more_in_range, MAX_BULK_DOWNLOAD)
             val prefs = settings.settings.first()
             _messages.value = { it.getQuantityString(R.plurals.watch_msg_preparing_count, targets.size, targets.size) }
             var queued = 0
-            for (ep in targets.sortedBy { it.sortKey }) {
+            for (ep in targets) {
                 downloads.download(anime, ep, prefs.downloadQuality, prefs.downloadWifiOnly)
                     .onSuccess { queued++ }
             }
@@ -391,3 +394,8 @@ class DetailViewModel(
         else -> state.episodes.sortedBy { it.sortKey }
     }
 }
+
+/** Episodes whose number is within [from]..[to] (null = unbounded), oldest first; unnumbered ones are left out. */
+fun episodesInRange(episodes: List<Episode>, from: Double?, to: Double?): List<Episode> =
+    episodes.filter { it.sortKey != Double.MAX_VALUE && (from == null || it.sortKey >= from) && (to == null || it.sortKey <= to) }
+        .sortedBy { it.sortKey }

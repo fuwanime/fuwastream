@@ -56,6 +56,10 @@
     <string name="watch_msg_queued_episode">Episode %1$s added to the download queue</string>
     <string name="watch_msg_no_episodes_download">No episodes to download yet.</string>
     <string name="watch_msg_all_saved">All episodes are already saved or downloading.</string>
+    <string name="watch_bulk_from">From episode</string>
+    <string name="watch_bulk_to">To episode</string>
+    <string name="watch_msg_none_in_range">No episodes in that range.</string>
+    <string name="watch_msg_more_in_range">This range has more than %1$d episodes. The first %1$d are queued; repeat with the next range for the rest.</string>
     <string name="watch_msg_download_removed">Download of Episode %1$s deleted</string>
     <string name="watch_range_all">All</string>
     <string name="watch_err_connection">Connection lost while playing the video.</string>
@@ -127,8 +131,8 @@
     <string name="watch_skip_ed">Skip ED</string>
     <string name="watch_skip_recap">Skip recap</string>
     <plurals name="watch_bulk_message">
-        <item quantity="one">Queues the latest %1$d episode not yet saved, using the download quality and Wi-Fi option from Settings.</item>
-        <item quantity="other">Queues up to the latest %1$d episodes not yet saved, using the download quality and Wi-Fi option from Settings.</item>
+        <item quantity="one">Queues up to %1$d episodes in this range that aren\'t saved yet, lowest first. Quality and Wi-Fi options come from Settings.</item>
+        <item quantity="other">Queues up to %1$d episodes in this range that aren\'t saved yet, lowest first. Quality and Wi-Fi options come from Settings.</item>
     </plurals>
     <plurals name="watch_msg_preparing_count">
         <item quantity="one">Preparing %1$d episode…</item>
