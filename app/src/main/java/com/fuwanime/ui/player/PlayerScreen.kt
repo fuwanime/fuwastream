@@ -497,7 +497,9 @@ fun PlayerRoute(
             sleepExpired = sleepExpired,
             // Only the episode that was tapped has a thumbnail to fly in; later episodes just fade.
             thumbnailKey = sharedKey?.takeIf { state.episode.id == initialEpisodeId },
+            // The artwork fallback keeps the video area covered even when the episode has no still (Animekompi).
             placeholderUrl = if (state.episode.id == initialEpisodeId) initialThumbnail.ifBlank { state.episode.thumbnail } else state.episode.thumbnail,
+            placeholderFallback = state.anime?.let { a -> a.cover.ifBlank { a.poster } }.orEmpty(),
             autoSkipHandledFor = autoSkipHandledFor,
             onAutoSkipped = { autoSkipHandledFor = it },
             fullscreen = fullscreen,
@@ -628,6 +630,8 @@ private fun VideoSurface(
     sleepExpired: Boolean,
     thumbnailKey: String?,
     placeholderUrl: String,
+    /** Anime artwork shown when the episode itself has no thumbnail (Animekompi). */
+    placeholderFallback: String,
     autoSkipHandledFor: String?,
     onAutoSkipped: (String) -> Unit,
     fullscreen: Boolean,
@@ -712,13 +716,13 @@ private fun VideoSurface(
         val entering = rememberIsEntering()
         val exiting = rememberIsExiting()
         AnimatedVisibility(
-            visible = (!playback.firstFrame || entering) && !state.offline && placeholderUrl.isNotBlank(),
+            visible = (!playback.firstFrame || entering) && !state.offline && (placeholderUrl.isNotBlank() || placeholderFallback.isNotBlank()),
             enter = fadeIn(tween(Motion.Short)),
             exit = fadeOut(tween(Motion.Medium, easing = Motion.EmphasizedAccelerate)),
             modifier = Modifier.fillMaxSize(),
         ) {
             Box(Modifier.fillMaxSize()) {
-                NetImage(placeholderUrl, Modifier.fillMaxSize().sharedKey(thumbnailKey.takeIf { !exiting }))
+                NetImage(placeholderUrl.ifBlank { placeholderFallback }, Modifier.fillMaxSize().sharedKey(thumbnailKey.takeIf { !exiting }))
                 // Keeps the white loading text legible on bright thumbnails.
                 Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)))
             }
@@ -1399,11 +1403,14 @@ private fun EpisodeInfo(
                 LazyRow(state = rowState, contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(state.nearby, key = { it.id }) { ep ->
                         val current = ep.id == state.episode.id
+                        // Animekompi episodes carry no still of their own; the anime's artwork
+                        // keeps the strip from showing empty boxes.
+                        val shown = ep.thumbnail.ifBlank { state.anime?.let { a -> a.cover.ifBlank { a.poster } }.orEmpty() }
                         Column(
                             Modifier.width(150.dp).clip(MaterialTheme.shapes.small).clickable(enabled = !current) { onPlay(ep) },
                         ) {
                             Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(MaterialTheme.shapes.small)) {
-                                NetImage(ep.thumbnail, Modifier.fillMaxSize(), stringResource(R.string.watch_episode_label, ep.number))
+                                NetImage(shown, Modifier.fillMaxSize(), stringResource(R.string.watch_episode_label, ep.number))
                                 if (current) {
                                     Box(
                                         Modifier.fillMaxSize().background(MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)),
