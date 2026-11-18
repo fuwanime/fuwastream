@@ -37,6 +37,8 @@ val MATURE_ANIME_GENRES = listOf("Ecchi", "Erotica", "Hentai")
 private val MATURE_ANIME_GENRE_KEYS = setOf(
     "ecchi", "erotica", "hentai", "adult", "mature", "smut",
     "sexual content", "explicit sexual content", "18+", "r18", "r 18", "rx",
+    // Manga-only tags that are explicit by themselves.
+    "loli", "shota", "incest",
 )
 
 /** True only for an explicitly mature genre/rating, never merely Harem, Seinen, Yaoi, or Yuri. */

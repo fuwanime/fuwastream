@@ -171,6 +171,7 @@ class AppContainer(private val app: Application) {
             webtoon = WebtoonSource(mangaHttpClient),
             kakaManga = KakaMangaSource(mangaHttpClient),
             mangaPark = MangaParkSource(mangaHttpClient),
+            mature = { settingsStore.matureContent.first() },
         )
     }
 

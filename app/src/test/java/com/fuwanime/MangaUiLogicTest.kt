@@ -6,7 +6,7 @@ import com.fuwanime.data.manga.pickChapters
 import com.fuwanime.data.manga.Manga
 import com.fuwanime.data.manga.MangaStatus
 import com.fuwanime.data.manga.MangaTag
-import com.fuwanime.ui.manga.dedupeByTitle
+import com.fuwanime.data.manga.dedupeByTitle
 import com.fuwanime.data.manga.withChapter
 import com.fuwanime.data.manga.ChapterLang
 import com.fuwanime.ui.manga.readKeys

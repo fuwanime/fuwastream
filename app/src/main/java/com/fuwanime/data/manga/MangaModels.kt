@@ -76,13 +76,48 @@ fun pickChapters(all: List<MangaChapter>, preferred: String): List<MangaChapter>
         (odd + oneshots).sortedBy { it.publishAt }
 }
 
-/** Clean a genre/tag name from sources (strip quotes and normalize whitespace) for stable display/filtering. */
-fun cleanGenreName(raw: String): String = raw
-    .replace("\"", "")
-    .replace("“", "").replace("”", "").replace("„", "")
-    .replace(Regex("\\s+"), " ")
-    .trim()
-    .trim(',', ';')
+/** One entry per title: a later entry whose title matches an earlier one (either side's alt titles) is dropped. */
+fun dedupeByTitle(list: List<Manga>): List<Manga> {
+    val kept = ArrayList<Manga>()
+    for (m in list) {
+        if (kept.none { k -> sameTitle(k.title, m.title, m.altTitles) || sameTitle(m.title, k.title, k.altTitles) }) kept += m
+    }
+    return kept
+}
+
+/** Source spellings of the same genre, keyed by lowercase, mapped to the one name the app shows and filters by. */
+private val GENRE_ALIASES = mapOf(
+    "shounen ai" to "Boys Love", "shonen ai" to "Boys Love", "yaoi" to "Boys Love", "bl" to "Boys Love",
+    "shoujo ai" to "Girls Love", "shojo ai" to "Girls Love", "yuri" to "Girls Love", "gl" to "Girls Love",
+    "school" to "School Life", "super power" to "Superpower", "superpowers" to "Superpower",
+    "sci fi" to "Sci-Fi", "scifi" to "Sci-Fi", "science fiction" to "Sci-Fi",
+    "slice-of-life" to "Slice of Life", "martial art" to "Martial Arts",
+)
+
+/** Clean a genre/tag name from sources (strip quotes, normalise whitespace, unify known spellings). */
+fun cleanGenreName(raw: String): String {
+    val clean = raw
+        .replace("\"", "")
+        .replace("“", "").replace("”", "").replace("„", "")
+        .replace(Regex("\\s+"), " ")
+        .trim()
+        .trim(',', ';')
+    return GENRE_ALIASES[clean.lowercase().replace('_', ' ')] ?: clean
+}
+
+/**
+ * Applies the explore filters the sources can't. [status] and [type] only drop titles whose source states
+ * the opposite (an unknown value passes, so a source without that field is never emptied by a chip);
+ * [genres] must all be present, compared after [cleanGenreName].
+ */
+fun filterManga(items: List<Manga>, status: MangaStatus?, type: MangaType?, genres: Set<String>): List<Manga> {
+    val wanted = genres.map { cleanGenreName(it).lowercase() }.filter { it.isNotBlank() }
+    return items.filter { m ->
+        (status == null || m.status == MangaStatus.UNKNOWN || m.status == status) &&
+            (type == null || m.type == null || m.type.equals(type.label, ignoreCase = true)) &&
+            (wanted.isEmpty() || m.tags.mapTo(HashSet()) { cleanGenreName(it).lowercase() }.containsAll(wanted))
+    }
+}
 
 /** Deduplicate genre names case-insensitively while preserving first-seen display form. */
 fun dedupeGenreNames(names: Iterable<String>): List<String> {

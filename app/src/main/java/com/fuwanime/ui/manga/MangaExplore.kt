@@ -42,6 +42,8 @@ import com.fuwanime.data.manga.MangaOrder
 import com.fuwanime.data.manga.MangaRepository
 import com.fuwanime.data.manga.MangaStatus
 import com.fuwanime.data.manga.MangaTag
+import com.fuwanime.data.manga.filterManga
+import com.fuwanime.data.manga.dedupeByTitle
 import com.fuwanime.data.manga.MangaType
 import com.fuwanime.data.manga.sameTitle
 import com.fuwanime.ui.components.ErrorState
@@ -55,6 +57,8 @@ import com.fuwanime.util.friendlyText
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -76,15 +80,6 @@ fun shouldLoadMore(lastVisible: Int, loaded: Int, total: Int): Boolean =
 
 /** The Comix genre id a genre name from any source stands for, or null (Indonesian-only names have none). */
 fun genreTagId(name: String, tags: List<MangaTag>): String? = tags.firstOrNull { it.name.equals(name.trim(), ignoreCase = true) }?.id
-
-/** One entry per title: a later entry whose title matches an earlier one (either side's alt titles) is dropped. */
-fun dedupeByTitle(list: List<Manga>): List<Manga> {
-    val kept = ArrayList<Manga>()
-    for (m in list) {
-        if (kept.none { k -> sameTitle(k.title, m.title, m.altTitles) || sameTitle(m.title, k.title, k.altTitles) }) kept += m
-    }
-    return kept
-}
 
 /** A genre tapped on a manga page, waiting for the Manga tab to show it as a filter. */
 val pendingMangaGenre = MutableStateFlow<String?>(null)
@@ -170,27 +165,30 @@ class MangaExploreViewModel(private val repo: MangaRepository) : ViewModel() {
         moreJob?.cancel()
         _state.update { it.copy(results = emptyList(), total = 0, loading = true, loadingMore = false, error = null, generation = it.generation + 1, catalogDown = false) }
 
-        val english = try {
-            Result.success(repo.browse(orderFor(a.q), a.q, a.tags.toList(), a.status, 0, a.type))
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Result.failure(e)
+        // English and Indonesian sources run side by side: a slow English host must not hold back Shinigami's results.
+        val (english, indonesian) = coroutineScope {
+            val en = async {
+                try {
+                    Result.success(repo.browse(orderFor(a.q), a.q, a.tags.toList(), a.status, 0, a.type))
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Result.failure(e)
+                }
+            }
+            val id = async {
+                when {
+                    a.q.isNotBlank() -> repo.searchIndonesia(a.q)
+                    else -> quiet { repo.popularIndonesia(1, a.type).items }.orEmpty() +
+                        quiet { repo.popularKomiku(1, a.type).items }.orEmpty()
+                }
+            }
+            en.await() to id.await()
         }
         val page = english.getOrNull()
-
-        val indonesian = when {
-            a.q.isNotBlank() -> repo.searchIndonesia(a.q)
-                .filter { a.type == null || it.type == null || it.type.equals(a.type.label, ignoreCase = true) }
-            else -> quiet { repo.popularIndonesia(1, a.type).items }.orEmpty() +
-                quiet { repo.popularKomiku(1, a.type).items }.orEmpty()
-        }
-        val selectedGenres = a.tags.map { it.trim() }.filter { it.isNotBlank() }.toSet()
         val merged = dedupeByTitle((page?.items.orEmpty() + indonesian).distinctBy { m -> m.id })
-        val results = if (selectedGenres.isEmpty()) merged else merged.filter { m ->
-            val have = m.tags.mapTo(HashSet()) { t -> t.trim().lowercase() }
-            selectedGenres.all { g -> have.contains(g.lowercase()) }
-        }
+        val results = filterManga(merged, a.status, a.type, a.tags)
+        val selectedGenres = a.tags
         val error = when {
             results.isNotEmpty() -> null
             selectedGenres.isNotEmpty() && merged.isNotEmpty() -> null
