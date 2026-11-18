@@ -12,25 +12,25 @@ private val BULLET = Regex("""^[-*]\s+(.*)$""")
 
 /** GitHub release notes (Markdown) as plain styled text: headings and **bold** in bold, "- " as a bullet, links as their label. */
 fun releaseNotesText(markdown: String): AnnotatedString = buildAnnotatedString {
-    var blank = true
+    var started = false
+    var gap = false
     for (raw in markdown.lines()) {
         val line = raw.trim().replace("`", "")
         if (line.isEmpty()) {
-            if (!blank) append('\n')
-            blank = true
+            gap = true
             continue
         }
-        if (!blank && length > 0 && !endsWith('\n')) append('\n')
+        if (started) append(if (gap) "\n\n" else "\n")
+        started = true
+        gap = false
         val heading = HEADING.find(line)?.groupValues?.get(1)
         if (heading != null) {
             withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { appendInline(heading) }
         } else {
             appendInline(BULLET.find(line)?.let { "• " + it.groupValues[1] } ?: line)
         }
-        append('\n')
-        blank = false
     }
-}.let { it.subSequence(0, it.text.trimEnd().length) }
+}
 
 private fun AnnotatedString.Builder.appendInline(text: String) {
     var at = 0
