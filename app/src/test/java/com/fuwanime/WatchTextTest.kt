@@ -36,8 +36,8 @@ class WatchTextTest {
         assertEquals("第3集", nowPlaying(res("zh-CN"), ep, null).subtitle)
     }
 
-    @Test fun bulkDownloadMessageIsUnchangedInIndonesian() = assertEquals(
-        "Mengantre hingga 30 episode terbaru yang belum tersimpan, memakai kualitas download dan opsi Wi-Fi dari Pengaturan.",
+    @Test fun bulkDownloadMessageDescribesTheRangeInIndonesian() = assertEquals(
+        "Mengantre hingga 30 episode dalam rentang ini yang belum tersimpan, mulai dari yang terkecil. Kualitas dan opsi Wi-Fi dari Pengaturan.",
         res("id").getQuantityString(R.plurals.watch_bulk_message, 30, 30),
     )
 }

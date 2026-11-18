@@ -56,6 +56,10 @@
     <string name="watch_msg_queued_episode">第%1$s集已加入下载队列</string>
     <string name="watch_msg_no_episodes_download">暂无可下载的剧集。</string>
     <string name="watch_msg_all_saved">所有剧集均已保存或正在下载。</string>
+    <string name="watch_bulk_from">起始集</string>
+    <string name="watch_bulk_to">结束集</string>
+    <string name="watch_msg_none_in_range">该范围内没有剧集。</string>
+    <string name="watch_msg_more_in_range">此范围超过 %1$d 集。已加入前 %1$d 集；用下一个范围重复即可下载其余。</string>
     <string name="watch_msg_download_removed">已删除第%1$s集的下载</string>
     <string name="watch_range_all">全部</string>
     <string name="watch_err_connection">播放视频时连接中断。</string>
@@ -126,7 +130,7 @@
     <string name="watch_skip_ed">跳过片尾</string>
     <string name="watch_skip_recap">跳过回顾</string>
     <plurals name="watch_bulk_message">
-        <item quantity="other">将最新的 %1$d 集未保存剧集加入队列，使用设置中的下载画质和 Wi-Fi 选项。</item>
+        <item quantity="other">在此范围内按从小到大的顺序，最多将 %1$d 个未保存的剧集加入队列。画质和 Wi-Fi 选项取自设置。</item>
     </plurals>
     <plurals name="watch_msg_preparing_count">
         <item quantity="other">正在准备 %1$d 集…</item>
