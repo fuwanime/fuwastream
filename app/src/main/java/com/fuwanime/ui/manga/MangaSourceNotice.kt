@@ -24,8 +24,7 @@ import androidx.compose.ui.unit.dp
 import com.fuwanime.R
 
 /**
- * Shown when Comix is unreachable (commonly blocked by an Indonesian ISP) while an Indonesian
- * source still works. It explains why the Comix shelves are missing and lets the user retry.
+ * Shown when English manga sources are unreachable while Indonesian sources still work.
  */
 @Composable
 fun MangaSourceNotice(onRetry: () -> Unit, modifier: Modifier = Modifier) {

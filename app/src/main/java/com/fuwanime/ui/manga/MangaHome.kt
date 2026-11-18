@@ -82,11 +82,10 @@ class MangaHomeViewModel(private val repo: MangaRepository, library: MangaLibrar
                 launch { load(popular, MangaOrder.POPULAR) }
                 launch { load(latest, MangaOrder.LATEST) }
             }
-            // Only show the source-specific notice when at least one Indonesian source really works.
-            // If every source failed (for example, fully offline), keep the normal connection errors.
-            val comixFailed = popular.value.error != null || latest.value.error != null
-            val indonesiaAvailable = indonesia.value.error == null || komiku.value.error == null
-            catalogDown.value = comixFailed && indonesiaAvailable
+            // Show notice only when English shelves failed but Indonesian shelves are available.
+            val englishFailed = popular.value.error != null || latest.value.error != null || (popular.value.items.isEmpty() && latest.value.items.isEmpty() && !popular.value.loading && !latest.value.loading)
+            val indonesiaAvailable = indonesia.value.items.isNotEmpty() || komiku.value.items.isNotEmpty() || indonesia.value.error == null || komiku.value.error == null
+            catalogDown.value = englishFailed && indonesiaAvailable
             refreshing.value = false
         }
     }

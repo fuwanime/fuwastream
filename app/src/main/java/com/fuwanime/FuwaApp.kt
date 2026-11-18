@@ -1,7 +1,8 @@
 package com.fuwanime
 
-import com.fuwanime.data.manga.ComixWsSource
 import com.fuwanime.data.manga.KomikuSource
+import com.fuwanime.data.manga.KakaMangaSource
+import com.fuwanime.data.manga.MangaParkSource
 import com.fuwanime.data.manga.ShinigamiApi
 import com.fuwanime.data.manga.ShinigamiSource
 import com.fuwanime.data.manga.WebtoonSource
@@ -167,9 +168,9 @@ class AppContainer(private val app: Application) {
             appLanguage = { app.resources.configuration.locales[0].language },
             shinigami = ShinigamiSource(ShinigamiApi.create(mangaHttpClient)),
             komiku = KomikuSource(mangaHttpClient),
-            comix = ComixWsSource(app, mature = { settingsStore.matureContent.first() }, client = mangaHttpClient),
             webtoon = WebtoonSource(mangaHttpClient),
-            mature = { settingsStore.matureContent.first() },
+            kakaManga = KakaMangaSource(mangaHttpClient),
+            mangaPark = MangaParkSource(mangaHttpClient),
         )
     }
 

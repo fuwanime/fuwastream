@@ -1,8 +1,8 @@
 <resources>
     <string name="manga_error_not_found">Manga not found.</string>
-    <string name="manga_source_catalog_down">Comix cannot be reached from this network. Indonesian sources are still available.</string>
+    <string name="manga_source_catalog_down">English manga sources cannot be reached right now. Indonesian sources are still available.</string>
     <string name="manga_source_catalog_retry">Try again</string>
-    <string name="manga_source_catalog_filter">Genre and status filters need Comix. Clear the filters or use search.</string>
+    <string name="manga_source_catalog_filter">This filter may be unavailable. Clear the filters or use search.</string>
     <string name="manga_status_ongoing">Ongoing</string>
     <string name="manga_status_completed">Completed</string>
     <string name="manga_status_hiatus">On hiatus</string>
@@ -64,7 +64,7 @@
     <string name="manga_reader_source_shinigami">Source: Shinigami</string>
     <string name="manga_home_komiku">Classics &amp; complete</string>
     <string name="manga_settings_mature">Mature content</string>
-    <string name="manga_settings_mature_desc">Show anime with mature genres (Ecchi, Erotica, Hentai) and mature-themed manga from Comix</string>
+    <string name="manga_settings_mature_desc">Show anime with mature genres (Ecchi, Erotica, Hentai) and mature-themed manga</string>
     <string name="manga_credit_komiku">Data &amp; images from Komiku</string>
     <string name="manga_reader_source_komiku">Source: Komiku</string>
     <string name="manga_credit_comix">Data &amp; images from Comix</string>
@@ -127,5 +127,9 @@
     <string name="manga_reader_auto_scroll_desc">In Webtoon mode, pages scroll down automatically and continue to the next chapter.</string>
     <string name="manga_reader_continue_hint">Scroll again or tap to continue to the next chapter</string>
     <string name="manga_reader_source_webtoon">WEBTOON</string>
+    <string name="manga_reader_source_kakamanga">KakaManga</string>
+    <string name="manga_reader_source_mangapark">MangaPark</string>
     <string name="manga_credit_webtoon">Source: WEBTOON</string>
+    <string name="manga_credit_kakamanga">Source: KakaManga</string>
+    <string name="manga_credit_mangapark">Source: MangaPark</string>
 </resources>

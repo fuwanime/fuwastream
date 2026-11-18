@@ -1,8 +1,8 @@
 <resources>
     <string name="manga_error_not_found">未找到该漫画。</string>
-    <string name="manga_source_catalog_down">当前网络无法访问 Comix。印尼漫画源仍可使用。</string>
+    <string name="manga_source_catalog_down">当前无法访问英文漫画源。印尼漫画源仍可使用。</string>
     <string name="manga_source_catalog_retry">重试</string>
-    <string name="manga_source_catalog_filter">类型和状态筛选需要 Comix。请清除筛选或使用搜索。</string>
+    <string name="manga_source_catalog_filter">该筛选可能不可用。请清除筛选或使用搜索。</string>
     <string name="manga_status_ongoing">连载中</string>
     <string name="manga_status_completed">已完结</string>
     <string name="manga_status_hiatus">休刊中</string>
@@ -123,5 +123,9 @@
     <string name="manga_reader_auto_scroll_desc">在条漫模式下自动向下滚动，并在结尾继续下一章。</string>
     <string name="manga_reader_continue_hint">再次滚动或点击即可继续下一章</string>
     <string name="manga_reader_source_webtoon">WEBTOON</string>
+    <string name="manga_reader_source_kakamanga">KakaManga</string>
+    <string name="manga_reader_source_mangapark">MangaPark</string>
     <string name="manga_credit_webtoon">来源：WEBTOON</string>
+    <string name="manga_credit_kakamanga">来源：KakaManga</string>
+    <string name="manga_credit_mangapark">来源：MangaPark</string>
 </resources>

@@ -2,6 +2,8 @@ package com.fuwanime.ui.manga
 
 import com.fuwanime.data.manga.isKomikuId
 import com.fuwanime.data.manga.isShinigamiId
+import com.fuwanime.data.manga.isKakaMangaId
+import com.fuwanime.data.manga.isMangaParkId
 import com.fuwanime.data.manga.isWebtoonId
 import android.app.Activity
 import android.content.Context
@@ -115,7 +117,7 @@ import com.fuwanime.data.manga.MangaDownloadRepository
 import com.fuwanime.data.manga.MangaLibrary
 import com.fuwanime.data.manga.MangaRepository
 import com.fuwanime.data.manga.MangaStatus
-import com.fuwanime.data.manga.isComixId
+import com.fuwanime.data.manga.mangaPageCandidates
 import com.fuwanime.data.manga.isKomikuId
 import com.fuwanime.data.manga.isShinigamiId
 import com.fuwanime.data.manga.mangaPageCandidates
@@ -418,7 +420,7 @@ fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
             }
             else -> key(chapter.id) {
                 val label = chapterLabel(chapter)
-                val translationAvailable = isComixId(chapter.id) || (!isShinigamiId(chapter.id) && !isKomikuId(chapter.id))
+                val translationAvailable = !isShinigamiId(chapter.id) && !isKomikuId(chapter.id)
                 val showingTranslated = translation.pages != null
                 val pages = translation.pages ?: originalPages
                 val startPage = state.startPage.coerceIn(0, (pages.size - 1).coerceAtLeast(0))
@@ -699,10 +701,11 @@ private fun Credit(chapter: MangaChapter, modifier: Modifier = Modifier) {
         when {
             isShinigamiId(chapter.id) -> stringResource(R.string.manga_reader_source_shinigami)
             isKomikuId(chapter.id) -> stringResource(R.string.manga_reader_source_komiku)
-            isComixId(chapter.id) -> stringResource(R.string.manga_reader_source_comix)
             isWebtoonId(chapter.id) -> stringResource(R.string.manga_reader_source_webtoon)
+            isKakaMangaId(chapter.id) -> stringResource(R.string.manga_reader_source_kakamanga)
+            isMangaParkId(chapter.id) -> stringResource(R.string.manga_reader_source_mangapark)
             chapter.group != null -> stringResource(R.string.manga_reader_scanlation, chapter.group)
-            else -> stringResource(R.string.manga_reader_source_comix)
+            else -> chapter.group ?: stringResource(R.string.manga_reader_source_mangapark)
         },
         color = Color.White.copy(alpha = 0.6f), style = MaterialTheme.typography.labelMedium,
         textAlign = TextAlign.Center, modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp),
