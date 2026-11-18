@@ -32,7 +32,7 @@ class CatalogLabelsTest {
         assertEquals("Series", typeLabel(res, "SERIES"))
         assertEquals("Live Action", typeLabel(res, "LIVE ACTION"))
         assertEquals("Live Action", typeLabel(res, "live-action"))
-        assertEquals("Ona", typeLabel(res, "ONA").let { if (it == "ONA") "Ona" else it })
+        assertEquals("ONA", typeLabel(res, "ONA"))
         assertEquals("Tv special", typeLabel(res, "TV SPECIAL"))
     }
 }
