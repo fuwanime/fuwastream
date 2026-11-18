@@ -34,6 +34,10 @@ data class AnimeLinkEntity(
     val year: Int? = null,
     /** Episode thumbnails as encoded by [com.fuwanime.data.meta.encodeEpisodeThumbnails]; empty when unknown. */
     val episodeThumbnails: String = "",
+    /** Watchable trailer URL from AniList; empty when there is none (or the row predates v12). */
+    val trailerUrl: String = "",
+    /** Trailer poster frame from AniList; empty when unknown (or the row predates v12). */
+    val trailerThumbnail: String = "",
 )
 
 @Dao

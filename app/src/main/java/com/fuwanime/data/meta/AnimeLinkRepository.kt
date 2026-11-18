@@ -79,6 +79,8 @@ class AnimeLinkRepository(
                 studio = meta.studio,
                 year = meta.year,
                 episodeThumbnails = encodeEpisodeThumbnails(meta.episodeThumbnails),
+                trailerUrl = meta.trailerUrl,
+                trailerThumbnail = meta.trailerThumbnail,
             ),
         )
         return meta
@@ -108,6 +110,8 @@ class AnimeLinkRepository(
         studio = studio,
         year = year,
         episodeThumbnails = decodeEpisodeThumbnails(episodeThumbnails),
+        trailerUrl = trailerUrl,
+        trailerThumbnail = trailerThumbnail,
     )
 
     private companion object {

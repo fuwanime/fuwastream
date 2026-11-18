@@ -25,7 +25,7 @@ interface AniListApi {
 }
 
 private const val MEDIA_FIELDS = "id idMal format seasonYear startDate{year} title{romaji english native} synonyms " +
-    "averageScore popularity favourites episodes duration studios(isMain:true){nodes{name}} " +
+    "averageScore popularity favourites episodes duration trailer{id site thumbnail} studios(isMain:true){nodes{name}} " +
     "tags{name rank isMediaSpoiler} nextAiringEpisode{episode airingAt} streamingEpisodes{title thumbnail} " +
     "relations{edges{relationType(version:2) node{type format title{romaji english native} synonyms}}} " +
     "characters(perPage:12,sort:[ROLE,RELEVANCE,ID]){edges{role node{name{full} image{medium}} " +
@@ -69,6 +69,7 @@ data class AniListMedia(
     val tags: List<AniListTag> = emptyList(),
     val nextAiringEpisode: AiringEpisode? = null,
     val streamingEpisodes: List<AniListStreamingEpisode> = emptyList(),
+    val trailer: AniListTrailer? = null,
     val relations: AniListRelations? = null,
     val characters: AniListCharacters? = null,
 )
@@ -129,3 +130,6 @@ data class AniListName(val full: String? = null)
 
 @JsonClass(generateAdapter = true)
 data class AniListImage(val medium: String? = null)
+
+@JsonClass(generateAdapter = true)
+data class AniListTrailer(val id: String? = null, val site: String? = null, val thumbnail: String? = null)

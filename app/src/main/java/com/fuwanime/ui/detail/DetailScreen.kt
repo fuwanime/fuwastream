@@ -1,5 +1,7 @@
 package com.fuwanime.ui.detail
 
+import android.content.Intent
+import androidx.core.net.toUri
 import com.fuwanime.ui.components.rememberDownloadGate
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
@@ -392,6 +394,20 @@ private fun DetailScreen(
                 }
                 item(key = "synopsis") { Box(Modifier.navEnter(180)) { Synopsis(anime.synopsis) } }
                 item(key = "info") { Box(Modifier.navEnter(200)) { InfoGrid(anime, state.meta) } }
+                state.meta?.takeIf { it.trailerUrl.isNotBlank() }?.let { meta ->
+                    item(key = "trailer") {
+                        val context = LocalContext.current
+                        TrailerCard(
+                            thumbnail = meta.trailerThumbnail,
+                            fallbackThumbnail = anime?.let { a -> a.cover.ifBlank { a.poster } }.orEmpty(),
+                            onClick = {
+                                // Trailers play outside the app (YouTube/Dailymotion app or the browser).
+                                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, meta.trailerUrl.toUri())) }
+                            },
+                            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp),
+                        )
+                    }
+                }
                 if (state.meta?.sourceTitles?.isNotEmpty() == true) {
                     item(key = "read-manga") {
                         ReadMangaButton(state.mangaLookup, vm::openManga, Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp))
@@ -1071,6 +1087,46 @@ private fun EpisodeDownloadButton(download: DownloadItem?, onDownload: () -> Uni
             text = { Text(stringResource(if (running) R.string.watch_cancel_download_msg else R.string.watch_delete_download_msg)) },
             confirmButton = { TextButton(onClick = { confirm = false; onDelete() }) { Text(stringResource(if (running) R.string.watch_stop_download else R.string.watch_delete)) } },
             dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.watch_close)) } },
+        )
+    }
+}
+
+/** Clickable trailer card: AniList's poster frame with a play badge; the trailer opens outside the app. */
+@Composable
+private fun TrailerCard(
+    thumbnail: String,
+    fallbackThumbnail: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val label = stringResource(R.string.watch_trailer)
+    Box(
+        modifier
+            .fillMaxWidth()
+            .aspectRatio(16f / 9f)
+            .clip(MaterialTheme.shapes.medium)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(onClick = onClick)
+            .semantics { contentDescription = label },
+    ) {
+        NetImage(thumbnail.ifBlank { fallbackThumbnail }, Modifier.fillMaxSize())
+        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.25f)), contentAlignment = Alignment.Center) {
+            Box(
+                Modifier.size(56.dp).background(Color.Black.copy(alpha = 0.65f), CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Rounded.PlayArrow, null, Modifier.size(34.dp), tint = Color.White)
+            }
+        }
+        Text(
+            label,
+            style = MaterialTheme.typography.labelLarge,
+            color = Color.White,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(10.dp)
+                .background(Color.Black.copy(alpha = 0.55f), MaterialTheme.shapes.extraSmall)
+                .padding(horizontal = 8.dp, vertical = 3.dp),
         )
     }
 }

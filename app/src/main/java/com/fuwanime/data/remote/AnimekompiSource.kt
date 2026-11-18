@@ -160,6 +160,8 @@ class AnimekompiSource(
     suspend fun episodes(animeId: String): List<Episode> {
         val (slug, _) = AnimekompiId.parts(animeId) ?: throw IOException("Invalid Animekompi id")
         val json = getJson("/api/anime/$slug")
+        val a = json.optJSONObject("anime")
+        val animeCover = absolute(a?.firstStr("banner", "cover").orEmpty())
         val eps = json.optJSONArray("episodes").orEmpty()
         val out = (0 until eps.length()).mapNotNull { i ->
             val e = eps.optJSONObject(i) ?: return@mapNotNull null
@@ -169,7 +171,10 @@ class AnimekompiSource(
                 id = AnimekompiId.episode(slug, epSlug),
                 number = formatNumber(e.opt("number")),
                 title = e.str("title").ifBlank { "Episode ${formatNumber(e.opt("number"))}" },
-                thumbnail = absolute(e.firstStr("thumbnail", "thumb", "image", "cover", "poster", "screenshot")),
+                // Most episodes have no still of their own; fall back to the anime's artwork so
+                // no row on Detail or the player's episode strip shows an empty box.
+                thumbnail = absolute(e.firstStr("thumbnail", "thumb", "image", "cover", "poster", "screenshot"))
+                    .ifBlank { animeCover },
                 releaseDate = e.str("releasedAt"),
                 views = e.optLong("views"),
             )
@@ -217,7 +222,9 @@ class AnimekompiSource(
             id = episodeId,
             number = formatNumber(ep.opt("number")),
             title = ep.str("title").ifBlank { "Episode ${formatNumber(ep.opt("number"))}" },
-            thumbnail = absolute(ep.firstStr("thumbnail", "thumb", "image", "cover", "poster", "screenshot")),
+            // Same fallback as episodes(): the anime object rides along with the episode payload.
+            thumbnail = absolute(ep.firstStr("thumbnail", "thumb", "image", "cover", "poster", "screenshot"))
+                .ifBlank { absolute(json.optJSONObject("anime")?.firstStr("banner", "cover").orEmpty()) },
             releaseDate = ep.str("releasedAt"),
         )
         return EpisodeStream(episode, ordered.distinctBy { it.url })

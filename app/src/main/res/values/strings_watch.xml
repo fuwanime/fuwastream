@@ -92,6 +92,7 @@
     <string name="watch_cast">Karakter &amp; Pengisi Suara</string>
     <string name="watch_cast_main">Utama</string>
     <string name="watch_cast_supporting">Pendukung</string>
+    <string name="watch_trailer">Tonton Trailer</string>
     <string name="watch_read_manga">Baca versi manga</string>
     <string name="watch_manga_not_found">Versi manga belum tersedia di FuwaStream</string>
     <string name="watch_open_external">Buka di player lain</string>
