@@ -20,7 +20,7 @@ import kotlinx.coroutines.CancellationException
 
 /**
  * Translates a manga chapter in the background so it can continue after the reader is closed.
- * Pages are cached on disk by [IsMangaChapterTranslator]; partially translated chapters resume on retry.
+ * Pages are cached on disk by the manga chapter translator; partially translated chapters resume on retry.
  */
 class MangaTranslateWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
 
