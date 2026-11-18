@@ -575,20 +575,20 @@ class MangaTranslateV2ChapterTranslator(
 
     // -------- best-effort account provisioning (simplified port of gist workflow, with proxy rotation) --------
     private fun provisionAccountWithCredits(): String? {
-        // Try direct first, then rotate through active proxies on rate-limit/connection issues (as in gist workflow).
+        // Try direct first, then rotate through a few active proxies on rate-limit/connection issues.
+        // Fail fast so that if MangaTranslate is unavailable we quickly fall back to IsManga instead of hanging.
         val proxies = listOf<String?>(null) + MT_DEFAULT_PROXIES.shuffled()
-        val maxAttempts = minOf(proxies.size, 30)
+        val maxAttempts = minOf(proxies.size, 5)
+        val deadline = System.currentTimeMillis() + 45_000L
         for (i in 0 until maxAttempts) {
+            if (System.currentTimeMillis() > deadline) break
             val proxyUrl = proxies[i]
             val client = clientForProxy(proxyUrl)
             val result = runCatching { provisionOnce(client) }
             val pat = result.getOrNull()
             if (pat != null) return pat
             val err = result.exceptionOrNull() ?: continue
-            if (!isRetryableProvisionError(err)) {
-                // Non-retryable (e.g. hard failure) - still try a few more proxies in case of IP/account issues
-                if (i >= 4) return null
-            }
+            if (!isRetryableProvisionError(err) && i >= 1) return null
             // else retry with next proxy
         }
         return null
@@ -772,7 +772,7 @@ private class MtSession(private val http: OkHttpClient) {
     }
 
     fun verifyAkunlama(email: String) {
-        // best-effort: request resend, poll inbox for verify link, hit it
+        // best-effort: request resend, poll inbox briefly for verify link, hit it. Kept short to avoid hanging.
         runCatching {
             val body = "{}".toRequestBody("application/json; charset=utf-8".toMediaType())
             val req = Request.Builder().url(MT_BASE + MT_RESEND_VERIFICATION).post(body)
@@ -782,7 +782,7 @@ private class MtSession(private val http: OkHttpClient) {
                 .build()
             http.newCall(req).execute().use { absorbCookies(it) }
         }
-        val deadline = System.currentTimeMillis() + 60_000L
+        val deadline = System.currentTimeMillis() + 12_000L
         val seen = HashSet<String>()
         while (System.currentTimeMillis() < deadline) {
             val msgs = runCatching { akunlamaList(email) }.getOrDefault(emptyList())
@@ -797,11 +797,10 @@ private class MtSession(private val http: OkHttpClient) {
                         val vreq = Request.Builder().url(match).get().header("User-Agent", UA).build()
                         http.newCall(vreq).execute().close()
                     }
-                    runCatching { login(email, "") } // refresh if possible not critical
                     return
                 }
             }
-            Thread.sleep(5000)
+            Thread.sleep(3000)
         }
     }
 
