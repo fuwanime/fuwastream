@@ -1,8 +1,8 @@
 <resources>
     <string name="manga_error_not_found">Manga tidak dijumpai.</string>
-    <string name="manga_source_catalog_down">Comix tidak dapat dicapai dari rangkaian ini. Sumber Indonesia masih tersedia.</string>
+    <string name="manga_source_catalog_down">Sumber manga Inggeris tidak dapat dicapai sekarang. Sumber Indonesia masih tersedia.</string>
     <string name="manga_source_catalog_retry">Cuba lagi</string>
-    <string name="manga_source_catalog_filter">Penapis genre dan status memerlukan Comix. Kosongkan penapis atau gunakan carian.</string>
+    <string name="manga_source_catalog_filter">Penapis ini mungkin tidak tersedia. Kosongkan penapis atau gunakan carian.</string>
     <string name="manga_status_ongoing">Sedang berjalan</string>
     <string name="manga_status_completed">Tamat</string>
     <string name="manga_status_hiatus">Hiatus</string>
@@ -123,5 +123,9 @@
     <string name="manga_reader_auto_scroll_desc">Dalam mod Webtoon, halaman bergerak ke bawah secara automatik dan diteruskan ke bab seterusnya.</string>
     <string name="manga_reader_continue_hint">Tatal lagi atau ketik untuk terus ke bab seterusnya</string>
     <string name="manga_reader_source_webtoon">WEBTOON</string>
+    <string name="manga_reader_source_kakamanga">KakaManga</string>
+    <string name="manga_reader_source_mangapark">MangaPark</string>
     <string name="manga_credit_webtoon">Sumber: WEBTOON</string>
+    <string name="manga_credit_kakamanga">Sumber: KakaManga</string>
+    <string name="manga_credit_mangapark">Sumber: MangaPark</string>
 </resources>

@@ -68,13 +68,11 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
-private const val PAGE_SIZE = 28 // MangaRepository's Comix page size
-private const val OFFSET_CAP = 10_000 // Comix rejects offsets above this
 private const val PREFETCH = 6
 
-/** Load the next page once the last visible item is within [PREFETCH] of the end, and only while the server has more and the offset cap allows it. */
+/** Load more when near end and more items may be available. */
 fun shouldLoadMore(lastVisible: Int, loaded: Int, total: Int): Boolean =
-    loaded < total && loaded + PAGE_SIZE <= OFFSET_CAP && lastVisible >= loaded - PREFETCH
+    loaded < total && lastVisible >= loaded - PREFETCH
 
 /** The Comix genre id a genre name from any source stands for, or null (Indonesian-only names have none). */
 fun genreTagId(name: String, tags: List<MangaTag>): String? = tags.firstOrNull { it.name.equals(name.trim(), ignoreCase = true) }?.id
@@ -109,7 +107,7 @@ data class MangaExploreState(
     /** Comix failed; the shown results come from Shinigami/Komiku. */
     val catalogDown: Boolean = false,
 ) {
-    val endReached get() = results.size >= total || results.size + PAGE_SIZE > OFFSET_CAP
+    val endReached get() = results.size >= total
     val filtered get() = query.isNotBlank() || status != null || tagIds.isNotEmpty() || type != null
 }
 
@@ -125,8 +123,6 @@ class MangaExploreViewModel(private val repo: MangaRepository) : ViewModel() {
 
     // What the shown results were fetched with (the query is debounced, so it can lag behind state.query).
     private var applied = Applied()
-    // Comix items fetched so far: the next page's offset (results also hold Indonesian entries and drop duplicates).
-    private var comixOffset = 0
 
     /** Starts the search pipeline when manga mode is first shown. */
     fun start() {
@@ -153,33 +149,15 @@ class MangaExploreViewModel(private val repo: MangaRepository) : ViewModel() {
     fun setType(t: MangaType?) = _state.update { it.copy(type = t) }
     fun reload() { retry.update { it + 1 } }
 
-    /** Shows one genre: match tag by name (works for unified genre list), else as a text search. */
+    /** Shows one genre: try tag filter if known, else as a text search. */
     fun applyGenre(name: String) {
         viewModelScope.launch {
-            val tags = withTimeoutOrNull(5_000) { _state.first { it.tags.isNotEmpty() }.tags }.orEmpty()
-            val match = tags.firstOrNull { it.name.equals(name.trim(), ignoreCase = true) || it.id.equals(name.trim(), ignoreCase = true) }
-            _state.update { if (match != null) it.copy(query = "", status = null, tagIds = setOf(match.id)) else it.copy(query = name, status = null, tagIds = emptySet()) }
+            val tags = withTimeoutOrNull(3_000) { _state.first { it.tags.isNotEmpty() }.tags }.orEmpty()
+            val id = genreTagId(name, tags)
+            _state.update { if (id != null) it.copy(query = "", status = null, tagIds = setOf(id)) else it.copy(query = name, status = null, tagIds = emptySet()) }
         }
     }
 
-    private fun selectedGenreNames(a: Applied): Set<String> {
-        val tags = _state.value.tags
-        return a.tags.mapNotNull { id ->
-            tags.firstOrNull { it.id == id }?.name ?: id.takeIf { it.any(Char::isLetter) }
-        }.map { it.trim() }.filter { it.isNotBlank() }.toSet()
-    }
-
-    private fun filterBySelectedGenres(items: List<Manga>, a: Applied): List<Manga> {
-        val selected = selectedGenreNames(a)
-        if (selected.isEmpty()) return items
-        val wanted = selected.map { it.lowercase() }.toSet()
-        return items.filter { m ->
-            val have = m.tags.mapTo(HashSet()) { it.trim().lowercase() }
-            wanted.all { g -> g in have }
-        }
-    }
-
-    /** A failed source must not hide the others, but cancellation must still stop stale results. */
     private suspend fun <T> quiet(block: suspend () -> T): T? = try {
         block()
     } catch (e: CancellationException) {
@@ -192,44 +170,39 @@ class MangaExploreViewModel(private val repo: MangaRepository) : ViewModel() {
         moreJob?.cancel()
         _state.update { it.copy(results = emptyList(), total = 0, loading = true, loadingMore = false, error = null, generation = it.generation + 1, catalogDown = false) }
 
-        // Comix is the primary catalogue; the Indonesian sources remain usable when it is blocked.
-        val comixPage = try {
+        val english = try {
             Result.success(repo.browse(orderFor(a.q), a.q, a.tags.toList(), a.status, 0, a.type))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             Result.failure(e)
         }
-        val page = comixPage.getOrNull()
-        comixOffset = page?.items?.size ?: 0
+        val page = english.getOrNull()
 
-        // Genre and status are Comix-only filters, so they turn the Indonesian fallback off.
-        // With no query, a dead Comix still gets the Indonesian popular list instead of an empty screen.
         val indonesian = when {
-            a.tags.isNotEmpty() || a.status != null -> emptyList()
             a.q.isNotBlank() -> repo.searchIndonesia(a.q)
                 .filter { a.type == null || it.type == null || it.type.equals(a.type.label, ignoreCase = true) }
-            page == null -> quiet { repo.popularIndonesia(1, a.type).items }.orEmpty() +
+            else -> quiet { repo.popularIndonesia(1, a.type).items }.orEmpty() +
                 quiet { repo.popularKomiku(1, a.type).items }.orEmpty()
-            else -> emptyList()
         }
+        val selectedGenres = a.tags.map { it.trim() }.filter { it.isNotBlank() }.toSet()
         val merged = dedupeByTitle((page?.items.orEmpty() + indonesian).distinctBy { m -> m.id })
-        val results = filterBySelectedGenres(merged, a)
-        val total = page?.let { it.total + merged.size - comixOffset } ?: merged.size
+        val results = if (selectedGenres.isEmpty()) merged else merged.filter { m ->
+            val have = m.tags.mapTo(HashSet()) { t -> t.trim().lowercase() }
+            selectedGenres.all { g -> have.contains(g.lowercase()) }
+        }
         val error = when {
             results.isNotEmpty() -> null
-            a.tags.isNotEmpty() && merged.isNotEmpty() -> null
-            page != null -> null
-            a.tags.isNotEmpty() || a.status != null -> UiText(R.string.manga_source_catalog_filter)
-            else -> comixPage.exceptionOrNull()?.friendlyText()
+            selectedGenres.isNotEmpty() && merged.isNotEmpty() -> null
+            else -> english.exceptionOrNull()?.friendlyText()
         }
         _state.update {
             it.copy(
                 results = results,
-                total = total,
+                total = results.size,
                 loading = false,
                 error = error,
-                catalogDown = page == null,
+                catalogDown = page == null || page.items.isEmpty(),
             )
         }
     }
@@ -237,27 +210,9 @@ class MangaExploreViewModel(private val repo: MangaRepository) : ViewModel() {
     /** [generation] is the one the caller saw; a request from before a filter change is ignored. */
     fun loadMore(generation: Int) {
         val s = _state.value
-        if (generation != s.generation || s.loading || s.loadingMore || s.endReached || s.catalogDown) return
-        val a = applied
-        moreJob = viewModelScope.launch {
-            _state.update { it.copy(loadingMore = true, error = null) }
-            try {
-                val page = repo.browse(orderFor(a.q), a.q, a.tags.toList(), a.status, comixOffset, a.type)
-                comixOffset += page.items.size
-                _state.update { cur ->
-                    val known = cur.results.mapTo(HashSet()) { it.id }
-                    val added = page.items.filter { it.id !in known }
-                    val merged = dedupeByTitle(cur.results + filterBySelectedGenres(added, a))
-                    // An empty page ends paging even when `total` says more (it counts items we may not receive).
-                    cur.copy(results = merged, total = if (page.items.isEmpty()) merged.size else page.total + merged.size - comixOffset, loadingMore = false)
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                // The first page came from Indonesian sources; a failed Comix page just ends paging.
-                _state.update { it.copy(loadingMore = false, catalogDown = true, error = if (it.results.isEmpty()) e.friendlyText() else null) }
-            }
-        }
+        if (generation != s.generation || s.loading || s.loadingMore || s.endReached) return
+        // English sources are fetched as a single page; nothing more to load.
+        _state.update { it.copy(loadingMore = false) }
     }
 }
 
@@ -266,7 +221,6 @@ class MangaExploreViewModel(private val repo: MangaRepository) : ViewModel() {
 fun MangaFilterBar(state: MangaExploreState, vm: MangaExploreViewModel) {
     var genresOpen by remember { mutableStateOf(false) }
     LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        // The genre sheet is Comix's tag list; hide it when the catalogue is unreachable.
         if (state.tags.isNotEmpty()) item { GenreChip(state.tagIds.size) { genresOpen = true } }
         item { TagChip(stringResource(R.string.manga_filter_all), onClick = { vm.setStatus(null) }, selected = state.status == null) }
         item { TagChip(stringResource(R.string.manga_status_ongoing), onClick = { vm.setStatus(MangaStatus.ONGOING) }, selected = state.status == MangaStatus.ONGOING) }
