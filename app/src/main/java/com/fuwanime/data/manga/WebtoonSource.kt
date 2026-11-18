@@ -94,8 +94,8 @@ fun parseWebtoonDetail(html: String, id: String, slugPath: String): Manga {
         coverUrl = Regex("""<meta property="og:image" content="([^"]+)"""").find(html)?.groupValues?.get(1)?.substringBefore('?'),
         description = Regex("""<meta property="og:description" content="([^"]*)"""").find(html)
             ?.groupValues?.get(1)?.replace(Regex("""\n"""), "\n")?.let(::htmlText).orEmpty(),
-        tags = Regex("""<h2 class="genre[^"]*">(.*?)</h2>""", RegexOption.DOT_MATCHES_ALL).find(html)
-            ?.groupValues?.get(1)?.let(::htmlText)?.takeIf { it.isNotBlank() }?.let { listOf(it) }.orEmpty(),
+        tags = dedupeGenreNames(listOfNotNull(Regex("""<h2 class="genre[^"]*">(.*?)</h2>""", RegexOption.DOT_MATCHES_ALL).find(html)
+            ?.groupValues?.get(1)?.let(::htmlText)?.takeIf { it.isNotBlank() })),
         status = MangaStatus.UNKNOWN,
         year = null,
         author = meta("author")?.ifBlank { null } ?: "WEBTOON",

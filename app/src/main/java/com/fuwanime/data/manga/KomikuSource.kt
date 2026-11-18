@@ -64,7 +64,7 @@ fun parseKomikuDetail(html: String, slug: String): Manga {
         title = title,
         coverUrl = Regex("""<meta property="og:image" content="([^"]+)"""").find(html)?.groupValues?.get(1)?.substringBefore('?'),
         description = Regex("""<p class="desc"[^>]*>(.*?)</p>""", RegexOption.DOT_MATCHES_ALL).find(html)?.groupValues?.get(1)?.let(::htmlText).orEmpty(),
-        tags = Regex("""<li class="genre">.*?<span>(.*?)</span>""", RegexOption.DOT_MATCHES_ALL).findAll(html).map { htmlLine(it.groupValues[1]) }.distinct().toList(),
+        tags = dedupeGenreNames(Regex("""<li class="genre">.*?<span>(.*?)</span>""", RegexOption.DOT_MATCHES_ALL).findAll(html).map { htmlLine(it.groupValues[1]) }.asIterable()),
         status = when (infoRow(html, "Status")?.lowercase()) {
             "ongoing" -> MangaStatus.ONGOING
             "end", "completed", "tamat" -> MangaStatus.COMPLETED
