@@ -103,6 +103,7 @@ import androidx.compose.ui.platform.LocalContext
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -545,7 +546,7 @@ private fun UpdateSheet(info: UpdateRepository.UpdateInfo, install: HomeViewMode
             }
             Text(info.tag.removePrefix("v"), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
             Text(
-                info.notes.ifBlank { stringResource(R.string.browse_update_no_notes) },
+                if (info.notes.isBlank()) AnnotatedString(stringResource(R.string.browse_update_no_notes)) else releaseNotesText(info.notes),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.heightIn(max = 280.dp).verticalScroll(rememberScrollState()),
