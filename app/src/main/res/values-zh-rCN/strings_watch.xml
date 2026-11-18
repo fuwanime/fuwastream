@@ -92,6 +92,7 @@
     <string name="watch_cast">角色与配音</string>
     <string name="watch_cast_main">主要</string>
     <string name="watch_cast_supporting">配角</string>
+    <string name="watch_trailer">观看预告片</string>
     <string name="watch_read_manga">阅读漫画版</string>
     <string name="watch_manga_not_found">FuwaStream 暂无该漫画</string>
     <string name="watch_open_external">用其他播放器打开</string>
