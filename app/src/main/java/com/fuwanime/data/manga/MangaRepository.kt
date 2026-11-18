@@ -1,6 +1,7 @@
 package com.fuwanime.data.manga
 
 import com.fuwanime.R
+import com.fuwanime.data.isMatureAnimeGenre
 import com.fuwanime.util.UiText
 import com.fuwanime.util.UiTextException
 import java.util.concurrent.ConcurrentHashMap
@@ -28,6 +29,8 @@ class MangaRepository(
     private val kakaManga: KakaMangaSource? = null,
     /** English source (MangaPark); ids start with "mp:". */
     private val mangaPark: MangaParkSource? = null,
+    /** "Konten dewasa" setting: explicit genres stay out of the genre sheet while it is off. */
+    private val mature: suspend () -> Boolean = { false },
 ) {
     private val sourceCache = ConcurrentHashMap<String, List<Manga>>()
     private val mergedCache = ConcurrentHashMap<String, List<MangaChapter>>()
@@ -70,11 +73,13 @@ class MangaRepository(
         shinigami?.browse("popularity", null, page, type?.slug) ?: MangaPage(emptyList(), 0, 0)
 
     /** Shinigami, Komiku and Webtoon search results for [query]; empty when a source is off or fails. */
-    suspend fun searchIndonesia(query: String): List<Manga> {
-        val shinigamiHits = runCatching { shinigami?.browse(null, query)?.items.orEmpty() }.getOrDefault(emptyList())
-        val komikuHits = runCatching { komiku?.search(query).orEmpty() }.getOrDefault(emptyList())
-        val webtoonHits = runCatching { webtoon?.search(query).orEmpty() }.getOrDefault(emptyList())
-        return shinigamiHits + komikuHits + webtoonHits
+    suspend fun searchIndonesia(query: String): List<Manga> = coroutineScope {
+        suspend fun <T> quiet(block: suspend () -> List<T>): List<T> =
+            runCatching { withTimeoutOrNull(ID_TIMEOUT_MS) { block() } }.getOrNull().orEmpty()
+        val shinigamiHits = async { quiet { shinigami?.browse(null, query)?.items.orEmpty() } }
+        val komikuHits = async { quiet { komiku?.search(query).orEmpty() } }
+        val webtoonHits = async { quiet { webtoon?.search(query).orEmpty() } }
+        shinigamiHits.await() + komikuHits.await() + webtoonHits.await()
     }
 
     /** English results from MangaPark & MangaKakalot (compat name kept for callers). */
@@ -219,26 +224,20 @@ class MangaRepository(
     }
 
     /** Aggregated genre list from all anime/manga sources used by FuwaStream (deduped, cleaned). */
-    suspend fun tags(): List<MangaTag> = mangaGenresFromAllSources().map { name -> MangaTag(id = name, name = name, group = "genre") }
+    suspend fun tags(): List<MangaTag> = mangaGenresFromAllSources()
+        .filter { mature() || !isMatureAnimeGenre(it) }
+        .map { name -> MangaTag(id = name, name = name, group = "genre") }
 
     private fun notFound() = UiTextException(UiText(R.string.manga_error_not_found))
 
     private companion object {
         const val PAGE_SIZE = 30
         const val LOOKUP_TIMEOUT_MS = 8_000L
+        /** Indonesian sources answer fast or not at all; don't let one hold the others' results back. */
+        const val ID_TIMEOUT_MS = 8_000L
         const val OTHER_CHAPTERS_TIMEOUT_MS = 15_000L
         const val PRIMARY_CHAPTERS_TIMEOUT_MS = 20_000L
         const val EN_TIMEOUT_MS = 20_000L
         const val RELEASES_TTL_MS = 30 * 60_000L
     }
-}
-
-/** Dedupe manga list by normalized title/alt-titles. */
-internal fun dedupeByTitle(items: List<Manga>): List<Manga> {
-    val out = mutableListOf<Manga>()
-    for (m in items) {
-        val exists = out.any { sameTitle(m.title, it.title, it.altTitles) || sameTitle(it.title, m.title, m.altTitles) }
-        if (!exists) out += m
-    }
-    return out
 }

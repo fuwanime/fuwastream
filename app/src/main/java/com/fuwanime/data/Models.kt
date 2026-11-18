@@ -27,7 +27,10 @@ data class Anime(
 ) {
     val isOngoing: Boolean get() = status.equals("ONGOING", ignoreCase = true)
     val isUpcoming: Boolean get() = status.equals("UPCOMING", true) || status.equals("NOT_YET_AIRED", true)
-    val displayYear: String get() = year.takeUnless { it.isBlank() || it.equals("UNKNOWN", true) }.orEmpty()
+    /** The premiere year from [airedStart] when known: the catalog's [year] is often the airing year, not the first. */
+    val displayYear: String
+        get() = airedStart.take(4).takeIf { it.length == 4 && it.all(Char::isDigit) }
+            ?: year.takeUnless { it.isBlank() || it.equals("UNKNOWN", true) }.orEmpty()
     val backdrop: String get() = cover.ifBlank { poster }
 }
 
@@ -37,6 +40,8 @@ val MATURE_ANIME_GENRES = listOf("Ecchi", "Erotica", "Hentai")
 private val MATURE_ANIME_GENRE_KEYS = setOf(
     "ecchi", "erotica", "hentai", "adult", "mature", "smut",
     "sexual content", "explicit sexual content", "18+", "r18", "r 18", "rx",
+    // Manga-only tags that are explicit by themselves.
+    "loli", "shota", "incest",
 )
 
 /** True only for an explicitly mature genre/rating, never merely Harem, Seinen, Yaoi, or Yuri. */

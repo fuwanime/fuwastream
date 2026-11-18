@@ -141,7 +141,7 @@ class AnimekompiSource(
             title = a.str("title").ifBlank { slug },
             synopsis = a.str("synopsis"),
             alternativeTitles = a.str("altTitles"),
-            poster = absolute(a.str("banner").ifBlank { a.str("cover") }),
+            poster = absolute(a.str("cover").ifBlank { a.str("banner") }),
             cover = absolute(a.str("banner").ifBlank { a.str("cover") }),
             type = a.str("type"),
             year = a.optInt("year", 0).takeIf { it > 0 }?.toString().orEmpty(),

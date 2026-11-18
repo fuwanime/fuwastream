@@ -13,7 +13,7 @@ const val KM_PREFIX = "km:"
 
 fun isKomikuId(id: String): Boolean = id.startsWith(KM_PREFIX)
 
-private val ENTITY = Regex("&#(\\d+);")
+private val ENTITY = Regex("&#(x[0-9a-fA-F]+|\\d+);", RegexOption.IGNORE_CASE)
 
 private val BR = Regex("(?i)\\s*<br\\s*/?>\\s*")
 
@@ -22,7 +22,14 @@ private val BR = Regex("(?i)\\s*<br\\s*/?>\\s*")
  * entities decoded, spaces collapsed within each line and at most one blank line kept.
  */
 fun htmlText(s: String): String = s.replace(BR, "\n").replace(Regex("<[^>]+>"), "")
-    .replace(ENTITY) { it.groupValues[1].toInt().toChar().toString() }
+    .replace(ENTITY) { m ->
+        val v = m.groupValues[1]
+        val code = if (v[0] in "xX") v.drop(1).toIntOrNull(16) else v.toIntOrNull()
+        // Code points above U+FFFF need a surrogate pair; an invalid one stays as written.
+        if (code != null && Character.isValidCodePoint(code)) String(Character.toChars(code)) else m.value
+    }
+    .replace("&rsquo;", "\u2019").replace("&lsquo;", "\u2018").replace("&ldquo;", "\u201C").replace("&rdquo;", "\u201D")
+    .replace("&hellip;", "\u2026").replace("&ndash;", "\u2013").replace("&mdash;", "\u2014").replace("&apos;", "'")
     .replace("&amp;", "&").replace("&quot;", "\"").replace("&lt;", "<").replace("&gt;", ">").replace("&nbsp;", " ")
     .lines().joinToString("\n") { it.replace(Regex("[ \\t]+"), " ").trim() }
     .replace(Regex("\n{3,}"), "\n\n").trim()

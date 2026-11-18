@@ -19,6 +19,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.fuwanime.R
+import com.fuwanime.util.typeLabel
+import com.fuwanime.data.manga.titleKey
 import com.fuwanime.data.meta.CastRole
 import com.fuwanime.data.meta.CastEntry
 import androidx.compose.ui.text.style.TextAlign
@@ -609,7 +611,8 @@ private fun Header(anime: Anime?, origin: String?, entryKey: String, linkBackdro
                         maxLines = 3,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    val altTitle = anime.alternativeTitles.split(',', ';').firstOrNull()?.trim().orEmpty()
+                    val altTitle = anime.alternativeTitles.split(',', ';').map { it.trim() }
+                        .firstOrNull { it.isNotBlank() && titleKey(it) != titleKey(anime.title) }.orEmpty()
                     if (altTitle.isNotBlank()) {
                         Text(
                             altTitle,
@@ -623,7 +626,7 @@ private fun Header(anime: Anime?, origin: String?, entryKey: String, linkBackdro
                     val countText = stringResource(R.string.watch_episode_count, episodeCount?.let { if (it % 1.0 == 0.0) it.toLong().toString() else it.toString() }.orEmpty())
                     val count = if (episodeCount != null) countText else ""
                     Text(
-                        listOf(anime.displayYear, anime.type, statusLabel(LocalContext.current.resources, anime.status), count).filter { it.isNotBlank() }.joinToString(" · "),
+                        listOf(anime.displayYear, anime.type.takeIf { it.isNotBlank() }?.let { typeLabel(LocalContext.current.resources, it) }.orEmpty(), statusLabel(LocalContext.current.resources, anime.status), count).filter { it.isNotBlank() }.joinToString(" · "),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -723,7 +726,7 @@ private fun InfoGrid(anime: Anime, meta: AnimeMeta?) {
         studio.takeIf { it.isNotBlank() }?.let { stringResource(R.string.watch_info_studio) to it },
         anime.airedStart.takeIf { it.isNotBlank() }?.let { stringResource(R.string.watch_info_aired) to it },
         year.takeIf { it.isNotBlank() }?.let { stringResource(R.string.watch_info_year) to it },
-        anime.type.takeIf { it.isNotBlank() }?.let { stringResource(R.string.watch_info_type) to it },
+        anime.type.takeIf { it.isNotBlank() }?.let { stringResource(R.string.watch_info_type) to typeLabel(LocalContext.current.resources, it) },
         totalEpisodes?.let {
             stringResource(R.string.watch_info_total_episodes) to stringResource(R.string.watch_episode_count, it.toString())
         },

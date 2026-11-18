@@ -103,8 +103,6 @@
     <string name="mine_notify_new_desc">Semak anime kegemaran yang masih bersiaran setiap 6 jam</string>
     <string name="mine_notify_releases">Pemberitahuan keluaran anime</string>
     <string name="mine_notify_releases_desc">Episod baharu daripada semua anime yang sedang bersiaran, bukan kegemaran sahaja</string>
-    <string name="mine_notify_chapters">Pemberitahuan chapter manga</string>
-    <string name="mine_notify_chapters_desc">Chapter baharu daripada manga yang sedang berjalan (Comix)</string>
     <string name="mine_notify_app_updates">Pemberitahuan kemas kini aplikasi</string>
     <string name="mine_notify_app_updates_desc">Maklumkan apabila versi baharu FuwaStream tersedia (disemak apabila aplikasi dibuka dan secara berkala)</string>
     <string name="mine_notify_blocked_title">Pemberitahuan disekat</string>

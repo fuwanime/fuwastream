@@ -4,6 +4,7 @@ import com.fuwanime.util.text
 import com.fuwanime.util.UiText
 import androidx.compose.ui.res.stringResource
 import com.fuwanime.R
+import com.fuwanime.util.typeLabel
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.customActions
@@ -277,7 +278,7 @@ fun PosterCard(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 8.dp),
         )
-        val meta = caption ?: listOf(anime.type, anime.displayYear).filter { it.isNotBlank() }.joinToString(" · ")
+        val meta = caption ?: listOf(anime.type.takeIf { it.isNotBlank() }?.let { typeLabel(LocalContext.current.resources, it) }.orEmpty(), anime.displayYear).filter { it.isNotBlank() }.joinToString(" · ")
         if (meta.isNotBlank()) {
             Text(
                 meta,

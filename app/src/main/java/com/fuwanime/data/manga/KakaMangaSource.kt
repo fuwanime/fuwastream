@@ -179,7 +179,7 @@ class KakaMangaSource(private val client: OkHttpClient) {
             val title = titleRe.find(block)?.groupValues?.getOrNull(1)?.let(::htmlText)?.trim()?.ifBlank { null }
                 ?: titleAttr.find(block)?.groupValues?.getOrNull(1)?.let(::htmlText)?.trim()?.ifBlank { null }
                 ?: continue
-            if (slug !in out) out[slug] = Manga(idFor(slug, base), title, img, "", emptyList(), MangaStatus.UNKNOWN, null, null, type = "Manga")
+            if (slug !in out) out[slug] = Manga(idFor(slug, base), title, img, "", emptyList(), MangaStatus.UNKNOWN, null, null)
         }
         if (out.isEmpty()) {
             val generic = Regex("""<a[^>]+href="[^"]*/manga/([^"/?#]+)"[^>]*title="([^"]+)"[^>]*>""")
@@ -187,7 +187,7 @@ class KakaMangaSource(private val client: OkHttpClient) {
                 val slug = m.groupValues[1]
                 if (slug in setOf("list", "search", "genre", "latest", "hot")) continue
                 val title = htmlText(m.groupValues[2]).trim()
-                if (slug !in out && title.isNotBlank()) out[slug] = Manga(idFor(slug, base), title, null, "", emptyList(), MangaStatus.UNKNOWN, null, null, type = "Manga")
+                if (slug !in out && title.isNotBlank()) out[slug] = Manga(idFor(slug, base), title, null, "", emptyList(), MangaStatus.UNKNOWN, null, null)
             }
         }
         return out.values.toList()

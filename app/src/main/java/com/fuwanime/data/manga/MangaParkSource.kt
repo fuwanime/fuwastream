@@ -98,7 +98,7 @@ class MangaParkSource(private val client: OkHttpClient) {
             val slug = m.groupValues[1].substringBefore('?').substringBefore('/')
             val title = unescapeJson(m.groupValues[2])
             if (slug.isNotBlank() && title.isNotBlank() && slug !in out) {
-                out[slug] = Manga(idFor(slug), title, null, "", emptyList(), MangaStatus.UNKNOWN, null, null, type = "Manga")
+                out[slug] = Manga(idFor(slug), title, null, "", emptyList(), MangaStatus.UNKNOWN, null, null)
             }
         }
         if (out.isNotEmpty()) return enrichListCovers(html, out)
@@ -111,7 +111,7 @@ class MangaParkSource(private val client: OkHttpClient) {
             val around = html.substring(m.range.first, minOf(html.length, m.range.last + 220))
             val title = titleAttr.find(around)?.groupValues?.getOrNull(1)?.let(::htmlText)?.takeIf { it.isNotBlank() }
                 ?: continue
-            if (slug !in out) out[slug] = Manga(idFor(slug), title, null, "", emptyList(), MangaStatus.UNKNOWN, null, null, type = "Manga")
+            if (slug !in out) out[slug] = Manga(idFor(slug), title, null, "", emptyList(), MangaStatus.UNKNOWN, null, null)
         }
         return enrichListCovers(html, out)
     }
@@ -240,7 +240,7 @@ class MangaParkSource(private val client: OkHttpClient) {
         else -> "$base/$url"
     }
 
-    private fun unescapeJson(s: String): String = s.replace("\\u0026", "&").replace("\\/", "/").replace("\\\"", "\"").replace("\\'", "'")
+    private fun unescapeJson(s: String): String = unescapeJsonText(s)
 
     private fun slugify(name: String): String = name.lowercase(Locale.ENGLISH)
         .replace(Regex("[^a-z0-9]+"), "-").trim('-')
@@ -257,3 +257,7 @@ class MangaParkSource(private val client: OkHttpClient) {
         const val UA = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36"
     }
 }
+
+/** A JSON string body with its `\uXXXX` (CJK, curly quotes, &), `\/` and quote escapes turned into the characters. */
+internal fun unescapeJsonText(s: String): String = Regex("""\\u([0-9a-fA-F]{4})""").replace(s) { it.groupValues[1].toInt(16).toChar().toString() }
+    .replace("\\/", "/").replace("\\\"", "\"").replace("\\'", "'")

@@ -36,6 +36,8 @@ import androidx.compose.material.icons.rounded.Language
 import com.fuwanime.util.currentLanguageTag
 import com.fuwanime.util.setAppLanguage
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -68,7 +70,6 @@ import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.NotificationsOff
 import androidx.compose.material.icons.rounded.LiveTv
-import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.SignalCellularAlt
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.SystemUpdateAlt
@@ -443,17 +444,6 @@ fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit, onOpenProfi
             }
             item {
                 SwitchRow(
-                    Icons.AutoMirrored.Rounded.MenuBook,
-                    stringResource(R.string.mine_notify_chapters),
-                    stringResource(R.string.mine_notify_chapters_desc),
-                    s.notifyNewChapters,
-                ) { enabled ->
-                    if (enabled) enableNotifications { vm.update { setNotifyNewChapters(true) } }
-                    else vm.update { setNotifyNewChapters(false) }
-                }
-            }
-            item {
-                SwitchRow(
                     Icons.Rounded.SystemUpdateAlt,
                     stringResource(R.string.mine_notify_app_updates),
                     stringResource(R.string.mine_notify_app_updates_desc),
@@ -523,7 +513,6 @@ fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit, onOpenProfi
                 ) { chooseLocation = true }
             }
 
-            item { Group(stringResource(R.string.manga_settings_group)) }
             item { Group(stringResource(R.string.mine_group_backup)) }
             backupPrefs?.let { b ->
                 item {
@@ -631,9 +620,10 @@ private fun SwitchRow(icon: ImageVector, title: String, subtitle: String?, check
             { Text(subtitle) }
         } else null,
         leadingContent = { Icon(icon, null) },
-        trailingContent = { Switch(checked = checked, onCheckedChange = onChange) },
+        // The row is the one control (TalkBack reads it once); the Switch just shows the state.
+        trailingContent = { Switch(checked = checked, onCheckedChange = null) },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        modifier = Modifier.clickable { onChange(!checked) }.padding(horizontal = 8.dp),
+        modifier = Modifier.toggleable(value = checked, role = Role.Switch, onValueChange = onChange).padding(horizontal = 8.dp),
     )
 }
 
