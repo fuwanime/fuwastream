@@ -241,13 +241,3 @@ class MangaRepository(
         const val RELEASES_TTL_MS = 30 * 60_000L
     }
 }
-
-/** Dedupe manga list by normalized title/alt-titles. */
-internal fun dedupeByTitle(items: List<Manga>): List<Manga> {
-    val out = mutableListOf<Manga>()
-    for (m in items) {
-        val exists = out.any { sameTitle(m.title, it.title, it.altTitles) || sameTitle(it.title, m.title, m.altTitles) }
-        if (!exists) out += m
-    }
-    return out
-}
