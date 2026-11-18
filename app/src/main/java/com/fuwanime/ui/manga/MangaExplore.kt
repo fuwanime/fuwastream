@@ -153,13 +153,29 @@ class MangaExploreViewModel(private val repo: MangaRepository) : ViewModel() {
     fun setType(t: MangaType?) = _state.update { it.copy(type = t) }
     fun reload() { retry.update { it + 1 } }
 
-    /** Shows one genre: as the Comix filter when the name matches a tag, else as a text search. */
+    /** Shows one genre: match tag by name (works for unified genre list), else as a text search. */
     fun applyGenre(name: String) {
         viewModelScope.launch {
-            // On a cold tab the tag list may still be loading.
             val tags = withTimeoutOrNull(5_000) { _state.first { it.tags.isNotEmpty() }.tags }.orEmpty()
-            val id = genreTagId(name, tags)
-            _state.update { if (id != null) it.copy(query = "", status = null, tagIds = setOf(id)) else it.copy(query = name, status = null, tagIds = emptySet()) }
+            val match = tags.firstOrNull { it.name.equals(name.trim(), ignoreCase = true) || it.id.equals(name.trim(), ignoreCase = true) }
+            _state.update { if (match != null) it.copy(query = "", status = null, tagIds = setOf(match.id)) else it.copy(query = name, status = null, tagIds = emptySet()) }
+        }
+    }
+
+    private fun selectedGenreNames(a: Applied): Set<String> {
+        val tags = _state.value.tags
+        return a.tags.mapNotNull { id ->
+            tags.firstOrNull { it.id == id }?.name ?: id.takeIf { it.any(Char::isLetter) }
+        }.map { it.trim() }.filter { it.isNotBlank() }.toSet()
+    }
+
+    private fun filterBySelectedGenres(items: List<Manga>, a: Applied): List<Manga> {
+        val selected = selectedGenreNames(a)
+        if (selected.isEmpty()) return items
+        val wanted = selected.map { it.lowercase() }.toSet()
+        return items.filter { m ->
+            val have = m.tags.mapTo(HashSet()) { it.trim().lowercase() }
+            wanted.all { g -> g in have }
         }
     }
 
@@ -197,11 +213,13 @@ class MangaExploreViewModel(private val repo: MangaRepository) : ViewModel() {
                 quiet { repo.popularKomiku(1, a.type).items }.orEmpty()
             else -> emptyList()
         }
-        val results = dedupeByTitle((page?.items.orEmpty() + indonesian).distinctBy { m -> m.id })
-        val total = page?.let { it.total + results.size - comixOffset } ?: results.size
+        val merged = dedupeByTitle((page?.items.orEmpty() + indonesian).distinctBy { m -> m.id })
+        val results = filterBySelectedGenres(merged, a)
+        val total = page?.let { it.total + merged.size - comixOffset } ?: merged.size
         val error = when {
-            page != null -> null
             results.isNotEmpty() -> null
+            a.tags.isNotEmpty() && merged.isNotEmpty() -> null
+            page != null -> null
             a.tags.isNotEmpty() || a.status != null -> UiText(R.string.manga_source_catalog_filter)
             else -> comixPage.exceptionOrNull()?.friendlyText()
         }
@@ -228,7 +246,8 @@ class MangaExploreViewModel(private val repo: MangaRepository) : ViewModel() {
                 comixOffset += page.items.size
                 _state.update { cur ->
                     val known = cur.results.mapTo(HashSet()) { it.id }
-                    val merged = dedupeByTitle(cur.results + page.items.filter { it.id !in known })
+                    val added = page.items.filter { it.id !in known }
+                    val merged = dedupeByTitle(cur.results + filterBySelectedGenres(added, a))
                     // An empty page ends paging even when `total` says more (it counts items we may not receive).
                     cur.copy(results = merged, total = if (page.items.isEmpty()) merged.size else page.total + merged.size - comixOffset, loadingMore = false)
                 }

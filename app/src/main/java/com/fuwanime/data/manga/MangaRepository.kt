@@ -162,7 +162,21 @@ class MangaRepository(
         return comix?.pages(chapterId).orEmpty()
     }
 
-    suspend fun tags(): List<MangaTag> = tagCache ?: comix?.tags().orEmpty().sortedBy { it.name }.also { tagCache = it }
+    suspend fun tags(): List<MangaTag> = tagCache ?: run {
+        val comixTags = runCatching { comix?.tags().orEmpty() }.getOrDefault(emptyList())
+        val merged = LinkedHashMap<String, MangaTag>()
+        for (t in comixTags) {
+            val name = cleanGenreName(t.name)
+            if (name.isBlank()) continue
+            val key = name.lowercase()
+            if (key !in merged) merged[key] = MangaTag(id = t.id, name = name, group = t.group.ifBlank { "genre" })
+        }
+        for (name in mangaGenresFromAllSources()) {
+            val key = name.lowercase()
+            if (key !in merged) merged[key] = MangaTag(id = name, name = name, group = "genre")
+        }
+        merged.values.sortedBy { it.name.lowercase() }.also { tagCache = it }
+    }
 
     private fun comixId(id: String): String = if (isComixId(id)) id else CX_PREFIX + id
 

@@ -28,6 +28,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.fuwanime.R
+import com.fuwanime.data.manga.cleanGenreName
 
 /** First chip of a filter row: "Genre", or "Genre · 2" while some are picked; opens [GenreSheet]. */
 @Composable
@@ -57,7 +58,7 @@ fun GenreSheet(genres: List<Pair<String, String>>, selected: Set<String>, onTogg
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                genres.forEach { (id, name) -> TagChip(name, onClick = { onToggle(id) }, selected = id in selected) }
+                genres.forEach { (id, name) -> TagChip(cleanGenreName(name), onClick = { onToggle(id) }, selected = id in selected) }
             }
         }
     }
