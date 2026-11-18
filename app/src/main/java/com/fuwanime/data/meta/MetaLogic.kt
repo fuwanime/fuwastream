@@ -24,6 +24,10 @@ data class AnimeMeta(
     val year: Int? = null,
     /** Episode number -> thumbnail from AniList's streaming links. */
     val episodeThumbnails: Map<String, String> = emptyMap(),
+    /** Watchable trailer URL from AniList (YouTube or Dailymotion); empty when there is none. */
+    val trailerUrl: String = "",
+    /** Trailer poster frame from AniList; empty when unknown. */
+    val trailerThumbnail: String = "",
 )
 
 enum class CastRole { MAIN, SUPPORTING }
@@ -74,7 +78,20 @@ fun metaOf(m: AniListMedia): AnimeMeta = AnimeMeta(
     studio = m.studios?.nodes?.firstOrNull()?.name?.trim()?.takeIf { it.isNotEmpty() },
     year = m.seasonYear ?: m.startDate?.year,
     episodeThumbnails = episodeThumbnailsOf(m.streamingEpisodes),
+    trailerUrl = trailerUrlOf(m.trailer),
+    trailerThumbnail = m.trailer?.thumbnail?.trim().orEmpty(),
 )
+
+/**
+ * AniList's trailer -> a watchable URL. Most trailers are YouTube ids; Dailymotion ids also occur.
+ * Anything else (e.g. an unnamed site) is dropped rather than handed an unusable link.
+ */
+fun trailerUrlOf(trailer: AniListTrailer?): String = when {
+    trailer == null || trailer.id.isNullOrBlank() -> ""
+    trailer.site.equals("youtube", true) -> "https://www.youtube.com/watch?v=${trailer.id}"
+    trailer.site.equals("dailymotion", true) -> "https://www.dailymotion.com/video/${trailer.id}"
+    else -> ""
+}
 
 private val PURE_NUMBER = Regex("""^\s*(\d+(?:\.\d+)?)\s*$""")
 private val EPISODE_WORD = Regex("""(?i)\b(?:episode|ep\.?|e)\s*(\d+(?:\.\d+)?)\b""")
