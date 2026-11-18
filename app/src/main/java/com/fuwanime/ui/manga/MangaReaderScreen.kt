@@ -109,7 +109,7 @@ import com.fuwanime.data.ProfileRepository
 import com.fuwanime.data.ProfileRules
 import com.fuwanime.data.local.SettingsStore
 import com.fuwanime.data.manga.ChapterTranslationState
-import com.fuwanime.data.manga.IsMangaChapterTranslator
+import com.fuwanime.data.manga.MangaChapterTranslator
 import com.fuwanime.data.manga.MangaTranslateWorker
 import com.fuwanime.data.manga.Manga
 import com.fuwanime.data.manga.MangaChapter
@@ -180,7 +180,7 @@ class MangaReaderViewModel(
     private val library: MangaLibrary,
     private val settings: SettingsStore,
     private val downloads: MangaDownloadRepository,
-    private val translator: IsMangaChapterTranslator,
+    private val translator: MangaChapterTranslator,
     private val appScope: kotlinx.coroutines.CoroutineScope,
     private val cacheDir: java.io.File,
     private val profile: ProfileRepository? = null,
