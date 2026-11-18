@@ -58,12 +58,12 @@
   </tr>
 </table>
 
-## ✨ Fitur
+## Fitur
 
 <table>
   <tr>
     <td width="50%" valign="top">
-      <h3>🔎 Temukan</h3>
+      <h3>Temukan</h3>
       <ul>
         <li><b>Beranda sinematik</b> — sorotan musim ini, Lanjutkan Nonton, episode terbaru, Top 10 terpopuler, dan pintasan genre.</li>
         <li><b>Jelajah</b> — cari judul, genre, atau studio; filter tipe &amp; genre; urutkan populer, terbaru, atau A–Z.</li>
@@ -73,7 +73,7 @@
       </ul>
     </td>
     <td width="50%" valign="top">
-      <h3>▶️ Tonton</h3>
+      <h3>▶ Tonton</h3>
       <ul>
         <li><b>Pemutar Media3</b> — pilih kualitas, kecepatan 0,5×–2×, mode pas/isi layar.</li>
         <li><b>Gestur</b> — ketuk dua kali untuk maju/mundur, geser untuk kecerahan &amp; volume.</li>
@@ -84,7 +84,7 @@
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <h3>💾 Simpan</h3>
+      <h3>Simpan</h3>
       <ul>
         <li><b>Koleksi</b> — riwayat per hari dengan sisa waktu tontonan, favorit, dan unduhan.</li>
         <li><b>Download offline</b> — pilih kualitas, opsi hanya lewat Wi-Fi.</li>
@@ -92,7 +92,7 @@
       </ul>
     </td>
     <td width="50%" valign="top">
-      <h3>🎨 Personal</h3>
+      <h3>Personal</h3>
       <ul>
         <li><b>Tema</b> — sistem, terang, gelap, hitam AMOLED, dan Material You.</li>
         <li><b>Kualitas default</b> terpisah untuk Wi-Fi dan data seluler.</li>
@@ -254,12 +254,12 @@ Mau ikut membantu? Fork repository ini, buat branch, jalankan `gradle testDebugU
 
 Punya ide fitur atau menemukan bug? [Buat Issue](https://github.com/fuwanime/fuwastream/issues) — cek dulu apakah sudah pernah dilaporkan.
 
-## ⚠️ Catatan konten
+## Catatan konten
 
 > [!NOTE]
 > FuwaStream adalah aplikasi klien dan **tidak meng-host file video maupun gambar manga**. Informasi dan sumber pemutaran berasal dari API atau layanan pihak ketiga, sehingga ketersediaan konten bergantung pada layanan tersebut. Pengguna bertanggung jawab mematuhi hukum, hak cipta, dan ketentuan layanan yang berlaku di wilayahnya. Nama, logo, dan aset pihak ketiga tetap milik pemegang haknya. Data dan gambar manga berasal dari [Comix](https://comix.ws), [Shinigami](https://shinigami.asia), [Komiku](https://komiku.org), dan WEBTOON beserta grup scanlation/penyedia masing-masing; FuwaStream tidak menampilkan iklan. Terjemahan chapter Comix ke Bahasa Indonesia menggunakan layanan IsManga (server-side) dan kualitasnya dapat berbeda dari terjemahan resmi.
 
-## 🔐 Privasi &amp; kepatuhan
+## Privasi &amp; kepatuhan
 
 [Kebijakan Privasi](./docs/legal/privacy.md) · [Ketentuan Layanan](./docs/legal/terms.md) · [Audit SDK Pihak Ketiga](./docs/third-party-sdk-audit.md)
 
@@ -273,9 +273,9 @@ Font **Comic Neue** dibuat oleh Craig Rozynski dan dilisensikan di bawah [SIL Op
 
 <img src="docs/brand/icon-512.png" width="56" alt="Ikon FuwaStream">
 
-**Dibuat dengan 💜 untuk para pecinta anime.**
+**Dibuat dengan cinta untuk para pecinta anime.**
 
-<sub>Kalau FuwaStream bermanfaat buatmu, beri ⭐ pada repository ini — itu sangat membantu!</sub>
+<sub>Kalau FuwaStream bermanfaat buatmu, beri bintang pada repository ini — itu sangat membantu!</sub>
 
 [GitHub](https://github.com/fuwanime/fuwastream) · [Komunitas WhatsApp](https://chat.whatsapp.com/BD9q9veoNaAIhkdneKD4us) · [Releases](https://github.com/fuwanime/fuwastream/releases)
 
