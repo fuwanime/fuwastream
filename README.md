@@ -73,7 +73,7 @@
       </ul>
     </td>
     <td width="50%" valign="top">
-      <h3>▶ Tonton</h3>
+      <h3>Tonton</h3>
       <ul>
         <li><b>Pemutar Media3</b> — pilih kualitas, kecepatan 0,5×–2×, mode pas/isi layar.</li>
         <li><b>Gestur</b> — ketuk dua kali untuk maju/mundur, geser untuk kecerahan &amp; volume.</li>
