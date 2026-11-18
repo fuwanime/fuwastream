@@ -11,6 +11,7 @@ import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaController
@@ -68,6 +69,12 @@ class PlaybackHolder(private val app: Application, private val videoHttpClient: 
         val dataSource = DefaultDataSource.Factory(app, http)
         return ExoPlayer.Builder(app)
             .setMediaSourceFactory(DefaultMediaSourceFactory(dataSource))
+            // The 50 s default runs dry on a slow host; read up to 2 minutes ahead and wait longer before resuming after a stall.
+            .setLoadControl(
+                DefaultLoadControl.Builder()
+                    .setBufferDurationsMs(30_000, 120_000, 2_500, 8_000)
+                    .build(),
+            )
             // Request audio focus: music/podcast from another app pauses instead of overlapping.
             .setAudioAttributes(
                 AudioAttributes.Builder()
