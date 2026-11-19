@@ -213,6 +213,10 @@ class MangaTranslateV2ChapterTranslator(
                             translatePageWithRetry(i, pageUrls[i], outputFiles[i])
                             val done = doneCount.incrementAndGet()
                             onProgress(done, pageUrls.size)
+                        } catch (e: TranslatorBusyException) {
+                            // Cancel the remaining pages and fail the chapter immediately so the
+                            // fallback translator can take over instead of retrying for every page.
+                            throw e
                         } catch (e: Throwable) {
                             failures.add(e)
                         }
@@ -428,7 +432,7 @@ class MangaTranslateV2ChapterTranslator(
     private fun translateOne(imageBytes: ByteArray): ByteArray {
         var attempts = 0
         var lastErr: Throwable? = null
-        while (attempts < 3) {
+        while (attempts < 2) {
             checkInterrupted()
             val apiKey = ensureUsableKey()
             attempts++
@@ -440,26 +444,26 @@ class MangaTranslateV2ChapterTranslator(
             } catch (e: TranslatorBusyException) {
                 markAccountNoCredits(apiKey)
                 lastErr = e
-                // try to get another key/account once
-                runCatching { provisionLock.withLock { provisionAccountWithCreditsLocked() } }
-                if (attempts >= 3) throw e
+                // One controlled rotation attempt. If it still fails, fall back right away.
+                val rotated = runCatching { provisionLock.withLock { provisionAccountWithCreditsLocked() } }.getOrNull()
+                if (rotated == null || attempts >= 2) throw e
                 interruptibleSleep(300)
                 continue
             } catch (e: MtV2Exception) {
                 lastErr = e
                 if (isCreditOrBusyMessage(e.message) || e.status == 429 || e.status == 402) {
                     markAccountNoCredits(apiKey)
-                    runCatching { provisionLock.withLock { provisionAccountWithCreditsLocked() } }
-                    if (attempts >= 3) throw TranslatorBusyException(e.message, e)
+                    val rotated = runCatching { provisionLock.withLock { provisionAccountWithCreditsLocked() } }.getOrNull()
+                    if (rotated == null || attempts >= 2) throw TranslatorBusyException(e.message, e)
                     interruptibleSleep(300)
                     continue
                 }
                 // other V2 errors: if transient/unavailable-like, retry a bit; else bubble up
-                if (isTransientTranslateError(e) && attempts < 3) { interruptibleSleep(600L * attempts); continue }
+                if (isTransientTranslateError(e) && attempts < 2) { interruptibleSleep(600L * attempts); continue }
                 throw e
             } catch (e: IOException) {
                 lastErr = e
-                if (attempts >= 3) throw e
+                if (attempts >= 2) throw e
                 interruptibleSleep(600L * attempts)
                 continue
             }
@@ -620,18 +624,19 @@ class MangaTranslateV2ChapterTranslator(
         pickKnownGoodApiKey(loadStore())?.let { return it }
 
         val proxies = listOf<String?>(null) + MT_DEFAULT_PROXIES.shuffled()
-        val maxAttempts = minOf(proxies.size, 5)
-        val overallDeadline = System.currentTimeMillis() + 45_000L
+        val maxAttempts = minOf(proxies.size, 4)
+        val overallDeadline = System.currentTimeMillis() + 30_000L
         for (i in 0 until maxAttempts) {
             checkInterrupted()
             if (System.currentTimeMillis() > overallDeadline) break
             val proxyUrl = proxies[i]
             val mtClient = clientForProxy(proxyUrl)
-            val attemptDeadline = minOf(overallDeadline, System.currentTimeMillis() + 25_000L)
+            val attemptDeadline = minOf(overallDeadline, System.currentTimeMillis() + 18_000L)
             val result = runCatching { provisionOnce(mtClient, directClient, attemptDeadline) }
             val pat = result.getOrNull()
             if (pat != null) return pat
             val err = result.exceptionOrNull() ?: continue
+            android.util.Log.w("MangaTranslate", "provision attempt ${i + 1} failed: ${err.message}")
             if (!isRetryableProvisionError(err) && i >= 1) return null
         }
         return null
