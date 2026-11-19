@@ -24,8 +24,9 @@ import androidx.compose.ui.unit.dp
 import com.fuwanime.R
 
 /**
- * App-styled snackbar host: a rounded surface card in the Yozakura palette instead of Material3's
- * inverse (light-on-dark) default. Used by every screen so messages look the same everywhere.
+ * App-styled snackbar host: a rounded tonal surface card (surfaceContainerHigh + outlineVariant)
+ * instead of Material3's inverse (light-on-dark) default. Used by every screen so messages look
+ * the same everywhere.
  */
 @Composable
 fun FuwaSnackbarHost(state: SnackbarHostState, modifier: Modifier = Modifier) {
