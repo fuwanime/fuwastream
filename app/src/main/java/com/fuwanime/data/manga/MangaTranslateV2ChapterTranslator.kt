@@ -31,6 +31,7 @@ import kotlin.concurrent.withLock
 import kotlin.math.min
 
 private const val MT_BASE = "https://www.mangatranslate.com"
+private const val MT_UA = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 private const val MT_PREPARE = "/api/v2/api/translate/uploads"
 private const val MT_SUBMIT = "/api/v2/api/translate"
 private const val MT_TASK_TMPL = "/api/v2/api/tasks/{batch_id}"
@@ -402,6 +403,9 @@ class MangaTranslateV2ChapterTranslator(
                 val req = Request.Builder().url(url).get()
                     .header("Authorization", "Bearer $apiKey")
                     .header("Accept", "application/json")
+                    .header("User-Agent", MT_UA)
+                    .header("Origin", MT_BASE)
+                    .header("Referer", "$MT_BASE/")
                     .build()
                 httpClient.newCall(req).execute().use { resp ->
                     if (!resp.isSuccessful) return@use
@@ -490,6 +494,9 @@ class MangaTranslateV2ChapterTranslator(
             .header("Authorization", "Bearer $apiKey")
             .header("Accept", "application/json")
             .header("Content-Type", "application/json")
+            .header("User-Agent", MT_UA)
+            .header("Origin", MT_BASE)
+            .header("Referer", "$MT_BASE/")
         headers.forEach { (k, v) -> b.header(k, v) }
         httpClient.newCall(b.build()).execute().use { resp ->
             val text = resp.body?.string().orEmpty()
@@ -506,6 +513,9 @@ class MangaTranslateV2ChapterTranslator(
         val b = Request.Builder().url(url).get()
             .header("Authorization", "Bearer $apiKey")
             .header("Accept", "application/json")
+            .header("User-Agent", MT_UA)
+            .header("Origin", MT_BASE)
+            .header("Referer", "$MT_BASE/")
         httpClient.newCall(b.build()).execute().use { resp ->
             val text = resp.body?.string().orEmpty()
             val json = runCatching { JSONObject(if (text.isBlank()) "{}" else text) }.getOrElse { JSONObject() }
@@ -520,7 +530,12 @@ class MangaTranslateV2ChapterTranslator(
     private fun translateOneWithKey(apiKey: String, imageBytes: ByteArray): ByteArray {
         checkInterrupted()
         val contentType = detectMime(imageBytes)
-        val filename = "page.${if (contentType == "image/png") "png" else "jpg"}"
+        val ext = when (contentType) {
+            "image/png" -> "png"
+            "image/webp" -> "webp"
+            else -> "jpg"
+        }
+        val filename = "page.$ext"
         val sha = sha256Hex(imageBytes)
 
         // 1) prepare upload
@@ -562,6 +577,8 @@ class MangaTranslateV2ChapterTranslator(
             put("upload_id", uploadId)
             put("files", JSONArray().put(JSONObject().apply { put("index", index); put("upload_intent", uploadIntent) }))
             put("target_language", "id")
+            // The manga model rejects requests without a source language; FuwaStream manga sources are English.
+            put("source_language", "en")
             put("model", "manga")
             put("translator", "auto")
         }
@@ -577,9 +594,13 @@ class MangaTranslateV2ChapterTranslator(
         while (System.currentTimeMillis() < deadline) {
             checkInterrupted()
             val task = getJson(MT_BASE + taskPath, apiKey)
-            val td = task.optJSONObject("data") ?: task
-            val taskStatus = td.optString("task_status", td.optString("status", "")).lowercase()
-            val items = td.optJSONArray("items")
+            // The task endpoint returns either {data:{items:[...]}} or {data:[...]}; the array
+            // shape is what mangatranslate.com currently serves. Without handling it the status
+            // is never observed and polling waits until the timeout even though pages are done.
+            val dataItems = task.optJSONArray("data")
+            val td = task.optJSONObject("data")
+            val items = dataItems ?: td?.optJSONArray("items")
+            val taskStatus = td?.optString("task_status", td.optString("status", ""))?.lowercase().orEmpty()
             if (taskStatus.isNotBlank()) lastStatus = taskStatus
             val doneStates = setOf("completed", "failed", "canceled", "cancelled", "error")
             val allDone = if (taskStatus.isNotBlank()) taskStatus in doneStates else {
@@ -829,6 +850,7 @@ private class MtSession(
     fun getCheckinStatus(): JSONObject? {
         val req = Request.Builder().url(MT_BASE + MT_CHECKIN_STATUS).get()
             .header("User-Agent", UA).header("Accept", "application/json")
+            .header("Origin", MT_BASE).header("Referer", "$MT_BASE/")
             .header("X-Browser-Fingerprint", fingerprint).header("X-CSRF-Token", csrf)
             .header("X-Session-Proof", sessionProof(MT_CHECKIN_STATUS, "GET")).header("Cookie", cookieHeader())
             .build()
@@ -842,6 +864,7 @@ private class MtSession(
     fun getCreditsTotal(): Double? {
         val req = Request.Builder().url(MT_BASE + MT_CREDITS_V1).get()
             .header("User-Agent", UA).header("Accept", "application/json")
+            .header("Origin", MT_BASE).header("Referer", "$MT_BASE/")
             .header("X-Browser-Fingerprint", fingerprint).header("X-CSRF-Token", csrf)
             .header("X-Session-Proof", sessionProof(MT_CREDITS_V1, "GET")).header("Cookie", cookieHeader())
             .build()
@@ -864,6 +887,7 @@ private class MtSession(
         val body = "{}".toRequestBody("application/json; charset=utf-8".toMediaType())
         val req = Request.Builder().url(MT_BASE + path).post(body)
             .header("User-Agent", UA).header("Accept", "application/json").header("Content-Type", "application/json")
+            .header("Origin", MT_BASE).header("Referer", "$MT_BASE/")
             .header("X-Browser-Fingerprint", fingerprint).header("X-CSRF-Token", csrf)
             .header("X-Session-Proof", sessionProof(path, "POST")).header("Cookie", cookieHeader())
             .build()
