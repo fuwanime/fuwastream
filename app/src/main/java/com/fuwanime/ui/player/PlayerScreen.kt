@@ -127,6 +127,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -300,6 +303,9 @@ fun PlayerRoute(
     val pip = LocalPipController.current
     val inPip = pip?.isInPip?.value == true
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val windowWidthDp = LocalConfiguration.current.screenWidthDp
+    val windowHeightDp = LocalConfiguration.current.screenHeightDp
+    val tablet = isTabletWindow(windowWidthDp, windowHeightDp)
 
     val holder = remember(context) { (context.applicationContext as FuwaApp).container.playbackHolder }
     val player = remember { holder.acquire() }
@@ -451,7 +457,7 @@ fun PlayerRoute(
     /** The user's fullscreen choice since the last rotation; null follows the orientation. */
     var manualFullscreen by rememberSaveable { mutableStateOf<Boolean?>(null) }
     LaunchedEffect(landscape) { manualFullscreen = null }
-    val fullscreen = isFullscreen(landscape, manualFullscreen, inPip)
+    val fullscreen = isFullscreen(landscape, manualFullscreen, inPip, twoPaneCapable = tablet)
     DisposableEffect(fullscreen) {
         val window = activity?.window
         if (window != null) {
@@ -475,7 +481,7 @@ fun PlayerRoute(
     fun setFullscreen(enable: Boolean) {
         manualFullscreen = enable
         activity?.requestedOrientation =
-            if (enable) ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            if (enable) ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE else exitFullscreenRequestedOrientation(tablet)
     }
     BackHandler(enabled = fullscreen) { setFullscreen(false) }
 
@@ -526,10 +532,27 @@ fun PlayerRoute(
     }
 
     Box(Modifier.fillMaxSize()) {
-        if (fullscreen || inPip) {
-            videoArea(Modifier.fillMaxSize().background(Color.Black))
-        } else {
-            Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        // Two-pane on landscape tablets at expanded width: video left, episode/info panel right.
+        val twoPane = useTwoPanePlayer(windowWidthDp, windowHeightDp) && !fullscreen && !inPip
+        when {
+            fullscreen || inPip -> videoArea(Modifier.fillMaxSize().background(Color.Black))
+            twoPane -> Row(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                Box(Modifier.weight(1.6f).fillMaxHeight().background(Color.Black).statusBarsPadding()) {
+                    videoArea(Modifier.fillMaxSize())
+                }
+                EpisodeInfo(
+                    state = state,
+                    download = download,
+                    onSelectSource = { vm.selectSource(it, player.currentPosition) },
+                    onPlay = vm::play,
+                    onNext = vm::playNext,
+                    onPrevious = vm::playPrevious,
+                    onDownload = { source -> gate { vm.downloadCurrent(source) } },
+                    onDeleteDownload = vm::deleteDownload,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            else -> Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                 Box(Modifier.background(Color.Black).statusBarsPadding()) {
                     videoArea(Modifier.fillMaxWidth().aspectRatio(16f / 9f))
                 }
@@ -1098,8 +1121,11 @@ private fun Controls(
                 .then(if (fullscreen) Modifier.padding(horizontal = 32.dp, vertical = 12.dp) else Modifier.padding(horizontal = 12.dp)),
         ) {
             val duration = playback.duration.coerceAtLeast(1)
+            val shown = scrubbing?.let { (it * duration).toLong() } ?: playback.position
+            // TalkBack: without this the slider only reads a percentage; announce the real time instead.
+            val seekLabel = stringResource(R.string.watch_seek_slider_cd)
+            val seekState = seekProgressDescription(LocalContext.current.resources, shown, playback.duration)
             Row(verticalAlignment = Alignment.CenterVertically) {
-                val shown = scrubbing?.let { (it * duration).toLong() } ?: playback.position
                 Text(
                     "${formatDuration(shown)} / ${formatDuration(playback.duration)}",
                     color = Color.White,
@@ -1147,7 +1173,13 @@ private fun Controls(
                         activeTrackColor = MaterialTheme.colorScheme.primary,
                         inactiveTrackColor = Color.Transparent,
                     ),
-                    modifier = Modifier.fillMaxWidth().height(24.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(24.dp)
+                        .semantics {
+                            contentDescription = seekLabel
+                            stateDescription = seekState
+                        },
                 )
             }
         }
@@ -1316,10 +1348,11 @@ private fun EpisodeInfo(
     onPrevious: () -> Unit,
     onDownload: (StreamSource) -> Unit,
     onDeleteDownload: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     LazyColumn(
         contentPadding = PaddingValues(bottom = 24.dp),
-        modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars),
+        modifier = modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars),
     ) {
         item {
             Column(Modifier.padding(20.dp)) {

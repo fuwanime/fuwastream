@@ -32,6 +32,13 @@ import java.io.File
 
 enum class DownloadState { QUEUED, RUNNING, PAUSED, DONE, FAILED }
 
+/**
+ * DONE only when the file exists and, when the expected total is known, every byte arrived;
+ * a truncated file (downloaded < total) is FAILED, not DONE.
+ */
+internal fun doneState(fileExists: Boolean, downloadedBytes: Long, totalBytes: Long): DownloadState =
+    if (fileExists && (totalBytes <= 0 || downloadedBytes >= totalBytes)) DownloadState.DONE else DownloadState.FAILED
+
 data class DownloadItem(
     val entity: DownloadEntity,
     val state: DownloadState,
@@ -210,8 +217,7 @@ class DownloadRepository(
                     DownloadManager.STATUS_PENDING -> DownloadState.QUEUED
                     DownloadManager.STATUS_RUNNING -> DownloadState.RUNNING
                     DownloadManager.STATUS_PAUSED -> DownloadState.PAUSED
-                    DownloadManager.STATUS_SUCCESSFUL ->
-                        if (file.exists()) DownloadState.DONE else DownloadState.FAILED
+                    DownloadManager.STATUS_SUCCESSFUL -> doneState(file.exists(), done, total)
                     else -> DownloadState.FAILED
                 }
                 return DownloadItem(entity, state, done, total)

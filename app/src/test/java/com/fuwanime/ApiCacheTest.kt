@@ -72,6 +72,27 @@ class ApiCacheTest {
         assertEquals("A", get("/3/2/explore/movie").body!!.string())
     }
 
+    @Test fun everyServerErrorFallsBackToCache() {
+        server.enqueue(MockResponse().setBody("A"))
+        get("/3/2/explore/movie").close()
+        for (code in listOf(500, 501, 502, 504, 520, 530, 599)) {
+            server.enqueue(MockResponse().setResponseCode(code))
+            assertEquals("$code should serve the cached body", "A", get("/3/2/explore/movie").body!!.string())
+        }
+    }
+
+    @Test fun serverErrorWithoutCachePassesThrough() {
+        server.enqueue(MockResponse().setResponseCode(500))
+        assertEquals(500, get("/3/2/explore/movie").use { it.code })
+    }
+
+    @Test fun plainClientErrorIsNotReplacedByCache() {
+        server.enqueue(MockResponse().setBody("A"))
+        server.enqueue(MockResponse().setResponseCode(403))
+        get("/3/2/explore/movie").close()
+        assertEquals(403, get("/3/2/explore/movie").use { it.code })
+    }
+
     @Test fun cloudflareChallengeFallsBackToCache() {
         server.enqueue(MockResponse().setBody("A"))
         server.enqueue(MockResponse().setResponseCode(403).setHeader("cf-mitigated", "challenge"))

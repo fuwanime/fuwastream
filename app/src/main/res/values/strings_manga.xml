@@ -125,4 +125,7 @@
     <string name="manga_credit_webtoon">Sumber: WEBTOON</string>
     <string name="manga_credit_kakamanga">Sumber: KakaManga</string>
     <string name="manga_credit_mangapark">Sumber: MangaPark</string>
+    <string name="manga_settings_keep_screen_on">Biarkan layar menyala saat membaca</string>
+    <string name="manga_settings_keep_screen_on_desc">Mencegah layar tidur selama di pembaca</string>
+    <string name="manga_reader_show_controls">Tampilkan kontrol pembaca</string>
 </resources>

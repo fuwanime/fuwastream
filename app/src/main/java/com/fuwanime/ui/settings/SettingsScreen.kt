@@ -114,6 +114,7 @@ import androidx.lifecycle.viewModelScope
 import com.fuwanime.BuildConfig
 import com.fuwanime.data.DownloadRepository
 import com.fuwanime.data.LibraryRepository
+import com.fuwanime.data.manga.MangaDownloadRepository
 import com.fuwanime.data.local.AppSettings
 import com.fuwanime.data.local.SettingsStore
 import com.fuwanime.data.local.ThemeMode
@@ -134,6 +135,7 @@ class SettingsViewModel(
     val store: SettingsStore,
     private val library: LibraryRepository,
     private val downloads: DownloadRepository,
+    private val mangaDownloads: MangaDownloadRepository,
     val backup: BackupRepository,
     private val refreshHomeSurfaces: () -> Unit = {},
 ) : ViewModel() {
@@ -145,9 +147,10 @@ class SettingsViewModel(
     fun clearHistory() = viewModelScope.launch { library.clearHistory() }
     fun clearSearches() = viewModelScope.launch { library.clearSearches() }
 
-    /** Deletes favourites, history, searches, downloads and preferences — everything local. */
+    /** Deletes favourites, history, searches, downloads (anime and manga) and preferences — everything local. */
     fun deleteAllData(onDone: () -> Unit = {}) = viewModelScope.launch {
         downloads.clearAll()
+        mangaDownloads.clearAll()
         library.clearAll()
         store.clearUserData()
         refreshHomeSurfaces()
@@ -159,7 +162,7 @@ class SettingsViewModel(
 @Composable
 fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit, onOpenProfile: () -> Unit) {
     val vm: SettingsViewModel = fuwaViewModel { c, _ ->
-        SettingsViewModel(c.settingsStore, c.libraryRepository, c.downloadRepository, c.backupRepository, c::refreshHomeSurfaces)
+        SettingsViewModel(c.settingsStore, c.libraryRepository, c.downloadRepository, c.mangaDownloads, c.backupRepository, c::refreshHomeSurfaces)
     }
     val s by vm.settings.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
