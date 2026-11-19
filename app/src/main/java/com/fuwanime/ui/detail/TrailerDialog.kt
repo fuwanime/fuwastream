@@ -1,31 +1,19 @@
 package com.fuwanime.ui.detail
 
 import android.annotation.SuppressLint
-import android.content.Intent
-import android.os.Handler
-import android.os.Looper
+import android.app.Activity
+import android.content.Context
+import android.view.View
+import android.view.ViewGroup
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
-import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,119 +24,40 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.net.toUri
+import com.fuwanime.R
 import com.fuwanime.ui.components.NetImage
 import java.net.URI
 
+/** Desktop-style UA: YouTube answers WebView mobile UAs with 153/152 instead of playing. */
+private const val DESKTOP_UA =
+    "Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0"
+
+/** Chrome mobile UA — used for the m.youtube.com watch page and the mobile embed attempt. */
+internal const val MOBILE_UA =
+    "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/124.0 Mobile Safari/537.36"
+
 /**
- * Inline trailer player for the detail page: shows the AniList poster frame with a play badge
- * and swaps to the embedded player *in place* when tapped — no dialog, no navigation.
+ * In-app trailer playback used when a trailer has no direct stream (or the Media3 attempt failed):
+ * the player is the system WebView, part of Android itself, so it works without Google Play
+ * services and without new dependencies — Media3 cannot open YouTube or Dailymotion page URLs.
  *
- * Uses the system WebView (part of Android itself, NOT Google Play services), so it works on
- * phones without GMS. No new dependency; Media3/ExoPlayer cannot open YouTube/Dailymotion
- * URLs directly, so an embedded player page is the dependency-free in-app option.
+ * A bare `loadUrl(embed)` does not work. YouTube rejects a WebView without a real origin
+ * ("Error 153", then "Error 152-4" with a "Tonton video di YouTube" button). So the player is an
+ * iframe inside a tiny wrapper page loaded with `loadDataWithBaseURL("https://www.youtube.com", …)`,
+ * the iframe carries `enablejsapi=1&origin=https://www.youtube.com`, and the wrapper runs the
+ * postMessage `{event:'listening'}` handshake the JS-API player requires before it starts.
  *
- * YouTube's embed behaves differently depending on how the WebView presents it (referer,
- * origin, JS-API handshake, desktop vs mobile UA) and different devices reject different
- * configurations ("Error 153", "Error 152-4", dead black player). Since no single recipe
- * works everywhere, the player is loaded through a retry ladder — on a player error the next
- * strategy is tried automatically, and the "open in YouTube" fallback is only shown once all
- * of them fail (or the video is genuinely embed-disabled: codes 101/150).
+ * Playback never leaves the app: [TrailerWebViewClient] cancels MAIN-frame navigation to anything
+ * outside the player domains (the error screen's "Watch on YouTube" button, share links, the
+ * YouTube app), while sub-frame/media requests (google.com, googlevideo.com) pass through.
+ * An embed-disabled video surfaces `onError` through [TrailerBridge] and shows a clean message
+ * instead of YouTube's raw error page.
  */
-private const val YT_BASE = "https://www.youtube.com"
-
-/** Chrome desktop UA — avoids the mobile-WebV embed path that YouTube rejects. */
-private const val UA_DESKTOP =
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-
-/** Chrome mobile UA — the mobile embed path works on some devices where the desktop one fails. */
-private const val UA_MOBILE =
-    "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
-
-/** The embed URL (already embed-specific) plus how the WebView should load it. */
-internal class EmbedAttempt(val userAgent: String, val baseUrl: String?, val url: String, val html: String?)
-
-private fun playerHtml(embedSrc: String): String = buildString {
-    append("""<!DOCTYPE html><html><head><meta charset="utf-8">""")
-    append("""<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">""")
-    append("""<style>html,body{margin:0;padding:0;height:100%;background:#000;overflow:hidden}""")
-    append("""iframe{width:100%;height:100%;border:0}</style></head><body>""")
-    append("""<iframe id="p" src="$embedSrc" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen frameborder="0"></iframe>""")
-    append("""<script>
-      var p = document.getElementById('p');
-      p.onload = function () {
-        p.contentWindow.postMessage(JSON.stringify({event: 'listening'}), '*');
-      };
-      window.addEventListener('message', function (e) {
-        try {
-          var d = JSON.parse(e.data);
-          if (!d) return;
-          if (d.event === 'onError' || d.event === 'error') {
-            var code = (typeof d.info === 'number') ? d.info : ((d.info && d.info.errorCode) || 1);
-            window.AndroidHook.playerError(code);
-          }
-          if (d.event === 'onStateChange' && d.info === 1) {
-            window.AndroidHook.playerPlaying();
-          }
-          if (d.event === 'onReady') {
-            window.AndroidHook.playerReady();
-          }
-        } catch (_) {}
-      });
-    </script>""")
-    append("</body></html>")
-}
-
-/** Builds the retry ladder for a trailer URL; empty list when the URL is not YouTube/Dailymotion. */
-internal fun embedAttempts(url: String): List<EmbedAttempt> {
-    val clean = url.trim()
-    return runCatching {
-        val uri = URI(clean)
-        when (uri.host?.removePrefix("www.").orEmpty()) {
-            "youtube.com", "m.youtube.com", "youtu.be" -> {
-                val id = if (uri.host.orEmpty().endsWith("youtu.be")) {
-                    uri.path?.trim('/')
-                } else {
-                    uri.rawQuery?.takeIf { it.isNotEmpty() }?.let { q ->
-                        q.split('&').firstOrNull { it.startsWith("v=") }?.substring(2)?.takeIf(String::isNotBlank)
-                    } ?: uri.path?.takeIf { it.startsWith("/shorts/") || it.startsWith("/embed/") }?.trim('/')
-                }
-                if (id.isNullOrBlank()) return@runCatching emptyList()
-                // www.youtube.com — the youtube-nocookie.com variant is rejected in WebViews (Error 153).
-                listOf(
-                    // 1: JS-API embed with origin + listening handshake (most desktop-like).
-                    EmbedAttempt(
-                        UA_DESKTOP, YT_BASE,
-                        "$YT_BASE/embed/$id?autoplay=1&playsinline=1&rel=0&enablejsapi=1&origin=$YT_BASE",
-                        playerHtml("$YT_BASE/embed/$id?autoplay=1&playsinline=1&rel=0&enablejsapi=1&origin=$YT_BASE"),
-                    ),
-                    // 2: plain mobile embed without JS-API — works on many Android WebViews.
-                    EmbedAttempt(
-                        UA_MOBILE, YT_BASE,
-                        "$YT_BASE/embed/$id?autoplay=1&playsinline=1&rel=0",
-                        playerHtml("$YT_BASE/embed/$id?autoplay=1&playsinline=1&rel=0"),
-                    ),
-                    // 3: direct load with a Referer header — the classic Error-153 fix.
-                    EmbedAttempt(UA_MOBILE, null, "$YT_BASE/embed/$id?autoplay=1&playsinline=1&rel=0", null),
-                )
-            }
-            "dailymotion.com" -> {
-                val id = uri.path?.trim('/')?.substringAfterLast('/')
-                if (id.isNullOrBlank()) return@runCatching emptyList()
-                val base = "https://www.dailymotion.com"
-                listOf(EmbedAttempt(UA_DESKTOP, base, "$base/embed/video/$id?autoplay=1", playerHtml("$base/embed/video/$id?autoplay=1")))
-            }
-            else -> emptyList()
-        }
-    }.getOrDefault(emptyList())
-}
-
 @Composable
 fun InlineTrailerPlayer(
     thumbnail: String,
@@ -156,164 +65,225 @@ fun InlineTrailerPlayer(
     trailerUrl: String,
     modifier: Modifier = Modifier,
 ) {
-    var playing by remember { mutableStateOf(false) }
-    // -1 = still trying; 101/150 = the uploader disabled embedding (final fallback); other
-    // codes advance the retry ladder until it is exhausted.
-    var lastError by remember { mutableIntStateOf(-1) }
-    var strategy by remember { mutableIntStateOf(0) }
-    var playbackConfirmed by remember { mutableStateOf(false) }
-    val context = LocalContext.current
-    val attempts = remember(trailerUrl) { embedAttempts(trailerUrl) }
-
-    // Watchdog: YouTube can fail SILENTLY (dead black WebView, no postMessage error at all).
-    // If no onStateChange(playing) / onReady arrives in time, advance to the next strategy;
-    // exhausting the ladder shows the fallback instead of a permanent black rectangle.
-    androidx.compose.runtime.LaunchedEffect(playing, strategy) {
-        if (!playing || strategy >= attempts.size) return@LaunchedEffect
-        playbackConfirmed = false
+    // Ladder: watch pages first (YouTube's own site may play where embeds are refused with
+    // 152-4), then the wrapper embed. A watchdog advances on silent failures; the embed
+    // strategies additionally report onError through the bridge.
+    val attempts = remember(trailerUrl) { trailerAttempts(trailerUrl) }
+    var strategy by remember(trailerUrl) { mutableIntStateOf(0) }
+    var embedError by remember(trailerUrl) { mutableStateOf(attempts.isEmpty()) }
+    androidx.compose.runtime.LaunchedEffect(attempts, strategy) {
+        if (embedError || strategy >= attempts.lastIndex) return@LaunchedEffect
         kotlinx.coroutines.delay(14_000)
-        if (!playbackConfirmed) {
-            if (strategy < attempts.size - 1) strategy++ else lastError = -2
-        }
+        // No error signal is itself a signal: advance to the next attempt. The LAST attempt is
+        // left alone — a slowly-starting player must not be killed by the watchdog.
+        if (!embedError) strategy++
     }
 
-    Box(
-        modifier
-            .fillMaxWidth()
-            .aspectRatio(16f / 9f)
-            .clip(MaterialTheme.shapes.medium)
-            .background(Color.Black),
-    ) {
-        when {
-            !playing -> {
-                NetImage(
-                    thumbnail.ifBlank { fallbackThumbnail },
-                    Modifier
-                        .fillMaxSize()
-                        .background(Color.Black)
-                        .clickable {
-                            lastError = -1
-                            strategy = 0
-                            playing = true
-                        },
-                    contentScale = ContentScale.Crop,
+    Box(modifier.background(Color.Black), contentAlignment = Alignment.Center) {
+        if (embedError) {
+            NetImage(thumbnail.ifBlank { fallbackThumbnail }, Modifier.fillMaxSize())
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.7f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = stringResource(R.string.trailer_embed_error),
+                    color = Color.White,
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(24.dp),
                 )
-                Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.25f)), contentAlignment = Alignment.Center) {
-                    Box(
-                        Modifier.size(56.dp).background(Color.Black.copy(alpha = 0.65f), CircleShape),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(Icons.Rounded.PlayArrow, null, Modifier.size(34.dp), tint = Color.White)
-                    }
-                }
             }
-            (strategy >= attempts.size || lastError == 101 || lastError == 150) -> {
-                // Every strategy failed, or the video cannot be embedded at all.
-                Column(
-                    Modifier.fillMaxSize().padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    Text(
-                        "Trailer tidak dapat diputar di dalam aplikasi",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = Color.White,
-                    )
-                    Text(
-                        "Coba buka di browser atau aplikasi YouTube.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.7f),
-                        modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
-                    )
-                    Button(onClick = {
-                        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, trailerUrl.toUri())) }
-                    }) {
-                        Text("Buka di YouTube")
-                    }
-                }
-            }
-            else -> {
-                // Loading a page + autoplay takes a moment; a spinner beats a black rectangle.
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(Modifier.size(36.dp), color = Color.White)
-                }
-                // key forces a fresh WebView per strategy — settings/UA cannot change in place.
-                androidx.compose.runtime.key(strategy) {
-                    AndroidView(
-                        modifier = Modifier.fillMaxSize(),
-                        factory = { ctx ->
-                            val attempt = attempts[strategy]
-                            val handler = Handler(Looper.getMainLooper())
-                            WebView(ctx).apply {
-                                @SuppressLint("SetJavaScriptEnabled")
-                                settings.javaScriptEnabled = true
-                                settings.domStorageEnabled = true
-                                settings.mediaPlaybackRequiresUserGesture = false
-                                settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
-                                settings.userAgentString = attempt.userAgent
-                                addJavascriptInterface(
-                                    PlayerHook(
-                                        onError = { code ->
-                                            handler.post {
-                                                if (code == 101 || code == 150) {
-                                                    // Uploader disabled embedding (or video gone): no
-                                                    // strategy will ever help — show the final fallback.
-                                                    lastError = code
-                                                } else if (strategy < attempts.size - 1) {
-                                                    // Config-type error (152/153/2/5/...): try the next
-                                                    // loading strategy; key(strategy) recreates the WebView.
-                                                    strategy++
-                                                } else {
-                                                    lastError = code
-                                                }
-                                            }
-                                        },
-                                        onPlaying = { handler.post { playbackConfirmed = true } },
-                                    ),
-                                    "AndroidHook",
-                                )
-                                webViewClient = object : WebViewClient() {
-                                    override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                                        // Only MAIN-frame navigations are fenced: the player iframe
-                                        // itself makes sub-frame hops through google.com/googlevideo.com
-                                        // while streaming, and cancelling those would leave a dead
-                                        // player. A main-frame jump to YouTube's app/browser links is
-                                        // cancelled, so playback can never leave the app.
-                                        if (!request.isForMainFrame) return false
-                                        val host = request.url.host?.removePrefix("www.").orEmpty()
-                                        return host !in setOf("youtube.com", "youtube-nocookie.com", "dailymotion.com", "dm.com")
-                                    }
-                                }
-                                webChromeClient = WebChromeClient()
-                                setBackgroundColor(android.graphics.Color.BLACK)
-                                if (attempt.html != null && attempt.baseUrl != null) {
-                                    // Base URL = player origin: the iframe shares it with the player,
-                                    // which the origin= parameter (and the embed check) requires.
-                                    loadDataWithBaseURL(attempt.baseUrl, attempt.html, "text/html", "utf-8", null)
-                                } else {
-                                    loadUrl(attempt.url, mapOf("Referer" to "$YT_BASE/"))
-                                }
-                            }
-                        },
-                        update = { /* recreated per strategy via key */ },
-                    )
-                }
+        } else {
+            androidx.compose.runtime.key(strategy) {
+                AndroidView(
+                    modifier = Modifier.fillMaxSize(),
+                    factory = { ctx ->
+                        trailerWebView(ctx, attempts[strategy]) { embedError = true }
+                    },
+                    update = { /* the trailer URL never changes for this item */ },
+                )
             }
         }
     }
 }
 
-/** JS bridge: the wrapper page forwards the YouTube player's events to this hook. */
-private class PlayerHook(
-    private val onError: (Int) -> Unit,
-    private val onPlaying: () -> Unit,
-) {
-    @JavascriptInterface
-    fun playerError(code: Int) = onError(code)
+/** One WebView loading attempt: a URL, the UA to present, and optionally a wrapper page. */
+internal class TrailerAttempt(val url: String, val ua: String, val html: String?, val baseUrl: String?)
 
-    @JavascriptInterface
-    fun playerPlaying() = onPlaying()
-
-    @JavascriptInterface
-    fun playerReady() = onPlaying()
+/** Watch pages first, then the JS-API wrapper embed, then a bare embed load. */
+internal fun trailerAttempts(trailerUrl: String): List<TrailerAttempt> {
+    val embed = embedUrl(trailerUrl)
+    val id = com.fuwanime.data.remote.trailerVideoId(trailerUrl)
+    return buildList {
+        id?.let {
+            add(TrailerAttempt("https://m.youtube.com/watch?v=$it", MOBILE_UA, null, null))
+            add(TrailerAttempt("https://www.youtube.com/watch?v=$it", DESKTOP_UA, null, null))
+        }
+        if (embed != null) {
+            add(TrailerAttempt(embed, DESKTOP_UA, wrapperHtml(embed), PLAYER_ORIGIN))
+            add(TrailerAttempt(embed, MOBILE_UA, null, null))
+        }
+    }
 }
+
+/** The WebView that hosts the current attempt; shared by the inline player and any dialog use. */
+@SuppressLint("SetJavaScriptEnabled")
+internal fun trailerWebView(context: Context, attempt: TrailerAttempt, onEmbedError: () -> Unit): WebView =
+    WebView(context).apply {
+        settings.javaScriptEnabled = true
+        settings.domStorageEnabled = true
+        settings.mediaPlaybackRequiresUserGesture = false
+        settings.javaScriptCanOpenWindowsAutomatically = true
+        settings.useWideViewPort = true
+        settings.loadWithOverviewMode = true
+        settings.userAgentString = attempt.ua
+        webViewClient = TrailerWebViewClient()
+        webChromeClient = TrailerChromeClient(context)
+        setBackgroundColor(android.graphics.Color.BLACK)
+        addJavascriptInterface(TrailerBridge(onEmbedError), "FuwaTrailer")
+        if (attempt.html != null && attempt.baseUrl != null) {
+            loadDataWithBaseURL(attempt.baseUrl, attempt.html, "text/html", "utf-8", null)
+        } else {
+            loadUrl(attempt.url, mapOf("Referer" to "https://www.youtube.com/"))
+        }
+    }
+
+private const val PLAYER_ORIGIN = "https://www.youtube.com"
+
+/** Receives the wrapper's onError signal so YouTube's raw error page is replaced by a clean message. */
+internal class TrailerBridge(private val onError: () -> Unit) {
+    @JavascriptInterface
+    fun onError(code: String?) {
+        onError.invoke()
+    }
+}
+
+/**
+ * Keeps playback in-app: MAIN-frame navigation to anything but the player domains is cancelled
+ * (true = do not load, and do not hand off to an external app). Sub-frame loads are left alone —
+ * the player hops through google.com/googlevideo.com while streaming.
+ */
+internal class TrailerWebViewClient : WebViewClient() {
+    override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+        if (!request.isForMainFrame) return false
+        val host = request.url.host?.removePrefix("www.").orEmpty()
+        val playerHost = host == "youtube.com" || host == "youtube-nocookie.com" ||
+            host == "dailymotion.com" || host == "dm.com" ||
+            // Watch pages redirect through consent/sign-in hosts before playing; blocking these
+            // would leave a blank page instead of a video.
+            host.endsWith("google.com") || host == "consent.youtube.com" || host == "googlevideo.com" ||
+            host.endsWith("gstatic.com") || host.endsWith("ytimg.com")
+        return !playerHost
+    }
+}
+
+/** Hosts the embed player's fullscreen surface and restores the window when it closes. */
+internal class TrailerChromeClient(private val context: Context) : WebChromeClient() {
+    private var customView: View? = null
+
+    override fun onShowCustomView(view: View, callback: CustomViewCallback) {
+        val activity = context as? Activity
+        if (customView != null || activity == null) {
+            callback.onCustomViewHidden()
+            return
+        }
+        customView = view
+        activity.window.addContentView(
+            view,
+            ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+            ),
+        )
+        activity.window.decorView.systemUiVisibility = (
+            View.SYSTEM_UI_FLAG_FULLSCREEN
+                or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+            )
+    }
+
+    override fun onHideCustomView() {
+        val view = customView ?: return
+        customView = null
+        (view.parent as? ViewGroup)?.removeView(view)
+        (context as? Activity)?.window?.decorView?.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
+    }
+}
+
+/** The wrapper page: iframe player on a real origin plus the JS-API handshake (needed for 152-4). */
+internal fun wrapperHtml(embedUrl: String): String {
+    val src = embedUrl.replace("&", "&amp;").replace("\"", "&quot;")
+    return """
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+          <style>
+            html, body { margin: 0; padding: 0; height: 100%; background: #000; overflow: hidden; }
+            iframe { width: 100%; height: 100%; border: 0; display: block; }
+          </style>
+        </head>
+        <body>
+          <iframe id="player" src="$src"
+            allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
+          <script>
+            var player = document.getElementById('player');
+            function handshake() {
+              try {
+                player.contentWindow.postMessage(
+                  JSON.stringify({ event: 'listening', id: 1, channel: 'widget' }), '*');
+              } catch (e) {}
+            }
+            player.onload = function () {
+              handshake();
+              setTimeout(handshake, 600);
+              setTimeout(handshake, 1800);
+            };
+            window.addEventListener('message', function (e) {
+              var data = e.data;
+              try { if (typeof data === 'string') data = JSON.parse(data); } catch (err) { return; }
+              if (data && data.event === 'onError' && window.FuwaTrailer) {
+                window.FuwaTrailer.onError(String(data.info || ''));
+              }
+            });
+          </script>
+        </body>
+        </html>
+    """.trimIndent()
+}
+
+/** Converts a YouTube watch/short URL or a Dailymotion video URL into an embeddable player URL; null when unsupported. */
+internal fun embedUrl(url: String): String? {
+    val clean = url.trim()
+    return runCatching {
+        val uri = URI(clean)
+        when (uri.host?.removePrefix("www.").orEmpty()) {
+            "youtube.com", "m.youtube.com" -> {
+                val id = uri.rawQuery?.takeIf { it.isNotEmpty() }?.let { q ->
+                    q.split('&').firstOrNull { it.startsWith("v=") }?.substring(2)
+                }
+                if (!id.isNullOrBlank()) youTubeEmbed(id) else null
+            }
+            "youtu.be" -> {
+                val id = uri.path?.trim('/')
+                if (!id.isNullOrBlank()) youTubeEmbed(id) else null
+            }
+            "dailymotion.com" -> {
+                val id = uri.path?.trim('/')?.substringAfterLast('/')
+                if (!id.isNullOrBlank()) "https://www.dailymotion.com/embed/video/$id?autoplay=1" else null
+            }
+            else -> null
+        }
+    }.getOrNull()
+}
+
+/**
+ * The JS-API embed: `enablejsapi=1` + `origin` let the wrapper's handshake start playback.
+ * youtube-nocookie is avoided — WebViews get 153/152 from it.
+ */
+internal fun youTubeEmbed(id: String): String =
+    "https://www.youtube.com/embed/$id" +
+        "?autoplay=1&playsinline=1&rel=0&enablejsapi=1&origin=https%3A%2F%2Fwww.youtube.com"
