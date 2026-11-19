@@ -110,6 +110,9 @@
     <string name="watch_sleep_timer">Pemasa tidur</string>
     <string name="watch_sleep_off">Mati</string>
     <string name="watch_sleep_end">Hujung episod</string>
+    <string name="watch_sleep_custom">Suai</string>
+    <string name="watch_sleep_custom_slider_cd">Penggelangsar durasi pemasa tidur</string>
+    <string name="watch_sleep_countdown_cd">Pemasa tidur: %1$s lagi</string>
     <string name="watch_opening">Pembukaan (OP)</string>
     <string name="watch_op_marked">Ditanda %1$s – %2$s untuk semua episod anime ini.</string>
     <string name="watch_op_hint">Tandakan awal dan akhir OP sekali, butang Langkau OP muncul pada episod lain.</string>

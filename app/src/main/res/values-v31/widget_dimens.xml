@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <dimen name="widget_radius">@android:dimen/system_app_widget_background_radius</dimen>
+    <!-- Android 12+ clips widgets to the launcher's outline; follow it for the outer corners. -->
+    <dimen name="widget_radius_continue">@android:dimen/system_app_widget_background_radius</dimen>
 </resources>
