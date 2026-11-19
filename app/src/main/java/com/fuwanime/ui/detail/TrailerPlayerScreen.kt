@@ -7,10 +7,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.CircularProgressIndicator
@@ -37,12 +37,12 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.source.MergingMediaSource
+import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
-import com.fuwanime.data.StreamSource
-import com.fuwanime.data.remote.YT_APP_UA
-import com.fuwanime.data.remote.resolveTrailerSources
+import com.fuwanime.data.remote.TrailerStreams
+import com.fuwanime.data.remote.resolveTrailerStreams
 import kotlinx.coroutines.delay
 import okhttp3.OkHttpClient
 
@@ -52,12 +52,14 @@ import okhttp3.OkHttpClient
  * (ExoPlayer) player — fullscreen, with the normal transport controls. No WebView in the happy
  * path, no external app.
  *
- * The trailer URL is resolved to direct stream URLs first (see resolveTrailerSources). The
- * stream is fetched through OkHttpDataSource with the YouTube app's User-Agent — googlevideo
- * rejects ExoPlayer's default UA with a silent HTTP 403, which otherwise shows as a dead black
- * screen. Two guards turn any playback failure into the WebView embed fallback instead of a
- * black rectangle: a Player-error listener, and a watchdog that fires when the player never
- * reports READY/playing within 15 seconds.
+ * Three layers, each handing over to the next on failure:
+ * 1. Direct stream from the resolver (YouTube ANDROID_VR / Dailymotion), played through
+ *    OkHttpDataSource with the *requesting client's* User-Agent — googlevideo ties the URL to
+ *    that UA and rejects ExoPlayer's default one with a silent 403 (dead black screen).
+ *    ANDROID_VR returns split video/audio, so they are merged with MergingMediaSource.
+ * 2. If resolution fails, or the player errors / never reaches READY within 15 s, the
+ *    watch-page/embed WebView ladder takes over in the same slot (see InlineTrailerPlayer).
+ * 3. Only if that also fails: the "open in YouTube" fallback.
  */
 @Composable
 fun TrailerPlayerRoute(
@@ -67,19 +69,20 @@ fun TrailerPlayerRoute(
     onBack: () -> Unit,
 ) {
     val client = remember { OkHttpClient() }
-    // null = still resolving; empty = nothing resolved (fall back to the embed ladder).
-    var sources by remember(url) { mutableStateOf<List<StreamSource>?>(null) }
+    // null = still resolving; null after the effect means "nothing resolved".
+    var streams by remember(url) { mutableStateOf<TrailerStreams?>(null) }
+    var resolved by remember(url) { mutableStateOf(false) }
     var mediaFailed by remember(url) { mutableStateOf(false) }
     var confirmedPlaying by remember(url) { mutableStateOf(false) }
-    LaunchedEffect(url) { sources = resolveTrailerSources(url, client) }
-
-    val resolved = sources.orEmpty()
-    val source = resolved.maxByOrNull { it.height }
+    LaunchedEffect(url) {
+        streams = resolveTrailerStreams(url, client)
+        resolved = true
+    }
 
     // Watchdog: a resolved URL that never reaches READY (403, throttling, unsupported codec...)
-    // must not leave a black screen — hand the slot to the WebView embed ladder.
-    LaunchedEffect(source) {
-        if (source == null) return@LaunchedEffect
+    // must not leave a black screen — hand the slot to the WebView ladder.
+    LaunchedEffect(streams) {
+        val s = streams ?: return@LaunchedEffect
         confirmedPlaying = false
         delay(15_000)
         if (!confirmedPlaying) mediaFailed = true
@@ -111,10 +114,11 @@ fun TrailerPlayerRoute(
                 .background(Color.Black),
             contentAlignment = Alignment.Center,
         ) {
+            val s = streams
             when {
-                sources == null -> CircularProgressIndicator(Modifier.size(36.dp), color = Color.White)
-                source != null && !mediaFailed -> TrailerExoPlayer(
-                    url = source.url,
+                !resolved -> CircularProgressIndicator(Modifier.size(36.dp), color = Color.White)
+                s != null && !mediaFailed -> TrailerExoPlayer(
+                    streams = s,
                     onConfirmed = { confirmedPlaying = true },
                     onFailed = { mediaFailed = true },
                 )
@@ -131,26 +135,35 @@ fun TrailerPlayerRoute(
 
 /** Media3 player for the resolved trailer stream; reports READY/playing and errors back up. */
 @Composable
-private fun TrailerExoPlayer(url: String, onConfirmed: () -> Unit, onFailed: () -> Unit) {
+private fun TrailerExoPlayer(streams: TrailerStreams, onConfirmed: () -> Unit, onFailed: () -> Unit) {
     val context = LocalContext.current
-    val player = remember(url) {
+    val player = remember(streams) {
         val dataSource = OkHttpDataSource.Factory(OkHttpClient())
-            .setUserAgent(YT_APP_UA)
+            .setUserAgent(streams.userAgent)
             .setDefaultRequestProperties(mapOf("Referer" to "https://www.youtube.com/"))
+        val factory = ProgressiveMediaSource.Factory(dataSource)
+        val mediaSource = streams.audio?.let { audio ->
+            // ANDROID_VR hands out video-only + audio-only streams; play them as one item.
+            MergingMediaSource(
+                factory.createMediaSource(MediaItem.fromUri(streams.video)),
+                factory.createMediaSource(MediaItem.fromUri(audio)),
+            )
+        } ?: factory.createMediaSource(MediaItem.fromUri(streams.video))
         ExoPlayer.Builder(context)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(dataSource))
             .build()
             .apply {
-                setMediaItem(MediaItem.fromUri(url))
+                setMediaSource(mediaSource)
                 prepare()
                 playWhenReady = true
                 addListener(object : Player.Listener {
                     override fun onPlaybackStateChanged(playbackState: Int) {
                         if (playbackState == Player.STATE_READY || playbackState == Player.STATE_ENDED) onConfirmed()
                     }
+
                     override fun onIsPlayingChanged(isPlaying: Boolean) {
                         if (isPlaying) onConfirmed()
                     }
+
                     override fun onPlayerError(error: PlaybackException) = onFailed()
                 })
             }
