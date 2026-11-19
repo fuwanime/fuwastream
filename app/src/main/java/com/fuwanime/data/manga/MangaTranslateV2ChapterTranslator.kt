@@ -3,11 +3,6 @@ package com.fuwanime.data.manga
 import android.content.Context
 import android.graphics.BitmapFactory
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -24,8 +19,8 @@ import java.net.URLEncoder
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 import kotlin.math.min
@@ -99,6 +94,22 @@ private val MT_DEFAULT_PROXIES = listOf(
     "http://201.4.65.190:8080",
 )
 
+/** Proxies confirmed to reach MangaTranslate; tried before the shuffled reserve pool. */
+private val MT_PREFERRED_PROXIES = listOf(
+    "http://103.237.102.191:11111",
+    "http://132.243.174.245:5002",
+    "http://34.105.252.3:3128",
+    "http://20.98.234.24:8080",
+    "http://130.110.103.245:3128",
+    "http://176.111.37.5:39811",
+    "http://4.144.146.21:80",
+    "http://128.199.254.13:9090",
+    "http://45.155.226.177:3128",
+    "http://41.216.57.75:8080",
+    "http://3.21.156.147:20303",
+    "http://184.75.221.82:3118",
+)
+
 private fun parseHttpProxy(url: String): Proxy? {
     return try {
         val u = java.net.URI(url)
@@ -127,22 +138,6 @@ private fun interruptibleSleep(ms: Long) {
     }
 }
 
-private fun isRetryableProvisionError(e: Throwable): Boolean {
-    if (e is MtV2Exception) {
-        val detail = e.body.optJSONObject("detail")
-        val reason = detail?.optString("reason_code", "") ?: ""
-        if (e.status == 429) return true
-        val msg = (e.message ?: "").lowercase()
-        if ("window_limit_exceeded" in msg || "rate limit" in msg || "too many" in msg) return true
-    }
-    val msg = (e.message ?: "").lowercase()
-    return msg.contains("timeout") || msg.contains("timed out") || msg.contains("unable to resolve") ||
-        msg.contains("failed to connect") || msg.contains("connection") || msg.contains("socket") ||
-        msg.contains("proxy") || msg.contains("tunnel") || msg.contains("unreachable") ||
-        msg.contains("refused") || msg.contains("reset") || msg.contains("network") ||
-        msg.contains("fetch failed") || msg.contains("interrupted io")
-}
-
 private fun isTransientTranslateError(e: Throwable): Boolean {
     val msg = (e.message ?: "").lowercase()
     return msg.contains("timeout") || msg.contains("timed out") || msg.contains("failed to connect") ||
@@ -151,7 +146,7 @@ private fun isTransientTranslateError(e: Throwable): Boolean {
         msg.contains("download hasil gagal http 5") || msg.contains("upload ke storage gagal http 5")
 }
 
-/** MangaTranslate.com V2 API as primary chapter translator. Falls back by throwing [TranslatorBusyException] when busy/unavailable. */
+/** MangaTranslate.com V2 chapter translator. Throws [TranslatorBusyException] when busy/unavailable. */
 class MangaTranslateV2ChapterTranslator(
     context: Context,
     private val httpClient: OkHttpClient,
@@ -159,6 +154,12 @@ class MangaTranslateV2ChapterTranslator(
     private val appContext = context.applicationContext
     private val storeFile = File(appContext.filesDir, "mangatranslate_accounts.json")
     private val provisionLock = ReentrantLock()
+    private val translationLock = ReentrantLock(true)
+    private val provisionProxies = (MT_PREFERRED_PROXIES +
+        MT_DEFAULT_PROXIES.filterNot { it in MT_PREFERRED_PROXIES }.shuffled()).distinct()
+    private val proxyClients = ConcurrentHashMap<String, OkHttpClient>()
+    private var provisionProxyIndex = 0
+    private var triedDirectProvision = false
 
     // direct client for akunlama/non-mangatranslate calls (never proxied)
     private val directClient: OkHttpClient = httpClient.newBuilder()
@@ -169,14 +170,28 @@ class MangaTranslateV2ChapterTranslator(
         .callTimeout(35, TimeUnit.SECONDS)
         .build()
 
+    private val storageClient: OkHttpClient = httpClient.newBuilder()
+        .proxy(Proxy.NO_PROXY)
+        .connectTimeout(20, TimeUnit.SECONDS)
+        .readTimeout(90, TimeUnit.SECONDS)
+        .writeTimeout(90, TimeUnit.SECONDS)
+        .callTimeout(120, TimeUnit.SECONDS)
+        .build()
+
     override fun chapterDir(cacheDir: File, chapterId: String): File =
         File(cacheDir, "mangatranslate/${chapterId.replace(':', '_').replace('/', '_')}")
 
     override fun cachedChapterPages(cacheDir: File, chapterId: String, pageCount: Int): List<String>? {
-        if (pageCount <= 0) return null
+        val slots = cachedChapterPageSlots(cacheDir, chapterId, pageCount)
+        return if (slots.isNotEmpty() && slots.all { it != null }) slots.filterNotNull() else null
+    }
+
+    override fun cachedChapterPageSlots(cacheDir: File, chapterId: String, pageCount: Int): List<String?> {
+        if (pageCount <= 0) return emptyList()
         val dir = chapterDir(cacheDir, chapterId)
-        val files = (0 until pageCount).map { pageFile(dir, it) }
-        return if (files.all { it.exists() && it.length() > 0 }) files.map { "file://${it.absolutePath}" } else null
+        return (0 until pageCount).map { index ->
+            pageFile(dir, index).takeIf { it.exists() && it.length() > 0 }?.let { "file://${it.absolutePath}" }
+        }
     }
 
     private fun pageFile(dir: File, index: Int): File = File(dir, "p_${index.toString().padStart(4, '0')}.png")
@@ -187,54 +202,52 @@ class MangaTranslateV2ChapterTranslator(
         cacheDir: File,
         onProgress: (done: Int, total: Int) -> Unit,
     ): List<String> = withContext(Dispatchers.IO) {
-        val outDir = chapterDir(cacheDir, chapterId)
-        outDir.mkdirs()
-        val outputFiles = pageUrls.indices.map { pageFile(outDir, it) }
-        if (outputFiles.isNotEmpty() && outputFiles.all { it.exists() && it.length() > 0 }) {
-            onProgress(outputFiles.size, outputFiles.size)
-            return@withContext outputFiles.map { "file://${it.absolutePath}" }
-        }
+        translationLock.lockInterruptibly()
+        try {
+            val outDir = chapterDir(cacheDir, chapterId)
+            outDir.mkdirs()
+            val outputFiles = pageUrls.indices.map { pageFile(outDir, it) }
+            if (outputFiles.isNotEmpty() && outputFiles.all { it.exists() && it.length() > 0 }) {
+                onProgress(outputFiles.size, outputFiles.size)
+                return@withContext outputFiles.map { "file://${it.absolutePath}" }
+            }
 
-        val pending = pageUrls.indices.filterNot { outputFiles[it].exists() && outputFiles[it].length() > 0 }.toMutableList()
-        val doneCount = AtomicInteger(pageUrls.size - pending.size)
-        if (doneCount.get() > 0) onProgress(doneCount.get(), pageUrls.size)
+            val pending = pageUrls.indices.filterNot { outputFiles[it].exists() && outputFiles[it].length() > 0 }
+            var doneCount = pageUrls.size - pending.size
+            if (doneCount > 0) onProgress(doneCount, pageUrls.size)
 
-        // Ensure we have at least one usable API key/account up front; if not, primary is busy/unavailable.
-        ensureUsableKey()
+            // Ensure we have at least one usable API key/account up front; if not, primary is busy/unavailable.
+            ensureUsableKey()
 
-        val concurrency = min(2, pending.size.coerceAtLeast(1))
-        val semaphore = Semaphore(concurrency)
-        val failures = java.util.concurrent.ConcurrentLinkedQueue<Throwable>()
-        coroutineScope {
-            pending.map { i ->
-                async {
-                    semaphore.withPermit {
-                        checkInterrupted()
-                        try {
-                            translatePageWithRetry(i, pageUrls[i], outputFiles[i])
-                            val done = doneCount.incrementAndGet()
-                            onProgress(done, pageUrls.size)
-                        } catch (e: TranslatorBusyException) {
-                            // Cancel the remaining pages and fail the chapter immediately so the
-                            // fallback translator can take over instead of retrying for every page.
-                            throw e
-                        } catch (e: Throwable) {
-                            failures.add(e)
-                        }
-                    }
+            // MangaTranslate accounts have very small credit balances. Sequential processing mirrors
+            // the proven CLI flow and prevents two parallel pages racing for the final credit, where
+            // one succeeds server-side while the other aborts the whole chapter.
+            val failures = mutableListOf<Throwable>()
+            for (i in pending) {
+                checkInterrupted()
+                try {
+                    translatePageWithRetry(pageUrls[i], outputFiles[i])
+                    doneCount++
+                    onProgress(doneCount, pageUrls.size)
+                } catch (e: TranslatorBusyException) {
+                    throw e
+                } catch (e: Throwable) {
+                    failures += e
                 }
-            }.awaitAll()
+            }
+            val firstFailure = failures.firstOrNull()
+            if (firstFailure != null) {
+                val busy = firstFailure is TranslatorBusyException || isCreditOrBusyMessage(firstFailure.message)
+                if (busy) throw TranslatorBusyException(firstFailure.message, firstFailure)
+                throw (firstFailure as? Exception) ?: Exception(firstFailure.message, firstFailure)
+            }
+            outputFiles.map { "file://${it.absolutePath}" }
+        } finally {
+            translationLock.unlock()
         }
-        val firstFailure = failures.firstOrNull()
-        if (firstFailure != null) {
-            val busy = firstFailure is TranslatorBusyException || isCreditOrBusyMessage(firstFailure.message)
-            if (busy) throw TranslatorBusyException(firstFailure.message, firstFailure)
-            throw (firstFailure as? Exception) ?: Exception(firstFailure.message, firstFailure)
-        }
-        outputFiles.map { "file://${it.absolutePath}" }
     }
 
-    private fun translatePageWithRetry(index: Int, url: String, out: File) {
+    private fun translatePageWithRetry(url: String, out: File) {
         var last: Throwable? = null
         val maxAttempts = 3
         for (attempt in 1..maxAttempts) {
@@ -290,15 +303,28 @@ class MangaTranslateV2ChapterTranslator(
     }
 
     private fun saveAsPng(bytes: ByteArray, out: File) {
+        out.parentFile?.mkdirs()
+        val temp = File(out.parentFile, ".${out.name}.part")
+        temp.delete()
         val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-        if (bmp != null) {
-            try {
-                out.outputStream().use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
-            } finally {
-                bmp.recycle()
+        try {
+            if (bmp != null) {
+                try {
+                    temp.outputStream().use { stream ->
+                        if (!bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, stream)) {
+                            throw IOException("Gagal menyimpan hasil terjemahan")
+                        }
+                    }
+                } finally {
+                    bmp.recycle()
+                }
+            } else {
+                temp.writeBytes(bytes)
             }
-        } else {
-            out.writeBytes(bytes)
+            if (out.exists() && !out.delete()) throw IOException("Gagal mengganti cache terjemahan")
+            if (!temp.renameTo(out)) throw IOException("Gagal menyelesaikan cache terjemahan")
+        } finally {
+            temp.delete()
         }
     }
 
@@ -333,22 +359,41 @@ class MangaTranslateV2ChapterTranslator(
         synchronized(this) {
             val store = loadStore()
             val arr = accountsArray(store)
-            var changed = false
             for (i in 0 until arr.length()) {
                 val a = arr.optJSONObject(i) ?: continue
                 val key = a.optString("apiKey", a.optString("api_key", ""))
-                if (key == apiKey) { a.put("totalCredits", 0); changed = true }
+                if (key == apiKey) a.put("totalCredits", 0)
             }
             // remove all 0-credit accounts to keep store clean
             val cleaned = JSONArray()
             for (i in 0 until arr.length()) {
                 val a = arr.optJSONObject(i) ?: continue
                 val c = if (a.has("totalCredits") && !a.isNull("totalCredits")) a.optDouble("totalCredits", Double.NaN) else Double.NaN
-                if (!c.isNaN() && c <= 0.0) { changed = true; continue }
+                if (!c.isNaN() && c <= 0.0) continue
                 cleaned.put(a)
             }
             store.put("accounts", cleaned)
-            if (changed || true) saveStore(store)
+            saveStore(store)
+        }
+    }
+
+    private fun recordCreditUsed(apiKey: String) {
+        synchronized(this) {
+            val store = loadStore()
+            val accounts = accountsArray(store)
+            var changed = false
+            for (i in 0 until accounts.length()) {
+                val account = accounts.optJSONObject(i) ?: continue
+                val key = account.optString("apiKey", account.optString("api_key", ""))
+                if (key != apiKey) continue
+                val credits = account.optDouble("totalCredits", Double.NaN)
+                if (!credits.isNaN()) {
+                    account.put("totalCredits", (credits - 1.0).coerceAtLeast(0.0))
+                    changed = true
+                }
+                break
+            }
+            if (changed) saveStore(store)
         }
     }
 
@@ -397,7 +442,20 @@ class MangaTranslateV2ChapterTranslator(
         return pickKnownGoodApiKey(store)
     }
 
-    private fun getCreditsWithPat(apiKey: String): Double? {
+    private fun apiClientForKey(apiKey: String): OkHttpClient {
+        val accounts = accountsArray(loadStore())
+        for (i in 0 until accounts.length()) {
+            val account = accounts.optJSONObject(i) ?: continue
+            val key = account.optString("apiKey", account.optString("api_key", ""))
+            if (key != apiKey) continue
+            val proxyUrl = account.optString("proxyUrl", account.optString("proxy", ""))
+            if (proxyUrl.isNotBlank()) return clientForProxy(proxyUrl)
+            break
+        }
+        return httpClient
+    }
+
+    private fun getCreditsWithPat(apiKey: String, client: OkHttpClient = apiClientForKey(apiKey)): Double? {
         for (url in listOf(MT_BASE + MT_CREDITS_V2, MT_BASE + MT_CREDITS_V1)) {
             try {
                 val req = Request.Builder().url(url).get()
@@ -407,7 +465,7 @@ class MangaTranslateV2ChapterTranslator(
                     .header("Origin", MT_BASE)
                     .header("Referer", "$MT_BASE/")
                     .build()
-                httpClient.newCall(req).execute().use { resp ->
+                client.newCall(req).execute().use { resp ->
                     if (!resp.isSuccessful) return@use
                     val j = runCatching { JSONObject(resp.body?.string().orEmpty()) }.getOrNull() ?: return@use
                     val d = j.optJSONObject("data") ?: j
@@ -423,14 +481,19 @@ class MangaTranslateV2ChapterTranslator(
         return null
     }
 
-    private fun isCreditOrBusyMessage(msg: String?): Boolean {
+    private fun isCreditExhaustedMessage(msg: String?): Boolean {
         val m = (msg ?: "").lowercase()
         return "insufficient credit" in m || "insufficient_credits" in m || "no enough credit" in m ||
             ("credit" in m && ("not enough" in m || "insufficient" in m || "exhaust" in m || "habis" in m || "balance" in m || "saldo 0" in m)) ||
-            ("quota" in m && ("exceed" in m || "exhaust" in m || "habis" in m || "insufficient" in m)) ||
+            ("quota" in m && ("exceed" in m || "exhaust" in m || "habis" in m || "insufficient" in m))
+    }
+
+    private fun isCreditOrBusyMessage(msg: String?): Boolean {
+        val m = (msg ?: "").lowercase()
+        return isCreditExhaustedMessage(m) ||
             "window_limit_exceeded" in m || "rate limit" in m || "too many requests" in m ||
             "antrian penuh" in m || "busy" in m || "unavailable" in m || "no api key" in m ||
-            "timeout polling task" in m || "task selesai tanpa hasil" in m
+            "timeout polling task" in m
     }
 
     private fun translateOne(imageBytes: ByteArray): ByteArray {
@@ -446,22 +509,26 @@ class MangaTranslateV2ChapterTranslator(
                 Thread.currentThread().interrupt()
                 throw e
             } catch (e: TranslatorBusyException) {
-                markAccountNoCredits(apiKey)
                 lastErr = e
-                // One controlled rotation attempt. If it still fails, fall back right away.
+                // Polling/server availability errors do not mean this account lost its credits.
+                // Only rotate when the response explicitly says the balance is exhausted.
+                if (!isCreditExhaustedMessage(e.message)) throw e
+                markAccountNoCredits(apiKey)
                 val rotated = runCatching { provisionLock.withLock { provisionAccountWithCreditsLocked() } }.getOrNull()
                 if (rotated == null || attempts >= 2) throw e
                 interruptibleSleep(300)
                 continue
             } catch (e: MtV2Exception) {
                 lastErr = e
-                if (isCreditOrBusyMessage(e.message) || e.status == 429 || e.status == 402) {
+                val shouldRotateAccount = isCreditExhaustedMessage(e.message) || e.status in setOf(401, 402, 403, 429)
+                if (shouldRotateAccount) {
                     markAccountNoCredits(apiKey)
                     val rotated = runCatching { provisionLock.withLock { provisionAccountWithCreditsLocked() } }.getOrNull()
                     if (rotated == null || attempts >= 2) throw TranslatorBusyException(e.message, e)
                     interruptibleSleep(300)
                     continue
                 }
+                if (isCreditOrBusyMessage(e.message)) throw TranslatorBusyException(e.message, e)
                 // other V2 errors: if transient/unavailable-like, retry a bit; else bubble up
                 if (isTransientTranslateError(e) && attempts < 2) { interruptibleSleep(600L * attempts); continue }
                 throw e
@@ -488,7 +555,7 @@ class MangaTranslateV2ChapterTranslator(
         else -> fallback
     }
 
-    private fun jsonRequest(url: String, apiKey: String, body: JSONObject, headers: Map<String, String> = emptyMap()): JSONObject {
+    private fun jsonRequest(client: OkHttpClient, url: String, apiKey: String, body: JSONObject, headers: Map<String, String> = emptyMap()): JSONObject {
         val reqBody = body.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
         val b = Request.Builder().url(url).post(reqBody)
             .header("Authorization", "Bearer $apiKey")
@@ -498,7 +565,7 @@ class MangaTranslateV2ChapterTranslator(
             .header("Origin", MT_BASE)
             .header("Referer", "$MT_BASE/")
         headers.forEach { (k, v) -> b.header(k, v) }
-        httpClient.newCall(b.build()).execute().use { resp ->
+        client.newCall(b.build()).execute().use { resp ->
             val text = resp.body?.string().orEmpty()
             val json = runCatching { JSONObject(if (text.isBlank()) "{}" else text) }.getOrElse { JSONObject() }
             if (!resp.isSuccessful) {
@@ -509,14 +576,14 @@ class MangaTranslateV2ChapterTranslator(
         }
     }
 
-    private fun getJson(url: String, apiKey: String): JSONObject {
+    private fun getJson(client: OkHttpClient, url: String, apiKey: String): JSONObject {
         val b = Request.Builder().url(url).get()
             .header("Authorization", "Bearer $apiKey")
             .header("Accept", "application/json")
             .header("User-Agent", MT_UA)
             .header("Origin", MT_BASE)
             .header("Referer", "$MT_BASE/")
-        httpClient.newCall(b.build()).execute().use { resp ->
+        client.newCall(b.build()).execute().use { resp ->
             val text = resp.body?.string().orEmpty()
             val json = runCatching { JSONObject(if (text.isBlank()) "{}" else text) }.getOrElse { JSONObject() }
             if (!resp.isSuccessful) {
@@ -527,8 +594,33 @@ class MangaTranslateV2ChapterTranslator(
         }
     }
 
+    private fun downloadTranslatedResult(url: String): ByteArray {
+        var lastError: Throwable? = null
+        for (attempt in 1..3) {
+            checkInterrupted()
+            try {
+                val request = Request.Builder().url(url).get().header("User-Agent", MT_UA).build()
+                storageClient.newCall(request).execute().use { response ->
+                    if (response.isSuccessful) {
+                        return response.body?.bytes()?.takeIf { it.isNotEmpty() }
+                            ?: throw IOException("Hasil terjemahan kosong")
+                    }
+                    val error = MtV2Exception("Download hasil gagal HTTP ${response.code}", response.code, JSONObject())
+                    if (response.code !in 500..599 || attempt >= 3) throw error
+                    lastError = error
+                }
+            } catch (e: IOException) {
+                lastError = e
+                if (attempt >= 3) throw e
+            }
+            interruptibleSleep(750L * attempt)
+        }
+        throw (lastError as? Exception) ?: IOException("Gagal mengunduh hasil terjemahan", lastError)
+    }
+
     private fun translateOneWithKey(apiKey: String, imageBytes: ByteArray): ByteArray {
         checkInterrupted()
+        val apiClient = apiClientForKey(apiKey)
         val contentType = detectMime(imageBytes)
         val ext = when (contentType) {
             "image/png" -> "png"
@@ -545,7 +637,7 @@ class MangaTranslateV2ChapterTranslator(
             put("size", imageBytes.size)
             put("content_sha256", sha)
         }))
-        val prepare = jsonRequest(MT_BASE + MT_PREPARE, apiKey, prepareBody, mapOf("Idempotency-Key" to UUID.randomUUID().toString()))
+        val prepare = jsonRequest(apiClient, MT_BASE + MT_PREPARE, apiKey, prepareBody, mapOf("Idempotency-Key" to UUID.randomUUID().toString()))
         val prepData = prepare.optJSONObject("data") ?: prepare
         val uploadId = prepData.optString("upload_id", prepData.optString("uploadId", prepData.optString("id", "")))
         val filesOut = prepData.optJSONArray("files") ?: prepData.optJSONArray("items")
@@ -567,11 +659,11 @@ class MangaTranslateV2ChapterTranslator(
             val keys = putHeaders.keys()
             while (keys.hasNext()) { val k = keys.next(); putReqB.header(k, putHeaders.optString(k, "")) }
         }
-        httpClient.newCall(putReqB.build()).execute().use { resp ->
+        storageClient.newCall(putReqB.build()).execute().use { resp ->
             if (!resp.isSuccessful) throw MtV2Exception("Upload ke storage gagal HTTP ${resp.code}", resp.code, JSONObject())
         }
 
-        // 3) submit translate (EN->ID for manga reading; auto-detect source)
+        // 3) submit translate (English scanlation -> Indonesian)
         checkInterrupted()
         val submitBody = JSONObject().apply {
             put("upload_id", uploadId)
@@ -582,18 +674,35 @@ class MangaTranslateV2ChapterTranslator(
             put("model", "manga")
             put("translator", "auto")
         }
-        val submit = jsonRequest(MT_BASE + MT_SUBMIT, apiKey, submitBody)
+        val submit = jsonRequest(apiClient, MT_BASE + MT_SUBMIT, apiKey, submitBody)
         val subData = submit.optJSONObject("data") ?: submit
         val batchId = subData.optString("batch_id", subData.optString("batchId", subData.optString("task_id", subData.optString("id", ""))))
         if (batchId.isBlank()) throw MtV2Exception("batch_id tidak ditemukan", 0, submit)
+        // MangaTranslate charges the image when the task is accepted, not when the result is downloaded.
+        recordCreditUsed(apiKey)
 
         // 4) poll task
         val taskPath = MT_TASK_TMPL.replace("{batch_id}", batchId)
         val deadline = System.currentTimeMillis() + 8 * 60_000L
         var lastStatus = ""
+        var consecutivePollErrors = 0
         while (System.currentTimeMillis() < deadline) {
             checkInterrupted()
-            val task = getJson(MT_BASE + taskPath, apiKey)
+            val task = try {
+                getJson(apiClient, MT_BASE + taskPath, apiKey).also { consecutivePollErrors = 0 }
+            } catch (e: InterruptedException) {
+                Thread.currentThread().interrupt()
+                throw e
+            } catch (e: Exception) {
+                val transient = e is IOException || (e is MtV2Exception && (e.status == 429 || e.status >= 500))
+                if (!transient) throw e
+                consecutivePollErrors++
+                if (consecutivePollErrors >= 5) {
+                    throw TranslatorBusyException("Polling hasil tidak stabil setelah $consecutivePollErrors percobaan", e)
+                }
+                interruptibleSleep((1_000L * consecutivePollErrors).coerceAtMost(5_000L))
+                continue
+            }
             // The task endpoint returns either {data:{items:[...]}} or {data:[...]}; the array
             // shape is what mangatranslate.com currently serves. Without handling it the status
             // is never observed and polling waits until the timeout even though pages are done.
@@ -624,15 +733,12 @@ class MangaTranslateV2ChapterTranslator(
                 if (translatedUrl.isNullOrBlank()) {
                     val msg = itemErr.ifBlank { "Task selesai tanpa hasil ($lastStatus)" }
                     if (isCreditOrBusyMessage(msg) || isCreditOrBusyMessage(lastStatus)) throw TranslatorBusyException(msg)
-                    // treat as unavailable/unreliable so fallback can take over
-                    throw TranslatorBusyException(msg)
+                    // A single bad/blank page must not cancel the remaining chapter. Record it as
+                    // a page failure; the worker will finish other pages and retry only this slot.
+                    throw MtV2Exception(msg, 0, task)
                 }
                 // 5) download result
-                val dl = Request.Builder().url(translatedUrl).get().header("User-Agent", "Mozilla/5.0").build()
-                httpClient.newCall(dl).execute().use { resp ->
-                    if (!resp.isSuccessful) throw MtV2Exception("Download hasil gagal HTTP ${resp.code}", resp.code, JSONObject())
-                    return resp.body?.bytes() ?: throw MtV2Exception("Hasil kosong", 0, JSONObject())
-                }
+                return downloadTranslatedResult(translatedUrl)
             }
             interruptibleSleep(1000)
         }
@@ -644,38 +750,55 @@ class MangaTranslateV2ChapterTranslator(
         // called under provisionLock; re-check if another thread already provisioned
         pickKnownGoodApiKey(loadStore())?.let { return it }
 
-        val proxies = listOf<String?>(null) + MT_DEFAULT_PROXIES.shuffled()
-        val maxAttempts = minOf(proxies.size, 4)
-        val overallDeadline = System.currentTimeMillis() + 30_000L
+        val proxies = buildList<String?> {
+            if (!triedDirectProvision) {
+                add(null)
+                triedDirectProvision = true
+            }
+            if (provisionProxies.isNotEmpty()) {
+                repeat(minOf(provisionProxies.size, 16)) { offset ->
+                    add(provisionProxies[(provisionProxyIndex + offset) % provisionProxies.size])
+                }
+            }
+        }
+        val maxAttempts = proxies.size
+        val overallDeadline = System.currentTimeMillis() + 180_000L
         for (i in 0 until maxAttempts) {
             checkInterrupted()
             if (System.currentTimeMillis() > overallDeadline) break
             val proxyUrl = proxies[i]
+            if (proxyUrl != null && provisionProxies.isNotEmpty()) {
+                provisionProxyIndex = (provisionProxyIndex + 1) % provisionProxies.size
+            }
             val mtClient = clientForProxy(proxyUrl)
-            val attemptDeadline = minOf(overallDeadline, System.currentTimeMillis() + 18_000L)
-            val result = runCatching { provisionOnce(mtClient, directClient, attemptDeadline) }
+            val attemptDeadline = minOf(overallDeadline, System.currentTimeMillis() + 55_000L)
+            val result = runCatching { provisionOnce(mtClient, directClient, proxyUrl, attemptDeadline) }
             val pat = result.getOrNull()
             if (pat != null) return pat
             val err = result.exceptionOrNull() ?: continue
             android.util.Log.w("MangaTranslate", "provision attempt ${i + 1} failed: ${err.message}")
-            if (!isRetryableProvisionError(err) && i >= 1) return null
         }
         return null
     }
 
     private fun clientForProxy(proxyUrl: String?): OkHttpClient {
-        if (proxyUrl == null) return httpClient
-        val proxy = parseHttpProxy(proxyUrl) ?: return httpClient
-        return httpClient.newBuilder()
-            .proxy(proxy)
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(20, TimeUnit.SECONDS)
-            .writeTimeout(20, TimeUnit.SECONDS)
-            .callTimeout(30, TimeUnit.SECONDS)
-            .build()
+        if (proxyUrl != null) {
+            return proxyClients.getOrPut(proxyUrl) { buildProvisionClient(proxyUrl) }
+        }
+        return buildProvisionClient(null)
     }
 
-    private fun provisionOnce(mtClient: OkHttpClient, akunlamaClient: OkHttpClient, deadlineMs: Long): String? {
+    private fun buildProvisionClient(proxyUrl: String?): OkHttpClient {
+        val builder = httpClient.newBuilder()
+            .connectTimeout(8, TimeUnit.SECONDS)
+            .readTimeout(25, TimeUnit.SECONDS)
+            .writeTimeout(25, TimeUnit.SECONDS)
+            .callTimeout(45, TimeUnit.SECONDS)
+        if (proxyUrl != null) parseHttpProxy(proxyUrl)?.let { builder.proxy(it) }
+        return builder.build()
+    }
+
+    private fun provisionOnce(mtClient: OkHttpClient, akunlamaClient: OkHttpClient, proxyUrl: String?, deadlineMs: Long): String? {
         if (System.currentTimeMillis() > deadlineMs) return null
         val email = "mt_${randomHex(6)}@$DEFAULT_REG_DOMAIN"
         val password = "Mt!${randomHex(8)}Aa1"
@@ -685,7 +808,7 @@ class MangaTranslateV2ChapterTranslator(
         session.register(email, password)
         if (System.currentTimeMillis() > deadlineMs) return null
         // verify via akunlama inbox (best effort, direct client) and refresh the session afterwards
-        runCatching { session.verifyAkunlama(email, password, minOf(deadlineMs, System.currentTimeMillis() + 20_000L)) }
+        runCatching { session.verifyAkunlama(email, password, minOf(deadlineMs, System.currentTimeMillis() + 30_000L)) }
             .onFailure { android.util.Log.w("MangaTranslate", "verify failed: ${it.message}") }
         if (System.currentTimeMillis() > deadlineMs) return null
         val checkinStatus = runCatching { session.getCheckinStatus() }.getOrNull()
@@ -701,7 +824,7 @@ class MangaTranslateV2ChapterTranslator(
         if (pat.isBlank()) return null
         if (System.currentTimeMillis() > deadlineMs) return null
         // check credits (must be > 0)
-        val total = runCatching { session.getCreditsTotal() }.getOrNull() ?: runCatching { getCreditsWithPat(pat) }.getOrNull()
+        val total = runCatching { session.getCreditsTotal() }.getOrNull() ?: runCatching { getCreditsWithPat(pat, mtClient) }.getOrNull()
         val credits = total ?: -1.0
         if (credits <= 0.0) return null
         val store = loadStore()
@@ -719,6 +842,7 @@ class MangaTranslateV2ChapterTranslator(
             put("email", email); put("password", password); put("apiKey", pat)
             put("totalCredits", credits)
             put("createdAt", System.currentTimeMillis())
+            if (proxyUrl != null) put("proxyUrl", proxyUrl)
         }
         cleaned.put(acc)
         store.put("accounts", cleaned)

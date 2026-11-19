@@ -5,10 +5,13 @@ import android.app.NotificationManager
 import android.content.Context
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
 import androidx.work.ForegroundInfo
+import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
@@ -48,6 +51,7 @@ class MangaTranslateWorker(context: Context, params: WorkerParameters) : Corouti
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
+            Log.w(TAG, "chapter=$chapterId attempt=${runAttemptCount + 1} failed: ${e.message}", e)
             if (runAttemptCount < 2) {
                 Result.retry()
             } else {
@@ -91,12 +95,18 @@ class MangaTranslateWorker(context: Context, params: WorkerParameters) : Corouti
         const val KEY_ERROR = "error"
         private const val CHANNEL_ID = "manga_translate"
         private const val NOTIFICATION_ID_BASE = 7_401
+        private const val TAG = "MangaTranslateWorker"
 
         fun uniqueName(chapterId: String): String = "manga_translate_$chapterId"
 
         /** Enqueues (or keeps) a background translation for [chapterId]. */
         fun enqueue(context: Context, chapterId: String, mangaTitle: String, chapterLabel: String) {
             val request = OneTimeWorkRequestBuilder<MangaTranslateWorker>()
+                .setConstraints(
+                    Constraints.Builder()
+                        .setRequiredNetworkType(NetworkType.CONNECTED)
+                        .build(),
+                )
                 .setInputData(
                     workDataOf(
                         KEY_CHAPTER to chapterId,

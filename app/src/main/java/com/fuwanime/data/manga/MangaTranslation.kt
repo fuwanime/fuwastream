@@ -697,6 +697,17 @@ interface MangaChapterTranslator {
     /** `file://` URIs of cached translated pages when every page in the chapter is ready. */
     fun cachedChapterPages(cacheDir: File, chapterId: String, pageCount: Int): List<String>?
 
+    /**
+     * One cache slot per chapter page. A null slot means that page is still being translated.
+     * The default keeps other translator implementations source-compatible; progressive
+     * translators should override this so the reader can display completed pages immediately.
+     */
+    fun cachedChapterPageSlots(cacheDir: File, chapterId: String, pageCount: Int): List<String?> {
+        if (pageCount <= 0) return emptyList()
+        val complete = cachedChapterPages(cacheDir, chapterId, pageCount)
+        return complete?.map { it } ?: List(pageCount) { null }
+    }
+
     /** Translate all pages of a chapter and return local file:// URIs for the translated PNGs (cached). */
     suspend fun translateChapter(
         chapterId: String,
@@ -711,7 +722,7 @@ data class ChapterTranslationState(
     val running: Boolean = false,
     val done: Int = 0,
     val total: Int = 0,
-    /** Translated page URIs (file://) when complete. */
+    /** Reader page URIs. While running this mixes ready translations with original pages. */
     val pages: List<String>? = null,
     /** Localized failure message; internal exception text is never shown to the reader. */
     val error: UiText? = null,
