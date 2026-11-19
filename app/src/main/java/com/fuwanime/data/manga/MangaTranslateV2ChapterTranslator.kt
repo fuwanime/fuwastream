@@ -663,10 +663,18 @@ class MangaTranslateV2ChapterTranslator(
         if (System.currentTimeMillis() > deadlineMs) return null
         session.register(email, password)
         if (System.currentTimeMillis() > deadlineMs) return null
-        // verify via akunlama inbox (best effort, short wait, direct client)
-        runCatching { session.verifyAkunlama(email, minOf(deadlineMs, System.currentTimeMillis() + 12_000L)) }
+        // verify via akunlama inbox (best effort, direct client) and refresh the session afterwards
+        runCatching { session.verifyAkunlama(email, password, minOf(deadlineMs, System.currentTimeMillis() + 20_000L)) }
+            .onFailure { android.util.Log.w("MangaTranslate", "verify failed: ${it.message}") }
         if (System.currentTimeMillis() > deadlineMs) return null
-        runCatching { session.performCheckin() }
+        val checkinStatus = runCatching { session.getCheckinStatus() }.getOrNull()
+        val statusData = checkinStatus?.optJSONObject("data") ?: checkinStatus
+        val canCheckin = statusData?.optBoolean("can_checkin", false) == true
+        val todayChecked = statusData?.optBoolean("today_checked", false) == true
+        if (canCheckin || (statusData == null && !todayChecked)) {
+            runCatching { session.performCheckin() }
+                .onFailure { android.util.Log.w("MangaTranslate", "check-in failed: ${it.message}") }
+        }
         if (System.currentTimeMillis() > deadlineMs) return null
         val pat = runCatching { session.createApiKey() }.getOrNull().orEmpty()
         if (pat.isBlank()) return null
@@ -805,7 +813,30 @@ private class MtSession(
 
     fun createApiKey(): String {
         val out = postJson(MT_CREATE_API_KEY, JSONObject().put("name", "app-${System.currentTimeMillis()}"))
-        return out.optString("token", out.optString("api_key", out.optString("key", out.optJSONObject("data")?.optString("token", "") ?: "")))
+        val data = out.optJSONObject("data")
+        return sequenceOf(
+            out.optString("token"),
+            out.optString("api_key"),
+            out.optString("key"),
+            out.optString("plaintext_token"),
+            data?.optString("token").orEmpty(),
+            data?.optString("api_key").orEmpty(),
+            data?.optString("key").orEmpty(),
+            data?.optString("plaintext_token").orEmpty(),
+        ).firstOrNull { it.isNotBlank() }.orEmpty()
+    }
+
+    fun getCheckinStatus(): JSONObject? {
+        val req = Request.Builder().url(MT_BASE + MT_CHECKIN_STATUS).get()
+            .header("User-Agent", UA).header("Accept", "application/json")
+            .header("X-Browser-Fingerprint", fingerprint).header("X-CSRF-Token", csrf)
+            .header("X-Session-Proof", sessionProof(MT_CHECKIN_STATUS, "GET")).header("Cookie", cookieHeader())
+            .build()
+        http.newCall(req).execute().use { resp ->
+            absorbCookies(resp)
+            if (!resp.isSuccessful) return null
+            return runCatching { JSONObject(resp.body?.string().orEmpty()) }.getOrNull()
+        }
     }
 
     fun getCreditsTotal(): Double? {
@@ -839,8 +870,13 @@ private class MtSession(
         http.newCall(req).execute().use { resp -> absorbCookies(resp) }
     }
 
-    fun verifyAkunlama(email: String, deadlineMs: Long) {
-        // best-effort: request resend, poll inbox briefly for verify link, hit it. Use direct client for akunlama.
+    fun verifyAkunlama(email: String, password: String, deadlineMs: Long) {
+        // Already verified? Nothing to do.
+        val initial = runCatching { getCheckinStatus() }.getOrNull()
+        val initialData = initial?.optJSONObject("data") ?: initial
+        if (initialData?.optBoolean("email_verified", false) == true) return
+
+        // best-effort: request resend, poll inbox briefly for verify link, hit it.
         runCatching {
             val body = "{}".toRequestBody("application/json; charset=utf-8".toMediaType())
             val req = Request.Builder().url(MT_BASE + MT_RESEND_VERIFICATION).post(body)
@@ -861,11 +897,14 @@ private class MtSession(
                 val html = runCatching { akunlamaHtml(region, key) }.getOrDefault("")
                 val match = Regex("https://www\\.mangatranslate\\.com/verify-email/\\?token=[^\"'<>\\s]+").find(html)?.value
                 if (match != null) {
+                    // Consume the link with the direct client: akunlama/base verification pages
+                    // must never go through the (possibly dead) MangaTranslate proxies.
                     runCatching {
                         val vreq = Request.Builder().url(match).get().header("User-Agent", UA).build()
-                        http.newCall(vreq).execute().close()
+                        directHttp.newCall(vreq).execute().close()
                     }
-                    // refresh session
+                    // Verification changes account state; refresh the authenticated session.
+                    runCatching { login(email, password) }
                     runCatching { fetchPage("/") }
                     return
                 }
