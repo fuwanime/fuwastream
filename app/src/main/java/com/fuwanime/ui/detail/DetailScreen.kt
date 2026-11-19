@@ -104,6 +104,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import com.fuwanime.ui.theme.AnimeTheme
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.fuwanime.util.statusLabel
@@ -249,16 +250,25 @@ private fun DetailScreen(
     val hazeState = remember { HazeState() }
     // A dark colour from the poster for the header wash and the play button; null keeps the app's own colours.
     val context = LocalContext.current
+    var seed by remember { mutableStateOf<Color?>(null) }
     val tint by produceState<Color?>(null, anime?.poster) {
         val poster = anime?.poster.orEmpty()
-        value = if (poster.isBlank()) null else loadBitmap(context, poster, 64)?.let { bitmap ->
-            val palette = withContext(Dispatchers.Default) { Palette.from(bitmap).generate() }
-            posterTint(palette.darkVibrantSwatch?.rgb, palette.vibrantSwatch?.rgb, palette.dominantSwatch?.rgb)?.let { Color(it) }
+        if (poster.isBlank()) {
+            seed = null
+            value = null
+        } else {
+            loadBitmap(context, poster, 64)?.let { bitmap ->
+                val palette = withContext(Dispatchers.Default) { Palette.from(bitmap).generate() }
+                val vibrant = palette.vibrantSwatch?.rgb ?: palette.darkVibrantSwatch?.rgb ?: palette.dominantSwatch?.rgb
+                seed = vibrant?.let { Color(it) }
+                value = posterTint(palette.darkVibrantSwatch?.rgb, palette.vibrantSwatch?.rgb, palette.dominantSwatch?.rgb)?.let { Color(it) }
+            }
         }
     }
     // Arrives after the first frame: fade it in rather than pop.
     val headerTint by animateColorAsState(tint ?: Color.Transparent, label = "posterTint")
 
+    AnimeTheme(seed) {
     Box(Modifier.fillMaxSize()) {
         // Scrolling while the poster flies used to make it chase the header. Instead of locking the list, the link
         // is dropped the moment the user scrolls mid-transition: the poster settles into the header and scrolls with it.
@@ -548,6 +558,7 @@ private fun DetailScreen(
             onAutoDownload = vm::setAutoDownload,
             onDismiss = { notificationDialog = false },
         )
+    }
     }
 }
 

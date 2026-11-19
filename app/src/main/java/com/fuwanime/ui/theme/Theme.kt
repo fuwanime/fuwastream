@@ -7,11 +7,11 @@ import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
@@ -24,78 +24,34 @@ import androidx.compose.ui.unit.sp
 import com.fuwanime.R
 import com.fuwanime.data.local.AppSettings
 import com.fuwanime.data.local.ThemeMode
+import com.materialkolor.PaletteStyle
+import com.materialkolor.dynamicColorScheme
 
-// "Yozakura" palette: lavender primary, sakura secondary, sky tertiary on a near-black cinematic night.
-internal val DarkScheme = darkColorScheme(
-    primary = Color(0xFFD4BBFF),
-    onPrimary = Color(0xFF3A1B76),
-    primaryContainer = Color(0xFF52348E),
-    onPrimaryContainer = Color(0xFFEBDCFF),
-    inversePrimary = Color(0xFF6A4BC4),
-    secondary = Color(0xFFFFB0C9),
-    onSecondary = Color(0xFF5E1133),
-    secondaryContainer = Color(0xFF2A2238),
-    onSecondaryContainer = Color(0xFFFFD9E3),
-    tertiary = Color(0xFF8FD3F2),
-    onTertiary = Color(0xFF003548),
-    tertiaryContainer = Color(0xFF004D67),
-    onTertiaryContainer = Color(0xFFC1E8FF),
-    background = Color(0xFF0B0A0F),
-    onBackground = Color(0xFFE8E0EE),
-    surface = Color(0xFF0B0A0F),
-    onSurface = Color(0xFFE8E0EE),
-    surfaceVariant = Color(0xFF2B2734),
-    onSurfaceVariant = Color(0xFFA39DAE),
-    surfaceTint = Color(0xFFD4BBFF),
-    inverseSurface = Color(0xFFE8E0EE),
-    inverseOnSurface = Color(0xFF322F38),
-    outline = Color(0xFF958EA1),
-    outlineVariant = Color(0xFF2A2633),
-    error = Color(0xFFFFB4AB),
-    onError = Color(0xFF690005),
-    errorContainer = Color(0xFF93000A),
-    onErrorContainer = Color(0xFFFFDAD6),
-    surfaceBright = Color(0xFF36323D),
-    surfaceDim = Color(0xFF0B0A0F),
-    surfaceContainerLowest = Color(0xFF08070B),
-    surfaceContainerLow = Color(0xFF16141C),
-    surfaceContainer = Color(0xFF1A1721),
-    surfaceContainerHigh = Color(0xFF1F1C27),
-    surfaceContainerHighest = Color(0xFF312D39),
-)
+/** Seed for the app's default Material 3 palette: a vivid, friendly blue. */
+internal val BlueSeed = Color(0xFF2F6BFF)
 
-internal val LightScheme = lightColorScheme(
-    primary = Color(0xFF6A4BC4),
-    onPrimary = Color(0xFFFFFFFF),
-    primaryContainer = Color(0xFFEBDCFF),
-    onPrimaryContainer = Color(0xFF240061),
-    inversePrimary = Color(0xFFD4BBFF),
-    secondary = Color(0xFF9C3E5F),
-    onSecondary = Color(0xFFFFFFFF),
-    secondaryContainer = Color(0xFFFFD9E3),
-    onSecondaryContainer = Color(0xFF3E001C),
-    tertiary = Color(0xFF006686),
-    onTertiary = Color(0xFFFFFFFF),
-    tertiaryContainer = Color(0xFFC1E8FF),
-    onTertiaryContainer = Color(0xFF001E2B),
-    background = Color(0xFFFDF7FF),
-    onBackground = Color(0xFF1D1A22),
-    surface = Color(0xFFFDF7FF),
-    onSurface = Color(0xFF1D1A22),
-    surfaceVariant = Color(0xFFE8E0F0),
-    onSurfaceVariant = Color(0xFF4A4555),
-    surfaceTint = Color(0xFF6A4BC4),
-    inverseSurface = Color(0xFF322F38),
-    inverseOnSurface = Color(0xFFF5EFF7),
-    outline = Color(0xFF6A6474),
-    outlineVariant = Color(0xFFCBC3D7),
-    surfaceBright = Color(0xFFFDF7FF),
-    surfaceDim = Color(0xFFDED8E1),
-    surfaceContainerLowest = Color(0xFFFFFFFF),
-    surfaceContainerLow = Color(0xFFF8F1FA),
-    surfaceContainer = Color(0xFFF2ECF5),
-    surfaceContainerHigh = Color(0xFFECE6EF),
-    surfaceContainerHighest = Color(0xFFE6E0E9),
+/**
+ * Generated Material 3 blue schemes (TonalSpot). Static so the Glance widgets can reuse them through
+ * [androidx.glance.material3.ColorProviders]. The dark scheme gets deep navy tonal surfaces for the
+ * expressive look; the light scheme stays a clean blue-tinted paper.
+ */
+internal val DarkScheme = dynamicColorScheme(seedColor = BlueSeed, isDark = true, style = PaletteStyle.TonalSpot).toNavy()
+internal val LightScheme = dynamicColorScheme(seedColor = BlueSeed, isDark = false, style = PaletteStyle.TonalSpot)
+
+/** Deep navy tonal surfaces (Material 3 Expressive depth cue) layered under the generated blue roles. */
+private fun ColorScheme.toNavy() = copy(
+    background = Color(0xFF0A1120),
+    surface = Color(0xFF0A1120),
+    surfaceDim = Color(0xFF070D1A),
+    surfaceBright = Color(0xFF2A3A5C),
+    surfaceContainerLowest = Color(0xFF050A14),
+    surfaceContainerLow = Color(0xFF0E1626),
+    surfaceContainer = Color(0xFF121C30),
+    surfaceContainerHigh = Color(0xFF18243C),
+    surfaceContainerHighest = Color(0xFF1F2D4A),
+    surfaceVariant = Color(0xFF1E2A44),
+    onSurfaceVariant = Color(0xFFB6C2DC),
+    outlineVariant = Color(0xFF2A3A5C),
 )
 
 private fun ColorScheme.toAmoled() = copy(
@@ -103,10 +59,10 @@ private fun ColorScheme.toAmoled() = copy(
     surface = Color.Black,
     surfaceDim = Color.Black,
     surfaceContainerLowest = Color.Black,
-    surfaceContainerLow = Color(0xFF0B0A0F),
-    surfaceContainer = Color(0xFF121017),
-    surfaceContainerHigh = Color(0xFF1B1821),
-    surfaceContainerHighest = Color(0xFF25212C),
+    surfaceContainerLow = Color(0xFF060B16),
+    surfaceContainer = Color(0xFF0B1220),
+    surfaceContainerHigh = Color(0xFF121C30),
+    surfaceContainerHighest = Color(0xFF1A2740),
 )
 
 val PlusJakarta = FontFamily(
@@ -136,13 +92,17 @@ private val AppTypography = Typography().run {
     )
 }
 
+/** Expressive shape scale: fully rounded buttons/chips come from component defaults; cards are generous. */
 private val AppShapes = Shapes(
-    extraSmall = RoundedCornerShape(6.dp),
-    small = RoundedCornerShape(10.dp),
-    medium = RoundedCornerShape(16.dp),
-    large = RoundedCornerShape(24.dp),
+    extraSmall = RoundedCornerShape(8.dp),
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(20.dp),
+    large = RoundedCornerShape(28.dp),
     extraLarge = RoundedCornerShape(32.dp),
 )
+
+/** Whether the app is currently in dark mode, so content-seeded subtrees (anime color) can match. */
+val LocalFuwaDark = compositionLocalOf { true }
 
 @Composable
 fun FuwaTheme(settings: AppSettings = AppSettings(), content: @Composable () -> Unit) {
@@ -160,5 +120,7 @@ fun FuwaTheme(settings: AppSettings = AppSettings(), content: @Composable () -> 
     }
     val scheme = if (dark && settings.amoledBlack) base.toAmoled() else base
 
-    MaterialTheme(colorScheme = scheme, typography = AppTypography, shapes = AppShapes, content = content)
+    CompositionLocalProvider(LocalFuwaDark provides dark) {
+        MaterialTheme(colorScheme = scheme, typography = AppTypography, shapes = AppShapes, content = content)
+    }
 }
