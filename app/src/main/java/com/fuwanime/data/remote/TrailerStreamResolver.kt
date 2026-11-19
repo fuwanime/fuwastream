@@ -61,7 +61,39 @@ suspend fun resolveTrailerSources(url: String, client: OkHttpClient): List<Strea
 /** JSON helpers: the project's orEmpty() extensions for JSONArray live inside other files. */
 private fun JSONArray?.orJsonArray(): JSONArray = this ?: JSONArray()
 
+/** The YouTube Android app User-Agent — googlevideo stream URLs are tied to it. */
+const val YT_APP_UA = "com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip"
+
+/** The YouTube iOS app User-Agent — used for the IOS InnerTube client. */
+const val YT_IOS_UA = "com.google.ios.youtube/19.29.1 (iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X)"
+
+/**
+ * One InnerTube client attempt. YouTube has been progressively deprecating data returned to
+ * third-party clients: the ANDROID client used to be the only one with plain muxed URLs but
+ * since late 2024 it often returns ciphered streams or a bot-check (playability != OK), which
+ * surfaced in the app as a blank trailer player. The IOS client still returns plain (non-
+ * ciphered) muxed `formats[]` URLs, so it is tried first and ANDROID remains as fallback.
+ */
+private data class YtClient(val name: String, val version: String, val ua: String, val extra: JSONObject.() -> Unit = {})
+
+private val YT_CLIENTS = listOf(
+    YtClient("IOS", "19.29.1", YT_IOS_UA) {
+        put("deviceModel", "iPhone16,2")
+    },
+    YtClient("ANDROID", "19.09.37", YT_APP_UA) {
+        put("androidSdkVersion", 30)
+    },
+)
+
 private fun youtubeSources(id: String, client: OkHttpClient): List<StreamSource> {
+    for (yt in YT_CLIENTS) {
+        val out = youtubeSourcesFor(yt, id, client)
+        if (out.isNotEmpty()) return out
+    }
+    return emptyList()
+}
+
+private fun youtubeSourcesFor(yt: YtClient, id: String, client: OkHttpClient): List<StreamSource> {
     return runCatching {
         val body = JSONObject().apply {
             put(
@@ -69,11 +101,11 @@ private fun youtubeSources(id: String, client: OkHttpClient): List<StreamSource>
                 JSONObject().put(
                     "client",
                     JSONObject()
-                        .put("clientName", "ANDROID")
-                        .put("clientVersion", "19.09.37")
-                        .put("androidSdkVersion", 30)
+                        .put("clientName", yt.name)
+                        .put("clientVersion", yt.version)
                         .put("hl", "en")
-                        .put("gl", "US"),
+                        .put("gl", "US")
+                        .apply(yt.extra),
                 ),
             )
             put("videoId", id)
@@ -82,7 +114,7 @@ private fun youtubeSources(id: String, client: OkHttpClient): List<StreamSource>
         }
         val req = Request.Builder()
             .url("https://www.youtube.com/youtubei/v1/player?prettyPrint=false")
-            .header("User-Agent", "com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip")
+            .header("User-Agent", yt.ua)
             .header("Content-Type", "application/json")
             .post(body.toString().toRequestBody("application/json".toMediaType()))
             .build()
