@@ -90,6 +90,13 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
+import android.view.WindowManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -218,6 +225,11 @@ class MangaReaderViewModel(
 
     val autoScrollEnabled: StateFlow<Boolean> = settings.mangaAutoScroll
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    val keepScreenOn: StateFlow<Boolean> = settings.mangaKeepScreenOn
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun setKeepScreenOn(enabled: Boolean) = viewModelScope.launch { settings.setMangaKeepScreenOn(enabled) }
 
     val readerMode: StateFlow<ReaderMode> = library.preference(mangaId).map { pref ->
         pref?.readerMode?.let { raw -> ReaderMode.entries.firstOrNull { it.name == raw } } ?: ReaderMode.WEBTOON
@@ -459,18 +471,36 @@ fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
     val translation by vm.translation.collectAsStateWithLifecycle()
     val translationEnabled by vm.translationEnabled.collectAsStateWithLifecycle()
     val autoScrollEnabled by vm.autoScrollEnabled.collectAsStateWithLifecycle()
-    var barsVisible by rememberSaveable { mutableStateOf(true) }
+    val keepScreenOn by vm.keepScreenOn.collectAsStateWithLifecycle()
+    var controls by remember { mutableStateOf(ReaderControlsState(visible = true, lastInteractionMs = System.currentTimeMillis())) }
     var pickerOpen by rememberSaveable { mutableStateOf(false) }
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val showControlsLabel = stringResource(R.string.manga_reader_show_controls)
+    fun touch() { controls = controls.touched(System.currentTimeMillis()) }
+
+    // Auto-hide the reader bars after a short idle period.
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(250)
+            controls = controls.tick(System.currentTimeMillis())
+        }
+    }
 
     val activity = LocalContext.current.findActivity()
-    DisposableEffect(activity, barsVisible) {
+    DisposableEffect(activity, controls.visible) {
         val window = activity?.window
         val controller = window?.let { WindowCompat.getInsetsController(it, it.decorView) }
         controller?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        if (barsVisible) controller?.show(WindowInsetsCompat.Type.systemBars()) else controller?.hide(WindowInsetsCompat.Type.systemBars())
+        if (controls.visible) controller?.show(WindowInsetsCompat.Type.systemBars()) else controller?.hide(WindowInsetsCompat.Type.systemBars())
         onDispose { controller?.show(WindowInsetsCompat.Type.systemBars()) }
+    }
+
+    // Keep the screen awake while reading, when the user opted in.
+    DisposableEffect(activity, keepScreenOn) {
+        val window = activity?.window
+        if (keepScreenOn) window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        onDispose { window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
     }
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
@@ -593,42 +623,73 @@ fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
                     if (readerMode != ReaderMode.WEBTOON && pagerState.settledPage >= pages.size) openNext()
                 }
 
-                if (readerMode == ReaderMode.WEBTOON) {
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier.fillMaxSize().nestedScroll(endScrollConnection).clickable(
-                            interactionSource = remember { MutableInteractionSource() }, indication = null,
-                        ) {
-                            if (next != null && !listState.canScrollForward) openNext()
-                            else barsVisible = !barsVisible
-                        },
-                    ) {
-                        item(key = "credit-top") { Credit(chapter, Modifier.statusBarsPadding().padding(top = 56.dp, bottom = 8.dp)) }
-                        itemsIndexed(pages, key = { i, _ -> "${chapter.id}-$i" }) { i, url ->
-                            Page(url = url, index = i, generation = state.generation, onFailed = vm::refreshPages)
+                var zoom by remember { mutableStateOf(ZoomState()) }
+                Box(
+                    Modifier.fillMaxSize()
+                        .graphicsLayer {
+                            scaleX = zoom.scale
+                            scaleY = zoom.scale
+                            translationX = zoom.offsetX
+                            translationY = zoom.offsetY
                         }
-                        item(key = "end") { EndCard(label, chapter, next, onNext = openNext) }
-                    }
-                } else {
-                    HorizontalPager(
-                        state = pagerState,
-                        reverseLayout = readerMode == ReaderMode.RIGHT_TO_LEFT,
-                        modifier = Modifier.fillMaxSize(),
-                        key = { "${chapter.id}-$it" },
-                    ) { page ->
-                        if (page >= pages.size) {
-                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                EndCard(label, chapter, next, onNext = openNext)
-                            }
-                        } else {
-                            Box(
-                                Modifier.fillMaxSize().clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
-                                    if (shouldAdvanceReaderOnTap(page, pages.size, next != null)) openNext()
-                                    else barsVisible = !barsVisible
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onTap = {
+                                    if (readerMode == ReaderMode.WEBTOON) {
+                                        if (next != null && !listState.canScrollForward) openNext()
+                                        else controls = controls.toggled(System.currentTimeMillis())
+                                    } else {
+                                        if (shouldAdvanceReaderOnTap(currentPage, pages.size, next != null)) openNext()
+                                        else controls = controls.toggled(System.currentTimeMillis())
+                                    }
                                 },
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                ReaderPage(url = pages[page], index = page, generation = state.generation, onFailed = vm::refreshPages)
+                                onDoubleTap = { offset ->
+                                    zoom = doubleTapZoom(zoom, offset.x, offset.y, size.width.toFloat(), size.height.toFloat())
+                                },
+                            )
+                        }
+                        .pointerInput(zoom.scale > READER_MIN_ZOOM) {
+                            if (zoom.scale > READER_MIN_ZOOM) {
+                                detectTransformGestures { centroid, pan, zoomChange, _ ->
+                                    zoom = applyPinch(zoom, zoomChange, pan.x, pan.y, centroid.x, centroid.y, size.width.toFloat(), size.height.toFloat())
+                                }
+                            }
+                        }
+                        .semantics {
+                            customActions = listOf(
+                                CustomAccessibilityAction(showControlsLabel) {
+                                    controls = controls.shown(System.currentTimeMillis())
+                                    true
+                                },
+                            )
+                        },
+                ) {
+                    if (readerMode == ReaderMode.WEBTOON) {
+                        LazyColumn(
+                            state = listState,
+                            modifier = Modifier.fillMaxSize().nestedScroll(endScrollConnection),
+                        ) {
+                            item(key = "credit-top") { Credit(chapter, Modifier.statusBarsPadding().padding(top = 56.dp, bottom = 8.dp)) }
+                            itemsIndexed(pages, key = { i, _ -> "${chapter.id}-$i" }) { i, url ->
+                                Page(url = url, index = i, generation = state.generation, onFailed = vm::refreshPages)
+                            }
+                            item(key = "end") { EndCard(label, chapter, next, onNext = openNext) }
+                        }
+                    } else {
+                        HorizontalPager(
+                            state = pagerState,
+                            reverseLayout = readerMode == ReaderMode.RIGHT_TO_LEFT,
+                            modifier = Modifier.fillMaxSize(),
+                            key = { "${chapter.id}-$it" },
+                        ) { page ->
+                            if (page >= pages.size) {
+                                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    EndCard(label, chapter, next, onNext = openNext)
+                                }
+                            } else {
+                                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    ReaderPage(url = pages[page], index = page, generation = state.generation, onFailed = vm::refreshPages)
+                                }
                             }
                         }
                     }
@@ -636,7 +697,7 @@ fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
 
                 // Compact progress banner: reading can continue while completed pages appear in place.
                 AnimatedVisibility(
-                    visible = translation.running && (barsVisible || translation.done == 0),
+                    visible = translation.running && (controls.visible || translation.done == 0),
                     enter = fadeIn(),
                     exit = fadeOut(),
                     modifier = Modifier.align(Alignment.TopCenter),
@@ -705,16 +766,16 @@ fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
                     }
                 }
 
-                AnimatedVisibility(barsVisible, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.TopCenter)) {
+                AnimatedVisibility(controls.visible, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.TopCenter)) {
                     Row(
                         Modifier.fillMaxWidth().background(Color.Black.copy(alpha = 0.75f)).statusBarsPadding().padding(4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.mine_back), tint = Color.White) }
+                        IconButton(onClick = { touch(); onBack() }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.mine_back), tint = Color.White) }
                         Column(Modifier.weight(1f)) {
                             Text(state.manga?.title.orEmpty(), color = Color.White, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Row(
-                                Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClickLabel = stringResource(R.string.manga_reader_pick)) { pickerOpen = true }.padding(vertical = 2.dp),
+                                Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClickLabel = stringResource(R.string.manga_reader_pick)) { touch(); pickerOpen = true }.padding(vertical = 2.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 val translationSuffix = when {
@@ -726,10 +787,10 @@ fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
                                 Icon(Icons.Rounded.ArrowDropDown, null, tint = Color.White)
                             }
                         }
-                        IconButton(onClick = { previous?.let { vm.open(it.id) } }, enabled = previous != null) {
+                        IconButton(onClick = { touch(); previous?.let { vm.open(it.id) } }, enabled = previous != null) {
                             Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, stringResource(R.string.manga_reader_prev), tint = if (previous != null) Color.White else Color.White.copy(alpha = 0.3f))
                         }
-                        IconButton(onClick = { next?.let { vm.open(it.id) } }, enabled = next != null) {
+                        IconButton(onClick = { touch(); next?.let { vm.open(it.id) } }, enabled = next != null) {
                             Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, stringResource(R.string.manga_reader_next), tint = if (next != null) Color.White else Color.White.copy(alpha = 0.3f))
                         }
                         if (translationAvailable) {
@@ -737,11 +798,11 @@ fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
                                 Icon(Icons.Rounded.Translate, stringResource(R.string.manga_reader_translate), tint = if (showingTranslated) MaterialTheme.colorScheme.primary else Color.White)
                             }
                         }
-                        IconButton(onClick = { settingsOpen = true }) { Icon(Icons.Rounded.Settings, stringResource(R.string.ux_reader_settings), tint = Color.White) }
+                        IconButton(onClick = { touch(); settingsOpen = true }) { Icon(Icons.Rounded.Settings, stringResource(R.string.ux_reader_settings), tint = Color.White) }
                     }
                 }
                 if (pickerOpen) ChapterPicker(readable, chapter.id, onPick = { pickerOpen = false; if (it != chapter.id) vm.open(it) }, onDismiss = { pickerOpen = false })
-                AnimatedVisibility(barsVisible, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.BottomCenter)) {
+                AnimatedVisibility(controls.visible, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.BottomCenter)) {
                     Column(Modifier.fillMaxWidth().background(Color.Black.copy(alpha = 0.75f)).navigationBarsPadding().padding(4.dp)) {
                         if (translationAvailable && !showingTranslated && !translation.running) {
                             TextButton(onClick = { vm.translateCurrentChapter() }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
@@ -750,11 +811,11 @@ fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
                             }
                         }
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { previous?.let { vm.open(it.id) } }, enabled = previous != null) {
+                            IconButton(onClick = { touch(); previous?.let { vm.open(it.id) } }, enabled = previous != null) {
                                 Icon(Icons.Rounded.SkipPrevious, stringResource(R.string.manga_reader_prev), tint = if (previous != null) Color.White else Color.White.copy(alpha = 0.3f))
                             }
                             Text(stringResource(R.string.manga_reader_page, currentPage + 1, pages.size), color = Color.White, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
-                            IconButton(onClick = { next?.let { vm.open(it.id) } }, enabled = next != null) {
+                            IconButton(onClick = { touch(); next?.let { vm.open(it.id) } }, enabled = next != null) {
                                 Icon(Icons.Rounded.SkipNext, stringResource(R.string.manga_reader_next), tint = if (next != null) Color.White else Color.White.copy(alpha = 0.3f))
                             }
                         }
@@ -773,6 +834,8 @@ fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
                     selected = readerMode, onSelect = vm::setReaderMode,
                     autoScrollEnabled = autoScrollEnabled,
                     onAutoScrollChange = vm::setAutoScrollEnabled,
+                    keepScreenOn = keepScreenOn,
+                    onKeepScreenOnChange = vm::setKeepScreenOn,
                     translationAvailable = translationAvailable, translationEnabled = translationEnabled,
                     showingTranslated = showingTranslated,
                     translationRunning = translation.running,
@@ -894,6 +957,7 @@ private fun ReaderPage(url: String, index: Int, generation: Int, onFailed: () ->
 private fun ReaderSettingsSheet(
     selected: ReaderMode, onSelect: (ReaderMode) -> Unit,
     autoScrollEnabled: Boolean, onAutoScrollChange: (Boolean) -> Unit,
+    keepScreenOn: Boolean, onKeepScreenOnChange: (Boolean) -> Unit,
     translationAvailable: Boolean, translationEnabled: Boolean, showingTranslated: Boolean,
     translationRunning: Boolean,
     onTranslate: () -> Unit, onShowOriginal: () -> Unit, onTranslationPrefChange: (Boolean) -> Unit,
@@ -936,6 +1000,21 @@ private fun ReaderSettingsSheet(
                 onCheckedChange = onAutoScrollChange,
                 enabled = autoScrollAvailable,
             )
+        }
+        Row(
+            Modifier.fillMaxWidth().clickable { onKeepScreenOnChange(!keepScreenOn) }
+                .padding(horizontal = 20.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.manga_settings_keep_screen_on), style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    stringResource(R.string.manga_settings_keep_screen_on_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Switch(checked = keepScreenOn, onCheckedChange = onKeepScreenOnChange)
         }
         if (translationAvailable) {
             HorizontalDivider(Modifier.padding(horizontal = 20.dp))

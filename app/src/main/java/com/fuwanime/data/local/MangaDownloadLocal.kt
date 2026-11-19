@@ -48,6 +48,12 @@ interface MangaDownloadDao {
     @Query("SELECT * FROM manga_downloads WHERE mangaId = :mangaId")
     suspend fun allFor(mangaId: String): List<MangaDownloadEntity>
 
+    @Query("SELECT * FROM manga_downloads")
+    suspend fun all(): List<MangaDownloadEntity>
+
+    @Query("DELETE FROM manga_downloads")
+    suspend fun clear()
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(e: MangaDownloadEntity)
 

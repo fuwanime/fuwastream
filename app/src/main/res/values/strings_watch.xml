@@ -148,4 +148,6 @@
     <plurals name="watch_sleep_minutes">
         <item quantity="other">%1$d menit</item>
     </plurals>
+    <string name="watch_seek_slider_cd">Penggeser waktu pemutaran</string>
+    <string name="watch_seek_position">%1$s dari %2$s</string>
 </resources>

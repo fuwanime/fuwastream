@@ -90,6 +90,7 @@ internal object Keys {
     val videoResize = stringPreferencesKey("video_resize")
     val mangaTranslate = booleanPreferencesKey("manga_translate")
     val mangaAutoScroll = booleanPreferencesKey("manga_auto_scroll")
+    val mangaKeepScreenOn = booleanPreferencesKey("manga_keep_screen_on")
     val mangaMature = booleanPreferencesKey("manga_mature")
     val backupTreeUri = stringPreferencesKey("backup_tree_uri")
     val backupAuto = booleanPreferencesKey("backup_auto")
@@ -212,6 +213,10 @@ class SettingsStore(private val context: Context) {
     /** Continuously advances the vertical manga reader; off by default so existing reading behavior never changes. */
     val mangaAutoScroll: Flow<Boolean> = context.dataStore.data.map { it[Keys.mangaAutoScroll] ?: false }
     suspend fun setMangaAutoScroll(enabled: Boolean) = context.dataStore.edit { it[Keys.mangaAutoScroll] = enabled }
+
+    /** Keep the screen awake while the manga reader is open. */
+    val mangaKeepScreenOn: Flow<Boolean> = context.dataStore.data.map { it[Keys.mangaKeepScreenOn] ?: false }
+    suspend fun setMangaKeepScreenOn(enabled: Boolean) = context.dataStore.edit { it[Keys.mangaKeepScreenOn] = enabled }
 
     /**
      * Global mature-content switch. The existing `manga_mature` storage key is retained so users and backups keep

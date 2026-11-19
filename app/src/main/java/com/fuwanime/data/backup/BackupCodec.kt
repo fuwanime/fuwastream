@@ -80,7 +80,7 @@ private val SETTING_TYPES = mapOf(
     "dynamic_color" to "boolean", "amoled_black" to "boolean", "auto_play_next" to "boolean", "auto_pip" to "boolean",
     "download_wifi_only" to "boolean", "notify_new_episodes" to "boolean", "auto_skip_op" to "boolean",
     "notify_ongoing_anime" to "boolean", "notify_new_chapters" to "boolean",
-    "jump_ahead_button" to "boolean", "age_confirmed" to "boolean", "background_audio" to "boolean", "manga_data_saver" to "boolean", "manga_mature" to "boolean", "manga_translate" to "boolean", "manga_auto_scroll" to "boolean",
+    "jump_ahead_button" to "boolean", "age_confirmed" to "boolean", "background_audio" to "boolean", "manga_data_saver" to "boolean", "manga_mature" to "boolean", "manga_translate" to "boolean", "manga_auto_scroll" to "boolean", "manga_keep_screen_on" to "boolean",
     "preferred_quality" to "int", "double_tap_seek_seconds" to "int", "download_quality" to "int", "mobile_data_quality" to "int",
 )
 private val SUPPORTED_TYPES = setOf("string", "boolean", "int", "long", "double")
