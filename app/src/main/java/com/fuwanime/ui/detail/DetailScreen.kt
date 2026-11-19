@@ -398,16 +398,14 @@ private fun DetailScreen(
                 item(key = "info") { Box(Modifier.navEnter(200)) { InfoGrid(anime, state.meta) } }
                 state.meta?.takeIf { it.trailerUrl.isNotBlank() }?.let { meta ->
                     item(key = "trailer") {
-                        var trailerOpen by rememberSaveable { mutableStateOf(false) }
-                        TrailerCard(
+                        // Inline player: tap swaps the poster for the embedded player in place —
+                        // no dialog, no navigation, playback stays on the detail page.
+                        InlineTrailerPlayer(
                             thumbnail = meta.trailerThumbnail,
                             fallbackThumbnail = anime?.let { a -> a.cover.ifBlank { a.poster } }.orEmpty(),
-                            onClick = { trailerOpen = true },
+                            trailerUrl = meta.trailerUrl,
                             modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp),
                         )
-                        if (trailerOpen) {
-                            TrailerPlayerDialog(url = meta.trailerUrl, onDismiss = { trailerOpen = false })
-                        }
                     }
                 }
                 if (state.meta?.sourceTitles?.isNotEmpty() == true) {
