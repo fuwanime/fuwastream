@@ -148,4 +148,6 @@
     <plurals name="watch_sleep_minutes">
         <item quantity="other">%1$d 分钟</item>
     </plurals>
+    <string name="watch_seek_slider_cd">播放进度滑块</string>
+    <string name="watch_seek_position">%1$s / 共 %2$s</string>
 </resources>

@@ -191,6 +191,16 @@ class MangaDownloadRepository(private val context: Context, private val dao: Man
         }
     }
 
+    /** Deletes every chapter row, all page folders and CBZ files; used by "Hapus semua data". */
+    suspend fun clearAll() {
+        val rows = dao.all()
+        dao.clear()
+        withContext(Dispatchers.IO) {
+            File(root(), "manga").deleteRecursively()
+            rows.mapNotNull { it.fileUri }.forEach(::deleteDocument)
+        }
+    }
+
     private fun deleteDocument(uri: String) {
         val u = Uri.parse(uri)
         if (u.scheme == "file") File(u.path!!).delete()
