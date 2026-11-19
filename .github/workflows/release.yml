@@ -3,7 +3,8 @@ name: Release Build
 on:
   push:
     tags:
-      - "v[0-9]+.[0-9]+.[0-9]+*"
+      # GitHub tag filters are globs, not regex: "v[0-9]+..." never matched v2.8.0.
+      - "v*.*.*"
   workflow_dispatch:
     inputs:
       bump_type:
