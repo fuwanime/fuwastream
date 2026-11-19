@@ -179,6 +179,11 @@ class MangaExploreViewModel(private val repo: MangaRepository) : ViewModel() {
             val id = async {
                 when {
                     a.q.isNotBlank() -> repo.searchIndonesia(a.q)
+                    // Lists carry no genres, so a genre is asked of Komiku's own filter and the hits are marked with it.
+                    a.tags.size == 1 -> {
+                        val genre = a.tags.first()
+                        (1..3).flatMap { p -> quiet { repo.popularKomiku(p, a.type, genre).items }.orEmpty() }.map { it.copy(tags = listOf(genre)) }
+                    }
                     else -> quiet { repo.popularIndonesia(1, a.type).items }.orEmpty() +
                         quiet { repo.popularKomiku(1, a.type).items }.orEmpty()
                 }
