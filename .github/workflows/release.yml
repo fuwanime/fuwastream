@@ -3,8 +3,8 @@ name: Release Build
 on:
   push:
     tags:
-      # GitHub tag filters are globs, not regex: "v[0-9]+..." never matched v2.8.0.
-      - "v*.*.*"
+      # GitHub tag filters are globs, not regex. "v*" matches every v-prefixed SemVer tag.
+      - "v*"
   workflow_dispatch:
     inputs:
       bump_type:
