@@ -39,6 +39,9 @@ fun htmlLine(s: String): String = htmlText(s).replace(Regex("\\s+"), " ")
 
 private fun slugOf(href: String): String? = Regex("/manga/([^/]+)/?").find(href)?.groupValues?.get(1)
 
+/** Komiku's genre slug for a genre name: "Slice of Life" -> "slice-of-life". */
+fun komikuGenreSlug(name: String): String = name.trim().lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-')
+
 /** A list page from api.komiku.org (popular, latest, search): title, slug and cover per card. */
 fun parseKomikuList(html: String): List<Manga> =
     Regex("""<div class="bge">.*?<a href="([^"]+)".*?<img[^>]+src="([^"]+)".*?<h3>\s*(.*?)\s*</h3>""", RegexOption.DOT_MATCHES_ALL)
@@ -124,9 +127,9 @@ class KomikuSource(private val client: OkHttpClient) {
     }
 
     /** [order]: "meta_value_num" (popular) or "modified" (latest). 10 titles per page. */
-    suspend fun browse(order: String, page: Int = 1, tipe: String? = null): MangaPage {
+    suspend fun browse(order: String, page: Int = 1, tipe: String? = null, genre: String? = null): MangaPage {
         val path = if (page <= 1) "manga/" else "manga/page/$page/"
-        val items = parseKomikuList(get("$API$path?orderby=$order" + (tipe?.let { "&tipe=$it" } ?: "")))
+        val items = parseKomikuList(get("$API$path?orderby=$order" + (tipe?.let { "&tipe=$it" } ?: "") + (genre?.let { "&genre=${komikuGenreSlug(it)}" } ?: "")))
         return MangaPage(items, if (items.isEmpty()) 0 else Int.MAX_VALUE, (page - 1) * 10)
     }
 

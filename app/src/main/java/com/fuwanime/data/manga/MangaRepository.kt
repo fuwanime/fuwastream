@@ -98,8 +98,8 @@ class MangaRepository(
     }
 
     /** Popular Komiku titles; [page] is 1-based, 10 per page. */
-    suspend fun popularKomiku(page: Int = 1, type: MangaType? = null): MangaPage =
-        komiku?.browse("meta_value_num", page, type?.slug) ?: MangaPage(emptyList(), 0, 0)
+    suspend fun popularKomiku(page: Int = 1, type: MangaType? = null, genre: String? = null): MangaPage =
+        komiku?.browse("meta_value_num", page, type?.slug, genre) ?: MangaPage(emptyList(), 0, 0)
 
     fun language(): String = appLanguage()
 
