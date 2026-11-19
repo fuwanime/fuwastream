@@ -74,28 +74,34 @@ private const val UA_MOBILE =
 /** The embed URL (already embed-specific) plus how the WebView should load it. */
 internal class EmbedAttempt(val userAgent: String, val baseUrl: String?, val url: String, val html: String?)
 
-private fun playerHtml(embedSrc: String, withJsApi: Boolean): String = buildString {
+private fun playerHtml(embedSrc: String): String = buildString {
     append("""<!DOCTYPE html><html><head><meta charset="utf-8">""")
     append("""<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">""")
     append("""<style>html,body{margin:0;padding:0;height:100%;background:#000;overflow:hidden}""")
     append("""iframe{width:100%;height:100%;border:0}</style></head><body>""")
     append("""<iframe id="p" src="$embedSrc" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen frameborder="0"></iframe>""")
-    if (withJsApi) {
-        // The enablejsapi player waits for the host's "listening" handshake before it plays.
-        append("""<script>
-          var p = document.getElementById('p');
-          p.onload = function () { p.contentWindow.postMessage(JSON.stringify({event: 'listening'}), '*'); };
-          window.addEventListener('message', function (e) {
-            try {
-              var d = JSON.parse(e.data);
-              if (d && (d.event === 'onError' || d.event === 'error')) {
-                var code = (typeof d.info === 'number') ? d.info : ((d.info && d.info.errorCode) || 1);
-                window.AndroidHook.playerError(code);
-              }
-            } catch (_) {}
-          });
-        </script>""")
-    }
+    append("""<script>
+      var p = document.getElementById('p');
+      p.onload = function () {
+        p.contentWindow.postMessage(JSON.stringify({event: 'listening'}), '*');
+      };
+      window.addEventListener('message', function (e) {
+        try {
+          var d = JSON.parse(e.data);
+          if (!d) return;
+          if (d.event === 'onError' || d.event === 'error') {
+            var code = (typeof d.info === 'number') ? d.info : ((d.info && d.info.errorCode) || 1);
+            window.AndroidHook.playerError(code);
+          }
+          if (d.event === 'onStateChange' && d.info === 1) {
+            window.AndroidHook.playerPlaying();
+          }
+          if (d.event === 'onReady') {
+            window.AndroidHook.playerReady();
+          }
+        } catch (_) {}
+      });
+    </script>""")
     append("</body></html>")
 }
 
@@ -120,13 +126,13 @@ internal fun embedAttempts(url: String): List<EmbedAttempt> {
                     EmbedAttempt(
                         UA_DESKTOP, YT_BASE,
                         "$YT_BASE/embed/$id?autoplay=1&playsinline=1&rel=0&enablejsapi=1&origin=$YT_BASE",
-                        playerHtml("$YT_BASE/embed/$id?autoplay=1&playsinline=1&rel=0&enablejsapi=1&origin=$YT_BASE", withJsApi = true),
+                        playerHtml("$YT_BASE/embed/$id?autoplay=1&playsinline=1&rel=0&enablejsapi=1&origin=$YT_BASE"),
                     ),
                     // 2: plain mobile embed without JS-API — works on many Android WebViews.
                     EmbedAttempt(
                         UA_MOBILE, YT_BASE,
                         "$YT_BASE/embed/$id?autoplay=1&playsinline=1&rel=0",
-                        playerHtml("$YT_BASE/embed/$id?autoplay=1&playsinline=1&rel=0", withJsApi = false),
+                        playerHtml("$YT_BASE/embed/$id?autoplay=1&playsinline=1&rel=0"),
                     ),
                     // 3: direct load with a Referer header — the classic Error-153 fix.
                     EmbedAttempt(UA_MOBILE, null, "$YT_BASE/embed/$id?autoplay=1&playsinline=1&rel=0", null),
@@ -136,7 +142,7 @@ internal fun embedAttempts(url: String): List<EmbedAttempt> {
                 val id = uri.path?.trim('/')?.substringAfterLast('/')
                 if (id.isNullOrBlank()) return@runCatching emptyList()
                 val base = "https://www.dailymotion.com"
-                listOf(EmbedAttempt(UA_DESKTOP, base, "$base/embed/video/$id?autoplay=1", playerHtml("$base/embed/video/$id?autoplay=1", withJsApi = false)))
+                listOf(EmbedAttempt(UA_DESKTOP, base, "$base/embed/video/$id?autoplay=1", playerHtml("$base/embed/video/$id?autoplay=1")))
             }
             else -> emptyList()
         }
@@ -155,8 +161,21 @@ fun InlineTrailerPlayer(
     // codes advance the retry ladder until it is exhausted.
     var lastError by remember { mutableIntStateOf(-1) }
     var strategy by remember { mutableIntStateOf(0) }
+    var playbackConfirmed by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val attempts = remember(trailerUrl) { embedAttempts(trailerUrl) }
+
+    // Watchdog: YouTube can fail SILENTLY (dead black WebView, no postMessage error at all).
+    // If no onStateChange(playing) / onReady arrives in time, advance to the next strategy;
+    // exhausting the ladder shows the fallback instead of a permanent black rectangle.
+    androidx.compose.runtime.LaunchedEffect(playing, strategy) {
+        if (!playing || strategy >= attempts.size) return@LaunchedEffect
+        playbackConfirmed = false
+        kotlinx.coroutines.delay(14_000)
+        if (!playbackConfirmed) {
+            if (strategy < attempts.size - 1) strategy++ else lastError = -2
+        }
+    }
 
     Box(
         modifier
@@ -233,21 +252,24 @@ fun InlineTrailerPlayer(
                                 settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
                                 settings.userAgentString = attempt.userAgent
                                 addJavascriptInterface(
-                                    PlayerErrorHook { code ->
-                                        handler.post {
-                                            if (code == 101 || code == 150) {
-                                                // Uploader disabled embedding (or video gone): no
-                                                // strategy will ever help — show the final fallback.
-                                                lastError = code
-                                            } else if (strategy < attempts.size - 1) {
-                                                // Config-type error (152/153/2/5/...): try the next
-                                                // loading strategy; key(strategy) recreates the WebView.
-                                                strategy++
-                                            } else {
-                                                lastError = code
+                                    PlayerHook(
+                                        onError = { code ->
+                                            handler.post {
+                                                if (code == 101 || code == 150) {
+                                                    // Uploader disabled embedding (or video gone): no
+                                                    // strategy will ever help — show the final fallback.
+                                                    lastError = code
+                                                } else if (strategy < attempts.size - 1) {
+                                                    // Config-type error (152/153/2/5/...): try the next
+                                                    // loading strategy; key(strategy) recreates the WebView.
+                                                    strategy++
+                                                } else {
+                                                    lastError = code
+                                                }
                                             }
-                                        }
-                                    },
+                                        },
+                                        onPlaying = { handler.post { playbackConfirmed = true } },
+                                    ),
                                     "AndroidHook",
                                 )
                                 webViewClient = object : WebViewClient() {
@@ -281,8 +303,17 @@ fun InlineTrailerPlayer(
     }
 }
 
-/** JS bridge: the wrapper page forwards the YouTube player's onError event to this hook. */
-private class PlayerErrorHook(private val onError: (Int) -> Unit) {
+/** JS bridge: the wrapper page forwards the YouTube player's events to this hook. */
+private class PlayerHook(
+    private val onError: (Int) -> Unit,
+    private val onPlaying: () -> Unit,
+) {
     @JavascriptInterface
     fun playerError(code: Int) = onError(code)
+
+    @JavascriptInterface
+    fun playerPlaying() = onPlaying()
+
+    @JavascriptInterface
+    fun playerReady() = onPlaying()
 }
