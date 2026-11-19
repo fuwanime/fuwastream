@@ -169,6 +169,23 @@ fun readerStartIndex(savedPage: Int?, pageCount: Int): Int =
 fun shouldAdvanceReaderOnTap(currentPage: Int, pageCount: Int, hasNext: Boolean): Boolean =
     hasNext && pageCount > 0 && currentPage >= pageCount - 1
 
+internal data class ProgressiveTranslationSnapshot(
+    val pages: List<String>,
+    val translatedCount: Int,
+)
+
+/** Keeps page positions stable while replacing only translations that are already cached. */
+internal fun progressiveTranslationSnapshot(
+    originalPages: List<String>,
+    cachedPages: List<String?>,
+): ProgressiveTranslationSnapshot {
+    var translatedCount = 0
+    val pages = originalPages.mapIndexed { index, original ->
+        cachedPages.getOrNull(index)?.also { translatedCount++ } ?: original
+    }
+    return ProgressiveTranslationSnapshot(pages, translatedCount)
+}
+
 data class ReaderState(
     val manga: Manga? = null,
     val chapters: List<MangaChapter> = emptyList(),
@@ -248,8 +265,17 @@ class MangaReaderViewModel(
         }
     }
 
+    private fun progressivePages(chapterId: String, originalPages: List<String>): ProgressiveTranslationSnapshot =
+        progressiveTranslationSnapshot(
+            originalPages = originalPages,
+            cachedPages = translator.cachedChapterPageSlots(cacheDir, chapterId, originalPages.size),
+        )
+
     fun open(chapterId: String) {
-        if (_state.value.requestedId != chapterId) _translation.value = ChapterTranslationState()
+        if (_state.value.requestedId != chapterId) {
+            translationWorkJob?.cancel()
+            _translation.value = ChapterTranslationState()
+        }
         _state.value = _state.value.copy(chapter = null, pages = null, error = null, requestedId = chapterId)
         viewModelScope.launch {
             try {
@@ -329,7 +355,13 @@ class MangaReaderViewModel(
                 settings.setMangaTranslate(true)
                 return@launch
             }
-            _translation.value = ChapterTranslationState(running = true, total = pages.size)
+            val progressive = progressivePages(chapter.id, pages)
+            _translation.value = ChapterTranslationState(
+                running = true,
+                done = progressive.translatedCount,
+                total = pages.size,
+                pages = progressive.pages,
+            )
             MangaTranslateWorker.enqueue(
                 appContext,
                 chapter.id,
@@ -346,15 +378,35 @@ class MangaReaderViewModel(
     private fun watchTranslationWork(chapterId: String, pageCount: Int) {
         translationWorkJob?.cancel()
         translationWorkJob = viewModelScope.launch {
+            var observedWorkId: java.util.UUID? = null
             WorkManager.getInstance(appContext)
                 .getWorkInfosForUniqueWorkFlow(MangaTranslateWorker.uniqueName(chapterId))
                 .collect { infos ->
-                    val work = infos.firstOrNull() ?: return@collect
+                    val active = infos.firstOrNull {
+                        it.state == WorkInfo.State.ENQUEUED ||
+                            it.state == WorkInfo.State.BLOCKED ||
+                            it.state == WorkInfo.State.RUNNING
+                    }
+                    if (active != null) observedWorkId = active.id
+                    val work = active ?: observedWorkId?.let { id -> infos.firstOrNull { it.id == id } }
+                        ?: return@collect
+                    if (_state.value.chapter?.id != chapterId) return@collect
+                    val originalPages = _state.value.pages ?: return@collect
                     val done = work.progress.getInt(MangaTranslateWorker.KEY_DONE, 0)
                     val total = work.progress.getInt(MangaTranslateWorker.KEY_TOTAL, pageCount)
+                    val progressive = progressivePages(chapterId, originalPages)
+                    val ready = maxOf(done, progressive.translatedCount)
                     when (work.state) {
                         WorkInfo.State.ENQUEUED, WorkInfo.State.BLOCKED, WorkInfo.State.RUNNING ->
-                            _translation.update { it.copy(running = true, done = done, total = total) }
+                            _translation.update {
+                                it.copy(
+                                    running = true,
+                                    done = ready,
+                                    total = total,
+                                    pages = progressive.pages,
+                                    error = null,
+                                )
+                            }
                         WorkInfo.State.SUCCEEDED -> {
                             val cached = translator.cachedChapterPages(cacheDir, chapterId, pageCount)
                             if (cached != null) {
@@ -364,15 +416,33 @@ class MangaReaderViewModel(
                                     total = cached.size,
                                     pages = cached,
                                 )
+                            } else {
+                                _translation.update {
+                                    it.copy(running = false, done = ready, total = total, pages = progressive.pages)
+                                }
                             }
                             translationWorkJob?.cancel()
                         }
                         WorkInfo.State.FAILED -> {
-                            _translation.update { it.copy(running = false, error = UiText(R.string.manga_reader_translate_failed)) }
+                            _translation.update {
+                                it.copy(
+                                    running = false,
+                                    done = ready,
+                                    total = total,
+                                    pages = progressive.pages,
+                                    error = if (ready > 0) {
+                                        UiText(R.string.manga_reader_translate_partial_failed, listOf(ready, total))
+                                    } else {
+                                        UiText(R.string.manga_reader_translate_failed)
+                                    },
+                                )
+                            }
                             translationWorkJob?.cancel()
                         }
                         WorkInfo.State.CANCELLED -> {
-                            _translation.update { it.copy(running = false) }
+                            _translation.update {
+                                it.copy(running = false, done = ready, total = total, pages = progressive.pages)
+                            }
                             translationWorkJob?.cancel()
                         }
                     }
@@ -600,7 +670,7 @@ fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
                             modifier = Modifier.fillMaxSize().nestedScroll(endScrollConnection),
                         ) {
                             item(key = "credit-top") { Credit(chapter, Modifier.statusBarsPadding().padding(top = 56.dp, bottom = 8.dp)) }
-                            itemsIndexed(pages, key = { i, _ -> "${chapter.id}-${showingTranslated}-$i" }) { i, url ->
+                            itemsIndexed(pages, key = { i, _ -> "${chapter.id}-$i" }) { i, url ->
                                 Page(url = url, index = i, generation = state.generation, onFailed = vm::refreshPages)
                             }
                             item(key = "end") { EndCard(label, chapter, next, onNext = openNext) }
@@ -610,7 +680,7 @@ fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
                             state = pagerState,
                             reverseLayout = readerMode == ReaderMode.RIGHT_TO_LEFT,
                             modifier = Modifier.fillMaxSize(),
-                            key = { "${chapter.id}-${showingTranslated}-$it" },
+                            key = { "${chapter.id}-$it" },
                         ) { page ->
                             if (page >= pages.size) {
                                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -625,30 +695,73 @@ fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
                     }
                 }
 
-                // Translation progress/error banner
-                if (translation.running || translation.error != null) {
+                // Compact progress banner: reading can continue while completed pages appear in place.
+                AnimatedVisibility(
+                    visible = translation.running && (controls.visible || translation.done == 0),
+                    enter = fadeIn(),
+                    exit = fadeOut(),
+                    modifier = Modifier.align(Alignment.TopCenter),
+                ) {
+                    val percent = if (translation.total > 0) {
+                        (translation.done * 100 / translation.total.coerceAtLeast(1)).coerceIn(0, 100)
+                    } else 0
                     Column(
-                        Modifier.align(Alignment.Center).fillMaxWidth(0.85f).clip(RoundedCornerShape(12.dp))
+                        Modifier.statusBarsPadding().padding(top = 58.dp)
+                            .fillMaxWidth(0.9f).clip(RoundedCornerShape(12.dp))
+                            .background(Color.Black.copy(alpha = 0.86f)).padding(horizontal = 14.dp, vertical = 10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(stringResource(R.string.manga_reader_translating_chapter), color = Color.White, style = MaterialTheme.typography.bodyMedium)
+                        Spacer(Modifier.height(6.dp))
+                        if (translation.total > 0) {
+                            LinearProgressIndicator(
+                                progress = { (translation.done.toFloat() / translation.total.coerceAtLeast(1)).coerceIn(0f, 1f) },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            Spacer(Modifier.height(5.dp))
+                            Text(
+                                stringResource(
+                                    R.string.manga_reader_translate_ready_progress,
+                                    translation.done,
+                                    translation.total,
+                                    percent,
+                                ),
+                                color = Color.White.copy(alpha = 0.9f),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        } else {
+                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                        }
+                        Spacer(Modifier.height(3.dp))
+                        Text(
+                            stringResource(
+                                if (translation.done > 0) R.string.manga_reader_translate_live_hint
+                                else R.string.manga_reader_translate_preparing_detail,
+                            ),
+                            color = Color.White.copy(alpha = 0.68f),
+                            style = MaterialTheme.typography.labelSmall,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                }
+
+                if (translation.error != null) {
+                    val partialFailure = translation.done > 0
+                    val errorPosition = if (partialFailure) {
+                        Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 58.dp)
+                    } else {
+                        Modifier.align(Alignment.Center)
+                    }
+                    Column(
+                        errorPosition.fillMaxWidth(if (partialFailure) 0.9f else 0.85f).clip(RoundedCornerShape(12.dp))
                             .background(Color.Black.copy(alpha = 0.85f)).padding(16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        if (translation.running) {
-                            Text(stringResource(R.string.manga_reader_translating_chapter), color = Color.White, style = MaterialTheme.typography.bodyLarge)
-                            Spacer(Modifier.height(8.dp))
-                            if (translation.total > 0) {
-                                LinearProgressIndicator(progress = { translation.done.toFloat() / translation.total.coerceAtLeast(1) }, modifier = Modifier.fillMaxWidth())
-                                Spacer(Modifier.height(6.dp))
-                                Text("${translation.done}/${translation.total}", color = Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.bodySmall)
-                            } else {
-                                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                            }
-                        } else if (translation.error != null) {
-                            Text(translation.error!!.text(), color = Color.White, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
-                            Spacer(Modifier.height(8.dp))
-                            Row {
-                                TextButton(onClick = { vm.translateCurrentChapter() }) { Text(stringResource(R.string.manga_reader_translate_retry), color = Color.White) }
-                                TextButton(onClick = { vm.showOriginal() }) { Text(stringResource(R.string.manga_reader_show_original), color = Color.White.copy(alpha = 0.8f)) }
-                            }
+                        Text(translation.error!!.text(), color = Color.White, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
+                        Spacer(Modifier.height(8.dp))
+                        Row {
+                            TextButton(onClick = { vm.translateCurrentChapter() }) { Text(stringResource(R.string.manga_reader_translate_retry), color = Color.White) }
+                            TextButton(onClick = { vm.showOriginal() }) { Text(stringResource(R.string.manga_reader_show_original), color = Color.White.copy(alpha = 0.8f)) }
                         }
                     }
                 }
@@ -665,7 +778,12 @@ fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
                                 Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClickLabel = stringResource(R.string.manga_reader_pick)) { touch(); pickerOpen = true }.padding(vertical = 2.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text(label + if (showingTranslated) " · ID" else "", color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.labelLarge, maxLines = 1)
+                                val translationSuffix = when {
+                                    translation.running && translation.total > 0 -> " · ID ${translation.done}/${translation.total}"
+                                    showingTranslated -> " · ID"
+                                    else -> ""
+                                }
+                                Text(label + translationSuffix, color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.labelLarge, maxLines = 1)
                                 Icon(Icons.Rounded.ArrowDropDown, null, tint = Color.White)
                             }
                         }
@@ -720,6 +838,7 @@ fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
                     onKeepScreenOnChange = vm::setKeepScreenOn,
                     translationAvailable = translationAvailable, translationEnabled = translationEnabled,
                     showingTranslated = showingTranslated,
+                    translationRunning = translation.running,
                     onTranslate = { vm.translateCurrentChapter() }, onShowOriginal = { vm.showOriginal() },
                     onTranslationPrefChange = vm::setTranslationEnabled,
                     onDismiss = { settingsOpen = false },
@@ -840,6 +959,7 @@ private fun ReaderSettingsSheet(
     autoScrollEnabled: Boolean, onAutoScrollChange: (Boolean) -> Unit,
     keepScreenOn: Boolean, onKeepScreenOnChange: (Boolean) -> Unit,
     translationAvailable: Boolean, translationEnabled: Boolean, showingTranslated: Boolean,
+    translationRunning: Boolean,
     onTranslate: () -> Unit, onShowOriginal: () -> Unit, onTranslationPrefChange: (Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -899,9 +1019,26 @@ private fun ReaderSettingsSheet(
         if (translationAvailable) {
             HorizontalDivider(Modifier.padding(horizontal = 20.dp))
             Text(stringResource(R.string.manga_reader_translate_settings), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp))
-            Row(Modifier.fillMaxWidth().clickable { if (showingTranslated) onShowOriginal() else onTranslate() }.padding(horizontal = 20.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(if (showingTranslated) R.string.manga_reader_show_original else R.string.manga_reader_translate_chapter), modifier = Modifier.weight(1f))
-                Icon(Icons.Rounded.Translate, null, tint = if (showingTranslated) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+            Row(
+                Modifier.fillMaxWidth().clickable(enabled = !translationRunning) {
+                    if (showingTranslated) onShowOriginal() else onTranslate()
+                }.padding(horizontal = 20.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    stringResource(if (showingTranslated) R.string.manga_reader_show_original else R.string.manga_reader_translate_chapter),
+                    color = if (translationRunning) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f),
+                )
+                Icon(
+                    Icons.Rounded.Translate,
+                    null,
+                    tint = when {
+                        translationRunning -> MaterialTheme.colorScheme.onSurfaceVariant
+                        showingTranslated -> MaterialTheme.colorScheme.primary
+                        else -> MaterialTheme.colorScheme.onSurface
+                    },
+                )
             }
             Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {

@@ -38,6 +38,7 @@
     <string name="manga_reader_translate_no_text">本页未检测到文字。</string>
     <string name="manga_reader_translate_unavailable">翻译不可用。正在显示原始英文文本。</string>
     <string name="manga_reader_translate_failed">翻译失败。请检查网络后重试。</string>
+    <string name="manga_reader_translate_partial_failed">翻译在第 %1$d / %2$d 页停止。已完成的结果仍会显示；请重试以继续。</string>
     <string name="manga_reader_translate_busy">翻译服务器繁忙，请稍后再试。</string>
     <string name="manga_reader_translate_image_failed">无法下载用于翻译的图片。请重新加载章节后重试。</string>
     <string name="manga_reader_translate_ocr_model_failed">OCR 模型尚未准备好。请稍候再试。</string>
@@ -90,7 +91,7 @@
     <string name="manga_translate_notif">%1$s · %2$s</string>
     <string name="manga_translate_notif_fallback">正在翻译漫画</string>
     <string name="manga_translate_running">正在准备翻译…</string>
-    <string name="manga_translate_progress">第 %1$d / %2$d 页</string>
+    <string name="manga_translate_progress">已完成 %1$d / %2$d 页</string>
     <string name="manga_download">下载</string>
     <string name="manga_download_delete">删除下载</string>
     <string name="manga_download_range">下载 %1$s</string>
@@ -113,6 +114,9 @@
     <string name="manga_download_delete_all">删除</string>
     <string name="manga_reader_translate_chapter">将章节翻译成印尼语</string>
     <string name="manga_reader_translating_chapter">正在将章节翻译成印尼语…</string>
+    <string name="manga_reader_translate_ready_progress">已完成 %1$d / %2$d 页（%3$d%%）</string>
+    <string name="manga_reader_translate_preparing_detail">正在准备 MangaTranslate 和第一页…</string>
+    <string name="manga_reader_translate_live_hint">已完成的页面会立即显示。短暂停顿表示正在准备下一组额度。</string>
     <string name="manga_reader_show_original">显示原文</string>
     <string name="manga_reader_translate_auto">自动翻译</string>
     <string name="manga_reader_translate_auto_desc">打开章节时，将所有页面翻译成印尼语。</string>

@@ -17,6 +17,7 @@ import com.fuwanime.ui.manga.rangeLabel
 import com.fuwanime.ui.manga.readerChapter
 import com.fuwanime.ui.manga.readerStartIndex
 import com.fuwanime.ui.manga.shouldAdvanceReaderOnTap
+import com.fuwanime.ui.manga.progressiveTranslationSnapshot
 import com.fuwanime.ui.manga.resumeTarget
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -75,6 +76,24 @@ class MangaUiLogicTest {
         assertEquals(true, shouldAdvanceReaderOnTap(currentPage = 9, pageCount = 10, hasNext = true))
         assertEquals(false, shouldAdvanceReaderOnTap(currentPage = 9, pageCount = 10, hasNext = false))
         assertEquals(false, shouldAdvanceReaderOnTap(currentPage = 0, pageCount = 0, hasNext = true))
+    }
+
+    @Test fun progressiveTranslationReplacesOnlyReadyPages() {
+        val snapshot = progressiveTranslationSnapshot(
+            originalPages = listOf("original-1", "original-2", "original-3"),
+            cachedPages = listOf("translated-1", null, "translated-3"),
+        )
+        assertEquals(listOf("translated-1", "original-2", "translated-3"), snapshot.pages)
+        assertEquals(2, snapshot.translatedCount)
+    }
+
+    @Test fun progressiveTranslationKeepsPageCountWhenCacheIsShorter() {
+        val snapshot = progressiveTranslationSnapshot(
+            originalPages = listOf("original-1", "original-2", "original-3"),
+            cachedPages = listOf(null, "translated-2"),
+        )
+        assertEquals(listOf("original-1", "translated-2", "original-3"), snapshot.pages)
+        assertEquals(1, snapshot.translatedCount)
     }
 
     @Test fun pickChaptersPrefersReadableOverNewerExternal() {

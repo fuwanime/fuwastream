@@ -38,6 +38,7 @@
     <string name="manga_reader_translate_no_text">Tidak ada teks yang terdeteksi di halaman ini.</string>
     <string name="manga_reader_translate_unavailable">Terjemahan tidak tersedia. Menampilkan teks asli (English).</string>
     <string name="manga_reader_translate_failed">Terjemahan gagal. Periksa koneksi lalu coba lagi.</string>
+    <string name="manga_reader_translate_partial_failed">Terjemahan berhenti di %1$d dari %2$d halaman. Hasil yang sudah siap tetap ditampilkan; coba lagi untuk melanjutkan.</string>
     <string name="manga_reader_translate_busy">Server terjemahan sedang sibuk. Coba lagi beberapa saat.</string>
     <string name="manga_reader_translate_image_failed">Gambar tidak dapat diunduh untuk diterjemahkan. Muat ulang chapter lalu coba lagi.</string>
     <string name="manga_reader_translate_ocr_model_failed">Model OCR belum siap. Tunggu sebentar lalu coba lagi.</string>
@@ -90,7 +91,7 @@
     <string name="manga_translate_notif">%1$s · %2$s</string>
     <string name="manga_translate_notif_fallback">Menerjemahkan manga</string>
     <string name="manga_translate_running">Menyiapkan terjemahan…</string>
-    <string name="manga_translate_progress">%1$d dari %2$d halaman</string>
+    <string name="manga_translate_progress">%1$d dari %2$d halaman siap</string>
     <string name="manga_download">Unduh</string>
     <string name="manga_download_delete">Hapus unduhan</string>
     <string name="manga_download_range">Unduh %1$s</string>
@@ -113,6 +114,9 @@
     <string name="manga_download_delete_all">Hapus</string>
     <string name="manga_reader_translate_chapter">Terjemahkan chapter ke Indonesia</string>
     <string name="manga_reader_translating_chapter">Menerjemahkan chapter ke Indonesia…</string>
+    <string name="manga_reader_translate_ready_progress">%1$d dari %2$d halaman siap (%3$d%%)</string>
+    <string name="manga_reader_translate_preparing_detail">Menyiapkan akses MangaTranslate dan halaman pertama…</string>
+    <string name="manga_reader_translate_live_hint">Halaman siap langsung tampil. Jeda singkat berarti kredit berikutnya sedang disiapkan.</string>
     <string name="manga_reader_show_original">Tampilkan asli</string>
     <string name="manga_reader_translate_auto">Terjemahkan otomatis</string>
     <string name="manga_reader_translate_auto_desc">Saat membuka chapter, terjemahkan seluruh halaman ke Bahasa Indonesia.</string>
