@@ -398,16 +398,16 @@ private fun DetailScreen(
                 item(key = "info") { Box(Modifier.navEnter(200)) { InfoGrid(anime, state.meta) } }
                 state.meta?.takeIf { it.trailerUrl.isNotBlank() }?.let { meta ->
                     item(key = "trailer") {
-                        val context = LocalContext.current
+                        var trailerOpen by rememberSaveable { mutableStateOf(false) }
                         TrailerCard(
                             thumbnail = meta.trailerThumbnail,
                             fallbackThumbnail = anime?.let { a -> a.cover.ifBlank { a.poster } }.orEmpty(),
-                            onClick = {
-                                // Trailers play outside the app (YouTube/Dailymotion app or the browser).
-                                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, meta.trailerUrl.toUri())) }
-                            },
+                            onClick = { trailerOpen = true },
                             modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp),
                         )
+                        if (trailerOpen) {
+                            TrailerPlayerDialog(url = meta.trailerUrl, onDismiss = { trailerOpen = false })
+                        }
                     }
                 }
                 if (state.meta?.sourceTitles?.isNotEmpty() == true) {
