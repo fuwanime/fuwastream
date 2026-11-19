@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Favorites widget -->
+    <string name="widget_favorites_name">Kegemaran</string>
+    <string name="widget_favorites_desc">Anime dan manga kegemaran anda, terus dari skrin utama</string>
+    <string name="widget_favorites_title">Kegemaran</string>
+    <string name="widget_favorites_empty">Belum ada kegemaran</string>
+    <string name="widget_favorites_anime">Anime</string>
+    <string name="widget_favorites_manga">Manga</string>
+
+    <!-- Schedule widget -->
+    <string name="widget_schedule_name">Jadual tayangan</string>
+    <string name="widget_schedule_desc">Episod anime yang tayang hari ini</string>
+    <string name="widget_schedule_header">Jadual · %1$s</string>
+    <string name="widget_schedule_loading">Memuatkan jadual…</string>
+    <string name="widget_schedule_empty">Tiada tayangan hari ini</string>
+    <string name="widget_schedule_error">Gagal memuatkan jadual</string>
+    <string name="widget_schedule_open">Buka jadual</string>
+
+    <!-- Stats widget -->
+    <string name="widget_stats_name">Statistik tontonan</string>
+    <string name="widget_stats_desc">Ringkasan masa tontonan, episod dan anime</string>
+    <string name="widget_stats_title">Statistik</string>
+    <string name="widget_stats_total">Jumlah tontonan</string>
+    <string name="widget_stats_episodes">Episod selesai</string>
+    <string name="widget_stats_anime">Anime ditonton</string>
+    <string name="widget_stats_genres">Genre kegemaran</string>
+    <string name="widget_stats_summary_line">%1$d episod · %2$d anime</string>
+    <string name="widget_stats_empty">Belum ada statistik</string>
+    <string name="widget_stats_empty_hint">Tonton satu episod dahulu, angkanya akan muncul di sini</string>
+</resources>

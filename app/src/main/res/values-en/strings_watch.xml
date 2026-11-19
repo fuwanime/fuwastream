@@ -110,6 +110,9 @@
     <string name="watch_sleep_timer">Sleep timer</string>
     <string name="watch_sleep_off">Off</string>
     <string name="watch_sleep_end">End of episode</string>
+    <string name="watch_sleep_custom">Custom</string>
+    <string name="watch_sleep_custom_slider_cd">Sleep timer duration slider</string>
+    <string name="watch_sleep_countdown_cd">Sleep timer: %1$s left</string>
     <string name="watch_opening">Opening (OP)</string>
     <string name="watch_op_marked">Marked %1$s – %2$s for every episode of this anime.</string>
     <string name="watch_op_hint">Mark the start and end of the OP once and the Skip OP button appears on other episodes.</string>

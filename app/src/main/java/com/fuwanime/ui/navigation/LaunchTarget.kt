@@ -10,6 +10,7 @@ sealed interface LaunchTarget {
     data class Manga(val id: String) : LaunchTarget
     data object Search : LaunchTarget
     data object Schedule : LaunchTarget
+    data object Stats : LaunchTarget
     data class Resume(val episodeId: String) : LaunchTarget
     data class Episode(val animeId: String, val episodeId: String, val number: String) : LaunchTarget
     data class MangaChapter(val mangaId: String, val chapterId: String) : LaunchTarget
@@ -17,6 +18,7 @@ sealed interface LaunchTarget {
 
 const val TAB_EXPLORE_SEARCH = "explore_search"
 const val TAB_SCHEDULE = "schedule"
+const val TAB_STATS = "stats"
 
 /** Resume beats a specific title, which beats a tab; blank values count as absent. */
 fun parseLaunchTarget(
@@ -36,6 +38,7 @@ fun parseLaunchTarget(
     return when (tab) {
         TAB_EXPLORE_SEARCH -> LaunchTarget.Search
         TAB_SCHEDULE -> LaunchTarget.Schedule
+        TAB_STATS -> LaunchTarget.Stats
         else -> null
     }
 }

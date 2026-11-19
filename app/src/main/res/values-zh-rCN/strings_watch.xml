@@ -110,6 +110,9 @@
     <string name="watch_sleep_timer">睡眠定时</string>
     <string name="watch_sleep_off">关闭</string>
     <string name="watch_sleep_end">本集结束</string>
+    <string name="watch_sleep_custom">自定义</string>
+    <string name="watch_sleep_custom_slider_cd">睡眠定时时长滑块</string>
+    <string name="watch_sleep_countdown_cd">睡眠定时：剩余 %1$s</string>
     <string name="watch_opening">片头 (OP)</string>
     <string name="watch_op_marked">已标记 %1$s – %2$s，适用于此动画的所有剧集。</string>
     <string name="watch_op_hint">标记一次片头的起止，其他剧集就会出现“跳过片头”按钮。</string>

@@ -246,6 +246,7 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
             is LaunchTarget.Manga -> nav.navigate(Routes.mangaDetail(target.id))
             LaunchTarget.Search -> openExplore(null, true)
             LaunchTarget.Schedule -> nav.navigateTab(Routes.SCHEDULE)
+            LaunchTarget.Stats -> nav.navigate(Routes.STATS)
             is LaunchTarget.Resume -> resumeRoute(container.libraryRepository.historyEntry(target.episodeId))?.let { nav.navigate(it) }
             is LaunchTarget.Episode -> nav.navigate(Routes.player(target.animeId, target.episodeId, target.number))
             is LaunchTarget.MangaChapter -> nav.navigate(Routes.mangaReader(target.mangaId, target.chapterId))
