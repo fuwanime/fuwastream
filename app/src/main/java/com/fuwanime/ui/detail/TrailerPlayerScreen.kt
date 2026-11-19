@@ -33,11 +33,17 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
+import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.fuwanime.data.StreamSource
+import com.fuwanime.data.remote.YT_APP_UA
 import com.fuwanime.data.remote.resolveTrailerSources
+import kotlinx.coroutines.delay
 import okhttp3.OkHttpClient
 
 /**
@@ -46,10 +52,12 @@ import okhttp3.OkHttpClient
  * (ExoPlayer) player — fullscreen, with the normal transport controls. No WebView in the happy
  * path, no external app.
  *
- * The trailer URL is resolved to direct stream URLs first (see resolveTrailerSources). When the
- * resolver comes up empty — YouTube bot-checks datacenter IPs, Dailymotion occasionally hides
- * its metadata — the page falls back to the WebView embed ladder in place, and only if that
- * also fails does it offer to open the trailer externally.
+ * The trailer URL is resolved to direct stream URLs first (see resolveTrailerSources). The
+ * stream is fetched through OkHttpDataSource with the YouTube app's User-Agent — googlevideo
+ * rejects ExoPlayer's default UA with a silent HTTP 403, which otherwise shows as a dead black
+ * screen. Two guards turn any playback failure into the WebView embed fallback instead of a
+ * black rectangle: a Player-error listener, and a watchdog that fires when the player never
+ * reports READY/playing within 15 seconds.
  */
 @Composable
 fun TrailerPlayerRoute(
@@ -58,14 +66,24 @@ fun TrailerPlayerRoute(
     thumbnail: String,
     onBack: () -> Unit,
 ) {
-    val context = LocalContext.current
     val client = remember { OkHttpClient() }
     // null = still resolving; empty = nothing resolved (fall back to the embed ladder).
     var sources by remember(url) { mutableStateOf<List<StreamSource>?>(null) }
+    var mediaFailed by remember(url) { mutableStateOf(false) }
+    var confirmedPlaying by remember(url) { mutableStateOf(false) }
     LaunchedEffect(url) { sources = resolveTrailerSources(url, client) }
 
     val resolved = sources.orEmpty()
     val source = resolved.maxByOrNull { it.height }
+
+    // Watchdog: a resolved URL that never reaches READY (403, throttling, unsupported codec...)
+    // must not leave a black screen — hand the slot to the WebView embed ladder.
+    LaunchedEffect(source) {
+        if (source == null) return@LaunchedEffect
+        confirmedPlaying = false
+        delay(15_000)
+        if (!confirmedPlaying) mediaFailed = true
+    }
 
     Column(
         Modifier
@@ -95,7 +113,11 @@ fun TrailerPlayerRoute(
         ) {
             when {
                 sources == null -> CircularProgressIndicator(Modifier.size(36.dp), color = Color.White)
-                source != null -> TrailerExoPlayer(source.url)
+                source != null && !mediaFailed -> TrailerExoPlayer(
+                    url = source.url,
+                    onConfirmed = { confirmedPlaying = true },
+                    onFailed = { mediaFailed = true },
+                )
                 else -> InlineTrailerPlayer(
                     thumbnail = thumbnail,
                     fallbackThumbnail = thumbnail,
@@ -107,16 +129,31 @@ fun TrailerPlayerRoute(
     }
 }
 
-/** Media3 player for the resolved trailer stream: controllers on, fit-to-screen, released on dispose. */
+/** Media3 player for the resolved trailer stream; reports READY/playing and errors back up. */
 @Composable
-private fun TrailerExoPlayer(url: String) {
+private fun TrailerExoPlayer(url: String, onConfirmed: () -> Unit, onFailed: () -> Unit) {
     val context = LocalContext.current
     val player = remember(url) {
-        ExoPlayer.Builder(context).build().apply {
-            setMediaItem(MediaItem.fromUri(url))
-            prepare()
-            playWhenReady = true
-        }
+        val dataSource = OkHttpDataSource.Factory(OkHttpClient())
+            .setUserAgent(YT_APP_UA)
+            .setDefaultRequestProperties(mapOf("Referer" to "https://www.youtube.com/"))
+        ExoPlayer.Builder(context)
+            .setMediaSourceFactory(DefaultMediaSourceFactory(dataSource))
+            .build()
+            .apply {
+                setMediaItem(MediaItem.fromUri(url))
+                prepare()
+                playWhenReady = true
+                addListener(object : Player.Listener {
+                    override fun onPlaybackStateChanged(playbackState: Int) {
+                        if (playbackState == Player.STATE_READY || playbackState == Player.STATE_ENDED) onConfirmed()
+                    }
+                    override fun onIsPlayingChanged(isPlaying: Boolean) {
+                        if (isPlaying) onConfirmed()
+                    }
+                    override fun onPlayerError(error: PlaybackException) = onFailed()
+                })
+            }
     }
     DisposableEffect(player) { onDispose { player.release() } }
     AndroidView(
