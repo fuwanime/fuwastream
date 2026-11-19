@@ -17,12 +17,17 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.IOException
+import java.math.BigInteger
 import java.net.InetSocketAddress
 import java.net.Proxy
+import java.net.URLEncoder
 import java.security.MessageDigest
+import java.security.SecureRandom
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 import kotlin.math.min
 
 private const val MT_BASE = "https://www.mangatranslate.com"
@@ -30,6 +35,7 @@ private const val MT_PREPARE = "/api/v2/api/translate/uploads"
 private const val MT_SUBMIT = "/api/v2/api/translate"
 private const val MT_TASK_TMPL = "/api/v2/api/tasks/{batch_id}"
 private const val MT_CREDITS_V1 = "/api/v1/manga/credits/current"
+private const val MT_CREDITS_V2 = "/api/v2/api/credits"
 private const val MT_CREATE_API_KEY = "/api/v1/api-keys"
 private const val MT_REGISTER = "/api/v1/auth/register/email"
 private const val MT_LOGIN = "/api/v1/auth/login/email"
@@ -90,144 +96,6 @@ private val MT_DEFAULT_PROXIES = listOf(
     "http://184.75.221.82:3118",
     "http://45.167.124.31:999",
     "http://201.4.65.190:8080",
-    "http://180.190.185.211:9999",
-    "http://151.158.133.163:8080",
-    "http://103.171.182.80:8080",
-    "http://212.252.73.83:8080",
-    "http://110.34.1.178:7777",
-    "http://200.48.64.107:999",
-    "http://139.59.59.122:8118",
-    "http://35.43.85.195:27951",
-    "http://186.148.180.131:999",
-    "http://1.4.141.44:80",
-    "http://45.65.137.218:999",
-    "http://200.59.191.27:999",
-    "http://45.230.170.30:999",
-    "http://112.207.166.195:8082",
-    "http://190.119.185.156:999",
-    "http://45.174.243.232:999",
-    "http://120.28.194.248:8282",
-    "http://49.0.26.97:8080",
-    "http://216.152.149.246:80",
-    "http://45.163.196.50:8083",
-    "http://54.36.150.233:3128",
-    "http://3.26.199.107:42984",
-    "http://49.229.100.235:8080",
-    "http://180.180.175.11:8080",
-    "http://103.176.96.123:8082",
-    "http://202.148.13.182:8080",
-    "http://103.180.118.122:1080",
-    "http://182.52.113.71:80",
-    "http://103.137.91.250:8080",
-    "http://194.124.36.14:8080",
-    "http://103.167.15.188:3128",
-    "http://180.191.142.206:8081",
-    "http://101.51.121.149:80",
-    "http://163.223.150.21:8080",
-    "http://185.142.156.203:80",
-    "http://138.118.107.29:999",
-    "http://190.12.150.244:999",
-    "http://185.153.231.35:3129",
-    "http://110.74.206.40:8181",
-    "http://113.192.46.66:8080",
-    "http://202.59.201.175:8080",
-    "http://45.43.60.220:8080",
-    "http://58.69.250.43:8082",
-    "http://180.180.151.239:8080",
-    "http://181.78.94.189:999",
-    "http://77.242.21.133:8080",
-    "http://181.79.84.254:999",
-    "http://191.160.36.7:8080",
-    "http://103.111.116.233:81",
-    "http://45.198.8.222:8080",
-    "http://41.78.38.197:8005",
-    "http://102.213.179.194:8081",
-    "http://196.251.195.146:8081",
-    "http://124.106.39.123:8083",
-    "http://150.107.104.24:1111",
-    "http://131.221.65.109:8090",
-    "http://160.19.145.103:3127",
-    "http://190.111.218.142:999",
-    "http://192.81.249.2:999",
-    "http://164.92.105.30:1080",
-    "http://103.176.96.180:8090",
-    "http://177.234.217.84:999",
-    "http://61.91.162.126:8080",
-    "http://181.119.111.59:999",
-    "http://35.43.246.3:23571",
-    "http://201.150.116.3:999",
-    "http://182.48.66.154:8080",
-    "http://38.76.138.129:999",
-    "http://202.51.196.230:8080",
-    "http://144.79.180.61:8080",
-    "http://180.191.142.188:8080",
-    "http://103.133.25.247:8080",
-    "http://45.179.200.118:999",
-    "http://161.22.33.152:999",
-    "http://45.65.138.48:999",
-    "http://27.147.156.174:12051",
-    "http://31.14.124.45:8080",
-    "http://38.95.88.58:999",
-    "http://165.16.30.101:9999",
-    "http://190.102.146.98:10101",
-    "http://185.238.238.29:58080",
-    "http://41.79.9.229:8080",
-    "http://198.15.30.239:8080",
-    "http://77.42.95.221:8888",
-    "http://103.18.78.229:8080",
-    "http://211.188.53.248:80",
-    "http://124.105.39.244:8081",
-    "http://103.164.171.210:8080",
-    "http://187.190.127.212:80",
-    "http://152.42.170.187:9090",
-    "http://58.84.16.214:1231",
-    "http://190.7.138.78:8080",
-    "http://189.51.168.165:999",
-    "http://103.66.47.9:8080",
-    "http://65.108.159.129:3128",
-    "http://103.189.223.19:7557",
-    "http://103.147.230.177:8090",
-    "http://216.152.152.44:80",
-    "http://116.204.166.148:8080",
-    "http://181.119.109.10:999",
-    "http://189.51.168.164:999",
-    "http://85.132.108.42:3128",
-    "http://138.121.113.12:8787",
-    "http://130.250.199.73:999",
-    "http://91.203.61.52:6789",
-    "http://103.135.48.30:8089",
-    "http://89.43.135.9:8080",
-    "http://184.70.113.34:3128",
-    "http://38.188.63.169:8080",
-    "http://45.65.226.172:999",
-    "http://190.94.213.80:999",
-    "http://217.142.139.207:8085",
-    "http://203.115.123.163:1256",
-    "http://103.230.48.110:8082",
-    "http://122.54.119.79:8080",
-    "http://43.99.60.244:8089",
-    "http://163.223.78.163:8080",
-    "http://121.101.129.131:8080",
-    "http://103.151.223.168:8080",
-    "http://196.251.195.146:8084",
-    "http://181.78.94.157:999",
-    "http://160.19.16.6:8182",
-    "http://207.177.122.144:8080",
-    "http://187.44.188.238:4040",
-    "http://113.192.48.159:8080",
-    "http://128.140.113.110:5678",
-    "http://54.198.140.56:8049",
-    "http://181.37.240.89:999",
-    "http://34.220.80.147:34889",
-    "http://114.130.153.46:58080",
-    "http://195.175.29.38:9090",
-    "http://103.89.27.32:8080",
-    "http://185.238.238.21:58080",
-    "http://103.184.62.10:8080",
-    "http://203.150.128.222:8080",
-    "http://123.121.113.161:8888",
-    "http://91.150.189.122:30389",
-    "http://45.168.236.54:3128",
 )
 
 private fun parseHttpProxy(url: String): Proxy? {
@@ -239,11 +107,29 @@ private fun parseHttpProxy(url: String): Proxy? {
     } catch (_: Exception) { null }
 }
 
+private fun checkInterrupted() {
+    if (Thread.currentThread().isInterrupted) throw InterruptedException("MangaTranslate dibatalkan")
+}
+
+private fun interruptibleSleep(ms: Long) {
+    val end = System.currentTimeMillis() + ms
+    while (System.currentTimeMillis() < end) {
+        checkInterrupted()
+        val left = end - System.currentTimeMillis()
+        if (left <= 0) break
+        try {
+            Thread.sleep(min(left, 250L))
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+            throw InterruptedException("MangaTranslate dibatalkan")
+        }
+    }
+}
+
 private fun isRetryableProvisionError(e: Throwable): Boolean {
     if (e is MtV2Exception) {
         val detail = e.body.optJSONObject("detail")
         val reason = detail?.optString("reason_code", "") ?: ""
-        if (e.status == 429 && reason == "window_limit_exceeded") return true
         if (e.status == 429) return true
         val msg = (e.message ?: "").lowercase()
         if ("window_limit_exceeded" in msg || "rate limit" in msg || "too many" in msg) return true
@@ -252,7 +138,16 @@ private fun isRetryableProvisionError(e: Throwable): Boolean {
     return msg.contains("timeout") || msg.contains("timed out") || msg.contains("unable to resolve") ||
         msg.contains("failed to connect") || msg.contains("connection") || msg.contains("socket") ||
         msg.contains("proxy") || msg.contains("tunnel") || msg.contains("unreachable") ||
-        msg.contains("refused") || msg.contains("reset") || msg.contains("network")
+        msg.contains("refused") || msg.contains("reset") || msg.contains("network") ||
+        msg.contains("fetch failed") || msg.contains("interrupted io")
+}
+
+private fun isTransientTranslateError(e: Throwable): Boolean {
+    val msg = (e.message ?: "").lowercase()
+    return msg.contains("timeout") || msg.contains("timed out") || msg.contains("failed to connect") ||
+        msg.contains("connection") || msg.contains("socket") || msg.contains("reset") ||
+        msg.contains("network") || msg.contains("fetch failed") || msg.contains("http 5") ||
+        msg.contains("download hasil gagal http 5") || msg.contains("upload ke storage gagal http 5")
 }
 
 /** MangaTranslate.com V2 API as primary chapter translator. Falls back by throwing [TranslatorBusyException] when busy/unavailable. */
@@ -262,6 +157,16 @@ class MangaTranslateV2ChapterTranslator(
 ) : MangaChapterTranslator {
     private val appContext = context.applicationContext
     private val storeFile = File(appContext.filesDir, "mangatranslate_accounts.json")
+    private val provisionLock = ReentrantLock()
+
+    // direct client for akunlama/non-mangatranslate calls (never proxied)
+    private val directClient: OkHttpClient = httpClient.newBuilder()
+        .proxy(Proxy.NO_PROXY)
+        .connectTimeout(20, TimeUnit.SECONDS)
+        .readTimeout(25, TimeUnit.SECONDS)
+        .writeTimeout(25, TimeUnit.SECONDS)
+        .callTimeout(35, TimeUnit.SECONDS)
+        .build()
 
     override fun chapterDir(cacheDir: File, chapterId: String): File =
         File(cacheDir, "mangatranslate/${chapterId.replace(':', '_').replace('/', '_')}")
@@ -293,25 +198,71 @@ class MangaTranslateV2ChapterTranslator(
         val doneCount = AtomicInteger(pageUrls.size - pending.size)
         if (doneCount.get() > 0) onProgress(doneCount.get(), pageUrls.size)
 
-        // Ensure we have at least one usable API key/account context up front; if not, primary is busy/unavailable.
+        // Ensure we have at least one usable API key/account up front; if not, primary is busy/unavailable.
         ensureUsableKey()
 
         val concurrency = min(2, pending.size.coerceAtLeast(1))
         val semaphore = Semaphore(concurrency)
+        val failures = java.util.concurrent.ConcurrentLinkedQueue<Throwable>()
         coroutineScope {
             pending.map { i ->
                 async {
                     semaphore.withPermit {
-                        val bytes = downloadPage(pageUrls[i])
-                        val translated = translateOne(bytes)
-                        saveAsPng(translated, outputFiles[i])
-                        val done = doneCount.incrementAndGet()
-                        onProgress(done, pageUrls.size)
+                        checkInterrupted()
+                        try {
+                            translatePageWithRetry(i, pageUrls[i], outputFiles[i])
+                            val done = doneCount.incrementAndGet()
+                            onProgress(done, pageUrls.size)
+                        } catch (e: TranslatorBusyException) {
+                            // Cancel the remaining pages and fail the chapter immediately so the
+                            // fallback translator can take over instead of retrying for every page.
+                            throw e
+                        } catch (e: Throwable) {
+                            failures.add(e)
+                        }
                     }
                 }
             }.awaitAll()
         }
+        val firstFailure = failures.firstOrNull()
+        if (firstFailure != null) {
+            val busy = firstFailure is TranslatorBusyException || isCreditOrBusyMessage(firstFailure.message)
+            if (busy) throw TranslatorBusyException(firstFailure.message, firstFailure)
+            throw (firstFailure as? Exception) ?: Exception(firstFailure.message, firstFailure)
+        }
         outputFiles.map { "file://${it.absolutePath}" }
+    }
+
+    private fun translatePageWithRetry(index: Int, url: String, out: File) {
+        var last: Throwable? = null
+        val maxAttempts = 3
+        for (attempt in 1..maxAttempts) {
+            checkInterrupted()
+            try {
+                val bytes = downloadPage(url)
+                val translated = translateOne(bytes)
+                saveAsPng(translated, out)
+                return
+            } catch (e: InterruptedException) {
+                Thread.currentThread().interrupt()
+                throw e
+            } catch (e: TranslatorBusyException) {
+                throw e
+            } catch (e: MtV2Exception) {
+                if (isCreditOrBusyMessage(e.message) || e.status == 429 || e.status == 402) throw TranslatorBusyException(e.message, e)
+                last = e
+                if (!isTransientTranslateError(e) || attempt >= maxAttempts) throw e
+            } catch (e: IOException) {
+                last = e
+                if (attempt >= maxAttempts) throw e
+            } catch (e: Exception) {
+                last = e
+                if (e is java.util.concurrent.CancellationException) throw e
+                if (!isTransientTranslateError(e) || attempt >= maxAttempts) throw e
+            }
+            interruptibleSleep((600L * attempt).coerceAtMost(2000L))
+        }
+        throw (last as? Exception) ?: Exception(last?.message ?: "Gagal menerjemahkan halaman", last)
     }
 
     private fun downloadPage(url: String): ByteArray {
@@ -319,6 +270,7 @@ class MangaTranslateV2ChapterTranslator(
         val candidates = mangaPageCandidates(url).ifEmpty { listOf(url) }
         var last: IOException? = null
         for (candidate in candidates) {
+            checkInterrupted()
             try {
                 val req = Request.Builder()
                     .url(candidate)
@@ -329,6 +281,7 @@ class MangaTranslateV2ChapterTranslator(
                     return resp.body?.bytes() ?: throw IOException("Halaman kosong")
                 }
             } catch (e: Exception) {
+                if (e is InterruptedException) throw e
                 last = if (e is IOException) e else IOException(e.message ?: "Gagal mengunduh halaman", e)
             }
         }
@@ -336,7 +289,6 @@ class MangaTranslateV2ChapterTranslator(
     }
 
     private fun saveAsPng(bytes: ByteArray, out: File) {
-        // MangaTranslate returns translated image (usually JPG). Decode and save as PNG for cache consistency.
         val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
         if (bmp != null) {
             try {
@@ -359,76 +311,164 @@ class MangaTranslateV2ChapterTranslator(
         runCatching { storeFile.parentFile?.mkdirs(); storeFile.writeText(store.toString()) }
     }
 
-    @Synchronized
     private fun accountsArray(store: JSONObject): JSONArray {
         if (!store.has("accounts")) store.put("accounts", JSONArray())
         return store.optJSONArray("accounts") ?: JSONArray().also { store.put("accounts", it) }
     }
 
-    private fun pickApiKey(store: JSONObject): String? {
+    private fun pickKnownGoodApiKey(store: JSONObject): String? {
         val arr = accountsArray(store)
         for (i in arr.length() - 1 downTo 0) {
             val a = arr.optJSONObject(i) ?: continue
             val key = a.optString("apiKey", a.optString("api_key", ""))
-            val credits = if (a.has("totalCredits") && !a.isNull("totalCredits")) a.optDouble("totalCredits", -1.0) else -1.0
-            if (key.isNotBlank() && (credits > 0.0 || credits < 0.0)) return key
+            if (key.isBlank()) continue
+            val credits = if (a.has("totalCredits") && !a.isNull("totalCredits")) a.optDouble("totalCredits", Double.NaN) else Double.NaN
+            if (!credits.isNaN() && credits > 0.0) return key
         }
         return null
     }
 
     private fun markAccountNoCredits(apiKey: String) {
-        val store = loadStore()
-        val arr = accountsArray(store)
-        var changed = false
-        for (i in 0 until arr.length()) {
-            val a = arr.optJSONObject(i) ?: continue
-            val key = a.optString("apiKey", a.optString("api_key", ""))
-            if (key == apiKey) { a.put("totalCredits", 0); changed = true }
+        synchronized(this) {
+            val store = loadStore()
+            val arr = accountsArray(store)
+            var changed = false
+            for (i in 0 until arr.length()) {
+                val a = arr.optJSONObject(i) ?: continue
+                val key = a.optString("apiKey", a.optString("api_key", ""))
+                if (key == apiKey) { a.put("totalCredits", 0); changed = true }
+            }
+            // remove all 0-credit accounts to keep store clean
+            val cleaned = JSONArray()
+            for (i in 0 until arr.length()) {
+                val a = arr.optJSONObject(i) ?: continue
+                val c = if (a.has("totalCredits") && !a.isNull("totalCredits")) a.optDouble("totalCredits", Double.NaN) else Double.NaN
+                if (!c.isNaN() && c <= 0.0) { changed = true; continue }
+                cleaned.put(a)
+            }
+            store.put("accounts", cleaned)
+            if (changed || true) saveStore(store)
         }
-        if (changed) saveStore(store)
     }
 
     private fun ensureUsableKey(): String {
-        val store = loadStore()
-        pickApiKey(store)?.let { return it }
-        // No known-good PAT: try to provision a new account+PAT (best effort). If it fails, primary is busy/unavailable.
-        val created = runCatching { provisionAccountWithCredits() }.getOrNull()
-        if (created != null) return created
-        throw TranslatorBusyException("MangaTranslate unavailable: no API key/credits")
+        provisionLock.withLock {
+            val store = loadStore()
+            pickKnownGoodApiKey(store)?.let { return it }
+            // try to refresh credits for accounts with unknown credits (best effort, direct)
+            val refreshed = refreshUnknownCreditAccount(store)
+            if (refreshed != null) return refreshed
+            val created = runCatching { provisionAccountWithCreditsLocked() }.getOrNull()
+            if (created != null) return created
+            throw TranslatorBusyException("MangaTranslate unavailable: no API key/credits")
+        }
+    }
+
+    private fun refreshUnknownCreditAccount(store: JSONObject): String? {
+        val arr = accountsArray(store)
+        for (i in arr.length() - 1 downTo 0) {
+            checkInterrupted()
+            val a = arr.optJSONObject(i) ?: continue
+            val key = a.optString("apiKey", a.optString("api_key", ""))
+            if (key.isBlank()) continue
+            val credits = if (a.has("totalCredits") && !a.isNull("totalCredits")) a.optDouble("totalCredits", Double.NaN) else Double.NaN
+            if (!credits.isNaN()) continue // only unknown
+            val total = runCatching { getCreditsWithPat(key) }.getOrNull()
+            if (total != null && total > 0.0) {
+                a.put("totalCredits", total)
+                saveStore(store)
+                return key
+            } else if (total != null && total <= 0.0) {
+                a.put("totalCredits", 0)
+                saveStore(store)
+            }
+        }
+        // clean 0-credit leftovers
+        val cleaned = JSONArray()
+        for (i in 0 until arr.length()) {
+            val a = arr.optJSONObject(i) ?: continue
+            val c = if (a.has("totalCredits") && !a.isNull("totalCredits")) a.optDouble("totalCredits", Double.NaN) else Double.NaN
+            if (!c.isNaN() && c <= 0.0) continue
+            cleaned.put(a)
+        }
+        store.put("accounts", cleaned)
+        saveStore(store)
+        return pickKnownGoodApiKey(store)
+    }
+
+    private fun getCreditsWithPat(apiKey: String): Double? {
+        for (url in listOf(MT_BASE + MT_CREDITS_V2, MT_BASE + MT_CREDITS_V1)) {
+            try {
+                val req = Request.Builder().url(url).get()
+                    .header("Authorization", "Bearer $apiKey")
+                    .header("Accept", "application/json")
+                    .build()
+                httpClient.newCall(req).execute().use { resp ->
+                    if (!resp.isSuccessful) return@use
+                    val j = runCatching { JSONObject(resp.body?.string().orEmpty()) }.getOrNull() ?: return@use
+                    val d = j.optJSONObject("data") ?: j
+                    val v = when {
+                        d.has("total_credits") -> d.optDouble("total_credits", Double.NaN)
+                        d.has("totalCredits") -> d.optDouble("totalCredits", Double.NaN)
+                        else -> Double.NaN
+                    }
+                    if (!v.isNaN()) return v
+                }
+            } catch (_: Exception) {}
+        }
+        return null
     }
 
     private fun isCreditOrBusyMessage(msg: String?): Boolean {
         val m = (msg ?: "").lowercase()
         return "insufficient credit" in m || "insufficient_credits" in m || "no enough credit" in m ||
-            ("credit" in m && ("not enough" in m || "insufficient" in m || "exhaust" in m || "habis" in m || "balance" in m)) ||
+            ("credit" in m && ("not enough" in m || "insufficient" in m || "exhaust" in m || "habis" in m || "balance" in m || "saldo 0" in m)) ||
             ("quota" in m && ("exceed" in m || "exhaust" in m || "habis" in m || "insufficient" in m)) ||
             "window_limit_exceeded" in m || "rate limit" in m || "too many requests" in m ||
-            "antrian penuh" in m || "queue" in m && "full" in m
+            "antrian penuh" in m || "busy" in m || "unavailable" in m || "no api key" in m ||
+            "timeout polling task" in m || "task selesai tanpa hasil" in m
     }
 
     private fun translateOne(imageBytes: ByteArray): ByteArray {
         var attempts = 0
-        while (true) {
+        var lastErr: Throwable? = null
+        while (attempts < 2) {
+            checkInterrupted()
             val apiKey = ensureUsableKey()
             attempts++
             try {
                 return translateOneWithKey(apiKey, imageBytes)
-            } catch (e: TranslatorBusyException) {
-                // mark and try to rotate/provision once
-                markAccountNoCredits(apiKey)
-                val rotated = runCatching { provisionAccountWithCredits() }.getOrNull()
-                if (rotated != null && attempts < 3) continue
+            } catch (e: InterruptedException) {
+                Thread.currentThread().interrupt()
                 throw e
+            } catch (e: TranslatorBusyException) {
+                markAccountNoCredits(apiKey)
+                lastErr = e
+                // One controlled rotation attempt. If it still fails, fall back right away.
+                val rotated = runCatching { provisionLock.withLock { provisionAccountWithCreditsLocked() } }.getOrNull()
+                if (rotated == null || attempts >= 2) throw e
+                interruptibleSleep(300)
+                continue
             } catch (e: MtV2Exception) {
+                lastErr = e
                 if (isCreditOrBusyMessage(e.message) || e.status == 429 || e.status == 402) {
                     markAccountNoCredits(apiKey)
-                    val rotated = runCatching { provisionAccountWithCredits() }.getOrNull()
-                    if (rotated != null && attempts < 3) continue
-                    throw TranslatorBusyException(e.message, e)
+                    val rotated = runCatching { provisionLock.withLock { provisionAccountWithCreditsLocked() } }.getOrNull()
+                    if (rotated == null || attempts >= 2) throw TranslatorBusyException(e.message, e)
+                    interruptibleSleep(300)
+                    continue
                 }
+                // other V2 errors: if transient/unavailable-like, retry a bit; else bubble up
+                if (isTransientTranslateError(e) && attempts < 2) { interruptibleSleep(600L * attempts); continue }
                 throw e
+            } catch (e: IOException) {
+                lastErr = e
+                if (attempts >= 2) throw e
+                interruptibleSleep(600L * attempts)
+                continue
             }
         }
+        throw (lastErr as? Exception) ?: TranslatorBusyException(lastErr?.message, lastErr)
     }
 
     private fun sha256Hex(bytes: ByteArray): String {
@@ -478,6 +518,7 @@ class MangaTranslateV2ChapterTranslator(
     }
 
     private fun translateOneWithKey(apiKey: String, imageBytes: ByteArray): ByteArray {
+        checkInterrupted()
         val contentType = detectMime(imageBytes)
         val filename = "page.${if (contentType == "image/png") "png" else "jpg"}"
         val sha = sha256Hex(imageBytes)
@@ -504,6 +545,7 @@ class MangaTranslateV2ChapterTranslator(
         val putHeaders = uploadInfo.optJSONObject("headers")
 
         // 2) PUT bytes
+        checkInterrupted()
         val putBody = imageBytes.toRequestBody(contentType.toMediaType())
         val putReqB = Request.Builder().url(putUrl).method(putMethod, putBody).header("Content-Type", contentType)
         if (putHeaders != null) {
@@ -514,12 +556,12 @@ class MangaTranslateV2ChapterTranslator(
             if (!resp.isSuccessful) throw MtV2Exception("Upload ke storage gagal HTTP ${resp.code}", resp.code, JSONObject())
         }
 
-        // 3) submit translate (EN->ID for manga reading, matching app behavior; allow auto source)
+        // 3) submit translate (EN->ID for manga reading; auto-detect source)
+        checkInterrupted()
         val submitBody = JSONObject().apply {
             put("upload_id", uploadId)
             put("files", JSONArray().put(JSONObject().apply { put("index", index); put("upload_intent", uploadIntent) }))
             put("target_language", "id")
-            // source auto-detected (omit source_language)
             put("model", "manga")
             put("translator", "auto")
         }
@@ -530,9 +572,10 @@ class MangaTranslateV2ChapterTranslator(
 
         // 4) poll task
         val taskPath = MT_TASK_TMPL.replace("{batch_id}", batchId)
-        val deadline = System.currentTimeMillis() + 10 * 60_000L
+        val deadline = System.currentTimeMillis() + 8 * 60_000L
         var lastStatus = ""
         while (System.currentTimeMillis() < deadline) {
+            checkInterrupted()
             val task = getJson(MT_BASE + taskPath, apiKey)
             val td = task.optJSONObject("data") ?: task
             val taskStatus = td.optString("task_status", td.optString("status", "")).lowercase()
@@ -544,6 +587,7 @@ class MangaTranslateV2ChapterTranslator(
             }
             if (allDone) {
                 var translatedUrl: String? = null
+                var itemErr = ""
                 if (items != null) {
                     for (i in 0 until items.length()) {
                         val it = items.optJSONObject(i) ?: continue
@@ -551,45 +595,49 @@ class MangaTranslateV2ChapterTranslator(
                         if (st == "completed") {
                             translatedUrl = it.optString("translated_url", it.optString("output_file_path", it.optString("translatedUrl", ""))).ifBlank { null }
                             if (translatedUrl != null) break
+                        } else if (st in setOf("failed", "error", "canceled", "cancelled")) {
+                            itemErr = it.optString("error", it.optString("message", "")).ifBlank { itemErr }
                         }
                     }
                 }
                 if (translatedUrl.isNullOrBlank()) {
-                    val err = if (items != null && items.length() > 0) items.optJSONObject(0)?.optString("error", "").orEmpty() else ""
-                    val msg = if (err.isNotBlank()) err else "Task selesai tanpa hasil ($lastStatus)"
+                    val msg = itemErr.ifBlank { "Task selesai tanpa hasil ($lastStatus)" }
                     if (isCreditOrBusyMessage(msg) || isCreditOrBusyMessage(lastStatus)) throw TranslatorBusyException(msg)
-                    throw MtV2Exception(msg, 0, task)
+                    // treat as unavailable/unreliable so fallback can take over
+                    throw TranslatorBusyException(msg)
                 }
                 // 5) download result
-                val resultUrl = translatedUrl!!
-                val dl = Request.Builder().url(resultUrl).get().header("User-Agent", "Mozilla/5.0").build()
+                val dl = Request.Builder().url(translatedUrl).get().header("User-Agent", "Mozilla/5.0").build()
                 httpClient.newCall(dl).execute().use { resp ->
                     if (!resp.isSuccessful) throw MtV2Exception("Download hasil gagal HTTP ${resp.code}", resp.code, JSONObject())
                     return resp.body?.bytes() ?: throw MtV2Exception("Hasil kosong", 0, JSONObject())
                 }
             }
-            Thread.sleep(2000)
+            interruptibleSleep(1000)
         }
-        throw MtV2Exception("Timeout polling task V2 ($lastStatus)", 0, JSONObject())
+        throw TranslatorBusyException("Timeout polling task V2 ($lastStatus)")
     }
 
-    // -------- best-effort account provisioning (simplified port of gist workflow, with proxy rotation) --------
-    private fun provisionAccountWithCredits(): String? {
-        // Try direct first, then rotate through a few active proxies on rate-limit/connection issues.
-        // Fail fast so that if MangaTranslate is unavailable we quickly fall back to IsManga instead of hanging.
+    // -------- account provisioning (with proxy rotation for mangatranslate, direct for akunlama) --------
+    private fun provisionAccountWithCreditsLocked(): String? {
+        // called under provisionLock; re-check if another thread already provisioned
+        pickKnownGoodApiKey(loadStore())?.let { return it }
+
         val proxies = listOf<String?>(null) + MT_DEFAULT_PROXIES.shuffled()
-        val maxAttempts = minOf(proxies.size, 5)
-        val deadline = System.currentTimeMillis() + 45_000L
+        val maxAttempts = minOf(proxies.size, 4)
+        val overallDeadline = System.currentTimeMillis() + 30_000L
         for (i in 0 until maxAttempts) {
-            if (System.currentTimeMillis() > deadline) break
+            checkInterrupted()
+            if (System.currentTimeMillis() > overallDeadline) break
             val proxyUrl = proxies[i]
-            val client = clientForProxy(proxyUrl)
-            val result = runCatching { provisionOnce(client) }
+            val mtClient = clientForProxy(proxyUrl)
+            val attemptDeadline = minOf(overallDeadline, System.currentTimeMillis() + 18_000L)
+            val result = runCatching { provisionOnce(mtClient, directClient, attemptDeadline) }
             val pat = result.getOrNull()
             if (pat != null) return pat
             val err = result.exceptionOrNull() ?: continue
+            android.util.Log.w("MangaTranslate", "provision attempt ${i + 1} failed: ${err.message}")
             if (!isRetryableProvisionError(err) && i >= 1) return null
-            // else retry with next proxy
         }
         return null
     }
@@ -599,49 +647,69 @@ class MangaTranslateV2ChapterTranslator(
         val proxy = parseHttpProxy(proxyUrl) ?: return httpClient
         return httpClient.newBuilder()
             .proxy(proxy)
-            .connectTimeout(20, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
-            .callTimeout(60, TimeUnit.SECONDS)
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(20, TimeUnit.SECONDS)
+            .writeTimeout(20, TimeUnit.SECONDS)
+            .callTimeout(30, TimeUnit.SECONDS)
             .build()
     }
 
-    private fun provisionOnce(client: OkHttpClient): String? {
+    private fun provisionOnce(mtClient: OkHttpClient, akunlamaClient: OkHttpClient, deadlineMs: Long): String? {
+        if (System.currentTimeMillis() > deadlineMs) return null
         val email = "mt_${randomHex(6)}@$DEFAULT_REG_DOMAIN"
         val password = "Mt!${randomHex(8)}Aa1"
-        val session = MtSession(client)
+        val session = MtSession(mtClient, akunlamaClient)
         session.fetchPage("/")
+        if (System.currentTimeMillis() > deadlineMs) return null
         session.register(email, password)
-        // verify via akunlama inbox (best effort, short wait)
-        runCatching { session.verifyAkunlama(email) }
+        if (System.currentTimeMillis() > deadlineMs) return null
+        // verify via akunlama inbox (best effort, short wait, direct client)
+        runCatching { session.verifyAkunlama(email, minOf(deadlineMs, System.currentTimeMillis() + 12_000L)) }
+        if (System.currentTimeMillis() > deadlineMs) return null
         runCatching { session.performCheckin() }
+        if (System.currentTimeMillis() > deadlineMs) return null
         val pat = runCatching { session.createApiKey() }.getOrNull().orEmpty()
         if (pat.isBlank()) return null
-        // check credits
-        val credits = runCatching { session.getCreditsTotal() }.getOrNull()
-        val total = credits ?: -1.0
+        if (System.currentTimeMillis() > deadlineMs) return null
+        // check credits (must be > 0)
+        val total = runCatching { session.getCreditsTotal() }.getOrNull() ?: runCatching { getCreditsWithPat(pat) }.getOrNull()
+        val credits = total ?: -1.0
+        if (credits <= 0.0) return null
         val store = loadStore()
         val arr = accountsArray(store)
+        // remove existing with same email and 0-credit junk
+        val cleaned = JSONArray()
+        for (i in 0 until arr.length()) {
+            val a = arr.optJSONObject(i) ?: continue
+            if (a.optString("email") == email) continue
+            val c = if (a.has("totalCredits") && !a.isNull("totalCredits")) a.optDouble("totalCredits", Double.NaN) else Double.NaN
+            if (!c.isNaN() && c <= 0.0) continue
+            cleaned.put(a)
+        }
         val acc = JSONObject().apply {
             put("email", email); put("password", password); put("apiKey", pat)
-            if (credits != null) put("totalCredits", credits)
+            put("totalCredits", credits)
             put("createdAt", System.currentTimeMillis())
         }
-        arr.put(acc)
+        cleaned.put(acc)
+        store.put("accounts", cleaned)
         saveStore(store)
-        return if (total > 0.0 || total < 0.0) pat else null
+        return pat
     }
 
     private fun randomHex(n: Int): String {
         val bytes = ByteArray(n)
-        java.security.SecureRandom().nextBytes(bytes)
+        SecureRandom().nextBytes(bytes)
         return bytes.joinToString("") { "%02x".format(it) }
     }
 }
 
 private class MtV2Exception(message: String, val status: Int, val body: JSONObject) : Exception(message)
 
-private class MtSession(private val http: OkHttpClient) {
+private class MtSession(
+    private val http: OkHttpClient,          // for mangatranslate.com (may be proxied)
+    private val directHttp: OkHttpClient,    // for akunlama/external verify (never proxied)
+) {
     private val cookies = linkedMapOf<String, String>()
     private val fingerprint = run {
         val s = "android|${android.os.Build.MODEL}|mangatranslate"
@@ -652,17 +720,17 @@ private class MtSession(private val http: OkHttpClient) {
 
     init { cookies["csrftoken"] = csrf; cookies["sc"] = sc }
 
-    private fun randomHex(n: Int): String { val b = ByteArray(n); java.security.SecureRandom().nextBytes(b); return b.joinToString("") { "%02x".format(it) } }
+    private fun randomHex(n: Int): String { val b = ByteArray(n); SecureRandom().nextBytes(b); return b.joinToString("") { "%02x".format(it) } }
     private fun fnv32(str: String): String {
         var t = 2166136261L
         for (ch in str) { t = t xor ch.code.toLong(); t = (t + (t shl 1) + (t shl 4) + (t shl 7) + (t shl 8) + (t shl 24)) and 0xFFFFFFFFL }
         return String.format("%08x", t)
     }
     private fun fnv1a64Hex(input: String): String {
-        var t = java.math.BigInteger("14695981039346656037")
-        val r = java.math.BigInteger("1099511628211")
-        val mask = java.math.BigInteger("FFFFFFFFFFFFFFFF", 16)
-        for (ch in input) { t = t.xor(java.math.BigInteger.valueOf(ch.code.toLong())).multiply(r).and(mask) }
+        var t = BigInteger("14695981039346656037")
+        val r = BigInteger("1099511628211")
+        val mask = BigInteger("FFFFFFFFFFFFFFFF", 16)
+        for (ch in input) { t = t.xor(BigInteger.valueOf(ch.code.toLong())).multiply(r).and(mask) }
         val hex = t.toString(16)
         return ("0000000000000000" + hex).takeLast(16)
     }
@@ -678,7 +746,7 @@ private class MtSession(private val http: OkHttpClient) {
             if (eq > 0) {
                 val name = first.substring(0, eq).trim()
                 val value = first.substring(eq + 1).trim()
-                if (value.isEmpty() || h.contains("expires=", true) && h.contains("1970")) cookies.remove(name) else cookies[name] = value
+                if (value.isEmpty() || (h.contains("expires=", true) && h.contains("1970"))) cookies.remove(name) else cookies[name] = value
             }
         }
         cookies["csrftoken"]?.let { csrf = it }
@@ -771,8 +839,8 @@ private class MtSession(private val http: OkHttpClient) {
         http.newCall(req).execute().use { resp -> absorbCookies(resp) }
     }
 
-    fun verifyAkunlama(email: String) {
-        // best-effort: request resend, poll inbox briefly for verify link, hit it. Kept short to avoid hanging.
+    fun verifyAkunlama(email: String, deadlineMs: Long) {
+        // best-effort: request resend, poll inbox briefly for verify link, hit it. Use direct client for akunlama.
         runCatching {
             val body = "{}".toRequestBody("application/json; charset=utf-8".toMediaType())
             val req = Request.Builder().url(MT_BASE + MT_RESEND_VERIFICATION).post(body)
@@ -782,9 +850,9 @@ private class MtSession(private val http: OkHttpClient) {
                 .build()
             http.newCall(req).execute().use { absorbCookies(it) }
         }
-        val deadline = System.currentTimeMillis() + 12_000L
         val seen = HashSet<String>()
-        while (System.currentTimeMillis() < deadline) {
+        while (System.currentTimeMillis() < deadlineMs) {
+            checkInterrupted()
             val msgs = runCatching { akunlamaList(email) }.getOrDefault(emptyList())
             for (m in msgs) {
                 val key = m.optJSONObject("storage")?.optString("key", "").orEmpty()
@@ -797,26 +865,29 @@ private class MtSession(private val http: OkHttpClient) {
                         val vreq = Request.Builder().url(match).get().header("User-Agent", UA).build()
                         http.newCall(vreq).execute().close()
                     }
+                    // refresh session
+                    runCatching { fetchPage("/") }
                     return
                 }
             }
-            Thread.sleep(3000)
+            if (System.currentTimeMillis() + 2000 > deadlineMs) break
+            interruptibleSleep(2000)
         }
     }
 
     private fun akunlamaList(email: String): List<JSONObject> {
-        val url = "$AKUNLAMA_API/list?recipient=${java.net.URLEncoder.encode(email, "UTF-8")}"
+        val url = "$AKUNLAMA_API/list?recipient=${URLEncoder.encode(email, "UTF-8")}"
         val req = Request.Builder().url(url).get().header("Accept", "application/json").build()
-        http.newCall(req).execute().use { resp ->
+        directHttp.newCall(req).execute().use { resp ->
             if (!resp.isSuccessful) return emptyList()
             val arr = runCatching { JSONArray(resp.body?.string().orEmpty()) }.getOrNull() ?: return emptyList()
             return (0 until arr.length()).mapNotNull { arr.optJSONObject(it) }
         }
     }
     private fun akunlamaHtml(region: String, key: String): String {
-        val url = "$AKUNLAMA_API/getHtml?region=${java.net.URLEncoder.encode(region, "UTF-8")}&key=${java.net.URLEncoder.encode(key, "UTF-8")}"
+        val url = "$AKUNLAMA_API/getHtml?region=${URLEncoder.encode(region, "UTF-8")}&key=${URLEncoder.encode(key, "UTF-8")}"
         val req = Request.Builder().url(url).get().header("Accept", "text/html,*/*").build()
-        http.newCall(req).execute().use { resp -> return if (resp.isSuccessful) resp.body?.string().orEmpty() else "" }
+        directHttp.newCall(req).execute().use { resp -> return if (resp.isSuccessful) resp.body?.string().orEmpty() else "" }
     }
 
     companion object { private const val UA = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36" }
