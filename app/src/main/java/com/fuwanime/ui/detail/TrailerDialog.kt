@@ -46,11 +46,12 @@ import java.net.URI
  * "Error 153" / "Terjadi error pada konfigurasi pemutar video"):
  * - The embed must come from https://www.youtube.com — the youtube-nocookie.com variant is
  *   rejected in WebViews by the same player-configuration check.
- * - The page is loaded via loadDataWithBaseURL() with the player's own domain as base URL,
- *   giving the player iframe a real origin instead of a bare-WebView page with no referer.
+ * - The page is loaded from https://www.youtube.com with a Referer header of
+ *   https://www.youtube.com/ — a bare WebView page has no referer, which triggers 153.
  * - A desktop-style User-Agent avoids the mobile-WebV path that also triggers 153.
- * - Navigations away from the player domains are cancelled, so a "Watch on YouTube" button
- *   or a share link can never bounce the user out of the app.
+ * - Only MAIN-frame navigations away from the player domains are cancelled (the player's
+ *   iframe itself hops through google.com/googlevideo.com while streaming and must be
+ *   allowed), so a "Watch on YouTube" jump can never bounce the user out of the app.
  */
 @Composable
 fun InlineTrailerPlayer(
@@ -99,18 +100,23 @@ fun InlineTrailerPlayer(
                             "Mozilla/5.0 (X11; Linux x86_64; rv:124.0) Gecko/20100101 Firefox/124.0"
                         webViewClient = object : WebViewClient() {
                             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                                // Cancel anything that is not the player itself — this is what
-                                // keeps playback strictly in-app ("Watch on YouTube" included).
+                                // Only MAIN-frame navigations are fenced: the player iframe itself
+                                // makes sub-frame hops through google.com/googlevideo.com while
+                                // streaming, and cancelling those would leave a dead black player.
+                                // A main-frame jump to YouTube's app/browser links is cancelled, so
+                                // playback can never leave the app.
+                                if (!request.isForMainFrame) return false
                                 val host = request.url.host?.removePrefix("www.").orEmpty()
                                 return host !in setOf("youtube.com", "youtube-nocookie.com", "dailymotion.com", "dm.com")
                             }
                         }
                         webChromeClient = WebChromeClient()
                         setBackgroundColor(android.graphics.Color.BLACK)
-                        val page = embedPage(trailerUrl)
-                        if (page != null) {
-                            // Base URL = player origin; without it YouTube reports Error 153.
-                            loadDataWithBaseURL(page.baseUrl, page.html, "text/html", "utf-8", null)
+                        val embed = embedUrl(trailerUrl)
+                        if (embed != null) {
+                            // A Referer from youtube.com is what the embed's player-configuration
+                            // check requires; a bare WebView page has no referer and gets Error 153.
+                            loadUrl(embed, mapOf("Referer" to "https://www.youtube.com/"))
                         } else {
                             loadUrl(trailerUrl)
                         }
@@ -122,31 +128,8 @@ fun InlineTrailerPlayer(
     }
 }
 
-/** An HTML wrapper page plus the base URL that gives the embedded player a valid origin. */
-internal class EmbedPage(val baseUrl: String, val html: String)
-
-private fun playerHtml(embedSrc: String): String = """
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<meta name="referrer" content="origin">
-<style>
-  html, body { margin: 0; padding: 0; height: 100%; background: #000; overflow: hidden; }
-  iframe { width: 100%; height: 100%; border: 0; }
-</style>
-</head>
-<body>
-<iframe src="$embedSrc"
-        allow="autoplay; encrypted-media; picture-in-picture"
-        allowfullscreen frameborder="0"></iframe>
-</body>
-</html>
-""".trimIndent()
-
-/** Converts a YouTube watch/short URL or a Dailymotion video URL into an embed page; null when unsupported. */
-internal fun embedPage(url: String): EmbedPage? {
+/** Converts a YouTube watch/short URL or a Dailymotion video URL into an embeddable player URL; null when unsupported. */
+internal fun embedUrl(url: String): String? {
     val clean = url.trim()
     return runCatching {
         val uri = URI(clean)
@@ -161,16 +144,12 @@ internal fun embedPage(url: String): EmbedPage? {
                 }
                 if (id.isNullOrBlank()) return@runCatching null
                 // www.youtube.com — the youtube-nocookie.com variant is rejected in WebViews (Error 153).
-                // "origin" posts the iframe's real origin (from the base URL) back to YouTube.
-                val origin = URI("https://www.youtube.com").toASCIIString()
-                val src = "https://www.youtube.com/embed/$id?autoplay=1&playsinline=1&rel=0&origin=$origin"
-                EmbedPage("https://www.youtube.com", playerHtml(src))
+                "https://www.youtube.com/embed/$id?autoplay=1&playsinline=1&rel=0"
             }
             "dailymotion.com" -> {
                 val id = uri.path?.trim('/')?.substringAfterLast('/')
                 if (id.isNullOrBlank()) return@runCatching null
-                val src = "https://www.dailymotion.com/embed/video/$id?autoplay=1"
-                EmbedPage("https://www.dailymotion.com", playerHtml(src))
+                "https://www.dailymotion.com/embed/video/$id?autoplay=1"
             }
             else -> null
         }
