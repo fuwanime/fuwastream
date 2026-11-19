@@ -686,7 +686,7 @@ class IsMangaChapterTranslator(
     }
 }
 
-/** Thrown by a primary translator when it is busy/unavailable so callers can fall back. */
+/** Thrown by the translator when it is busy/unavailable so callers can retry or report it. */
 class TranslatorBusyException(message: String? = null, cause: Throwable? = null) : Exception(message, cause)
 
 /** Chapter image translation backend (produces cached file:// page images). */
