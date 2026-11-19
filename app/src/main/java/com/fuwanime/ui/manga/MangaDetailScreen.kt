@@ -80,6 +80,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import com.fuwanime.ui.theme.AnimeTheme
+import com.fuwanime.ui.theme.rememberAnimeSeed
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -279,6 +281,8 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
     var collectionOpen by rememberSaveable { mutableStateOf(false) }
     var notificationOpen by rememberSaveable { mutableStateOf(false) }
 
+    val mangaSeed by rememberAnimeSeed(state.manga?.coverUrl)
+    AnimeTheme(mangaSeed) {
     Box(Modifier.fillMaxSize()) {
         val manga = state.manga
         when {
@@ -480,6 +484,7 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
             onAutoDownload = vm::setAutoDownload,
             onDismiss = { notificationOpen = false },
         )
+    }
     }
 }
 

@@ -124,6 +124,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import com.fuwanime.ui.theme.AnimeTheme
+import com.fuwanime.ui.theme.rememberAnimeSeed
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
@@ -536,6 +538,8 @@ fun PlayerRoute(
         )
     }
 
+    val animeSeed by rememberAnimeSeed(state.anime?.let { it.cover.ifBlank { it.poster } })
+    AnimeTheme(animeSeed) {
     Box(Modifier.fillMaxSize()) {
         // Two-pane on landscape tablets at expanded width: video left, episode/info panel right.
         val twoPane = useTwoPanePlayer(windowWidthDp, windowHeightDp) && !fullscreen && !inPip
@@ -644,6 +648,7 @@ fun PlayerRoute(
                 if (sleep == SleepOption.CUSTOM) sleepAtMs = sleepDeadline(SleepOption.CUSTOM, System.currentTimeMillis(), minutes)
             },
         )
+    }
     }
 }
 
