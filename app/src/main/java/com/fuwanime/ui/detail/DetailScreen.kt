@@ -178,6 +178,8 @@ fun DetailRoute(
     onBack: () -> Unit,
     /** [sharedKey] names the image that flies into the player; [thumb] is what the player shows meanwhile. */
     onPlay: (anime: Anime, episode: Episode, sharedKey: String?, thumb: String) -> Unit,
+    /** Opens the AniList trailer on its own stream page (see TrailerPlayerRoute). */
+    onPlayTrailer: (url: String, title: String, thumb: String) -> Unit = { _, _, _ -> },
     onAnimeClick: OpenAnime,
     onGenre: (String) -> Unit,
     onOpenManga: (mangaId: String) -> Unit = {},
@@ -215,6 +217,7 @@ fun DetailRoute(
             entryKey,
             onBack,
             onPlay,
+            onPlayTrailer,
             onAnimeClick,
             onGenre,
         )
@@ -237,6 +240,7 @@ private fun DetailScreen(
     entryKey: String,
     onBack: () -> Unit,
     onPlay: (Anime, Episode, String?, String) -> Unit,
+    onPlayTrailer: (url: String, title: String, thumb: String) -> Unit,
     onAnimeClick: OpenAnime,
     onGenre: (String) -> Unit,
 ) {
@@ -408,13 +412,17 @@ private fun DetailScreen(
                 item(key = "info") { Box(Modifier.navEnter(200)) { InfoGrid(anime, state.meta) } }
                 state.meta?.takeIf { it.trailerUrl.isNotBlank() }?.let { meta ->
                     item(key = "trailer") {
-                        val context = LocalContext.current
                         TrailerCard(
                             thumbnail = meta.trailerThumbnail,
                             fallbackThumbnail = anime?.let { a -> a.cover.ifBlank { a.poster } }.orEmpty(),
                             onClick = {
-                                // Trailers play outside the app (YouTube/Dailymotion app or the browser).
-                                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, meta.trailerUrl.toUri())) }
+                                // The trailer plays on its own stream page (Media3, like episodes),
+                                // not in a WebView and not in an external app.
+                                onPlayTrailer(
+                                    meta.trailerUrl,
+                                    anime?.title.orEmpty(),
+                                    meta.trailerThumbnail.ifBlank { anime?.cover.orEmpty() },
+                                )
                             },
                             modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp),
                         )

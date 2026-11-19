@@ -97,6 +97,7 @@
     <string name="watch_cast_main">Main</string>
     <string name="watch_cast_supporting">Supporting</string>
     <string name="watch_trailer">Watch trailer</string>
+    <string name="trailer_embed_error">The trailer can\'t be played here. Try opening it directly on YouTube.</string>
     <string name="watch_read_manga">Read the manga</string>
     <string name="watch_manga_not_found">The manga isn\'t available in FuwaStream yet</string>
     <string name="watch_open_external">Open in another player</string>

@@ -97,6 +97,7 @@
     <string name="watch_cast_main">Utama</string>
     <string name="watch_cast_supporting">Sampingan</string>
     <string name="watch_trailer">Tonton treler</string>
+    <string name="trailer_embed_error">Treler tidak boleh dimainkan di sini. Cuba buka terus di YouTube.</string>
     <string name="watch_read_manga">Baca versi manga</string>
     <string name="watch_manga_not_found">Versi manga belum tersedia di FuwaStream</string>
     <string name="watch_open_external">Buka dalam pemain lain</string>
