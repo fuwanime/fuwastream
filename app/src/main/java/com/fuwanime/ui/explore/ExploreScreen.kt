@@ -7,13 +7,15 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -28,13 +30,13 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -44,7 +46,6 @@ import androidx.compose.material.icons.rounded.Casino
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.NorthWest
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.SearchOff
 import androidx.compose.material.icons.rounded.Sort
@@ -56,11 +57,14 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.InputChip
+import androidx.compose.material3.InputChipDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -78,6 +82,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -86,6 +91,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -185,9 +191,10 @@ private fun ExploreScreen(
         Text(
             stringResource(R.string.common_tab_explore),
             style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.padding(start = 20.dp, top = 12.dp, bottom = 12.dp),
+            modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 12.dp),
         )
-        OutlinedTextField(
+        // M3 search bar: a fully rounded tonal field (surfaceContainerHigh), no outline — depth comes from tone.
+        TextField(
             value = state.filters.query,
             onValueChange = vm::onQueryChange,
             placeholder = { Text(stringResource(R.string.ux_search_all)) },
@@ -198,12 +205,24 @@ private fun ExploreScreen(
                 }
             },
             singleLine = true,
-            shape = RoundedCornerShape(14.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            textStyle = MaterialTheme.typography.bodyLarge,
+            shape = MaterialTheme.shapes.extraLarge,
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                focusedIndicatorColor = Color.Transparent,
+                unfocusedIndicatorColor = Color.Transparent,
+                disabledIndicatorColor = Color.Transparent,
+                cursorColor = MaterialTheme.colorScheme.primary,
+                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                focusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                unfocusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                focusedLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                unfocusedLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                focusedTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                unfocusedTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
             ),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = {
@@ -218,7 +237,7 @@ private fun ExploreScreen(
         )
 
         if (!showRecent) {
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(12.dp))
             FilterBar(state.filters, matureContent, vm)
             ResultsHeader(state.filters, vm, onRandom = state.results.takeIf { it.isNotEmpty() }?.let { r -> { pickRandom(r)?.let { onAnimeClick(it, "explore") } } })
         }
@@ -226,26 +245,44 @@ private fun ExploreScreen(
     }
 }
 
+/** Recent queries as fully rounded tonal chips: tap one to search it, trailing cross forgets it. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun RecentSearches(items: List<String>, topPad: Dp, onPick: (String) -> Unit, onRemove: (String) -> Unit, onClear: () -> Unit) {
-    LazyColumn(contentPadding = PaddingValues(top = topPad + 12.dp, bottom = 12.dp + LocalNavBarPadding.current)) {
-        item {
-            Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    LazyColumn(contentPadding = PaddingValues(top = topPad + 8.dp, bottom = 16.dp + LocalNavBarPadding.current)) {
+        item(key = "recent-header") {
+            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.browse_recent_searches), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
                 TextButton(onClick = onClear) { Text(stringResource(R.string.browse_clear_all)) }
             }
         }
-        items(items, key = { it }) { q ->
-            Row(
-                Modifier.fillMaxWidth().clickable { onPick(q) }.padding(start = 20.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),
-                verticalAlignment = Alignment.CenterVertically,
+        item(key = "recent-chips") {
+            FlowRow(
+                Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Icon(Icons.Rounded.History, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.width(16.dp))
-                Text(q, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-                IconButton(onClick = { onRemove(q) }) { Icon(Icons.Rounded.Close, stringResource(R.string.browse_clear), Modifier.size(18.dp)) }
-                Icon(Icons.Rounded.NorthWest, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.width(12.dp))
+                items.forEach { q ->
+                    InputChip(
+                        selected = false,
+                        onClick = { onPick(q) },
+                        label = { Text(q, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        leadingIcon = { Icon(Icons.Rounded.History, null, Modifier.size(18.dp)) },
+                        trailingIcon = {
+                            IconButton(onClick = { onRemove(q) }, modifier = Modifier.size(24.dp)) {
+                                Icon(Icons.Rounded.Close, stringResource(R.string.browse_clear), Modifier.size(16.dp))
+                            }
+                        },
+                        shape = RoundedCornerShape(50),
+                        border = null,
+                        colors = InputChipDefaults.inputChipColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            labelColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                            leadingIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                            trailingIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        ),
+                    )
+                }
             }
         }
     }
@@ -272,14 +309,16 @@ private fun FilterBar(filters: ExploreFilters, matureContent: Boolean, vm: Explo
     }
 }
 
-/** Title of what is shown, plus one menu for sort order and airing status. */
+/**
+ * Title of what is shown, plus one menu for sort order and airing status.
+ * [onRandom] is null while there is nothing to pick from.
+ */
 @Composable
-/** [onRandom] is null while there is nothing to pick from. */
 private fun ResultsHeader(filters: ExploreFilters, vm: ExploreViewModel, onRandom: (() -> Unit)?) {
     var menuOpen by remember { mutableStateOf(false) }
     val randomCd = stringResource(R.string.browse_random_cd)
     Row(
-        Modifier.fillMaxWidth().padding(start = 20.dp, end = 16.dp, top = 14.dp, bottom = 2.dp),
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
@@ -294,40 +333,62 @@ private fun ResultsHeader(filters: ExploreFilters, vm: ExploreViewModel, onRando
             enabled = onRandom != null,
             label = { Text(stringResource(R.string.browse_random)) },
             leadingIcon = { Icon(Icons.Rounded.Casino, null, Modifier.size(18.dp)) },
+            shape = RoundedCornerShape(50),
+            colors = AssistChipDefaults.assistChipColors(
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                labelColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                leadingIconContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            ),
             modifier = Modifier.padding(end = 8.dp).semantics { contentDescription = randomCd },
         )
         Box {
             FilledTonalButton(
                 onClick = { menuOpen = true },
-                shape = RoundedCornerShape(10.dp),
-                contentPadding = PaddingValues(start = 12.dp, end = 8.dp),
-                colors = ButtonDefaults.filledTonalButtonColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                modifier = Modifier.heightIn(min = 36.dp),
+                shape = RoundedCornerShape(50),
+                contentPadding = PaddingValues(start = 16.dp, end = 12.dp),
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                ),
+                modifier = Modifier.heightIn(min = 40.dp),
             ) {
-                Icon(Icons.Rounded.Sort, null, Modifier.size(16.dp))
-                Spacer(Modifier.width(6.dp))
+                Icon(Icons.Rounded.Sort, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
                 Text(
                     if (filters.status == StatusFilter.ALL) stringResource(filters.sort.label) else "${stringResource(filters.sort.label)} · ${stringResource(filters.status.label)}",
                     style = MaterialTheme.typography.labelLarge,
                 )
                 Icon(Icons.Rounded.ArrowDropDown, null)
             }
-            DropdownMenu(menuOpen, onDismissRequest = { menuOpen = false }) {
+            DropdownMenu(
+                menuOpen,
+                onDismissRequest = { menuOpen = false },
+                shape = MaterialTheme.shapes.medium,
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            ) {
                 MenuLabel(stringResource(R.string.browse_sort_menu))
                 SortOrder.entries.forEach { s ->
                     DropdownMenuItem(
                         text = { Text(stringResource(s.label)) },
                         onClick = { vm.setSort(s); menuOpen = false },
                         trailingIcon = { if (s == filters.sort) Icon(Icons.Rounded.Check, null) },
+                        colors = MenuDefaults.itemColors(
+                            textColor = MaterialTheme.colorScheme.onSurface,
+                            trailingIconColor = MaterialTheme.colorScheme.primary,
+                        ),
                     )
                 }
-                HorizontalDivider()
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 MenuLabel(stringResource(R.string.browse_status_menu))
                 StatusFilter.entries.forEach { st ->
                     DropdownMenuItem(
                         text = { Text(stringResource(st.label)) },
                         onClick = { vm.setStatus(st); menuOpen = false },
                         trailingIcon = { if (st == filters.status) Icon(Icons.Rounded.Check, null) },
+                        colors = MenuDefaults.itemColors(
+                            textColor = MaterialTheme.colorScheme.onSurface,
+                            trailingIconColor = MaterialTheme.colorScheme.primary,
+                        ),
                     )
                 }
             }
@@ -340,8 +401,9 @@ private fun MenuLabel(text: String) {
     Text(
         text,
         style = MaterialTheme.typography.labelMedium,
+        fontWeight = FontWeight.SemiBold,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 4.dp),
+        modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 4.dp),
     )
 }
 
@@ -378,7 +440,7 @@ private fun ResultsGrid(
             columns = GridCells.Adaptive(108.dp),
             contentPadding = PaddingValues(start = 16.dp, top = topPad + 16.dp, end = 16.dp, bottom = 16.dp + LocalNavBarPadding.current),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
             userScrollEnabled = false,
         ) { items(12) { PosterSkeleton() } }
 
@@ -395,9 +457,9 @@ private fun ResultsGrid(
         ResultsBranch.RESULTS -> LazyVerticalGrid(
             state = gridState,
             columns = GridCells.Adaptive(108.dp),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = topPad + 12.dp, bottom = 24.dp + LocalNavBarPadding.current),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = topPad + 12.dp, bottom = 16.dp + LocalNavBarPadding.current),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (state.mangaResults.isNotEmpty()) {
                 item(span = { GridItemSpan(maxLineSpan) }, key = "manga-header") {
