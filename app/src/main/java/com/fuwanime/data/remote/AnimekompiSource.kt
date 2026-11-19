@@ -12,6 +12,9 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
 import java.net.URLEncoder
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone
 
 const val AK_PREFIX = "ak:"
 
@@ -31,6 +34,25 @@ object AnimekompiId {
 }
 
 data class AkAnimePage(val items: List<Anime>, val hasMore: Boolean)
+
+/**
+ * The schedule API returns ISO-8601 UTC instants ("2026-11-11T00:00:00.000Z"). The app renders
+ * `nextAirTime` as "HH:mm" (see airTime()), so convert to WIB and emit "yyyy-MM-dd HH:mm",
+ * matching what Kuramanime's schedule sends. Unparseable input is passed through unchanged.
+ */
+internal fun wibLocalTime(isoUtc: String): String {
+    if (!isoUtc.contains('T')) return isoUtc
+    return runCatching {
+        val parser = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).apply {
+            timeZone = TimeZone.getTimeZone("UTC")
+            isLenient = false
+        }
+        val formatter = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).apply {
+            timeZone = TimeZone.getTimeZone("Asia/Jakarta")
+        }
+        formatter.format(parser.parse(isoUtc.trim()) ?: return isoUtc)
+    }.getOrDefault(isoUtc)
+}
 
 /**
  * Animekompi (v11.animekompi.sbs) additive anime source. The site is a Vue SPA over a plain
@@ -123,7 +145,7 @@ class AnimekompiSource(
                         title = it.str("title").ifBlank { slug },
                         poster = absolute(it.str("cover")),
                         cover = absolute(it.str("cover")),
-                        nextAirTime = it.str("time"),
+                        nextAirTime = wibLocalTime(it.str("time")),
                     )
                 }
             }
