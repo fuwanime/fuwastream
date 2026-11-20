@@ -77,10 +77,10 @@ class MangaHomeViewModel(private val repo: MangaRepository, library: MangaLibrar
         refreshing.value = true
         viewModelScope.launch {
             coroutineScope {
-                launch { loadWith(indonesia) { repo.popularIndonesia().items } }
-                launch { loadWith(komiku) { (1..3).flatMap { repo.popularKomiku(it).items } } }
-                launch { load(popular, MangaOrder.POPULAR) }
-                launch { load(latest, MangaOrder.LATEST) }
+                launch { loadWith(indonesia) { (1..3).flatMap { repo.popularIndonesia(it).items }.distinctBy { it.id } } }
+                launch { loadWith(komiku) { (1..3).flatMap { repo.popularKomiku(it).items }.distinctBy { it.id } } }
+                launch { loadWith(popular) { (1..3).flatMap { runCatching { repo.browse(MangaOrder.POPULAR, offset = (it - 1) * 30).items }.getOrDefault(emptyList()) }.distinctBy { it.id } } }
+                launch { loadWith(latest) { (1..3).flatMap { runCatching { repo.browse(MangaOrder.LATEST, offset = (it - 1) * 30).items }.getOrDefault(emptyList()) }.distinctBy { it.id } } }
             }
             // Show notice only when English shelves failed but Indonesian shelves are available.
             val englishFailed = popular.value.error != null || latest.value.error != null || (popular.value.items.isEmpty() && latest.value.items.isEmpty() && !popular.value.loading && !latest.value.loading)

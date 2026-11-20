@@ -39,6 +39,7 @@ import androidx.lifecycle.viewModelScope
 import com.fuwanime.R
 import com.fuwanime.data.manga.Manga
 import com.fuwanime.data.manga.MangaOrder
+import com.fuwanime.data.manga.MangaPage
 import com.fuwanime.data.manga.MangaRepository
 import com.fuwanime.data.manga.MangaStatus
 import com.fuwanime.data.manga.MangaTag
@@ -73,6 +74,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
 private const val PREFETCH = 6
+private const val PAGE_BATCH = 30
 
 /** Load more when near end and more items may be available. */
 fun shouldLoadMore(lastVisible: Int, loaded: Int, total: Int): Boolean =
@@ -99,7 +101,7 @@ data class MangaExploreState(
     val error: UiText? = null,
     /** Bumps with every fresh first page, so UI state tied to the old result list (scroll, pending paging) can be dropped. */
     val generation: Int = 0,
-    /** Comix failed; the shown results come from Shinigami/Komiku. */
+    /** English catalog failed; the shown results come from Indonesian sources. */
     val catalogDown: Boolean = false,
 ) {
     val endReached get() = results.size >= total
@@ -118,6 +120,13 @@ class MangaExploreViewModel(private val repo: MangaRepository) : ViewModel() {
 
     // What the shown results were fetched with (the query is debounced, so it can lag behind state.query).
     private var applied = Applied()
+    private val raw = mutableListOf<Manga>()
+    private val seenIds = HashSet<String>()
+    private var englishPage = 0
+    private var indoPage = 0
+    private var englishHasMore = true
+    private var indoHasMore = true
+    private var englishError: UiText? = null
 
     /** Starts the search pipeline when manga mode is first shown. */
     fun start() {
@@ -161,15 +170,48 @@ class MangaExploreViewModel(private val repo: MangaRepository) : ViewModel() {
         null
     }
 
+    private fun resetPages() {
+        raw.clear()
+        seenIds.clear()
+        englishPage = 0
+        indoPage = 0
+        englishHasMore = true
+        indoHasMore = true
+        englishError = null
+    }
+
     private suspend fun loadFirst(a: Applied) {
         moreJob?.cancel()
-        _state.update { it.copy(results = emptyList(), total = 0, loading = true, loadingMore = false, error = null, generation = it.generation + 1, catalogDown = false) }
+        resetPages()
+        val gen = _state.value.generation + 1
+        _state.update { it.copy(results = emptyList(), total = 0, loading = true, loadingMore = false, error = null, generation = gen, catalogDown = false) }
+        fetchNextBatch(a, initial = true, generation = gen)
+    }
 
-        // English and Indonesian sources run side by side: a slow English host must not hold back Shinigami's results.
-        val (english, indonesian) = coroutineScope {
+    /** [generation] is the one the caller saw; a request from before a filter change is ignored. */
+    fun loadMore(generation: Int) {
+        val s = _state.value
+        if (generation != s.generation || s.loading || s.loadingMore || s.endReached) return
+        val a = applied
+        moreJob = viewModelScope.launch {
+            _state.update { it.copy(loadingMore = true, error = null) }
+            fetchNextBatch(a, initial = false, generation = generation)
+        }
+    }
+
+    private suspend fun fetchNextBatch(a: Applied, initial: Boolean, generation: Int) {
+        if (_state.value.generation != generation) return
+        val searching = a.q.isNotBlank()
+        val nextEnglishPage = if (englishHasMore) englishPage + 1 else -1
+        val nextIndoPage = if (indoHasMore) indoPage + 1 else -1
+
+        val (englishPageResult, indoResult) = coroutineScope {
             val en = async {
+                if (nextEnglishPage < 0) return@async null
+                if (searching && englishPage >= 1) return@async null
                 try {
-                    Result.success(repo.browse(orderFor(a.q), a.q, a.tags.toList(), a.status, 0, a.type))
+                    val offset = (nextEnglishPage - 1) * PAGE_BATCH
+                    Result.success(repo.browse(orderFor(a.q), a.q, a.tags.toList(), a.status, if (searching) 0 else offset, a.type))
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
@@ -177,45 +219,88 @@ class MangaExploreViewModel(private val repo: MangaRepository) : ViewModel() {
                 }
             }
             val id = async {
-                when {
-                    a.q.isNotBlank() -> repo.searchIndonesia(a.q)
-                    // Lists carry no genres, so a genre is asked of Komiku's own filter and the hits are marked with it.
-                    a.tags.size == 1 -> {
-                        val genre = a.tags.first()
-                        (1..3).flatMap { p -> quiet { repo.popularKomiku(p, a.type, genre).items }.orEmpty() }.map { it.copy(tags = listOf(genre)) }
-                    }
-                    else -> quiet { repo.popularIndonesia(1, a.type).items }.orEmpty() +
-                        quiet { repo.popularKomiku(1, a.type).items }.orEmpty()
+                if (nextIndoPage < 0) return@async null
+                if (searching) {
+                    try { repo.searchIndonesiaPaged(a.q, nextIndoPage) } catch (e: CancellationException) { throw e } catch (_: Exception) { MangaPage(emptyList(), 0, 0) }
+                } else if (a.tags.size == 1) {
+                    // Lists carry no genres, so ask Komiku's own genre filter and mark hits with it.
+                    val genre = a.tags.first()
+                    val km = quiet { repo.popularKomiku(nextIndoPage, a.type, genre) }
+                    val items = km?.items.orEmpty().map { it.copy(tags = listOf(genre)) }.distinctBy { it.id }
+                    val hasMore = km != null && km.items.isNotEmpty()
+                    MangaPage(items, if (hasMore) nextIndoPage * PAGE_BATCH + 1 else nextIndoPage * PAGE_BATCH, (nextIndoPage - 1) * PAGE_BATCH)
+                } else {
+                    // Browse: combine Shinigami + Komiku popular pages.
+                    val sh = quiet { repo.popularIndonesia(nextIndoPage, a.type) }
+                    val km = quiet { repo.popularKomiku(nextIndoPage, a.type) }
+                    val items = (sh?.items.orEmpty() + km?.items.orEmpty()).distinctBy { it.id }
+                    val shMore = sh != null && sh.items.isNotEmpty() && sh.items.size >= PAGE_BATCH / 2 && sh.offset + sh.items.size < sh.total
+                    val kmMore = km != null && km.items.isNotEmpty()
+                    val hasMore = shMore || kmMore
+                    MangaPage(items, if (hasMore) nextIndoPage * PAGE_BATCH + 1 else nextIndoPage * PAGE_BATCH, (nextIndoPage - 1) * PAGE_BATCH)
                 }
             }
             en.await() to id.await()
         }
-        val page = english.getOrNull()
-        val merged = dedupeByTitle((page?.items.orEmpty() + indonesian).distinctBy { m -> m.id })
-        val results = filterManga(merged, a.status, a.type, a.tags)
-        val selectedGenres = a.tags
+
+        if (nextEnglishPage > 0) {
+            val page = englishPageResult?.getOrNull()
+            if (page != null) {
+                englishPage = nextEnglishPage
+                englishHasMore = if (searching) false else page.offset + page.items.size < page.total
+                page.items.forEach { if (seenIds.add(it.id)) raw += it }
+            } else {
+                if (searching || initial) {
+                    englishHasMore = false
+                    englishError = englishPageResult?.exceptionOrNull()?.friendlyText()
+                } else {
+                    // transient failure on "load more": stop fetching English but keep existing results
+                    englishHasMore = false
+                }
+            }
+        }
+        if (nextIndoPage > 0 && indoResult != null) {
+            indoPage = nextIndoPage
+            indoHasMore = if (searching) indoResult.offset + indoResult.items.size < indoResult.total else indoResult.offset + indoResult.items.size < indoResult.total
+            indoResult.items.forEach { if (seenIds.add(it.id)) raw += it }
+        }
+
+        refilter()
+
+        val hasMore = englishHasMore || indoHasMore
+        val filtered = _state.value.results
+        val needMore = filtered.size < PAGE_BATCH && hasMore && _state.value.generation == generation
+
+        if (needMore) {
+            // Client-side filters (status/genre/type) can drop many items; keep fetching to fill the screen.
+            fetchNextBatch(a, initial = false, generation = generation)
+            return
+        }
+
         val error = when {
-            results.isNotEmpty() -> null
-            selectedGenres.isNotEmpty() && merged.isNotEmpty() -> null
-            else -> english.exceptionOrNull()?.friendlyText()
+            filtered.isNotEmpty() -> null
+            a.tags.isNotEmpty() && raw.isNotEmpty() -> null
+            else -> englishError
         }
         _state.update {
             it.copy(
-                results = results,
-                total = results.size,
                 loading = false,
-                error = error,
-                catalogDown = page == null || page.items.isEmpty(),
+                loadingMore = false,
+                total = if (hasMore) filtered.size + 1 else filtered.size,
+                error = if (initial) error else if (filtered.isEmpty()) error else null,
+                catalogDown = englishPage == 0 && indoPage > 0,
             )
         }
     }
 
-    /** [generation] is the one the caller saw; a request from before a filter change is ignored. */
-    fun loadMore(generation: Int) {
-        val s = _state.value
-        if (generation != s.generation || s.loading || s.loadingMore || s.endReached) return
-        // English sources are fetched as a single page; nothing more to load.
-        _state.update { it.copy(loadingMore = false) }
+    private fun stateSnapshotGeneration(): Int = _state.value.generation
+
+    private fun refilter(): Int {
+        val a = applied
+        val filtered = filterManga(dedupeByTitle(raw.toList()), a.status, a.type, a.tags)
+        val hasMore = englishHasMore || indoHasMore
+        _state.update { it.copy(results = filtered, total = if (hasMore) filtered.size + 1 else filtered.size) }
+        return filtered.size
     }
 }
 

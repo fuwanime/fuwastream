@@ -9,17 +9,17 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 
-// MangaKakalot / KakaManga-family English catalogue (kakamanga.com, mangakakalot.gg, etc.),
+// MangaKakalot / KakaManga-family English catalogue (katamanga.com, kakamanga.com, etc.),
 // based on audited structure: detail /manga/<slug>, chapters via /api/manga/<slug>/chapters (JSON),
-// reader /manga/<slug>/<chapter-slug> with .container-chapter-reader images.
+// reader /manga/<slug>/<chapter-slug> with chapter images (2xstorage or container-chapter-reader).
 const val KK_PREFIX = "kk:"
 
 fun isKakaMangaId(id: String): Boolean = id.startsWith(KK_PREFIX)
 
 class KakaMangaSource(private val client: OkHttpClient) {
     private val mirrors = listOf(
+        "https://www.katamanga.com",
         "https://www.kakamanga.com",
-        "https://www.mangakakalot.gg",
         "https://www.natomanga.com",
         "https://www.nelomanga.com",
     )
@@ -182,12 +182,25 @@ class KakaMangaSource(private val client: OkHttpClient) {
             if (slug !in out) out[slug] = Manga(idFor(slug, base), title, img, "", emptyList(), MangaStatus.UNKNOWN, null, null)
         }
         if (out.isEmpty()) {
-            val generic = Regex("""<a[^>]+href="[^"]*/manga/([^"/?#]+)"[^>]*title="([^"]+)"[^>]*>""")
-            for (m in generic.findAll(html)) {
-                val slug = m.groupValues[1]
-                if (slug in setOf("list", "search", "genre", "latest", "hot")) continue
-                val title = htmlText(m.groupValues[2]).trim()
-                if (slug !in out && title.isNotBlank()) out[slug] = Manga(idFor(slug, base), title, null, "", emptyList(), MangaStatus.UNKNOWN, null, null)
+            val generic = listOf(
+                Regex("""<a[^>]+href="[^"]*/manga/([^"/?#]+)"[^>]*title="([^"]+)"[^>]*>"""),
+                Regex("""<a[^>]+title="([^"]+)"[^>]*href="[^"]*/manga/([^"/?#]+)"[^>]*>"""),
+            )
+            for (re in generic) {
+                for (m in re.findAll(html)) {
+                    val slug: String
+                    val titleRaw: String
+                    if (re.pattern.contains("href=\"[^\"]*/manga/([^\"/?#]+)\"[^>]*title")) {
+                        slug = m.groupValues[1]
+                        titleRaw = m.groupValues[2]
+                    } else {
+                        titleRaw = m.groupValues[1]
+                        slug = m.groupValues[2]
+                    }
+                    if (slug in setOf("list", "search", "genre", "latest", "hot")) continue
+                    val title = htmlText(titleRaw).trim()
+                    if (slug !in out && title.isNotBlank()) out[slug] = Manga(idFor(slug, base), title, null, "", emptyList(), MangaStatus.UNKNOWN, null, null)
+                }
             }
         }
         return out.values.toList()

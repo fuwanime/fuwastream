@@ -77,35 +77,50 @@ class AnimeRepository(
         sort: SortOrder = SortOrder.POPULAR,
         keyword: String = "",
         type: String? = null,
+        genre: String? = null,
         cacheOnly: Boolean = false,
     ): Result<List<Anime>> =
         io {
             val source = if (cacheOnly) cachedApi else api
-            // The type endpoint ignores keywords, so searches use the keyword endpoint and callers filter by type.
-            val response = if (type != null && keyword.isBlank()) {
-                source.exploreByType(type = type, page = page, sort = sort.apiValue)
-            } else {
-                source.explore(page = page, sort = sort.apiValue, keyword = keyword.trim())
+            val q = keyword.trim()
+            // Server endpoints are specialized: keyword search, type listing, or genre listing.
+            // Prefer keyword when searching; otherwise prefer a selected genre for accurate genre browsing.
+            val response = when {
+                q.isNotBlank() -> source.explore(page = page, sort = sort.apiValue, keyword = q)
+                genre != null -> {
+                    val ids = ensureGenreIds()
+                    val genreId = ids[genre.trim().lowercase()]
+                    if (genreId != null) source.exploreByGenre(genreId, page, sort.apiValue)
+                    else if (type != null) source.exploreByType(type = type, page = page, sort = sort.apiValue)
+                    else source.explore(page = page, sort = sort.apiValue, keyword = "")
+                }
+                type != null -> source.exploreByType(type = type, page = page, sort = sort.apiValue)
+                else -> source.explore(page = page, sort = sort.apiValue, keyword = "")
             }
             val items = response.data?.movie.orEmpty()
             remember(visible(items.map { it.toAnime() }.distinctBy { it.id }))
         }
 
-    /**
-     * Pool for "Anime Serupa": the most watched titles of this anime's two most specific genres, filtered by the
-     * server. Falls back to the general popular list when the genre list is unavailable. Rank with [rankSimilar].
-     */
-    suspend fun similarCandidates(anime: Anime): Result<List<Anime>> = io {
-        val ids = genreIds ?: try {
+    private suspend fun ensureGenreIds(): Map<String, String> {
+        genreIds?.let { return it }
+        return try {
             api.genres().data?.genre.orEmpty()
                 .filter { it.id.isNotBlank() && it.name.isNotBlank() }
                 .associate { it.name.trim().lowercase() to it.id }
                 .also { if (it.isNotEmpty()) genreIds = it }
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             emptyMap()
         }
+    }
+
+    /**
+     * Pool for "Anime Serupa": the most watched titles of this anime's two most specific genres, filtered by the
+     * server. Falls back to the general popular list when the genre list is unavailable. Rank with [rankSimilar].
+     */
+    suspend fun similarCandidates(anime: Anime): Result<List<Anime>> = io {
+        val ids = ensureGenreIds()
         val seeds = seedGenres(anime.genres).mapNotNull { ids[it.trim().lowercase()] }
         val items = if (seeds.isEmpty()) {
             api.explore(page = 0, sort = SortOrder.POPULAR.apiValue, keyword = "").data?.movie.orEmpty()

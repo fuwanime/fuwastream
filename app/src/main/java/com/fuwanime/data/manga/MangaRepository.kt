@@ -53,7 +53,8 @@ class MangaRepository(
         // No native tag/status filter on MP/KK; return general listings and let UI degrade gracefully.
         val pageNum = (offset / PAGE_SIZE).coerceAtLeast(0) + 1
         val items = dedupeByTitle(browseEnglish(pageNum))
-        return MangaPage(items, items.size, offset)
+        val total = if (items.size >= PAGE_SIZE / 2) offset + items.size + PAGE_SIZE else offset + items.size
+        return MangaPage(items, total, offset)
     }
 
     private suspend fun searchEnglish(query: String): List<Manga> = coroutineScope {
@@ -82,6 +83,27 @@ class MangaRepository(
         shinigamiHits.await() + komikuHits.await() + webtoonHits.await()
     }
 
+    /** Paged Indonesian search (Shinigami supports pages); Komiku/Webtoon included on page 1. */
+    suspend fun searchIndonesiaPaged(query: String, page: Int = 1): MangaPage = coroutineScope {
+        suspend fun <T> quiet(block: suspend () -> List<T>): List<T> =
+            runCatching { withTimeoutOrNull(ID_TIMEOUT_MS) { block() } }.getOrNull().orEmpty()
+        val shinigamiPage = async {
+            runCatching { withTimeoutOrNull(ID_TIMEOUT_MS) { shinigami?.browse(null, query, page) } }.getOrNull()
+        }
+        val komikuHits = async { if (page == 1) quiet { komiku?.search(query).orEmpty() } else emptyList() }
+        val webtoonHits = async { if (page == 1) quiet { webtoon?.search(query).orEmpty() } else emptyList() }
+        val sh = shinigamiPage.await()
+        val items = (sh?.items.orEmpty() + komikuHits.await() + webtoonHits.await()).distinctBy { it.id }
+        val shTotal = sh?.total ?: 0
+        val shHasMore = sh != null && sh.items.isNotEmpty() && page * PAGE_SIZE < shTotal
+        val total = when {
+            shHasMore -> (page * PAGE_SIZE) + 1
+            page == 1 -> items.size
+            else -> (page - 1) * PAGE_SIZE + (sh?.items?.size ?: 0)
+        }
+        MangaPage(items, total, (page - 1) * PAGE_SIZE)
+    }
+
     /** English results from MangaPark & MangaKakalot (compat name kept for callers). */
     suspend fun searchComix(query: String): List<Manga> = try {
         withTimeoutOrNull(EN_TIMEOUT_MS) { searchEnglish(query) }.orEmpty()
@@ -94,7 +116,8 @@ class MangaRepository(
     /** Popular English titles from MangaPark & MangaKakalot (compat name kept for callers). */
     suspend fun popularComix(page: Int = 1, type: MangaType? = null): MangaPage {
         val items = runCatching { withTimeoutOrNull(EN_TIMEOUT_MS) { browseEnglish(page) } }.getOrNull().orEmpty()
-        return MangaPage(items, items.size, 0)
+        val total = if (items.size >= PAGE_SIZE / 2) Int.MAX_VALUE else items.size
+        return MangaPage(items, total, (page - 1) * PAGE_SIZE)
     }
 
     /** Popular Komiku titles; [page] is 1-based, 10 per page. */

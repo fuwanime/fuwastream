@@ -16,6 +16,7 @@ import com.fuwanime.data.manga.Manga
 import com.fuwanime.data.manga.MangaRepository
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import com.fuwanime.data.manga.dedupeByTitle
 import com.fuwanime.data.remote.AnimeApiService
 import com.fuwanime.util.UiText
@@ -153,8 +154,8 @@ class ExploreViewModel(
         val after = change(before)
         if (after == before) return
         _state.update { it.copy(filters = after) }
-        // Sort, query and type hit the server; genre/status only re-filter what we already have.
-        if (after.sort != before.sort || after.query != before.query || after.type != before.type) reload()
+        // Sort, query, type and genre affect the server query; status is filtered client-side.
+        if (after.sort != before.sort || after.query != before.query || after.type != before.type || after.genres != before.genres) reload()
         else refilter(fillPage = true)
     }
 
@@ -182,13 +183,20 @@ class ExploreViewModel(
         }
         mangaJob = viewModelScope.launch {
             _state.update { it.copy(mangaLoading = true) }
-            // One English query (it used to run twice) alongside the Indonesian ones, not after them.
             val (local, english) = coroutineScope {
-                val id = async { try { mangaRepository.searchIndonesia(q) } catch (e: CancellationException) { throw e } catch (_: Exception) { emptyList() } }
+                val id = async {
+                    try {
+                        (1..3).flatMap { page -> mangaRepository.searchIndonesiaPaged(q, page).items }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        emptyList()
+                    }
+                }
                 val en = async { try { mangaRepository.searchComix(q) } catch (e: CancellationException) { throw e } catch (_: Exception) { emptyList() } }
                 id.await() to en.await()
             }
-            val merged = dedupeByTitle((local + english).distinctBy { it.id }).take(12)
+            val merged = dedupeByTitle((local + english).distinctBy { it.id }).take(60)
             _state.update { it.copy(mangaResults = merged, mangaLoading = false) }
         }
     }
@@ -200,13 +208,20 @@ class ExploreViewModel(
         kuramanimeJob = viewModelScope.launch {
             _state.update { it.copy(kuramanimeLoading = true) }
             val result = try {
-                if (q.length >= 2) repo.kuramanimeSearch(q) else repo.kuramanimeBrowse("popular", 1)
+                if (q.length >= 2) {
+                    repo.kuramanimeSearch(q)
+                } else {
+                    coroutineScope {
+                        (1..3).map { page -> async { repo.kuramanimeBrowse("popular", page).getOrDefault(emptyList()) } }
+                            .awaitAll().flatten().let { Result.success(it) }
+                    }
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 Result.failure(e)
             }
-            kuramanimeRaw = result.getOrDefault(emptyList()).take(if (q.length >= 2) 30 else 18)
+            kuramanimeRaw = result.getOrDefault(emptyList()).take(if (q.length >= 2) 50 else 60)
             _state.update { it.copy(kuramanimeLoading = false) }
             refilter(fillPage = false)
         }
@@ -219,13 +234,20 @@ class ExploreViewModel(
         animekompiJob = viewModelScope.launch {
             _state.update { it.copy(animekompiLoading = true) }
             val result = try {
-                if (q.length >= 2) repo.animekompiSearch(q) else repo.animekompiBrowse("popular", 1)
+                if (q.length >= 2) {
+                    repo.animekompiSearch(q)
+                } else {
+                    coroutineScope {
+                        (1..3).map { page -> async { repo.animekompiBrowse("popular", page).getOrDefault(emptyList()) } }
+                            .awaitAll().flatten().let { Result.success(it) }
+                    }
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 Result.failure(e)
             }
-            animekompiRaw = result.getOrDefault(emptyList()).take(if (q.length >= 2) 30 else 18)
+            animekompiRaw = result.getOrDefault(emptyList()).take(if (q.length >= 2) 50 else 60)
             _state.update { it.copy(animekompiLoading = false) }
             refilter(fillPage = false)
         }
@@ -237,10 +259,10 @@ class ExploreViewModel(
         loadJob = viewModelScope.launch {
             _state.update { it.copy(loadingMore = !it.loading, error = null) }
             val startCount = _state.value.results.size
-            // Genre/status filtering is client-side, so keep fetching until enough new matches show up.
+            // Genre/status filtering can be client-side, so keep fetching until enough new matches show up.
             repeat(MAX_PAGES_PER_BATCH) {
                 val f = _state.value.filters
-                val page = repo.explore(nextPage, f.sort, f.query, f.type.apiType).getOrElse { e ->
+                val page = repo.explore(nextPage, f.sort, f.query, f.type.apiType, f.genres.sorted().firstOrNull()).getOrElse { e ->
                     _state.update { it.copy(loading = false, loadingMore = false, error = e.friendlyText()) }
                     return@launch
                 }
