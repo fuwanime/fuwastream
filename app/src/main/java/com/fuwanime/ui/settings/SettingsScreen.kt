@@ -347,6 +347,24 @@ fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit, onOpenProfi
 
             item { Group(stringResource(R.string.mine_group_player)) }
             item {
+                ChoiceRow(
+                    Icons.Rounded.HighQuality,
+                    stringResource(R.string.mine_quality_mode),
+                    listOf("auto", "data_saver", "best", "manual"),
+                    s.qualityMode,
+                    { mode ->
+                        stringResource(
+                            when (mode) {
+                                "data_saver" -> R.string.mine_quality_data_saver
+                                "best" -> R.string.mine_quality_best
+                                "manual" -> R.string.mine_quality_manual
+                                else -> R.string.mine_quality_auto
+                            },
+                        )
+                    },
+                ) { vm.update { setQualityMode(it) } }
+            }
+            item {
                 ChoiceRow(Icons.Rounded.HighQuality, stringResource(R.string.mine_default_quality), listOf(360, 480, 720, 1080), s.preferredQuality, { "${it}p" }) {
                     vm.update { setPreferredQuality(it) }
                 }

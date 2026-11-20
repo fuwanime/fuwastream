@@ -85,6 +85,11 @@
     <string name="mine_amoled">纯黑（AMOLED）</string>
     <string name="mine_amoled_desc">深色模式下使用纯黑背景，更省电</string>
     <string name="mine_default_quality">默认画质</string>
+    <string name="mine_quality_mode">画质模式</string>
+    <string name="mine_quality_auto">自动</string>
+    <string name="mine_quality_data_saver">省流量</string>
+    <string name="mine_quality_best">最佳画质</string>
+    <string name="mine_quality_manual">手动</string>
     <string name="mine_mobile_quality">移动数据画质</string>
     <string name="mine_follow_default">跟随默认</string>
     <string name="mine_autoplay">自动播放下一集</string>

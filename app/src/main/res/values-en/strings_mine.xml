@@ -85,6 +85,11 @@
     <string name="mine_amoled">True black (AMOLED)</string>
     <string name="mine_amoled_desc">Pure black background in dark mode, saves battery</string>
     <string name="mine_default_quality">Default quality</string>
+    <string name="mine_quality_mode">Quality mode</string>
+    <string name="mine_quality_auto">Auto</string>
+    <string name="mine_quality_data_saver">Data saver</string>
+    <string name="mine_quality_best">Best quality</string>
+    <string name="mine_quality_manual">Manual</string>
     <string name="mine_mobile_quality">Quality on mobile data</string>
     <string name="mine_follow_default">Use default</string>
     <string name="mine_autoplay">Autoplay next episode</string>

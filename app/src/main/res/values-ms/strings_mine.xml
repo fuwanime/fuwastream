@@ -85,6 +85,11 @@
     <string name="mine_amoled">Hitam pekat (AMOLED)</string>
     <string name="mine_amoled_desc">Latar hitam tulen dalam mod gelap, jimat bateri</string>
     <string name="mine_default_quality">Kualiti lalai</string>
+    <string name="mine_quality_mode">Mod kualiti</string>
+    <string name="mine_quality_auto">Auto</string>
+    <string name="mine_quality_data_saver">Jimat data</string>
+    <string name="mine_quality_best">Kualiti terbaik</string>
+    <string name="mine_quality_manual">Manual</string>
     <string name="mine_mobile_quality">Kualiti pada data mudah alih</string>
     <string name="mine_follow_default">Ikut lalai</string>
     <string name="mine_autoplay">Main automatik episod seterusnya</string>

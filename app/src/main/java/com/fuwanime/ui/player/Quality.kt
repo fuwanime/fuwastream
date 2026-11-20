@@ -3,9 +3,18 @@ package com.fuwanime.ui.player
 import androidx.media3.common.PlaybackException
 import com.fuwanime.data.local.AppSettings
 
-/** A quality picked in this player session wins; otherwise the mobile-data setting on metered networks. */
+/** Quality presets selectable in Settings. "auto" is network-aware; "manual" uses preferredQuality. */
+const val QUALITY_AUTO = "auto"
+const val QUALITY_DATA_SAVER = "data_saver"
+const val QUALITY_BEST = "best"
+const val QUALITY_MANUAL = "manual"
+
+/** A quality picked in this player session wins; otherwise the configured quality mode. */
 fun preferredHeight(settings: AppSettings, metered: Boolean, sessionHeight: Int?): Int = when {
     sessionHeight != null -> sessionHeight
+    settings.qualityMode == QUALITY_MANUAL -> settings.preferredQuality
+    settings.qualityMode == QUALITY_BEST -> 1080
+    settings.qualityMode == QUALITY_DATA_SAVER -> 480
     metered && settings.mobileDataQuality > 0 -> settings.mobileDataQuality
     else -> settings.preferredQuality
 }
