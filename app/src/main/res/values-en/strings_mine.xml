@@ -211,4 +211,21 @@
     <string name="download_target_remember">Always use this choice</string>
     <string name="mine_download_location_ask">Always ask</string>
     <string name="mine_download_ask">Ask every time I download</string>
+    <string name="mine_list_new">New list</string>
+    <string name="mine_list_new_title">Create a new list</string>
+    <string name="mine_list_name">List name</string>
+    <string name="mine_list_emoji">Emoji (optional)</string>
+    <string name="mine_list_create">Create</string>
+    <string name="mine_list_rename">Rename</string>
+    <string name="mine_list_rename_title">Edit list</string>
+    <string name="mine_list_delete">Delete list</string>
+    <string name="mine_list_delete_title">Delete list “%1$s”?</string>
+    <string name="mine_list_delete_body">The titles stay in your collection; only the list is removed.</string>
+    <string name="mine_list_empty_title">This list is empty</string>
+    <string name="mine_list_empty_body">Add titles with the “Add to list” button on a detail page, or from the selection in your collection.</string>
+    <string name="mine_list_remove">Remove from list</string>
+    <string name="mine_list_add_selected">Add to list</string>
+    <string name="mine_list_count">%1$d titles</string>
+    <string name="mine_list_move_up">Move up</string>
+    <string name="mine_list_move_down">Move down</string>
 </resources>

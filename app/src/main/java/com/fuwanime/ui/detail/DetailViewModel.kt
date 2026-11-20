@@ -11,6 +11,8 @@ import com.fuwanime.data.DownloadState
 import com.fuwanime.data.local.SettingsStore
 import com.fuwanime.data.Episode
 import com.fuwanime.data.LibraryRepository
+import com.fuwanime.data.CollectionListRepository
+import com.fuwanime.data.local.CollectionListEntity
 import com.fuwanime.data.SeasonEntry
 import com.fuwanime.data.meta.AnimeLinkRepository
 import com.fuwanime.data.meta.AnimeMeta
@@ -82,6 +84,7 @@ class DetailViewModel(
     private val settings: SettingsStore,
     private val links: AnimeLinkRepository,
     private val manga: MangaRepository,
+    private val collections: CollectionListRepository,
     saved: SavedStateHandle,
 ) : ViewModel() {
 
@@ -363,6 +366,33 @@ class DetailViewModel(
             library.setCollectionStatus(anime, CollectionStatus.PLANNED)
         }
         library.updateTitlePreference("ANIME", animeId) { it.copy(autoDownload = enabled) }
+    }
+
+    /** Custom lists this anime belongs to, plus the picker's list catalogue. */
+    val lists: StateFlow<List<CollectionListEntity>> =
+        collections.lists.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val listMemberships: StateFlow<Set<Long>> =
+        collections.memberships("ANIME", animeId).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
+    fun toggleList(listId: Long, add: Boolean) {
+        val anime = _state.value.anime ?: return
+        viewModelScope.launch {
+            if (add) collections.addItem(listId, "ANIME", animeId, anime.title, anime.poster)
+            else collections.removeItem(listId, "ANIME", animeId)
+        }
+    }
+
+    fun createListAndAdd(name: String, emoji: String?) {
+        val anime = _state.value.anime ?: return
+        viewModelScope.launch {
+            val id = collections.createList(name, emoji)
+            if (id > 0) collections.addItem(id, "ANIME", animeId, anime.title, anime.poster)
+        }
+    }
+
+    fun setPersonal(rating: Int, note: String) = viewModelScope.launch {
+        library.setPersonal("ANIME", animeId, rating, note)
+        say(R.string.ux_personal_saved)
     }
 
     fun markEpisode(episode: Episode, watched: Boolean) {

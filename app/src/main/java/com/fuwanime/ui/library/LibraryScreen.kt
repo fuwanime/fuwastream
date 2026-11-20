@@ -107,20 +107,28 @@ import com.fuwanime.data.DownloadRepository
 import com.fuwanime.data.DownloadItem
 import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.rounded.PlayCircle
+import androidx.compose.material.icons.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.DownloadForOffline
 import androidx.compose.material.icons.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.Delete
 import com.fuwanime.data.LibraryRepository
+import com.fuwanime.data.CollectionListRepository
+import com.fuwanime.data.local.CollectionItemEntity
+import com.fuwanime.data.local.CollectionListEntity
+import com.fuwanime.data.local.ContentPreferenceEntity
 import com.fuwanime.data.local.FavoriteEntity
 import com.fuwanime.data.local.WatchHistoryEntity
 import com.fuwanime.data.local.CollectionStatus
 import com.fuwanime.ui.components.MessageState
+import com.fuwanime.ui.components.AddToListDialog
+import com.fuwanime.ui.components.ListNameDialog
 import com.fuwanime.ui.components.NetImage
 import com.fuwanime.ui.components.PosterCard
 import com.fuwanime.util.fuwaViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import com.fuwanime.data.local.SettingsStore
 import kotlinx.coroutines.flow.StateFlow
@@ -131,6 +139,7 @@ class LibraryViewModel(
     private val library: LibraryRepository,
     private val downloadRepo: DownloadRepository,
     private val settings: SettingsStore,
+    private val collections: CollectionListRepository,
     private val refreshHomeSurfaces: () -> Unit = {},
 ) : ViewModel() {
     val downloads: StateFlow<List<DownloadItem>?> =
@@ -190,6 +199,40 @@ class LibraryViewModel(
 
     fun removeHistory(animeId: String) = viewModelScope.launch { library.removeFromHistory(animeId); refreshHomeSurfaces() }
     fun clearHistory() = viewModelScope.launch { library.clearHistory(); refreshHomeSurfaces() }
+
+    /** Custom collection lists: the chips, their titles, and per-title personal ratings for the cards. */
+    val lists: StateFlow<List<CollectionListEntity>> =
+        collections.lists.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val listItems: StateFlow<List<CollectionItemEntity>> =
+        collections.items.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val animePreferences: StateFlow<Map<String, ContentPreferenceEntity>> =
+        library.titlePreferences()
+            .map { prefs -> prefs.filter { it.mediaType == "ANIME" }.associateBy { it.contentId } }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    fun createList(name: String, emoji: String?) = viewModelScope.launch { collections.createList(name, emoji) }
+    fun renameList(id: Long, name: String, emoji: String?) = viewModelScope.launch { collections.renameList(id, name, emoji) }
+    fun deleteList(id: Long) = viewModelScope.launch { collections.deleteList(id) }
+    fun moveList(id: Long, up: Boolean) = viewModelScope.launch { collections.moveList(id, up) }
+    fun removeFromList(item: CollectionItemEntity) = viewModelScope.launch { collections.removeItem(item.listId, item.mediaType, item.contentId) }
+
+    /** Multi-select: every picked favourite goes into (or comes out of) the chosen list. */
+    fun addSelectedToList(listId: Long) = viewModelScope.launch {
+        favorites.value.orEmpty().filter { it.animeId in _selection.value }.forEach {
+            collections.addItem(listId, "ANIME", it.animeId, it.title, it.poster)
+        }
+    }
+
+    fun removeSelectedFromList(listId: Long) = viewModelScope.launch {
+        _selection.value.forEach { collections.removeItem(listId, "ANIME", it) }
+    }
+
+    fun createListAndAddSelected(name: String, emoji: String?) = viewModelScope.launch {
+        val id = collections.createList(name, emoji)
+        if (id > 0) favorites.value.orEmpty().filter { it.animeId in _selection.value }.forEach {
+            collections.addItem(id, "ANIME", it.animeId, it.title, it.poster)
+        }
+    }
 }
 
 fun FavoriteEntity.toAnime() = Anime(
@@ -213,7 +256,7 @@ fun LibraryRoute(
     onSettings: () -> Unit,
     onMangaClick: (String) -> Unit,
 ) {
-    val vm: LibraryViewModel = fuwaViewModel { c, _ -> LibraryViewModel(c.libraryRepository, c.downloadRepository, c.settingsStore, c::refreshHomeSurfaces) }
+    val vm: LibraryViewModel = fuwaViewModel { c, _ -> LibraryViewModel(c.libraryRepository, c.downloadRepository, c.settingsStore, c.collectionListRepository, c::refreshHomeSurfaces) }
     val downloads by vm.downloads.collectAsStateWithLifecycle()
     val mangaVm: MangaShelfViewModel = fuwaViewModel { c, _ -> MangaShelfViewModel(c.mangaLibrary, c.mangaDownloads) }
     val mangaDownloads by mangaVm.downloads.collectAsStateWithLifecycle()
@@ -224,10 +267,14 @@ fun LibraryRoute(
     val watched by vm.watched.collectAsStateWithLifecycle()
     val selection by vm.selection.collectAsStateWithLifecycle()
     val week by vm.week.collectAsStateWithLifecycle()
+    val lists by vm.lists.collectAsStateWithLifecycle()
+    val listItems by vm.listItems.collectAsStateWithLifecycle()
+    val animePreferences by vm.animePreferences.collectAsStateWithLifecycle()
     val pager = rememberPagerState { 4 }
     val scope = rememberCoroutineScope()
     var confirmClear by remember { mutableStateOf(false) }
     var confirmDeleteSelected by remember { mutableStateOf(false) }
+    var addToListOpen by remember { mutableStateOf(false) }
     val selecting = selection.isNotEmpty()
 
     // Selection belongs to one tab; leaving it (or pressing back) ends multi-select without deleting anything.
@@ -239,6 +286,12 @@ fun LibraryRoute(
             if (selecting) {
                 IconButton(onClick = { vm.clearSelection() }, modifier = Modifier.padding(end = 4.dp)) { Icon(Icons.Rounded.Close, stringResource(R.string.mine_cancel_select)) }
                 Text(stringResource(R.string.mine_selected_count, selection.size), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                if (pager.currentPage == 1) {
+                    FilledTonalIconButton(onClick = { addToListOpen = true }) {
+                        Icon(Icons.Rounded.PlaylistAdd, stringResource(R.string.mine_list_add_selected))
+                    }
+                    Spacer(Modifier.width(8.dp))
+                }
                 FilledTonalIconButton(
                     onClick = {
                         if (selection.size >= 2) confirmDeleteSelected = true else vm.deleteSelected(pager.currentPage)
@@ -266,7 +319,18 @@ fun LibraryRoute(
         HorizontalPager(pager, Modifier.fillMaxSize(), verticalAlignment = Alignment.Top) { page ->
             when (page) {
                 0 -> HistoryList(history, onResume, onAnimeClick, onRemove = { vm.removeHistory(it) }, selection, vm::toggleSelect)
-                1 -> FavoriteGrid(favoriteCards, favoriteSort, vm::setFavoriteSort, onAnimeClick, selection, vm::toggleSelect)
+                1 -> FavoriteGrid(
+                    favoriteCards, favoriteSort, vm::setFavoriteSort, onAnimeClick, selection, vm::toggleSelect,
+                    lists = lists,
+                    listItems = listItems,
+                    preferences = animePreferences,
+                    onOpenItem = { item -> if (item.mediaType == "MANGA") onMangaClick(item.contentId) else onAnimeClick(item.toAnime(), "library-list") },
+                    onCreateList = vm::createList,
+                    onRenameList = vm::renameList,
+                    onDeleteList = vm::deleteList,
+                    onMoveList = vm::moveList,
+                    onRemoveItem = vm::removeFromList,
+                )
                 2 -> MangaLibraryTab(onOpen = onMangaClick)
                 else -> Column(Modifier.fillMaxSize()) {
                     // Manga downloads sit above the anime ones, one row per title.
@@ -300,6 +364,23 @@ fun LibraryRoute(
             text = { Text(stringResource(R.string.mine_clear_history_body)) },
             confirmButton = { TextButton(onClick = { vm.clearHistory(); confirmClear = false }) { Text(stringResource(R.string.mine_delete)) } },
             dismissButton = { TextButton(onClick = { confirmClear = false }) { Text(stringResource(R.string.mine_cancel)) } },
+        )
+    }
+
+    if (addToListOpen) {
+        val selectedFavs = favorites.orEmpty().filter { it.animeId in selection }
+        // Checked = the list already holds every selected title; toggling adds/removes all of them.
+        val checkedIds = lists.filter { list ->
+            selectedFavs.isNotEmpty() && selectedFavs.all { fav ->
+                listItems.any { it.listId == list.id && it.mediaType == "ANIME" && it.contentId == fav.animeId }
+            }
+        }.mapTo(HashSet()) { it.id }
+        AddToListDialog(
+            lists = lists,
+            checkedIds = checkedIds,
+            onToggle = { listId, add -> if (add) vm.addSelectedToList(listId) else vm.removeSelectedFromList(listId) },
+            onCreate = vm::createListAndAddSelected,
+            onDismiss = { addToListOpen = false },
         )
     }
 }
@@ -486,17 +567,36 @@ private fun FavoriteGrid(
     onAnimeClick: OpenAnime,
     selection: Set<String>,
     onToggleSelect: (String) -> Unit,
+    lists: List<CollectionListEntity>,
+    listItems: List<CollectionItemEntity>,
+    preferences: Map<String, ContentPreferenceEntity>,
+    onOpenItem: (CollectionItemEntity) -> Unit,
+    onCreateList: (String, String?) -> Unit,
+    onRenameList: (Long, String, String?) -> Unit,
+    onDeleteList: (Long) -> Unit,
+    onMoveList: (Long, Boolean) -> Unit,
+    onRemoveItem: (CollectionItemEntity) -> Unit,
 ) {
     if (items == null) return
-    if (items.isEmpty()) {
-        MessageState(Icons.Rounded.FavoriteBorder, stringResource(R.string.mine_favorites_empty_title), message = stringResource(R.string.mine_favorites_empty_body))
-        return
-    }
     val res = LocalContext.current.resources
     val selecting = selection.isNotEmpty()
     var statusFilter by rememberSaveable { mutableStateOf<CollectionStatus?>(null) }
+    // Which custom list is open; null = the favourites grid with its status/sort filters.
+    var selectedListId by rememberSaveable { mutableStateOf<Long?>(null) }
+    val selectedList = lists.firstOrNull { it.id == selectedListId }
+    LaunchedEffect(selectedListId, lists) { if (selectedListId != null && selectedList == null) selectedListId = null }
+    var createOpen by remember { mutableStateOf(false) }
+    var renameTarget by remember { mutableStateOf<CollectionListEntity?>(null) }
+    var deleteTarget by remember { mutableStateOf<CollectionListEntity?>(null) }
     val shown = remember(items, statusFilter) {
         statusFilter?.let { filter -> items.filter { it.first.collectionStatus == filter.name } } ?: items
+    }
+    val shownListItems = remember(listItems, selectedList) {
+        selectedList?.let { list -> listItems.filter { it.listId == list.id } }.orEmpty()
+    }
+    if (items.isEmpty() && lists.isEmpty()) {
+        MessageState(Icons.Rounded.FavoriteBorder, stringResource(R.string.mine_favorites_empty_title), message = stringResource(R.string.mine_favorites_empty_body))
+        return
     }
     LazyVerticalGrid(
         columns = GridCells.Adaptive(108.dp),
@@ -504,42 +604,104 @@ private fun FavoriteGrid(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        item(key = "sort", span = { GridItemSpan(maxLineSpan) }) {
+        item(key = "lists", span = { GridItemSpan(maxLineSpan) }) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TagChip(stringResource(R.string.ux_status_all), onClick = { statusFilter = null }, selected = statusFilter == null)
-                    CollectionStatus.entries.forEach { option ->
-                        TagChip(stringResource(option.collectionLabel()), onClick = { statusFilter = option }, selected = option == statusFilter)
-                    }
-                }
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FavoriteSort.entries.forEach { option ->
-                        TagChip(stringResource(option.label), onClick = { onSort(option) }, selected = option == sort)
-                    }
+                CollectionListChips(lists, selectedList?.id, onSelect = { selectedListId = it }, onCreate = { createOpen = true })
+                if (selectedList != null) {
+                    ListManageRow(
+                        selectedList,
+                        count = shownListItems.size,
+                        canMoveUp = lists.indexOf(selectedList) > 0,
+                        canMoveDown = lists.indexOf(selectedList) < lists.lastIndex,
+                        onMove = { onMoveList(selectedList.id, it) },
+                        onRename = { renameTarget = selectedList },
+                        onDelete = { deleteTarget = selectedList },
+                    )
                 }
             }
         }
-        if (shown.isEmpty()) {
-            item(key = "emptyFilter", span = { GridItemSpan(maxLineSpan) }) {
-                Text(
-                    stringResource(R.string.ux_collection_empty_filter),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(vertical = 8.dp),
+        if (selectedList == null) {
+            item(key = "sort", span = { GridItemSpan(maxLineSpan) }) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TagChip(stringResource(R.string.ux_status_all), onClick = { statusFilter = null }, selected = statusFilter == null)
+                        CollectionStatus.entries.forEach { option ->
+                            TagChip(stringResource(option.collectionLabel()), onClick = { statusFilter = option }, selected = option == statusFilter)
+                        }
+                    }
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FavoriteSort.entries.forEach { option ->
+                            TagChip(stringResource(option.label), onClick = { onSort(option) }, selected = option == sort)
+                        }
+                    }
+                }
+            }
+            if (shown.isEmpty()) {
+                item(key = "emptyFilter", span = { GridItemSpan(maxLineSpan) }) {
+                    Text(
+                        stringResource(R.string.ux_collection_empty_filter),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 8.dp),
+                    )
+                }
+            }
+            items(shown, key = { it.first.animeId }) { (fav, newCount) ->
+                val anime = fav.toAnime()
+                PosterCard(
+                    anime,
+                    onClick = { if (selecting) onToggleSelect(fav.animeId) else onAnimeClick(anime, "library-fav") },
+                    sharedOrigin = "library-fav",
+                    badge = newBadgeLabel(res, newCount),
+                    onLongClick = { onToggleSelect(fav.animeId) },
+                    selected = fav.animeId in selection,
+                    rating = preferences[fav.animeId]?.personalRating ?: 0,
+                )
+            }
+        } else {
+            if (shownListItems.isEmpty()) {
+                item(key = "emptyList", span = { GridItemSpan(maxLineSpan) }) {
+                    MessageState(Icons.Rounded.PlaylistAdd, stringResource(R.string.mine_list_empty_title), message = stringResource(R.string.mine_list_empty_body))
+                }
+            }
+            items(shownListItems, key = { "${it.listId}-${it.mediaType}-${it.contentId}" }) { item ->
+                PosterCard(
+                    item.toAnime(),
+                    onClick = { onOpenItem(item) },
+                    sharedOrigin = "library-list",
+                    // Long-press lifts the title out of this list; favourites and status stay untouched.
+                    onLongClick = { onRemoveItem(item) },
+                    longClickLabel = stringResource(R.string.mine_list_remove),
+                    rating = preferences[item.contentId]?.personalRating ?: 0,
                 )
             }
         }
-        items(shown, key = { it.first.animeId }) { (fav, newCount) ->
-            val anime = fav.toAnime()
-            PosterCard(
-                anime,
-                onClick = { if (selecting) onToggleSelect(fav.animeId) else onAnimeClick(anime, "library-fav") },
-                sharedOrigin = "library-fav",
-                badge = newBadgeLabel(res, newCount),
-                onLongClick = { onToggleSelect(fav.animeId) },
-                selected = fav.animeId in selection,
-            )
-        }
+    }
+
+    if (createOpen) {
+        ListNameDialog(
+            title = stringResource(R.string.mine_list_new_title),
+            confirmLabel = stringResource(R.string.mine_list_create),
+            onConfirm = { name, emoji -> onCreateList(name, emoji); createOpen = false },
+            onDismiss = { createOpen = false },
+        )
+    }
+    renameTarget?.let { list ->
+        ListNameDialog(
+            title = stringResource(R.string.mine_list_rename_title),
+            confirmLabel = stringResource(R.string.mine_list_rename),
+            initialName = list.name,
+            initialEmoji = list.emoji,
+            onConfirm = { name, emoji -> onRenameList(list.id, name, emoji); renameTarget = null },
+            onDismiss = { renameTarget = null },
+        )
+    }
+    deleteTarget?.let { list ->
+        DeleteListDialog(
+            list,
+            onConfirm = { onDeleteList(list.id); deleteTarget = null },
+            onDismiss = { deleteTarget = null },
+        )
     }
 }
 

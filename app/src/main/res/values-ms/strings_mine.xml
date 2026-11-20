@@ -205,4 +205,21 @@
     <string name="download_target_remember">Sentiasa guna pilihan ini</string>
     <string name="mine_download_location_ask">Sentiasa tanya</string>
     <string name="mine_download_ask">Tanya setiap kali muat turun</string>
+    <string name="mine_list_new">Senarai baharu</string>
+    <string name="mine_list_new_title">Cipta senarai baharu</string>
+    <string name="mine_list_name">Nama senarai</string>
+    <string name="mine_list_emoji">Emoji (pilihan)</string>
+    <string name="mine_list_create">Cipta</string>
+    <string name="mine_list_rename">Tukar nama</string>
+    <string name="mine_list_rename_title">Edit senarai</string>
+    <string name="mine_list_delete">Padam senarai</string>
+    <string name="mine_list_delete_title">Padam senarai “%1$s”?</string>
+    <string name="mine_list_delete_body">Judul di dalamnya kekal dalam koleksi; hanya senarai dipadam.</string>
+    <string name="mine_list_empty_title">Senarai masih kosong</string>
+    <string name="mine_list_empty_body">Tambah judul melalui butang “Tambah ke senarai” di halaman butiran, atau daripada pilihan dalam koleksi.</string>
+    <string name="mine_list_remove">Buang dari senarai</string>
+    <string name="mine_list_add_selected">Tambah ke senarai</string>
+    <string name="mine_list_count">%1$d judul</string>
+    <string name="mine_list_move_up">Alih ke atas</string>
+    <string name="mine_list_move_down">Alih ke bawah</string>
 </resources>

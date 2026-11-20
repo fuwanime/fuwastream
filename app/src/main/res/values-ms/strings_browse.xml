@@ -57,4 +57,10 @@
     <string name="browse_schedule_continuing">Sambungan</string>
     <string name="browse_schedule_section">%1$s (%2$d)</string>
     <string name="source_kuramanime">Kuramanime</string>
+    <string name="browse_save_filter">Simpan penapis</string>
+    <string name="browse_save_filter_cd">Simpan carian dan penapis semasa</string>
+    <string name="browse_save_filter_title">Simpan penapis carian</string>
+    <string name="browse_filter_name">Nama penapis</string>
+    <string name="browse_saved_filters">Penapis tersimpan</string>
+    <string name="browse_delete_filter_cd">Padam penapis tersimpan</string>
 </resources>

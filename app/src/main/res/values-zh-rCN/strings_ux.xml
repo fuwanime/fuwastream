@@ -48,4 +48,14 @@
     <string name="ux_notification_language">通知语言</string>
     <string name="ux_done">完成</string>
     <string name="ux_collection_empty_filter">此状态下没有作品</string>
+    <string name="ux_personal_title">个人评分与笔记</string>
+    <string name="ux_personal_unrated">未评分</string>
+    <string name="ux_personal_rating_value">%1$d/10</string>
+    <string name="ux_personal_rating_cd">个人评分 %1$d（满分 10）</string>
+    <string name="ux_personal_note_hint">写下你对这部作品的感想…</string>
+    <string name="ux_personal_save">保存</string>
+    <string name="ux_personal_clear">清除</string>
+    <string name="ux_personal_saved">评分与笔记已保存</string>
+    <string name="ux_add_to_list">加入列表</string>
+    <string name="ux_add_to_list_title">加入收藏列表</string>
 </resources>

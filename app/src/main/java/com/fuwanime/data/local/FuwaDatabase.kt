@@ -187,8 +187,8 @@ interface DownloadDao {
 }
 
 @Database(
-    entities = [FavoriteEntity::class, WatchHistoryEntity::class, SearchHistoryEntity::class, DownloadEntity::class, WatchDailyEntity::class, AnimeLinkEntity::class, MangaFavoriteEntity::class, MangaHistoryEntity::class, MangaDownloadEntity::class, ContentPreferenceEntity::class, SourceStatEntity::class, ProfileEntity::class, QuestEntity::class, CountedEntity::class, BorderEntity::class],
-    version = 12,
+    entities = [FavoriteEntity::class, WatchHistoryEntity::class, SearchHistoryEntity::class, DownloadEntity::class, WatchDailyEntity::class, AnimeLinkEntity::class, MangaFavoriteEntity::class, MangaHistoryEntity::class, MangaDownloadEntity::class, ContentPreferenceEntity::class, SourceStatEntity::class, ProfileEntity::class, QuestEntity::class, CountedEntity::class, BorderEntity::class, CollectionListEntity::class, CollectionItemEntity::class, SavedSearchFilterEntity::class],
+    version = 13,
     exportSchema = false,
 )
 abstract class FuwaDatabase : RoomDatabase() {
@@ -204,12 +204,45 @@ abstract class FuwaDatabase : RoomDatabase() {
     abstract fun contentPreferenceDao(): ContentPreferenceDao
     abstract fun sourceStatDao(): SourceStatDao
     abstract fun profileDao(): ProfileDao
+    abstract fun collectionListDao(): CollectionListDao
+    abstract fun savedSearchFilterDao(): SavedSearchFilterDao
 
     companion object {
         fun create(context: Context): FuwaDatabase =
             Room.databaseBuilder(context, FuwaDatabase::class.java, "fuwanime.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
                 .build()
+
+        /**
+         * v13 adds custom collection lists, per-title personal rating/note and saved search filters.
+         * Existing rows keep their data: the preference columns default to unrated/empty.
+         */
+        internal val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                if (tableExists(db, "content_preferences")) {
+                    if (!columnExists(db, "content_preferences", "personalRating")) {
+                        db.execSQL("ALTER TABLE `content_preferences` ADD COLUMN `personalRating` INTEGER NOT NULL DEFAULT 0")
+                    }
+                    if (!columnExists(db, "content_preferences", "personalNote")) {
+                        db.execSQL("ALTER TABLE `content_preferences` ADD COLUMN `personalNote` TEXT NOT NULL DEFAULT ''")
+                    }
+                }
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `collection_lists` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, " +
+                        "`emoji` TEXT, `sortOrder` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL)",
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `collection_items` (`listId` INTEGER NOT NULL, `mediaType` TEXT NOT NULL, `contentId` TEXT NOT NULL, " +
+                        "`title` TEXT NOT NULL, `poster` TEXT NOT NULL, `addedAt` INTEGER NOT NULL, PRIMARY KEY(`listId`, `mediaType`, `contentId`))",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_collection_items_listId` ON `collection_items` (`listId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_collection_items_mediaType_contentId` ON `collection_items` (`mediaType`, `contentId`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `saved_search_filters` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, " +
+                        "`query` TEXT NOT NULL, `filterJson` TEXT NOT NULL, `createdAt` INTEGER NOT NULL)",
+                )
+            }
+        }
 
         /** v2 adds offline downloads; existing favourites and history are kept. */
         private val MIGRATION_1_2 = object : Migration(1, 2) {

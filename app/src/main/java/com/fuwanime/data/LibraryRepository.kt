@@ -14,6 +14,7 @@ import com.fuwanime.data.local.FuwaDatabase
 import com.fuwanime.data.local.MangaFavoriteEntity
 import com.fuwanime.data.local.MangaHistoryEntity
 import com.fuwanime.data.local.SearchHistoryEntity
+import com.fuwanime.data.local.SavedSearchFilterEntity
 import com.fuwanime.data.local.WatchHistoryEntity
 import com.fuwanime.data.local.WatchDailyEntity
 import com.fuwanime.data.local.CollectionStatus
@@ -158,6 +159,10 @@ class LibraryRepository(private val db: FuwaDatabase) {
     suspend fun hideMangaFromContinue(mangaId: String, hidden: Boolean = true) =
         updateTitlePreference("MANGA", mangaId) { it.copy(hiddenFromContinue = hidden) }
 
+    /** Personal rating (0–10, 0 = unrated) and note; stored with the title's other preferences. */
+    suspend fun setPersonal(mediaType: String, contentId: String, rating: Int, note: String) =
+        updateTitlePreference(mediaType, contentId) { it.copy(personalRating = rating.coerceIn(0, 10), personalNote = note.trim()) }
+
     /** Local-only source reliability used by Smart Source; never uploaded. */
     suspend fun sourceStats(): List<SourceStatEntity> = db.sourceStatDao().all()
 
@@ -195,6 +200,17 @@ class LibraryRepository(private val db: FuwaDatabase) {
     suspend fun removeSearch(query: String) = searches.delete(query)
     suspend fun clearSearches() = searches.clear()
 
+    /** Named query+filter combinations the user saved from Jelajah; applying one is handled by the UI. */
+    val savedSearchFilters: Flow<List<SavedSearchFilterEntity>> = db.savedSearchFilterDao().observeAll()
+
+    suspend fun saveSearchFilter(name: String, query: String, filterJson: String) {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return
+        db.savedSearchFilterDao().upsert(SavedSearchFilterEntity(name = trimmed, query = query.trim(), filterJson = filterJson))
+    }
+
+    suspend fun deleteSearchFilter(id: Long) = db.savedSearchFilterDao().delete(id)
+
     /** Deletes every locally stored personal row; used by "Hapus semua data". */
     suspend fun clearAll() = db.withTransaction {
         favorites.clear()
@@ -206,6 +222,9 @@ class LibraryRepository(private val db: FuwaDatabase) {
         mangaHistory.clear()
         preferences.clear()
         db.sourceStatDao().clear()
+        db.collectionListDao().clearItems()
+        db.collectionListDao().clearLists()
+        db.savedSearchFilterDao().clear()
         profile.clearProfile()
         profile.clearQuests()
         profile.clearCounted()

@@ -205,4 +205,21 @@
     <string name="download_target_remember">Selalu pakai pilihan ini</string>
     <string name="mine_download_location_ask">Selalu tanya</string>
     <string name="mine_download_ask">Tanya setiap kali mengunduh</string>
+    <string name="mine_list_new">List baru</string>
+    <string name="mine_list_new_title">Buat list baru</string>
+    <string name="mine_list_name">Nama list</string>
+    <string name="mine_list_emoji">Emoji (opsional)</string>
+    <string name="mine_list_create">Buat</string>
+    <string name="mine_list_rename">Ubah nama</string>
+    <string name="mine_list_rename_title">Ubah list</string>
+    <string name="mine_list_delete">Hapus list</string>
+    <string name="mine_list_delete_title">Hapus list “%1$s”?</string>
+    <string name="mine_list_delete_body">Judul di dalamnya tetap ada di koleksi; hanya listnya yang dihapus.</string>
+    <string name="mine_list_empty_title">List masih kosong</string>
+    <string name="mine_list_empty_body">Tambahkan judul lewat tombol “Tambah ke list” di halaman detail, atau dari pilihan di koleksi.</string>
+    <string name="mine_list_remove">Hapus dari list</string>
+    <string name="mine_list_add_selected">Tambahkan ke list</string>
+    <string name="mine_list_count">%1$d judul</string>
+    <string name="mine_list_move_up">Naikkan urutan</string>
+    <string name="mine_list_move_down">Turunkan urutan</string>
 </resources>

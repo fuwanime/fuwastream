@@ -205,4 +205,21 @@
     <string name="download_target_remember">始终使用此选项</string>
     <string name="mine_download_location_ask">每次询问</string>
     <string name="mine_download_ask">每次下载时询问</string>
+    <string name="mine_list_new">新建列表</string>
+    <string name="mine_list_new_title">创建新列表</string>
+    <string name="mine_list_name">列表名称</string>
+    <string name="mine_list_emoji">表情符号（可选）</string>
+    <string name="mine_list_create">创建</string>
+    <string name="mine_list_rename">重命名</string>
+    <string name="mine_list_rename_title">编辑列表</string>
+    <string name="mine_list_delete">删除列表</string>
+    <string name="mine_list_delete_title">删除列表“%1$s”？</string>
+    <string name="mine_list_delete_body">其中的作品仍保留在收藏中，只删除列表本身。</string>
+    <string name="mine_list_empty_title">列表还是空的</string>
+    <string name="mine_list_empty_body">通过详情页的“加入列表”按钮添加作品，或在收藏中多选后添加。</string>
+    <string name="mine_list_remove">从列表移除</string>
+    <string name="mine_list_add_selected">加入列表</string>
+    <string name="mine_list_count">%1$d 部作品</string>
+    <string name="mine_list_move_up">上移</string>
+    <string name="mine_list_move_down">下移</string>
 </resources>

@@ -84,6 +84,10 @@ class MangaLibrary(private val db: FuwaDatabase) {
 
     fun preference(id: String): Flow<ContentPreferenceEntity?> = preferences.observe(ContentPreferenceEntity.manga(id))
 
+    /** Personal rating (0–10, 0 = unrated) and note for this manga. */
+    suspend fun setPersonal(id: String, rating: Int, note: String) =
+        updatePreference(id) { it.copy(personalRating = rating.coerceIn(0, 10), personalNote = note.trim()) }
+
     suspend fun updatePreference(id: String, change: (ContentPreferenceEntity) -> ContentPreferenceEntity) {
         val key = ContentPreferenceEntity.manga(id)
         val current = preferences.get(key) ?: ContentPreferenceEntity(key, "MANGA", id)

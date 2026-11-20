@@ -73,7 +73,9 @@ import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.PlaylistAdd
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -98,6 +100,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.fuwanime.R
 import com.fuwanime.data.local.MangaHistoryEntity
+import com.fuwanime.data.local.CollectionListEntity
 import com.fuwanime.data.local.CollectionStatus
 import com.fuwanime.data.local.ContentPreferenceEntity
 import com.fuwanime.data.local.TitleNotifyMode
@@ -105,11 +108,14 @@ import com.fuwanime.data.notify.NotificationAccess
 import com.fuwanime.data.notify.notificationAccess
 import com.fuwanime.data.notify.openNotificationSettings
 import com.fuwanime.data.manga.Manga
+import com.fuwanime.data.CollectionListRepository
 import com.fuwanime.data.manga.MangaChapter
 import com.fuwanime.data.manga.MangaLibrary
 import com.fuwanime.data.manga.MangaRepository
 import com.fuwanime.data.manga.firstReadable
 import com.fuwanime.ui.components.ErrorState
+import com.fuwanime.ui.components.AddToListDialog
+import com.fuwanime.ui.components.PersonalRatingNoteCard
 import com.fuwanime.ui.components.MessageState
 import com.fuwanime.ui.components.NetImage
 import com.fuwanime.ui.components.SkeletonBox
@@ -169,6 +175,7 @@ class MangaDetailViewModel(
     private val repo: MangaRepository,
     private val library: MangaLibrary,
     private val downloadRepo: MangaDownloadRepository,
+    private val collections: CollectionListRepository,
 ) : ViewModel() {
     val downloads: StateFlow<Map<String, MangaDownloadEntity>> =
         downloadRepo.forManga(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
@@ -244,6 +251,32 @@ class MangaDetailViewModel(
         library.updatePreference(id) { it.copy(autoDownload = enabled) }
     }
 
+    /** Custom lists this manga belongs to, plus the picker's list catalogue. */
+    val lists: StateFlow<List<CollectionListEntity>> =
+        collections.lists.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val listMemberships: StateFlow<Set<Long>> =
+        collections.memberships("MANGA", id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
+    fun toggleList(listId: Long, add: Boolean) {
+        val manga = state.value.manga ?: return
+        viewModelScope.launch {
+            if (add) collections.addItem(listId, "MANGA", id, manga.title, manga.coverUrl.orEmpty())
+            else collections.removeItem(listId, "MANGA", id)
+        }
+    }
+
+    fun createListAndAdd(name: String, emoji: String?) {
+        val manga = state.value.manga ?: return
+        viewModelScope.launch {
+            val listId = collections.createList(name, emoji)
+            if (listId > 0) collections.addItem(listId, "MANGA", id, manga.title, manga.coverUrl.orEmpty())
+        }
+    }
+
+    fun setPersonal(rating: Int, note: String) = viewModelScope.launch {
+        library.setPersonal(id, rating, note)
+    }
+
     fun markChapter(chapter: MangaChapter, label: String, read: Boolean) {
         val manga = state.value.manga ?: return
         viewModelScope.launch { library.markChapter(manga, chapter, label, read) }
@@ -260,9 +293,11 @@ class MangaDetailViewModel(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: String, chapterId: String) -> Unit, onGenre: (String) -> Unit) {
-    val vm: MangaDetailViewModel = fuwaViewModel(key = "manga-$mangaId") { c, _ -> MangaDetailViewModel(mangaId, c.mangaRepository, c.mangaLibrary, c.mangaDownloads) }
+    val vm: MangaDetailViewModel = fuwaViewModel(key = "manga-$mangaId") { c, _ -> MangaDetailViewModel(mangaId, c.mangaRepository, c.mangaLibrary, c.mangaDownloads, c.collectionListRepository) }
     val state by vm.state.collectAsStateWithLifecycle()
     val downloads by vm.downloads.collectAsStateWithLifecycle()
+    val lists by vm.lists.collectAsStateWithLifecycle()
+    val listMemberships by vm.listMemberships.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
@@ -280,6 +315,7 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
     }
     var collectionOpen by rememberSaveable { mutableStateOf(false) }
     var notificationOpen by rememberSaveable { mutableStateOf(false) }
+    var addToListOpen by rememberSaveable { mutableStateOf(false) }
 
     val mangaSeed by rememberAnimeSeed(state.manga?.coverUrl)
     AnimeTheme(mangaSeed) {
@@ -340,23 +376,48 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
                         InfoTable(manga, sources.ifEmpty { listOf(own) }.joinToString(" + "), inApp?.maxOfOrNull { it.publishAt }?.takeIf { it > 0 })
                     }
                     item(key = "read") {
-                        Button(
-                            onClick = { target?.let { onRead(readId, it.id) } },
-                            enabled = target != null,
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Icon(Icons.AutoMirrored.Rounded.MenuBook, null)
+                            Button(
+                                onClick = { target?.let { onRead(readId, it.id) } },
+                                enabled = target != null,
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Icon(Icons.AutoMirrored.Rounded.MenuBook, null)
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    when {
+                                        target == null -> stringResource(R.string.manga_detail_start)
+                                        resumed -> stringResource(R.string.manga_detail_resume, chapterLabel(target))
+                                        else -> stringResource(R.string.manga_detail_start)
+                                    },
+                                )
+                            }
                             Spacer(Modifier.width(8.dp))
-                            Text(
-                                when {
-                                    target == null -> stringResource(R.string.manga_detail_start)
-                                    resumed -> stringResource(R.string.manga_detail_resume, chapterLabel(target))
-                                    else -> stringResource(R.string.manga_detail_start)
-                                },
-                            )
+                            FilledTonalIconButton(
+                                onClick = { addToListOpen = true },
+                                modifier = Modifier.size(52.dp).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp)),
+                                shape = RoundedCornerShape(14.dp),
+                            ) {
+                                Icon(
+                                    Icons.Rounded.PlaylistAdd,
+                                    stringResource(R.string.ux_add_to_list),
+                                    tint = if (listMemberships.isNotEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                         }
                     }
                     item(key = "synopsis") { Synopsis(manga) }
+                    item(key = "personal") {
+                        PersonalRatingNoteCard(
+                            rating = state.preference?.personalRating ?: 0,
+                            note = state.preference?.personalNote.orEmpty(),
+                            onSave = vm::setPersonal,
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                        )
+                    }
                     if (manga.tags.isNotEmpty()) {
                         item(key = "tags") {
                             // One swipeable row: sources tag a title with 20+ themes, which as a wrapped grid pushed the chapters off screen.
@@ -483,6 +544,15 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
             onMode = vm::setNotificationMode,
             onAutoDownload = vm::setAutoDownload,
             onDismiss = { notificationOpen = false },
+        )
+    }
+    if (addToListOpen) {
+        AddToListDialog(
+            lists = lists,
+            checkedIds = listMemberships,
+            onToggle = vm::toggleList,
+            onCreate = vm::createListAndAdd,
+            onDismiss = { addToListOpen = false },
         )
     }
     }
