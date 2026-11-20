@@ -16,6 +16,7 @@ import com.fuwanime.data.manga.Manga
 import com.fuwanime.data.manga.MangaRepository
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import com.fuwanime.data.manga.dedupeByTitle
 import com.fuwanime.data.remote.AnimeApiService
 import com.fuwanime.util.UiText
