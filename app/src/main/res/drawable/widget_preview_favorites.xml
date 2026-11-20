@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Favorit: anime and manga cards side by side.
+     Static picker preview for Android 11 and lower (previewImage); previewLayout covers 12+.
+     Fixed navy palette so the five widgets are tellable apart in the picker. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="250dp"
+    android:height="110dp"
+    android:viewportWidth="250"
+    android:viewportHeight="110">
+    <path android:pathData="M20,0 H230 A20,20 0 0 1 250,20 V90 A20,20 0 0 1 230,110 H20 A20,20 0 0 1 0,90 V20 A20,20 0 0 1 20,0 Z" android:fillColor="#0A1120" />
+    <path android:pathData="M16,14 H16 A2,2 0 0 1 18,16 V26 A2,2 0 0 1 16,28 H16 A2,2 0 0 1 14,26 V16 A2,2 0 0 1 16,14 Z" android:fillColor="#B5C4FF" />
+    <path android:pathData="M28.5,16 H71.5 A4.5,4.5 0 0 1 76,20.5 V20.5 A4.5,4.5 0 0 1 71.5,25 H28.5 A4.5,4.5 0 0 1 24,20.5 V20.5 A4.5,4.5 0 0 1 28.5,16 Z" android:fillColor="#B5C4FF" />
+    <path android:pathData="M26,36 H108 A14,14 0 0 1 122,50 V84 A14,14 0 0 1 108,98 H26 A14,14 0 0 1 12,84 V50 A14,14 0 0 1 26,36 Z" android:fillColor="#414659" />
+    <path android:pathData="M26,46 H38 A6,6 0 0 1 44,52 V82 A6,6 0 0 1 38,88 H26 A6,6 0 0 1 20,82 V52 A6,6 0 0 1 26,46 Z" android:fillColor="#1E2A44" />
+    <path android:pathData="M56,48 H106 A4,4 0 0 1 110,52 V52 A4,4 0 0 1 106,56 H56 A4,4 0 0 1 52,52 V52 A4,4 0 0 1 56,48 Z" android:fillColor="#DDE1F9" />
+    <path android:pathData="M55,62 H87 A3,3 0 0 1 90,65 V65 A3,3 0 0 1 87,68 H55 A3,3 0 0 1 52,65 V65 A3,3 0 0 1 55,62 Z" android:fillColor="#DDE1F9" android:fillAlpha="0.7" />
+    <path android:pathData="M142,36 H224 A14,14 0 0 1 238,50 V84 A14,14 0 0 1 224,98 H142 A14,14 0 0 1 128,84 V50 A14,14 0 0 1 142,36 Z" android:fillColor="#5B3D57" />
+    <path android:pathData="M142,46 H154 A6,6 0 0 1 160,52 V82 A6,6 0 0 1 154,88 H142 A6,6 0 0 1 136,82 V52 A6,6 0 0 1 142,46 Z" android:fillColor="#1E2A44" />
+    <path android:pathData="M172,48 H222 A4,4 0 0 1 226,52 V52 A4,4 0 0 1 222,56 H172 A4,4 0 0 1 168,52 V52 A4,4 0 0 1 172,48 Z" android:fillColor="#FFD6F7" />
+    <path android:pathData="M171,62 H203 A3,3 0 0 1 206,65 V65 A3,3 0 0 1 203,68 H171 A3,3 0 0 1 168,65 V65 A3,3 0 0 1 171,62 Z" android:fillColor="#FFD6F7" android:fillAlpha="0.7" />
+</vector>

@@ -28,4 +28,26 @@
     <string name="widget_stats_summary_line">%1$d episod · %2$d anime</string>
     <string name="widget_stats_empty">Belum ada statistik</string>
     <string name="widget_stats_empty_hint">Tonton satu episod dahulu, angkanya akan muncul di sini</string>
+
+    <!-- Weekly stats widget -->
+    <string name="widget_weekly_stats_name">Statistik mingguan</string>
+    <string name="widget_weekly_stats_desc">Masa tontonan dan episod selesai minggu ini</string>
+    <string name="widget_weekly_stats_title">Minggu ini</string>
+    <string name="widget_weekly_stats_time">Masa tontonan</string>
+    <string name="widget_weekly_stats_episodes_line">%1$d episod selesai</string>
+    <string name="widget_weekly_stats_avg">Purata / hari</string>
+    <string name="widget_weekly_stats_empty">Belum ada tontonan minggu ini</string>
+
+    <!-- Widget size configure activity -->
+    <string name="widget_config_title">Saiz widget</string>
+    <string name="widget_config_subtitle">Pilih saiz untuk %1$s</string>
+    <string name="widget_config_small">Kecil</string>
+    <string name="widget_config_small_desc">2 × 2 · padat</string>
+    <string name="widget_config_medium">Sederhana</string>
+    <string name="widget_config_medium_desc">4 × 2 · lebar</string>
+    <string name="widget_config_large">Besar</string>
+    <string name="widget_config_large_desc">4 × 4 · penuh</string>
+    <string name="widget_config_confirm">Tambah widget</string>
+    <string name="widget_config_cancel">Batal</string>
+    <string name="widget_config_hint">Saiz boleh diubah kemudian dengan menekan lama widget pada skrin utama.</string>
 </resources>

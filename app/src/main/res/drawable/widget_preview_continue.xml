@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Lanjutkan: the resume hero card.
+     Static picker preview for Android 11 and lower (previewImage); previewLayout covers 12+.
+     Fixed navy palette so the five widgets are tellable apart in the picker. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="250dp"
+    android:height="110dp"
+    android:viewportWidth="250"
+    android:viewportHeight="110">
+    <path android:pathData="M20,0 H230 A20,20 0 0 1 250,20 V90 A20,20 0 0 1 230,110 H20 A20,20 0 0 1 0,90 V20 A20,20 0 0 1 20,0 Z" android:fillColor="#0A1120" />
+    <path android:pathData="M28,12 H222 A16,16 0 0 1 238,28 V82 A16,16 0 0 1 222,98 H28 A16,16 0 0 1 12,82 V28 A16,16 0 0 1 28,12 Z" android:fillColor="#334479" />
+    <path android:pathData="M30,22 H58 A8,8 0 0 1 66,30 V80 A8,8 0 0 1 58,88 H30 A8,8 0 0 1 22,80 V30 A8,8 0 0 1 30,22 Z" android:fillColor="#1E2A44" />
+    <path android:pathData="M83,30 H193 A5,5 0 0 1 198,35 V35 A5,5 0 0 1 193,40 H83 A5,5 0 0 1 78,35 V35 A5,5 0 0 1 83,30 Z" android:fillColor="#DBE1FF" />
+    <path android:pathData="M81.5,48 H158.5 A3.5,3.5 0 0 1 162,51.5 V51.5 A3.5,3.5 0 0 1 158.5,55 H81.5 A3.5,3.5 0 0 1 78,51.5 V51.5 A3.5,3.5 0 0 1 81.5,48 Z" android:fillColor="#DBE1FF" android:fillAlpha="0.7" />
+    <path android:pathData="M81,72 H225 A3,3 0 0 1 228,75 V75 A3,3 0 0 1 225,78 H81 A3,3 0 0 1 78,75 V75 A3,3 0 0 1 81,72 Z" android:fillColor="#0A1120" />
+    <path android:pathData="M81,72 H167 A3,3 0 0 1 170,75 V75 A3,3 0 0 1 167,78 H81 A3,3 0 0 1 78,75 V75 A3,3 0 0 1 81,72 Z" android:fillColor="#B5C4FF" />
+</vector>

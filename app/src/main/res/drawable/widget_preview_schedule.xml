@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Jadwal: airing rows with time pills.
+     Static picker preview for Android 11 and lower (previewImage); previewLayout covers 12+.
+     Fixed navy palette so the five widgets are tellable apart in the picker. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="250dp"
+    android:height="110dp"
+    android:viewportWidth="250"
+    android:viewportHeight="110">
+    <path android:pathData="M20,0 H230 A20,20 0 0 1 250,20 V90 A20,20 0 0 1 230,110 H20 A20,20 0 0 1 0,90 V20 A20,20 0 0 1 20,0 Z" android:fillColor="#0A1120" />
+    <path android:pathData="M16,14 H16 A2,2 0 0 1 18,16 V26 A2,2 0 0 1 16,28 H16 A2,2 0 0 1 14,26 V16 A2,2 0 0 1 16,14 Z" android:fillColor="#B5C4FF" />
+    <path android:pathData="M28.5,16 H71.5 A4.5,4.5 0 0 1 76,20.5 V20.5 A4.5,4.5 0 0 1 71.5,25 H28.5 A4.5,4.5 0 0 1 24,20.5 V20.5 A4.5,4.5 0 0 1 28.5,16 Z" android:fillColor="#B5C4FF" />
+    <path android:pathData="M24,34 H226 A12,12 0 0 1 238,46 V52 A12,12 0 0 1 226,64 H24 A12,12 0 0 1 12,52 V46 A12,12 0 0 1 24,34 Z" android:fillColor="#414659" />
+    <path android:pathData="M29,40 H53 A9,9 0 0 1 62,49 V49 A9,9 0 0 1 53,58 H29 A9,9 0 0 1 20,49 V49 A9,9 0 0 1 29,40 Z" android:fillColor="#334479" />
+    <path android:pathData="M76,44 H188 A4,4 0 0 1 192,48 V48 A4,4 0 0 1 188,52 H76 A4,4 0 0 1 72,48 V48 A4,4 0 0 1 76,44 Z" android:fillColor="#DDE1F9" />
+    <path android:pathData="M24,70 H226 A12,12 0 0 1 238,82 V88 A12,12 0 0 1 226,100 H24 A12,12 0 0 1 12,88 V82 A12,12 0 0 1 24,70 Z" android:fillColor="#414659" />
+    <path android:pathData="M29,76 H53 A9,9 0 0 1 62,85 V85 A9,9 0 0 1 53,94 H29 A9,9 0 0 1 20,85 V85 A9,9 0 0 1 29,76 Z" android:fillColor="#334479" />
+    <path android:pathData="M76,80 H168 A4,4 0 0 1 172,84 V84 A4,4 0 0 1 168,88 H76 A4,4 0 0 1 72,84 V84 A4,4 0 0 1 76,80 Z" android:fillColor="#DDE1F9" />
+</vector>

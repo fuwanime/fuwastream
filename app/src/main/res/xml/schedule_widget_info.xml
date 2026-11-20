@@ -1,14 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Default 4x2 (minWidth 250dp sizes it on Android 11 and lower, targetCell* on 12+); resizable
+     down to 2x2 via minResize*. previewImage serves pickers below Android 12, previewLayout 12+. -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/widget_schedule_desc"
     android:initialLayout="@layout/glance_default_loading_layout"
     android:previewLayout="@layout/schedule_widget_preview"
-    android:minWidth="110dp"
+    android:previewImage="@drawable/widget_preview_schedule"
+    android:configure="com.fuwanime.widget.WidgetConfigActivity"
+    android:minWidth="250dp"
     android:minHeight="110dp"
-    android:targetCellWidth="2"
+    android:minResizeWidth="110dp"
+    android:minResizeHeight="110dp"
+    android:targetCellWidth="4"
     android:targetCellHeight="2"
     android:resizeMode="horizontal|vertical"
-    android:maxResizeWidth="530dp"
-    android:maxResizeHeight="450dp"
+    android:maxResizeWidth="1600dp"
+    android:maxResizeHeight="1600dp"
     android:updatePeriodMillis="1800000"
     android:widgetCategory="home_screen" />

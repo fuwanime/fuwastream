@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- DarkScheme's navy tonal surfaces plus the generated blue roles; see values/widget_colors.xml. -->
+<resources>
+    <color name="widget_surface">#FF0A1120</color>
+    <color name="widget_surface_variant">#FF1E2A44</color>
+    <color name="widget_primary">#FFB5C4FF</color>
+    <color name="widget_primary_container">#FF334479</color>
+    <color name="widget_secondary_container">#FF414659</color>
+    <color name="widget_tertiary_container">#FF5B3D57</color>
+</resources>

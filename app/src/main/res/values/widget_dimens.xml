@@ -7,4 +7,7 @@
     <dimen name="widget_radius_continue">28dp</dimen>
     <dimen name="widget_radius_card">20dp</dimen>
     <dimen name="widget_radius_poster">12dp</dimen>
+    <!-- Fully rounded pills and buttons; the radii exceed half their height so they read as capsules. -->
+    <dimen name="widget_radius_pill">16dp</dimen>
+    <dimen name="widget_radius_button">24dp</dimen>
 </resources>
