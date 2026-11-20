@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Favorites widget -->
+    <string name="widget_favorites_name">Favorites</string>
+    <string name="widget_favorites_desc">Your favorite anime and manga, right on the home screen</string>
+    <string name="widget_favorites_title">Favorites</string>
+    <string name="widget_favorites_empty">No favorites yet</string>
+    <string name="widget_favorites_anime">Anime</string>
+    <string name="widget_favorites_manga">Manga</string>
+
+    <!-- Schedule widget -->
+    <string name="widget_schedule_name">Airing schedule</string>
+    <string name="widget_schedule_desc">Anime episodes airing today</string>
+    <string name="widget_schedule_header">Schedule · %1$s</string>
+    <string name="widget_schedule_loading">Loading schedule…</string>
+    <string name="widget_schedule_empty">Nothing airing today</string>
+    <string name="widget_schedule_error">Could not load the schedule</string>
+    <string name="widget_schedule_open">Open schedule</string>
+
+    <!-- Stats widget -->
+    <string name="widget_stats_name">Watch stats</string>
+    <string name="widget_stats_desc">A summary of your watch time, episodes and anime</string>
+    <string name="widget_stats_title">Stats</string>
+    <string name="widget_stats_total">Total watched</string>
+    <string name="widget_stats_episodes">Episodes finished</string>
+    <string name="widget_stats_anime">Anime watched</string>
+    <string name="widget_stats_genres">Top genres</string>
+    <string name="widget_stats_summary_line">%1$d episodes · %2$d anime</string>
+    <string name="widget_stats_empty">No stats yet</string>
+    <string name="widget_stats_empty_hint">Watch an episode first and the numbers will show up here</string>
+</resources>

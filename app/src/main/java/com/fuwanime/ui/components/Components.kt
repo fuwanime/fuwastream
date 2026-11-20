@@ -143,6 +143,7 @@ fun SkeletonBox(modifier: Modifier, shape: androidx.compose.ui.graphics.Shape = 
     Box(modifier.clip(shape).shimmer())
 }
 
+/** Fully rounded tonal pill for short metadata; [container]/[content] stay theme-role pairs. */
 @Composable
 fun Pill(
     text: String,
@@ -155,20 +156,20 @@ fun Pill(
         modifier
             .clip(RoundedCornerShape(50))
             .background(container)
-            .padding(horizontal = 8.dp, vertical = 3.dp),
+            .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (leading != null) {
-            Icon(leading, null, Modifier.size(12.dp), tint = content)
-            Spacer(Modifier.width(3.dp))
+            Icon(leading, null, Modifier.size(16.dp), tint = content)
+            Spacer(Modifier.width(6.dp))
         }
-        Text(text, style = MaterialTheme.typography.labelSmall, color = content, maxLines = 1)
+        Text(text, style = MaterialTheme.typography.labelLarge, color = content, maxLines = 1)
     }
 }
 
 @Composable
 fun LiveDot(modifier: Modifier = Modifier) {
-    Box(modifier.size(6.dp).clip(CircleShape).background(Color(0xFFFF7A93)))
+    Box(modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.tertiary))
 }
 
 @OptIn(ExperimentalSharedTransitionApi::class, ExperimentalFoundationApi::class)
@@ -196,11 +197,14 @@ fun PosterCard(
 ) {
     val interaction = remember { MutableInteractionSource() }
     val res = LocalContext.current.resources
+    val colors = MaterialTheme.colorScheme
     val marked = highlighted || selected
     Column(
         (if (width != null) modifier.width(width) else modifier)
             .pressScale(interaction)
             .clip(MaterialTheme.shapes.medium)
+            // Tonal filled card; the active/selected title gets the primary container instead.
+            .background(if (marked) colors.primaryContainer else colors.surfaceContainerLow)
             .combinedClickable(
                 interactionSource = interaction,
                 indication = LocalIndication.current,
@@ -211,15 +215,16 @@ fun PosterCard(
             .semantics(mergeDescendants = true) {
                 contentDescription = posterDescription(res, anime.title, caption, badge, isNew, anime.isOngoing, selected)
                 if (onLongClick != null) customActions = listOf(CustomAccessibilityAction(longClickLabel) { onLongClick(); true })
-            },
+            }
+            .padding(8.dp),
     ) {
         val poster = rememberSharedKey(sharedOrigin?.let { sharedPosterKey(anime.id, it) })
         Box(
             Modifier
                 .fillMaxWidth()
                 .aspectRatio(2f / 3f)
-                .clip(MaterialTheme.shapes.medium)
-                .then(if (marked) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.medium) else Modifier),
+                .clip(MaterialTheme.shapes.small)
+                .then(if (marked) Modifier.border(2.dp, colors.primary, MaterialTheme.shapes.small) else Modifier),
         ) {
             // Only the image is shared. Badges render above shared elements, so while a transition is active the
             // image (drawn in the transition overlay) never covers them.
@@ -227,21 +232,21 @@ fun PosterCard(
                 anime.poster,
                 // Clip after the shared key so the flying copy keeps its rounded corners.
                 // Dim outside the shared element so the flying copy stays at full brightness.
-                Modifier.fillMaxSize().alpha(if (marked) 0.55f else 1f).sharedKey(poster).clip(MaterialTheme.shapes.medium),
+                Modifier.fillMaxSize().alpha(if (marked) 0.55f else 1f).sharedKey(poster).clip(MaterialTheme.shapes.small),
                 null,
             )
-            val cornerBadge = Modifier.align(Alignment.TopStart).aboveSharedElements().revealWhenLanded(poster).padding(7.dp)
+            val cornerBadge = Modifier.align(Alignment.TopStart).aboveSharedElements().revealWhenLanded(poster).padding(8.dp)
             when {
                 isNew -> NewBadge(cornerBadge)
                 anime.isOngoing -> Row(
                     cornerBadge
                         .clip(RoundedCornerShape(50))
                         .background(ImageScrim.copy(alpha = 0.78f))
-                        .padding(start = 6.dp, end = 7.dp, top = 3.dp, bottom = 3.dp),
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     LiveDot()
-                    Spacer(Modifier.width(4.dp))
+                    Spacer(Modifier.width(6.dp))
                     Text(stringResource(R.string.common_status_airing), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color.White)
                 }
             }
@@ -250,33 +255,39 @@ fun PosterCard(
                     badge,
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.onPrimary,
+                    color = colors.onPrimary,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .aboveSharedElements()
                         .revealWhenLanded(poster)
-                        .padding(7.dp)
+                        .padding(8.dp)
                         .clip(RoundedCornerShape(50))
-                        .background(MaterialTheme.colorScheme.primary)
-                        .padding(horizontal = 7.dp, vertical = 2.dp),
+                        .background(colors.primary)
+                        .padding(horizontal = 8.dp, vertical = 3.dp),
                 )
             }
             if (selected) {
-                Icon(
-                    Icons.Rounded.CheckCircle,
-                    contentDescription = stringResource(R.string.common_selected_cd),
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.align(Alignment.Center).size(36.dp),
-                )
+                Box(
+                    Modifier.align(Alignment.Center).size(40.dp).clip(CircleShape).background(colors.surfaceContainerLowest),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Rounded.CheckCircle,
+                        contentDescription = stringResource(R.string.common_selected_cd),
+                        tint = colors.primary,
+                        modifier = Modifier.size(26.dp),
+                    )
+                }
             }
         }
         Text(
             anime.title,
-            style = MaterialTheme.typography.labelLarge,
+            style = MaterialTheme.typography.titleSmall,
+            color = if (marked) colors.onPrimaryContainer else colors.onSurface,
             maxLines = 2,
             minLines = 2,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 8.dp),
+            modifier = Modifier.padding(top = 8.dp),
         )
         val meta = caption ?: listOf(anime.type.takeIf { it.isNotBlank() }?.let { typeLabel(LocalContext.current.resources, it) }.orEmpty(), anime.displayYear).filter { it.isNotBlank() }.joinToString(" · ")
         if (meta.isNotBlank()) {
@@ -284,18 +295,18 @@ fun PosterCard(
                 meta,
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = if (highlighted) FontWeight.Bold else null,
-                color = if (highlighted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                color = if (highlighted) colors.primary else colors.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(horizontal = 4.dp),
             )
         }
     }
 }
 
-/** Near-black used for scrims and pills drawn on top of artwork. */
+/** Near-black used for scrims and pills drawn on top of artwork (theme-independent by design). */
 val ImageScrim = Color(0xFF0B0A0F)
 
+/** Fully rounded primary badge for newly aired titles. */
 @Composable
 fun NewBadge(modifier: Modifier = Modifier) {
     Text(
@@ -305,26 +316,26 @@ fun NewBadge(modifier: Modifier = Modifier) {
         letterSpacing = 0.06.em,
         color = MaterialTheme.colorScheme.onPrimary,
         modifier = modifier
-            .clip(RoundedCornerShape(5.dp))
+            .clip(RoundedCornerShape(50))
             .background(MaterialTheme.colorScheme.primary)
-            .padding(horizontal = 6.dp, vertical = 2.dp),
+            .padding(horizontal = 8.dp, vertical = 3.dp),
     )
 }
 
-/** Rounded filter/genre chip; [selected] fills it with the accent. */
+/** Fully rounded filter/genre chip; [selected] fills it with the primary container. */
 @Composable
 fun TagChip(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, selected: Boolean = false) {
     val colors = MaterialTheme.colorScheme
     Surface(
         selected = selected,
         onClick = onClick,
-        modifier = modifier.defaultMinSize(minHeight = 36.dp),
+        modifier = modifier.defaultMinSize(minHeight = 48.dp),
         shape = RoundedCornerShape(50),
-        color = if (selected) colors.primary else colors.surfaceContainer,
-        contentColor = if (selected) colors.onPrimary else colors.onSurface,
+        color = if (selected) colors.primaryContainer else colors.surfaceContainerLow,
+        contentColor = if (selected) colors.onPrimaryContainer else colors.onSurfaceVariant,
         border = if (selected) null else BorderStroke(1.dp, colors.outlineVariant),
     ) {
-        Box(Modifier.padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
             Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold, maxLines = 1)
         }
     }
@@ -332,12 +343,17 @@ fun TagChip(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, s
 
 @Composable
 fun PosterSkeleton(modifier: Modifier = Modifier, width: Dp? = null) {
-    Column(if (width != null) modifier.width(width) else modifier) {
-        SkeletonBox(Modifier.fillMaxWidth().aspectRatio(2f / 3f))
+    Column(
+        (if (width != null) modifier.width(width) else modifier)
+            .clip(MaterialTheme.shapes.medium)
+            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+            .padding(8.dp),
+    ) {
+        SkeletonBox(Modifier.fillMaxWidth().aspectRatio(2f / 3f), MaterialTheme.shapes.small)
         Spacer(Modifier.height(8.dp))
-        SkeletonBox(Modifier.fillMaxWidth(0.85f).height(12.dp), RoundedCornerShape(4.dp))
-        Spacer(Modifier.height(6.dp))
-        SkeletonBox(Modifier.fillMaxWidth(0.5f).height(12.dp), RoundedCornerShape(4.dp))
+        SkeletonBox(Modifier.fillMaxWidth(0.85f).height(12.dp), RoundedCornerShape(50))
+        Spacer(Modifier.height(8.dp))
+        SkeletonBox(Modifier.fillMaxWidth(0.5f).height(12.dp), RoundedCornerShape(50))
     }
 }
 
@@ -347,20 +363,26 @@ fun SectionHeader(
     modifier: Modifier = Modifier,
     subtitle: String? = null,
     onSeeAll: (() -> Unit)? = null,
+    /** Small primary accent bar before the title; part of the expressive look, opt out per call site. */
+    accent: Boolean = true,
 ) {
     Row(
-        modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp),
+        modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (accent) {
+            Box(Modifier.width(4.dp).height(20.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
+            Spacer(Modifier.width(8.dp))
+        }
         Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             if (subtitle != null) {
                 Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         if (onSeeAll != null) {
             TextButton(onClick = onSeeAll) {
-                Text(stringResource(R.string.common_see_all), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.common_see_all), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
             }
         }
     }
@@ -380,7 +402,7 @@ fun PosterRow(
     val stagger = rememberStaggerState()
     Crossfade(loading && items.isEmpty(), animationSpec = tween(Motion.Medium), label = "posterRow") { skeleton ->
         LazyRow(
-            contentPadding = PaddingValues(horizontal = 20.dp),
+            contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             userScrollEnabled = !skeleton,
         ) {
@@ -416,17 +438,20 @@ fun ContinueWatchingCard(
     onHide: (() -> Unit)? = null,
 ) {
     val interaction = remember { MutableInteractionSource() }
+    val colors = MaterialTheme.colorScheme
     Column(
         modifier.width(240.dp)
             .pressScale(interaction)
             .clip(MaterialTheme.shapes.medium)
-            .clickable(interactionSource = interaction, indication = LocalIndication.current, onClick = onClick),
+            .background(colors.surfaceContainerLow)
+            .clickable(interactionSource = interaction, indication = LocalIndication.current, onClick = onClick)
+            .padding(8.dp),
     ) {
         val thumb = rememberSharedKey(sharedOrigin?.let { sharedEpisodeKey(entry.episodeId, it) })
-        Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(MaterialTheme.shapes.medium)) {
+        Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(MaterialTheme.shapes.small)) {
             NetImage(
                 entry.episodeThumbnail.ifBlank { entry.animeCover },
-                Modifier.fillMaxSize().sharedKey(thumb).clip(MaterialTheme.shapes.medium),
+                Modifier.fillMaxSize().sharedKey(thumb).clip(MaterialTheme.shapes.small),
                 "${entry.animeTitle} — ${stringResource(R.string.watch_episode_label, entry.episodeNumber)}",
             )
             Box(
@@ -441,12 +466,12 @@ fun ContinueWatchingCard(
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
-                modifier = Modifier.align(Alignment.BottomStart).aboveSharedElements().revealWhenLanded(thumb).padding(start = 10.dp, bottom = 10.dp),
+                modifier = Modifier.align(Alignment.BottomStart).aboveSharedElements().revealWhenLanded(thumb).padding(start = 8.dp, bottom = 12.dp),
             )
             LinearProgressIndicator(
                 progress = { entry.progress },
-                modifier = Modifier.align(Alignment.BottomCenter).aboveSharedElements().revealWhenLanded(thumb).fillMaxWidth().height(3.dp),
-                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.align(Alignment.BottomCenter).aboveSharedElements().revealWhenLanded(thumb).fillMaxWidth().height(4.dp),
+                color = colors.primary,
                 trackColor = Color.White.copy(alpha = 0.25f),
                 drawStopIndicator = {},
                 gapSize = 0.dp,
@@ -456,8 +481,8 @@ fun ContinueWatchingCard(
                     onClick = onHide,
                     modifier = Modifier.align(Alignment.TopEnd).aboveSharedElements().revealWhenLanded(thumb)
                         .padding(4.dp)
-                        .background(Color.Black.copy(alpha = 0.45f), CircleShape)
-                        .size(28.dp),
+                        .background(ImageScrim.copy(alpha = 0.6f), CircleShape)
+                        .size(32.dp),
                 ) {
                     Icon(Icons.Rounded.Close, stringResource(R.string.ux_hide_continue), tint = Color.White, modifier = Modifier.size(16.dp))
                 }
@@ -465,18 +490,18 @@ fun ContinueWatchingCard(
         }
         Text(
             entry.animeTitle,
-            style = MaterialTheme.typography.titleSmall,
+            style = MaterialTheme.typography.titleMedium,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 8.dp, start = 2.dp, end = 2.dp),
+            modifier = Modifier.padding(top = 8.dp),
         )
         Text(
             if (entry.isFinished) stringResource(R.string.common_finished_watching) else remainingLabel(LocalContext.current.resources, entry.positionMs, entry.durationMs) ?: entry.episodeTitle,
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = colors.onSurfaceVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(horizontal = 2.dp),
+            modifier = Modifier.padding(top = 2.dp),
         )
     }
 }
@@ -495,15 +520,15 @@ fun MessageState(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(
-            Modifier.size(72.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHigh),
+            Modifier.size(80.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(icon, null, Modifier.size(34.dp), tint = MaterialTheme.colorScheme.primary)
+            Icon(icon, null, Modifier.size(36.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
         }
         Spacer(Modifier.height(16.dp))
-        Text(title, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
+        Text(title, style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
         if (message != null) {
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(8.dp))
             Text(
                 message,
                 style = MaterialTheme.typography.bodyMedium,
@@ -512,7 +537,7 @@ fun MessageState(
             )
         }
         if (actionLabel != null && onAction != null) {
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(24.dp))
             FilledTonalButton(onClick = onAction) {
                 Icon(Icons.Rounded.Refresh, null, Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
@@ -547,7 +572,7 @@ fun StatusPill(status: String, modifier: Modifier = Modifier) {
     Pill(
         statusLabel(LocalContext.current.resources, status),
         modifier,
-        container = if (ongoing) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
-        content = if (ongoing) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+        container = if (ongoing) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.secondaryContainer,
+        content = if (ongoing) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSecondaryContainer,
     )
 }

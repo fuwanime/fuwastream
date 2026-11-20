@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Rounded tonal card, matching the widget's 20dp inner cards. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <corners android:radius="12dp" />
-    <solid android:color="?android:attr/colorControlHighlight" />
+    <corners android:radius="@dimen/widget_radius_card" />
+    <solid android:color="?android:attr/colorBackground" />
 </shape>

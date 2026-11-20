@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,6 +33,7 @@ import androidx.glance.color.DynamicThemeColorProviders
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
 import androidx.glance.layout.Column
+import androidx.glance.layout.ColumnScope
 import androidx.glance.layout.ContentScale
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
@@ -44,7 +46,9 @@ import androidx.glance.layout.width
 import androidx.glance.material3.ColorProviders
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
+import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
+import androidx.glance.unit.ColorProvider
 import com.fuwanime.FuwaApp
 import com.fuwanime.MainActivity
 import com.fuwanime.R
@@ -65,6 +69,9 @@ private const val POSTER_PX = 240
 
 /** The app's own palette where Material You is unavailable (Android 11 and lower). */
 private val AppColors = ColorProviders(LightScheme, DarkScheme)
+
+// Glance 1.1.1 exposes only the original M3 color roles (surfaceContainer*/onSurfaceContainer do not
+// exist yet), so the tonal layering uses surfaceVariant as the base and surface/primaryContainer cards.
 
 /** Home-screen widget: the last anime and manga touched, newest first; a tap resumes the episode or chapter. */
 class ContinueWidget : GlanceAppWidget() {
@@ -116,29 +123,18 @@ private fun ContinueEntry.target(context: Context) = when (this) {
 private fun WidgetBody(context: Context, entries: List<ContinueEntry>, posters: Map<String, Bitmap?>) {
     val size = LocalSize.current
     val res = localizedContext(context).resources
-    // The whole widget opens the app; rows and "Explore" override it with their own targets.
+    // Tonal M3 base instead of a flat surface; the whole widget opens the app, cards and "Explore"
+    // override it with their own targets.
     Box(
-        GlanceModifier.fillMaxSize().appWidgetBackground().background(GlanceTheme.colors.widgetBackground)
-            .cornerRadius(R.dimen.widget_radius)
+        GlanceModifier.fillMaxSize().appWidgetBackground().background(GlanceTheme.colors.surfaceVariant)
+            .cornerRadius(R.dimen.widget_radius_continue)
             .clickable(actionStartActivity(openApp(context))),
     ) {
         when {
             entries.isEmpty() -> EmptyState(context, res.getString(R.string.system_widget_empty), res.getString(R.string.system_widget_explore))
-            size.width < WIDE.width -> Hero(context, entries.first(), posters[entries.first().key], res)
-            else -> {
-                val rows = if (size.height >= TALL.height) 4 else 2
-                Column(GlanceModifier.fillMaxSize().padding(12.dp)) {
-                    Text(
-                        res.getString(R.string.system_widget_continue),
-                        style = TextStyle(color = GlanceTheme.colors.primary, fontSize = 13.sp, fontWeight = FontWeight.Bold),
-                        modifier = GlanceModifier.padding(start = 4.dp, bottom = 6.dp),
-                    )
-                    entries.take(rows).forEachIndexed { i, entry ->
-                        if (i > 0) Spacer(GlanceModifier.height(6.dp))
-                        EntryRow(context, entry, posters[entry.key], subtitle(entry, res))
-                    }
-                }
-            }
+            size.width < WIDE.width -> Hero(context, entries.first(), posters[entries.first().key], res, featured = false)
+            size.height >= TALL.height -> ContinueList(context, entries.take(4), posters, res)
+            else -> Hero(context, entries.first(), posters[entries.first().key], res, featured = true)
         }
     }
 }
@@ -148,82 +144,133 @@ private fun subtitle(entry: ContinueEntry, res: android.content.res.Resources) =
     is ContinueEntry.Manga -> res.getString(R.string.system_widget_chapter, entry.row.chapterLabel, entry.row.page + 1, entry.row.pageCount)
 }
 
-/** 2x2: one title, its poster shown whole beside the text so nothing of the art is cropped. */
+/**
+ * One entry, poster shown whole beside the text so nothing of the art is cropped. SMALL puts it on a
+ * surface card under a "Continue" label; WIDE lets a primaryContainer card fill the widget so the art
+ * stays large (a second fixed-height row never fit the 110dp height and was clipped away).
+ */
 @Composable
-private fun Hero(context: Context, entry: ContinueEntry, poster: Bitmap?, res: android.content.res.Resources) {
+private fun Hero(context: Context, entry: ContinueEntry, poster: Bitmap?, res: android.content.res.Resources, featured: Boolean) {
+    val cardColor = if (featured) GlanceTheme.colors.primaryContainer else GlanceTheme.colors.surface
+    val titleColor = if (featured) GlanceTheme.colors.onPrimaryContainer else GlanceTheme.colors.onSurface
+    val subtitleColor = if (featured) GlanceTheme.colors.onPrimaryContainer else GlanceTheme.colors.onSurfaceVariant
+    val trackColor = if (featured) GlanceTheme.colors.surface else GlanceTheme.colors.surfaceVariant
     Column(
-        GlanceModifier.fillMaxSize().padding(12.dp).clickable(actionStartActivity(entry.target(context))),
+        GlanceModifier.fillMaxSize().padding(if (featured) 14.dp else 12.dp)
+            .clickable(actionStartActivity(entry.target(context))),
     ) {
-        Text(
-            res.getString(R.string.system_widget_continue),
-            style = TextStyle(color = GlanceTheme.colors.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold),
-        )
-        Spacer(GlanceModifier.height(6.dp))
-        Row(GlanceModifier.fillMaxWidth().defaultWeight(), verticalAlignment = Alignment.Top) {
-            Poster(entry, poster, GlanceModifier.size(48.dp, 72.dp))
-            Spacer(GlanceModifier.width(8.dp))
+        if (!featured) {
             Text(
-                entry.title,
-                maxLines = 3,
-                style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = 13.sp, fontWeight = FontWeight.Bold),
-                modifier = GlanceModifier.defaultWeight(),
+                res.getString(R.string.system_widget_continue),
+                style = TextStyle(color = GlanceTheme.colors.primary, fontSize = 11.sp, fontWeight = FontWeight.Bold),
             )
+            Spacer(GlanceModifier.height(4.dp))
         }
-        Text(subtitle(entry, res), maxLines = 1, style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 11.sp))
-        Spacer(GlanceModifier.height(4.dp))
-        Progress(entry.progress)
+        Row(
+            GlanceModifier.fillMaxWidth().defaultWeight()
+                .cornerRadius(R.dimen.widget_radius_card).background(cardColor)
+                .padding(if (featured) 10.dp else 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Poster(
+                entry, poster,
+                GlanceModifier.size(if (featured) 40.dp else 36.dp, if (featured) 60.dp else 52.dp),
+                radius = if (featured) 12.dp else 10.dp,
+            )
+            Spacer(GlanceModifier.width(if (featured) 12.dp else 8.dp))
+            Column(GlanceModifier.defaultWeight()) {
+                Text(
+                    entry.title,
+                    maxLines = 2,
+                    style = TextStyle(color = titleColor, fontSize = if (featured) 14.sp else 12.sp, fontWeight = FontWeight.Bold),
+                )
+                Spacer(GlanceModifier.height(2.dp))
+                Text(
+                    subtitle(entry, res),
+                    maxLines = 1,
+                    style = TextStyle(color = subtitleColor, fontSize = if (featured) 11.sp else 10.sp, fontWeight = FontWeight.Medium),
+                )
+                Spacer(GlanceModifier.height(if (featured) 4.dp else 2.dp))
+                Progress(entry.progress, height = if (featured) 6.dp else 5.dp, track = trackColor)
+            }
+        }
     }
 }
 
-/** A full-width row, at least 72dp tall, so each title is an easy tap target. */
+/** TALL: the four most recent entries as equal-height tonal cards under a "Continue" label. */
 @Composable
-private fun EntryRow(context: Context, entry: ContinueEntry, poster: Bitmap?, subtitle: String) {
+private fun ContinueList(context: Context, entries: List<ContinueEntry>, posters: Map<String, Bitmap?>, res: android.content.res.Resources) {
+    Column(GlanceModifier.fillMaxSize().padding(12.dp)) {
+        Text(
+            res.getString(R.string.system_widget_continue),
+            style = TextStyle(color = GlanceTheme.colors.primary, fontSize = 13.sp, fontWeight = FontWeight.Bold),
+            modifier = GlanceModifier.padding(start = 2.dp, bottom = 6.dp),
+        )
+        entries.forEachIndexed { i, entry ->
+            if (i > 0) Spacer(GlanceModifier.height(6.dp))
+            EntryRow(context, entry, posters[entry.key], subtitle(entry, res))
+        }
+    }
+}
+
+/** A full-width tonal card; rows share the height by weight so every card stays inside the widget. */
+@Composable
+private fun ColumnScope.EntryRow(context: Context, entry: ContinueEntry, poster: Bitmap?, subtitle: String) {
     Row(
-        GlanceModifier.fillMaxWidth().height(72.dp).cornerRadius(12.dp).background(GlanceTheme.colors.secondaryContainer)
-            .padding(6.dp).clickable(actionStartActivity(entry.target(context))),
+        GlanceModifier.fillMaxWidth().defaultWeight()
+            .cornerRadius(R.dimen.widget_radius_card).background(GlanceTheme.colors.surface)
+            .padding(5.dp).clickable(actionStartActivity(entry.target(context))),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Poster(entry, poster, GlanceModifier.size(40.dp, 60.dp))
-        Spacer(GlanceModifier.width(10.dp))
+        Poster(entry, poster, GlanceModifier.size(24.dp, 36.dp), radius = 8.dp)
+        Spacer(GlanceModifier.width(8.dp))
         Column(GlanceModifier.defaultWeight()) {
             Text(
                 entry.title,
                 maxLines = 1,
-                style = TextStyle(color = GlanceTheme.colors.onSecondaryContainer, fontSize = 13.sp, fontWeight = FontWeight.Bold),
+                style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = 12.sp, fontWeight = FontWeight.Bold),
             )
-            Text(subtitle, maxLines = 1, style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 11.sp))
-            Spacer(GlanceModifier.height(4.dp))
-            Progress(entry.progress)
+            Text(
+                subtitle,
+                maxLines = 1,
+                style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 10.sp, fontWeight = FontWeight.Medium),
+            )
+            Spacer(GlanceModifier.height(2.dp))
+            Progress(entry.progress, height = 4.dp, track = GlanceTheme.colors.surfaceVariant)
         }
     }
 }
 
 @Composable
-private fun Poster(entry: ContinueEntry, poster: Bitmap?, modifier: GlanceModifier) {
-    Box(modifier.cornerRadius(8.dp).background(GlanceTheme.colors.surfaceVariant), contentAlignment = Alignment.Center) {
+private fun Poster(entry: ContinueEntry, poster: Bitmap?, modifier: GlanceModifier, radius: Dp) {
+    Box(modifier.cornerRadius(radius).background(GlanceTheme.colors.surfaceVariant), contentAlignment = Alignment.Center) {
         if (poster != null) {
-            Image(ImageProvider(poster), entry.title, GlanceModifier.fillMaxSize().cornerRadius(8.dp), contentScale = ContentScale.Fit)
+            Image(ImageProvider(poster), entry.title, GlanceModifier.fillMaxSize().cornerRadius(radius), contentScale = ContentScale.Fit)
         }
     }
 }
 
 @Composable
-private fun Progress(value: Float) = LinearProgressIndicator(
+private fun Progress(value: Float, height: Dp, track: ColorProvider) = LinearProgressIndicator(
     progress = value,
-    modifier = GlanceModifier.fillMaxWidth().height(4.dp).cornerRadius(2.dp),
+    modifier = GlanceModifier.fillMaxWidth().height(height).cornerRadius(height / 2),
     color = GlanceTheme.colors.primary,
-    backgroundColor = GlanceTheme.colors.surfaceVariant,
+    backgroundColor = track,
 )
 
 @Composable
 private fun EmptyState(context: Context, message: String, action: String) {
     Column(GlanceModifier.fillMaxSize().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(message, style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = 13.sp, fontWeight = FontWeight.Bold))
-        Spacer(GlanceModifier.height(8.dp))
+        Text(
+            message,
+            maxLines = 2,
+            style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = 13.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.Center),
+        )
+        Spacer(GlanceModifier.height(12.dp))
         Text(
             action,
             style = TextStyle(color = GlanceTheme.colors.onPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold),
-            modifier = GlanceModifier.cornerRadius(20.dp).background(GlanceTheme.colors.primary).padding(horizontal = 16.dp, vertical = 10.dp)
+            modifier = GlanceModifier.cornerRadius(24.dp).background(GlanceTheme.colors.primary).padding(horizontal = 16.dp, vertical = 10.dp)
                 .clickable(actionStartActivity(openApp(context, MainActivity.EXTRA_OPEN_TAB to TAB_EXPLORE_SEARCH))),
         )
     }

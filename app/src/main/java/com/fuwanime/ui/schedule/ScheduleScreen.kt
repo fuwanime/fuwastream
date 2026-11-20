@@ -327,13 +327,16 @@ private fun ScheduleRow(anime: Anime, origin: String, onClick: () -> Unit) {
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Spacer(Modifier.height(6.dp))
-            Pill(
-                compactNumber(LocalContext.current.resources, anime.views),
-                leading = Icons.Rounded.Visibility,
-                container = MaterialTheme.colorScheme.surfaceContainerHigh,
-                content = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            // Schedule items from Animekompi carry no view count; hide the pill instead of showing "0".
+            if (anime.views > 0) {
+                Spacer(Modifier.height(6.dp))
+                Pill(
+                    compactNumber(LocalContext.current.resources, anime.views),
+                    leading = Icons.Rounded.Visibility,
+                    container = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    content = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }

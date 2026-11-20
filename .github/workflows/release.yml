@@ -2,8 +2,12 @@ name: Release Build
 
 on:
   push:
+    # Push ke branch "release" memicu rilis (bump minor default) — jalur alternatif saat
+    # workflow_dispatch/tag-push tidak tersedia untuk actor tertentu.
+    branches: [release]
     tags:
-      - "v[0-9]+.[0-9]+.[0-9]+*"
+      # GitHub tag filters are globs, not regex. "v*" matches every v-prefixed SemVer tag.
+      - "v*"
   workflow_dispatch:
     inputs:
       bump_type:
@@ -64,6 +68,7 @@ jobs:
             echo "Dipicu oleh push tag: $TAG_NAME"
           else
             BUMP_TYPE="${{ inputs.bump_type }}"
+            BUMP_TYPE="${BUMP_TYPE:-minor}"
             CUSTOM_VER="${{ inputs.custom_version }}"
 
             # Cari tag SemVer terbaru (format vX.Y.Z)
@@ -177,7 +182,7 @@ jobs:
           path: dist/*
 
       - name: Create and push Git tag
-        if: github.event_name == 'workflow_dispatch' && !inputs.dry_run
+        if: (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/release') && !inputs.dry_run
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Favorites widget -->
+    <string name="widget_favorites_name">收藏</string>
+    <string name="widget_favorites_desc">你收藏的动漫与漫画，直达主屏幕</string>
+    <string name="widget_favorites_title">收藏</string>
+    <string name="widget_favorites_empty">暂无收藏</string>
+    <string name="widget_favorites_anime">动漫</string>
+    <string name="widget_favorites_manga">漫画</string>
+
+    <!-- Schedule widget -->
+    <string name="widget_schedule_name">播出时间表</string>
+    <string name="widget_schedule_desc">今日播出的动漫剧集</string>
+    <string name="widget_schedule_header">时间表 · %1$s</string>
+    <string name="widget_schedule_loading">正在加载时间表…</string>
+    <string name="widget_schedule_empty">今天没有播出</string>
+    <string name="widget_schedule_error">时间表加载失败</string>
+    <string name="widget_schedule_open">打开时间表</string>
+
+    <!-- Stats widget -->
+    <string name="widget_stats_name">观看统计</string>
+    <string name="widget_stats_desc">观看时长、集数与动漫摘要</string>
+    <string name="widget_stats_title">统计</string>
+    <string name="widget_stats_total">总观看时长</string>
+    <string name="widget_stats_episodes">看完集数</string>
+    <string name="widget_stats_anime">观看动漫</string>
+    <string name="widget_stats_genres">最爱类型</string>
+    <string name="widget_stats_summary_line">%1$d 集 · %2$d 部动漫</string>
+    <string name="widget_stats_empty">暂无统计</string>
+    <string name="widget_stats_empty_hint">先看一集，数据就会显示在这里</string>
+</resources>

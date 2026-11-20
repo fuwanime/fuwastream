@@ -63,6 +63,9 @@ import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -105,6 +108,7 @@ import com.fuwanime.data.DownloadItem
 import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.rounded.PlayCircle
 import androidx.compose.material.icons.rounded.DownloadForOffline
+import androidx.compose.material.icons.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.Delete
 import com.fuwanime.data.LibraryRepository
 import com.fuwanime.data.local.FavoriteEntity
@@ -231,13 +235,19 @@ fun LibraryRoute(
     BackHandler(enabled = selecting) { vm.clearSelection() }
 
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
-        Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 12.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 16.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             if (selecting) {
                 IconButton(onClick = { vm.clearSelection() }, modifier = Modifier.padding(end = 4.dp)) { Icon(Icons.Rounded.Close, stringResource(R.string.mine_cancel_select)) }
                 Text(stringResource(R.string.mine_selected_count, selection.size), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                IconButton(onClick = {
-                    if (selection.size >= 2) confirmDeleteSelected = true else vm.deleteSelected(pager.currentPage)
-                }) { Icon(Icons.Rounded.Delete, stringResource(R.string.mine_delete_selected)) }
+                FilledTonalIconButton(
+                    onClick = {
+                        if (selection.size >= 2) confirmDeleteSelected = true else vm.deleteSelected(pager.currentPage)
+                    },
+                    colors = IconButtonDefaults.filledTonalIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                    ),
+                ) { Icon(Icons.Rounded.Delete, stringResource(R.string.mine_delete_selected)) }
             } else {
                 Text(stringResource(R.string.common_tab_library), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
                 if (pager.currentPage == 0 && !history.isNullOrEmpty()) {
@@ -310,7 +320,10 @@ private fun HistoryList(
     }
     val res = LocalContext.current.resources
     val groups = remember(items) { items.groupBy { historyDayLabel(res, it.updatedAt) } }
-    LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 8.dp, bottom = 16.dp + LocalNavBarPadding.current)) {
+    LazyColumn(
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp + LocalNavBarPadding.current),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         groups.forEach { (day, entries) ->
             item(key = "day-$day") {
                 Text(
@@ -319,7 +332,7 @@ private fun HistoryList(
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 0.08.em,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = 4.dp, top = 14.dp, bottom = 6.dp),
+                    modifier = Modifier.padding(start = 4.dp, top = 8.dp),
                 )
             }
             items(entries, key = { it.episodeId }) { entry ->
@@ -341,22 +354,24 @@ private fun HistoryRow(
     onToggleSelect: (String) -> Unit,
 ) {
     val selectLabel = stringResource(R.string.common_select)
+    // Tonal list card: the selected row swaps to the secondary container instead of drawing a border.
+    val container = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow
     Row(
         Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium)
-            .then(if (selected) Modifier.background(MaterialTheme.colorScheme.secondaryContainer) else Modifier)
+            .background(container)
             .combinedClickable(
                 onLongClick = { onToggleSelect(entry.animeId) },
                 onClick = { if (selecting) onToggleSelect(entry.animeId) else onResume(entry) },
             )
             // TalkBack has no long-press gesture: offer "Pilih" in its actions menu.
             .semantics { customActions = listOf(CustomAccessibilityAction(selectLabel) { onToggleSelect(entry.animeId); true }) }
-            .padding(vertical = 8.dp, horizontal = 4.dp),
+            .padding(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.width(132.dp).height(74.dp).clip(RoundedCornerShape(12.dp))) {
+        Box(Modifier.width(132.dp).height(74.dp).clip(MaterialTheme.shapes.small)) {
             NetImage(
                 entry.episodeThumbnail.ifBlank { entry.animeCover },
-                Modifier.fillMaxSize().sharedKey(sharedEpisodeKey(entry.episodeId, "library")).clip(RoundedCornerShape(12.dp)),
+                Modifier.fillMaxSize().sharedKey(sharedEpisodeKey(entry.episodeId, "library")).clip(MaterialTheme.shapes.small),
                 // The only place the anime's name is inside the row's TalkBack node (the title text is its own button).
                 stringResource(R.string.mine_episode_cd, entry.animeTitle, entry.episodeNumber),
             )
@@ -367,14 +382,14 @@ private fun HistoryRow(
                 color = Color.White,
                 modifier = Modifier
                     .align(Alignment.TopStart)
-                    .padding(8.dp)
-                    .clip(RoundedCornerShape(5.dp))
+                    .padding(6.dp)
+                    .clip(RoundedCornerShape(50))
                     .background(ImageScrim.copy(alpha = 0.78f))
-                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                    .padding(horizontal = 7.dp, vertical = 2.dp),
             )
             LinearProgressIndicator(
                 progress = { entry.progress },
-                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(3.dp),
+                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(4.dp),
                 trackColor = Color.White.copy(alpha = 0.2f),
                 drawStopIndicator = {},
                 gapSize = 0.dp,
@@ -398,7 +413,7 @@ private fun HistoryRow(
                     else -> remainingLabel(LocalContext.current.resources, entry.positionMs, entry.durationMs) ?: entry.episodeTitle
                 },
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         if (selecting) {
@@ -409,30 +424,41 @@ private fun HistoryRow(
                 modifier = Modifier.padding(12.dp),
             )
         } else {
-            IconButton(onClick = { onRemove(entry.animeId) }) { Icon(Icons.Rounded.Close, stringResource(R.string.mine_remove_from_history)) }
+            FilledTonalIconButton(
+                onClick = { onRemove(entry.animeId) },
+                shape = RoundedCornerShape(50),
+                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                ),
+                modifier = Modifier.size(40.dp),
+            ) { Icon(Icons.Rounded.Close, stringResource(R.string.mine_remove_from_history), Modifier.size(18.dp)) }
         }
     }
 }
 
-/** Pill-shaped tab switcher that follows the pager. */
+/** M3 segmented button: one connected fully rounded container, active segment filled with the secondary container. */
 @Composable
 private fun SegmentedTabs(titles: List<String>, selected: Int, onSelect: (Int) -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 4.dp)
-            .clip(RoundedCornerShape(14.dp))
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .clip(RoundedCornerShape(50))
             .background(MaterialTheme.colorScheme.surfaceContainerLow)
-            .padding(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(50)),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         titles.forEachIndexed { i, title ->
+            // Dividers only between two unselected segments, as in the M3 segmented button spec.
+            if (i > 0 && i != selected && i - 1 != selected) {
+                Box(Modifier.width(1.dp).height(24.dp).background(MaterialTheme.colorScheme.outlineVariant))
+            }
             val on = i == selected
             Box(
                 Modifier
                     .weight(1f)
                     .heightIn(min = 40.dp)
-                    .clip(RoundedCornerShape(10.dp))
                     .background(if (on) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
                     .selectable(selected = on, role = Role.Tab, onClick = { onSelect(i) }),
                 contentAlignment = Alignment.Center,
@@ -441,11 +467,11 @@ private fun SegmentedTabs(titles: List<String>, selected: Int, onSelect: (Int) -
                     title,
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = if (on) FontWeight.Bold else FontWeight.SemiBold,
-                    color = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (on) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     // Four tabs share a phone's width; a label that still doesn't fit ends in "…" instead of being cut mid-word.
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(horizontal = 4.dp),
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
                 )
             }
         }
@@ -474,9 +500,9 @@ private fun FavoriteGrid(
     }
     LazyVerticalGrid(
         columns = GridCells.Adaptive(108.dp),
-        contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp + LocalNavBarPadding.current),
+        contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 16.dp + LocalNavBarPadding.current),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item(key = "sort", span = { GridItemSpan(maxLineSpan) }) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -553,20 +579,25 @@ private fun DownloadList(
     val stored = items.filter { it.state == DownloadState.DONE }.sumOf { it.totalBytes }
 
     LazyColumn(
-        contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp + LocalNavBarPadding.current),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 16.dp + LocalNavBarPadding.current),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item {
             Text(
                 pluralStringResource(R.plurals.mine_downloads_stored, doneCount, doneCount, formatBytes(res, stored)),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 4.dp),
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
             )
         }
         if (watched.isNotEmpty()) {
             item(key = "watched") {
-                TextButton(onClick = { confirmWatched = true }) {
+                FilledTonalButton(
+                    onClick = { confirmWatched = true },
+                    shape = RoundedCornerShape(50),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    modifier = Modifier.heightIn(min = 40.dp),
+                ) {
                     Icon(Icons.Rounded.DeleteSweep, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(R.string.mine_delete_watched, watched.size, formatBytes(res, watchedBytes)))
@@ -578,8 +609,9 @@ private fun DownloadList(
             val playable = d.state == DownloadState.DONE
             Row(
                 Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium)
+                    .background(MaterialTheme.colorScheme.surfaceContainerLow)
                     .clickable(enabled = playable) { onPlay(e) }
-                    .padding(4.dp),
+                    .padding(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(Modifier.width(140.dp).aspectRatio(16f / 9f).clip(MaterialTheme.shapes.small)) {
@@ -589,14 +621,16 @@ private fun DownloadList(
                         stringResource(R.string.mine_episode_cd, e.animeTitle, e.episodeNumber),
                     )
                     if (playable) {
-                        Icon(
-                            Icons.Rounded.PlayCircle, null, tint = Color.White,
-                            modifier = Modifier.align(Alignment.Center).size(32.dp),
-                        )
+                        Box(
+                            Modifier.align(Alignment.Center).size(40.dp).clip(RoundedCornerShape(50)).background(ImageScrim.copy(alpha = 0.55f)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(Icons.Rounded.PlayCircle, null, tint = Color.White, modifier = Modifier.size(28.dp))
+                        }
                     }
                 }
                 Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(e.animeTitle, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     Text(stringResource(R.string.mine_episode_quality, e.episodeNumber, e.quality), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                     Text(
@@ -614,14 +648,22 @@ private fun DownloadList(
                         Spacer(Modifier.height(4.dp))
                         LinearProgressIndicator(
                             progress = { d.progress },
-                            modifier = Modifier.fillMaxWidth().height(3.dp),
+                            modifier = Modifier.fillMaxWidth().height(4.dp),
                             drawStopIndicator = {},
                             gapSize = 0.dp,
                         )
                     }
                 }
-                IconButton(onClick = { pendingDelete = d }) {
-                    Icon(if (d.inProgress) Icons.Rounded.Close else Icons.Rounded.Delete, stringResource(if (d.inProgress) R.string.mine_cancel_action else R.string.mine_delete))
+                FilledTonalIconButton(
+                    onClick = { pendingDelete = d },
+                    shape = RoundedCornerShape(50),
+                    colors = IconButtonDefaults.filledTonalIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    ),
+                    modifier = Modifier.size(40.dp),
+                ) {
+                    Icon(if (d.inProgress) Icons.Rounded.Close else Icons.Rounded.Delete, stringResource(if (d.inProgress) R.string.mine_cancel_action else R.string.mine_delete), Modifier.size(18.dp))
                 }
             }
         }
@@ -660,15 +702,14 @@ private fun WeekCard(week: WeekSummary, onClick: () -> Unit) {
     val watchedAny = week.watchedMs > 0 || week.episodes > 0
     val summary = pluralStringResource(R.plurals.mine_week_summary, week.episodes, watchTimeLabel(LocalContext.current.resources, week.watchedMs), week.episodes)
     val cd = if (watchedAny) stringResource(R.string.mine_week_cd_watched, summary) else stringResource(R.string.mine_week_cd_empty)
-    val bar = MaterialTheme.colorScheme.primary
-    val shape = RoundedCornerShape(18.dp)
+    // Tonal primaryContainer summary card; the bar chart and labels all pair with onPrimaryContainer.
+    val onContainer = MaterialTheme.colorScheme.onPrimaryContainer
     Row(
         Modifier
             .fillMaxWidth()
             .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
-            .clip(shape)
-            .background(MaterialTheme.colorScheme.surfaceContainerLow)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
+            .clip(MaterialTheme.shapes.large)
+            .background(MaterialTheme.colorScheme.primaryContainer)
             .clickable(onClick = onClick)
             .semantics(mergeDescendants = true) {
                 contentDescription = cd
@@ -677,11 +718,11 @@ private fun WeekCard(week: WeekSummary, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(stringResource(R.string.mine_this_week), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.mine_this_week), style = MaterialTheme.typography.labelMedium, color = onContainer.copy(alpha = 0.8f))
             if (watchedAny) {
-                Text(summary, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(summary, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = onContainer)
             } else {
-                Text(stringResource(R.string.mine_week_start), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.mine_week_start), style = MaterialTheme.typography.bodyMedium, color = onContainer)
             }
         }
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -691,11 +732,14 @@ private fun WeekCard(week: WeekSummary, onClick: () -> Unit) {
                 val w = slot * 0.6f
                 week.days.forEachIndexed { i, d ->
                     val h = (size.height * d.minutes / max).coerceAtLeast(3.dp.toPx())
-                    val color = if (i == week.days.lastIndex) bar else bar.copy(alpha = 0.4f)
+                    val color = if (i == week.days.lastIndex) onContainer else onContainer.copy(alpha = 0.4f)
                     drawRoundRect(color, Offset(slot * i + (slot - w) / 2, size.height - h), Size(w, h), CornerRadius(w / 2))
                 }
             }
-            Text(stringResource(R.string.mine_see_stats), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(stringResource(R.string.mine_see_stats), style = MaterialTheme.typography.labelLarge, color = onContainer)
+                Icon(Icons.Rounded.ArrowForward, null, Modifier.size(16.dp), tint = onContainer)
+            }
         }
     }
 }

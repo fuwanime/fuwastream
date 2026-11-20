@@ -97,6 +97,7 @@
     <string name="watch_cast_main">Utama</string>
     <string name="watch_cast_supporting">Sampingan</string>
     <string name="watch_trailer">Tonton treler</string>
+    <string name="trailer_embed_error">Treler tidak boleh dimainkan di sini. Cuba buka terus di YouTube.</string>
     <string name="watch_read_manga">Baca versi manga</string>
     <string name="watch_manga_not_found">Versi manga belum tersedia di FuwaStream</string>
     <string name="watch_open_external">Buka dalam pemain lain</string>
@@ -110,6 +111,9 @@
     <string name="watch_sleep_timer">Pemasa tidur</string>
     <string name="watch_sleep_off">Mati</string>
     <string name="watch_sleep_end">Hujung episod</string>
+    <string name="watch_sleep_custom">Suai</string>
+    <string name="watch_sleep_custom_slider_cd">Penggelangsar durasi pemasa tidur</string>
+    <string name="watch_sleep_countdown_cd">Pemasa tidur: %1$s lagi</string>
     <string name="watch_opening">Pembukaan (OP)</string>
     <string name="watch_op_marked">Ditanda %1$s – %2$s untuk semua episod anime ini.</string>
     <string name="watch_op_hint">Tandakan awal dan akhir OP sekali, butang Langkau OP muncul pada episod lain.</string>

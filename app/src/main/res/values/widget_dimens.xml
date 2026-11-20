@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Launcher widget corner radius; Android 12+ takes the system value (values-v31). -->
+    <!-- Launcher widget corner radius; Android 12+ takes the system value (values-v31).
+         Shared with the other widgets; ContinueWidget uses its own larger radius below. -->
     <dimen name="widget_radius">20dp</dimen>
+    <!-- Material 3 Expressive look for ContinueWidget: soft outer corners, tonal inner cards. -->
+    <dimen name="widget_radius_continue">28dp</dimen>
+    <dimen name="widget_radius_card">20dp</dimen>
+    <dimen name="widget_radius_poster">12dp</dimen>
 </resources>

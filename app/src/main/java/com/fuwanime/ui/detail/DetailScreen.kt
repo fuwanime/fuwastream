@@ -104,6 +104,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import com.fuwanime.ui.theme.AnimeTheme
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.fuwanime.util.statusLabel
@@ -177,6 +178,8 @@ fun DetailRoute(
     onBack: () -> Unit,
     /** [sharedKey] names the image that flies into the player; [thumb] is what the player shows meanwhile. */
     onPlay: (anime: Anime, episode: Episode, sharedKey: String?, thumb: String) -> Unit,
+    /** Opens the AniList trailer on its own stream page (see TrailerPlayerRoute). */
+    onPlayTrailer: (url: String, title: String, thumb: String) -> Unit = { _, _, _ -> },
     onAnimeClick: OpenAnime,
     onGenre: (String) -> Unit,
     onOpenManga: (mangaId: String) -> Unit = {},
@@ -214,6 +217,7 @@ fun DetailRoute(
             entryKey,
             onBack,
             onPlay,
+            onPlayTrailer,
             onAnimeClick,
             onGenre,
         )
@@ -236,6 +240,7 @@ private fun DetailScreen(
     entryKey: String,
     onBack: () -> Unit,
     onPlay: (Anime, Episode, String?, String) -> Unit,
+    onPlayTrailer: (url: String, title: String, thumb: String) -> Unit,
     onAnimeClick: OpenAnime,
     onGenre: (String) -> Unit,
 ) {
@@ -249,16 +254,25 @@ private fun DetailScreen(
     val hazeState = remember { HazeState() }
     // A dark colour from the poster for the header wash and the play button; null keeps the app's own colours.
     val context = LocalContext.current
+    var seed by remember { mutableStateOf<Color?>(null) }
     val tint by produceState<Color?>(null, anime?.poster) {
         val poster = anime?.poster.orEmpty()
-        value = if (poster.isBlank()) null else loadBitmap(context, poster, 64)?.let { bitmap ->
-            val palette = withContext(Dispatchers.Default) { Palette.from(bitmap).generate() }
-            posterTint(palette.darkVibrantSwatch?.rgb, palette.vibrantSwatch?.rgb, palette.dominantSwatch?.rgb)?.let { Color(it) }
+        if (poster.isBlank()) {
+            seed = null
+            value = null
+        } else {
+            loadBitmap(context, poster, 64)?.let { bitmap ->
+                val palette = withContext(Dispatchers.Default) { Palette.from(bitmap).generate() }
+                val vibrant = palette.vibrantSwatch?.rgb ?: palette.darkVibrantSwatch?.rgb ?: palette.dominantSwatch?.rgb
+                seed = vibrant?.let { Color(it) }
+                value = posterTint(palette.darkVibrantSwatch?.rgb, palette.vibrantSwatch?.rgb, palette.dominantSwatch?.rgb)?.let { Color(it) }
+            }
         }
     }
     // Arrives after the first frame: fade it in rather than pop.
     val headerTint by animateColorAsState(tint ?: Color.Transparent, label = "posterTint")
 
+    AnimeTheme(seed) {
     Box(Modifier.fillMaxSize()) {
         // Scrolling while the poster flies used to make it chase the header. Instead of locking the list, the link
         // is dropped the moment the user scrolls mid-transition: the poster settles into the header and scrolls with it.
@@ -398,13 +412,17 @@ private fun DetailScreen(
                 item(key = "info") { Box(Modifier.navEnter(200)) { InfoGrid(anime, state.meta) } }
                 state.meta?.takeIf { it.trailerUrl.isNotBlank() }?.let { meta ->
                     item(key = "trailer") {
-                        val context = LocalContext.current
                         TrailerCard(
                             thumbnail = meta.trailerThumbnail,
                             fallbackThumbnail = anime?.let { a -> a.cover.ifBlank { a.poster } }.orEmpty(),
                             onClick = {
-                                // Trailers play outside the app (YouTube/Dailymotion app or the browser).
-                                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, meta.trailerUrl.toUri())) }
+                                // The trailer plays on its own stream page (Media3, like episodes),
+                                // not in a WebView and not in an external app.
+                                onPlayTrailer(
+                                    meta.trailerUrl,
+                                    anime?.title.orEmpty(),
+                                    meta.trailerThumbnail.ifBlank { anime?.cover.orEmpty() },
+                                )
                             },
                             modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp),
                         )
@@ -548,6 +566,7 @@ private fun DetailScreen(
             onAutoDownload = vm::setAutoDownload,
             onDismiss = { notificationDialog = false },
         )
+    }
     }
 }
 

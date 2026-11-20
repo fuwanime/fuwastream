@@ -222,6 +222,13 @@ class MangaExploreViewModel(private val repo: MangaRepository) : ViewModel() {
                 if (nextIndoPage < 0) return@async null
                 if (searching) {
                     try { repo.searchIndonesiaPaged(a.q, nextIndoPage) } catch (e: CancellationException) { throw e } catch (_: Exception) { MangaPage(emptyList(), 0, 0) }
+                } else if (a.tags.size == 1) {
+                    // Lists carry no genres, so ask Komiku's own genre filter and mark hits with it.
+                    val genre = a.tags.first()
+                    val km = quiet { repo.popularKomiku(nextIndoPage, a.type, genre) }
+                    val items = km?.items.orEmpty().map { it.copy(tags = listOf(genre)) }.distinctBy { it.id }
+                    val hasMore = km != null && km.items.isNotEmpty()
+                    MangaPage(items, if (hasMore) nextIndoPage * PAGE_BATCH + 1 else nextIndoPage * PAGE_BATCH, (nextIndoPage - 1) * PAGE_BATCH)
                 } else {
                     // Browse: combine Shinigami + Komiku popular pages.
                     val sh = quiet { repo.popularIndonesia(nextIndoPage, a.type) }

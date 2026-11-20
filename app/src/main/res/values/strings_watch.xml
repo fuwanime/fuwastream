@@ -97,6 +97,7 @@
     <string name="watch_cast_main">Utama</string>
     <string name="watch_cast_supporting">Pendukung</string>
     <string name="watch_trailer">Tonton Trailer</string>
+    <string name="trailer_embed_error">Trailer tidak bisa diputar di sini. Coba buka langsung di YouTube.</string>
     <string name="watch_read_manga">Baca versi manga</string>
     <string name="watch_manga_not_found">Versi manga belum tersedia di FuwaStream</string>
     <string name="watch_open_external">Buka di player lain</string>
@@ -110,6 +111,9 @@
     <string name="watch_sleep_timer">Timer tidur</string>
     <string name="watch_sleep_off">Mati</string>
     <string name="watch_sleep_end">Akhir episode</string>
+    <string name="watch_sleep_custom">Kustom</string>
+    <string name="watch_sleep_custom_slider_cd">Penggeser durasi timer tidur</string>
+    <string name="watch_sleep_countdown_cd">Timer tidur: %1$s tersisa</string>
     <string name="watch_opening">Opening (OP)</string>
     <string name="watch_op_marked">Tertanda %1$s – %2$s untuk semua episode anime ini.</string>
     <string name="watch_op_hint">Tandai awal dan akhir OP sekali, tombol Lewati OP muncul di episode lain.</string>
