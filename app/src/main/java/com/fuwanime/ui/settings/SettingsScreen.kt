@@ -57,6 +57,8 @@ import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PrivacyTip
+import androidx.compose.material.icons.rounded.QrCode2
+import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.HighQuality
@@ -160,7 +162,7 @@ class SettingsViewModel(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit, onOpenProfile: () -> Unit) {
+fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit, onOpenProfile: () -> Unit, onQrSend: () -> Unit = {}, onQrReceive: () -> Unit = {}) {
     val vm: SettingsViewModel = fuwaViewModel { c, _ ->
         SettingsViewModel(c.settingsStore, c.libraryRepository, c.downloadRepository, c.mangaDownloads, c.backupRepository, c::refreshHomeSurfaces)
     }
@@ -555,6 +557,8 @@ fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit, onOpenProfi
                     }
                 }
                 item { ActionRow(Icons.Rounded.Restore, stringResource(R.string.mine_restore_file), stringResource(R.string.mine_restore_file_desc), restore) }
+                item { ActionRow(Icons.Rounded.QrCode2, stringResource(R.string.mine_qr_send), stringResource(R.string.mine_qr_send_desc), onQrSend) }
+                item { ActionRow(Icons.Rounded.QrCodeScanner, stringResource(R.string.mine_qr_receive), stringResource(R.string.mine_qr_receive_desc), onQrReceive) }
             }
 
             item { Group(stringResource(R.string.mine_group_data)) }

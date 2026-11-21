@@ -154,4 +154,21 @@
     </plurals>
     <string name="watch_seek_slider_cd">Penggeser waktu pemutaran</string>
     <string name="watch_seek_position">%1$s dari %2$s</string>
+    <string name="watch_bookmark_add">Tandai momen</string>
+    <string name="watch_bookmark_hint">Tandai momen untuk kembali ke detik ini</string>
+    <string name="watch_bookmark_dialog_title">Tandai momen menarik</string>
+    <string name="watch_bookmark_dialog_body">Posisi %1$s disimpan supaya kamu bisa kembali ke detik ini kapan saja.</string>
+    <string name="watch_bookmark_label">Label (opsional)</string>
+    <string name="watch_bookmark_default_label">Momen %1$s</string>
+    <string name="watch_bookmark_save">Simpan momen</string>
+    <string name="watch_bookmark_saved">Momen ditandai di %1$s</string>
+    <string name="watch_bookmark_section">Momen menarik</string>
+    <string name="watch_bookmark_section_count">Momen menarik (%1$d)</string>
+    <string name="watch_bookmark_empty">Belum ada momen. Ketuk ikon bookmark di player untuk menandai detik favoritmu.</string>
+    <string name="watch_bookmark_sheet_hint">Simpan detik favoritmu, lalu ketuk momennya untuk kembali ke sana.</string>
+    <string name="watch_bookmark_at">Tandai di %1$s</string>
+    <string name="watch_bookmark_delete_cd">Hapus momen</string>
+    <string name="watch_bookmark_delete_title">Hapus momen?</string>
+    <string name="watch_bookmark_delete_msg">Momen “%1$s” akan dihapus.</string>
+    <string name="watch_bookmark_deleted">Momen dihapus</string>
 </resources>

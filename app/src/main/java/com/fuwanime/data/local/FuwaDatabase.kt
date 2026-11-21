@@ -187,8 +187,8 @@ interface DownloadDao {
 }
 
 @Database(
-    entities = [FavoriteEntity::class, WatchHistoryEntity::class, SearchHistoryEntity::class, DownloadEntity::class, WatchDailyEntity::class, AnimeLinkEntity::class, MangaFavoriteEntity::class, MangaHistoryEntity::class, MangaDownloadEntity::class, ContentPreferenceEntity::class, SourceStatEntity::class, ProfileEntity::class, QuestEntity::class, CountedEntity::class, BorderEntity::class, CollectionListEntity::class, CollectionItemEntity::class, SavedSearchFilterEntity::class],
-    version = 13,
+    entities = [FavoriteEntity::class, WatchHistoryEntity::class, SearchHistoryEntity::class, DownloadEntity::class, WatchDailyEntity::class, AnimeLinkEntity::class, MangaFavoriteEntity::class, MangaHistoryEntity::class, MangaDownloadEntity::class, ContentPreferenceEntity::class, SourceStatEntity::class, ProfileEntity::class, QuestEntity::class, CountedEntity::class, BorderEntity::class, CollectionListEntity::class, CollectionItemEntity::class, SavedSearchFilterEntity::class, PlaybackBookmarkEntity::class],
+    version = 14,
     exportSchema = false,
 )
 abstract class FuwaDatabase : RoomDatabase() {
@@ -206,12 +206,26 @@ abstract class FuwaDatabase : RoomDatabase() {
     abstract fun profileDao(): ProfileDao
     abstract fun collectionListDao(): CollectionListDao
     abstract fun savedSearchFilterDao(): SavedSearchFilterDao
+    abstract fun playbackBookmarkDao(): PlaybackBookmarkDao
 
     companion object {
         fun create(context: Context): FuwaDatabase =
             Room.databaseBuilder(context, FuwaDatabase::class.java, "fuwanime.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
                 .build()
+
+        /** v14 adds player bookmark moments ("momen menarik"); nothing existing changes. */
+        internal val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `playback_bookmarks` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `mediaType` TEXT NOT NULL, " +
+                        "`contentId` TEXT NOT NULL, `episodeId` TEXT NOT NULL, `positionMs` INTEGER NOT NULL, `label` TEXT NOT NULL, " +
+                        "`coverUrl` TEXT NOT NULL, `createdAt` INTEGER NOT NULL)",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_playback_bookmarks_contentId` ON `playback_bookmarks` (`contentId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_playback_bookmarks_episodeId` ON `playback_bookmarks` (`episodeId`)")
+            }
+        }
 
         /**
          * v13 adds custom collection lists, per-title personal rating/note and saved search filters.

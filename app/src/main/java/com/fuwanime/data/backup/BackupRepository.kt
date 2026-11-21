@@ -65,20 +65,7 @@ class BackupRepository(
         val tmpLeft = findChild(tree, TMP_NAME)
         if (!shouldWriteBackup(library.isEmpty(), existing != null || tmpLeft != null, folderAdopted)) return BackupOutcome.SkippedEmpty
 
-        val snap = library.snapshot()
-        val json = BackupCodec.encode(
-            BackupFile(
-                createdAt = System.currentTimeMillis(),
-                favorites = snap.favorites,
-                history = snap.history,
-                watchDaily = snap.watchDaily,
-                searches = snap.searches,
-                mangaFavorites = snap.mangaFavorites,
-                mangaHistory = snap.mangaHistory,
-                contentPreferences = snap.contentPreferences,
-                settings = settings.exportSettings(),
-            ),
-        )
+        val json = BackupCodec.encode(currentBackup())
         val parent = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
 
         // Write a temp file and swap it in, so a crash mid-write never leaves a half-written backup behind.
@@ -94,6 +81,26 @@ class BackupRepository(
             runCatching { DocumentsContract.deleteDocument(resolver, tmp) }
         }
         return BackupOutcome.Written
+    }
+
+    /** The full current state as a backup payload; shared by the file writer and the QR transfer. */
+    suspend fun currentBackup(): BackupFile {
+        val snap = library.snapshot()
+        return BackupFile(
+            createdAt = System.currentTimeMillis(),
+            favorites = snap.favorites,
+            history = snap.history,
+            watchDaily = snap.watchDaily,
+            searches = snap.searches,
+            mangaFavorites = snap.mangaFavorites,
+            mangaHistory = snap.mangaHistory,
+            contentPreferences = snap.contentPreferences,
+            collectionLists = snap.collectionLists,
+            collectionItems = snap.collectionItems,
+            savedSearchFilters = snap.savedSearchFilters,
+            playbackBookmarks = snap.playbackBookmarks,
+            settings = settings.exportSettings(),
+        )
     }
 
     suspend fun read(uri: Uri): BackupResult = withContext(Dispatchers.IO) {

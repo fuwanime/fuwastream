@@ -108,6 +108,8 @@ import com.fuwanime.data.DownloadItem
 import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.rounded.PlayCircle
 import androidx.compose.material.icons.rounded.PlaylistAdd
+import androidx.compose.material.icons.rounded.QrCode2
+import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.DownloadForOffline
 import androidx.compose.material.icons.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.Delete
@@ -255,6 +257,8 @@ fun LibraryRoute(
     onStats: () -> Unit,
     onSettings: () -> Unit,
     onMangaClick: (String) -> Unit,
+    onQrSend: () -> Unit = {},
+    onQrReceive: () -> Unit = {},
 ) {
     val vm: LibraryViewModel = fuwaViewModel { c, _ -> LibraryViewModel(c.libraryRepository, c.downloadRepository, c.settingsStore, c.collectionListRepository, c::refreshHomeSurfaces) }
     val downloads by vm.downloads.collectAsStateWithLifecycle()
@@ -275,6 +279,7 @@ fun LibraryRoute(
     var confirmClear by remember { mutableStateOf(false) }
     var confirmDeleteSelected by remember { mutableStateOf(false) }
     var addToListOpen by remember { mutableStateOf(false) }
+    var transferChooser by remember { mutableStateOf(false) }
     val selecting = selection.isNotEmpty()
 
     // Selection belongs to one tab; leaving it (or pressing back) ends multi-select without deleting anything.
@@ -306,6 +311,7 @@ fun LibraryRoute(
                 if (pager.currentPage == 0 && !history.isNullOrEmpty()) {
                     IconButton(onClick = { confirmClear = true }) { Icon(Icons.Rounded.DeleteSweep, stringResource(R.string.mine_clear_history)) }
                 }
+                IconWithTooltip(stringResource(R.string.mine_qr_transfer), Icons.Rounded.QrCode2, { transferChooser = true })
                 IconWithTooltip(stringResource(R.string.mine_settings), Icons.Rounded.Settings, onSettings)
             }
         }
@@ -381,6 +387,47 @@ fun LibraryRoute(
             onToggle = { listId, add -> if (add) vm.addSelectedToList(listId) else vm.removeSelectedFromList(listId) },
             onCreate = vm::createListAndAddSelected,
             onDismiss = { addToListOpen = false },
+        )
+    }
+
+    if (transferChooser) {
+        AlertDialog(
+            onDismissRequest = { transferChooser = false },
+            icon = { Icon(Icons.Rounded.QrCode2, null) },
+            title = { Text(stringResource(R.string.mine_qr_transfer)) },
+            text = {
+                Column {
+                    Text(stringResource(R.string.mine_qr_transfer_desc), style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.height(12.dp))
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
+                            .clickable { transferChooser = false; onQrSend() }.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(Icons.Rounded.QrCode2, null, tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(stringResource(R.string.mine_qr_send), style = MaterialTheme.typography.titleSmall)
+                            Text(stringResource(R.string.mine_qr_send_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
+                            .clickable { transferChooser = false; onQrReceive() }.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(Icons.Rounded.QrCodeScanner, null, tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(stringResource(R.string.mine_qr_receive), style = MaterialTheme.typography.titleSmall)
+                            Text(stringResource(R.string.mine_qr_receive_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { transferChooser = false }) { Text(stringResource(R.string.mine_cancel)) } },
         )
     }
 }

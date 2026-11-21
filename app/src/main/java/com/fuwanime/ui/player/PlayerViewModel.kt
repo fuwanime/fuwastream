@@ -27,10 +27,12 @@ import com.fuwanime.data.OpMark
 import com.fuwanime.data.nextLowerThan
 import com.fuwanime.data.StreamSource
 import com.fuwanime.data.local.AppSettings
+import com.fuwanime.data.local.PlaybackBookmarkEntity
 import com.fuwanime.data.local.SettingsStore
 import com.fuwanime.data.local.VideoResize
 import com.fuwanime.R
 import com.fuwanime.util.UiText
+import com.fuwanime.util.formatDuration
 import com.fuwanime.util.friendlyText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -118,6 +120,37 @@ class PlayerViewModel(
     /** The user's opening mark for this anime, shared by all its episodes. */
     val opMark: StateFlow<OpMark?> =
         settingsStore.opMark(animeId).stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /** Bookmark moments of the episode on screen, ordered by playback position. */
+    val bookmarks: StateFlow<List<PlaybackBookmarkEntity>> = _state.map { it.episode.id }.distinctUntilChanged()
+        .flatMapLatest { library.bookmarksForEpisode(it) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** True once the one-line "tandai momen" hint has been shown on this install. */
+    val bookmarkHintShown: StateFlow<Boolean> =
+        settingsStore.bookmarkHintShown.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    fun dismissBookmarkHint() {
+        viewModelScope.launch { settingsStore.dismissBookmarkHint() }
+    }
+
+    /** Saves the current position as a "momen menarik" with an optional short label. */
+    fun saveBookmark(positionMs: Long, label: String) {
+        val s = _state.value
+        val anime = s.anime ?: return
+        val cover = s.episode.thumbnail.ifBlank { anime.cover.ifBlank { anime.poster } }
+        viewModelScope.launch {
+            library.addBookmark("ANIME", anime.id, s.episode.id, positionMs, label, cover)
+            postMessage(UiText(R.string.watch_bookmark_saved, listOf(formatDuration(positionMs))))
+        }
+    }
+
+    fun deleteBookmark(id: Long) {
+        viewModelScope.launch {
+            library.deleteBookmark(id)
+            postMessage(UiText(R.string.watch_bookmark_deleted))
+        }
+    }
 
     private var loadJob: Job? = null
 

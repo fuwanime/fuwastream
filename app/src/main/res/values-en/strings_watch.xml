@@ -160,4 +160,21 @@
     </plurals>
     <string name="watch_seek_slider_cd">Playback position slider</string>
     <string name="watch_seek_position">%1$s of %2$s</string>
+    <string name="watch_bookmark_add">Bookmark moment</string>
+    <string name="watch_bookmark_hint">Bookmark a moment to come back to this second</string>
+    <string name="watch_bookmark_dialog_title">Bookmark a highlight</string>
+    <string name="watch_bookmark_dialog_body">Position %1$s is saved so you can return to this second anytime.</string>
+    <string name="watch_bookmark_label">Label (optional)</string>
+    <string name="watch_bookmark_default_label">Moment %1$s</string>
+    <string name="watch_bookmark_save">Save moment</string>
+    <string name="watch_bookmark_saved">Moment bookmarked at %1$s</string>
+    <string name="watch_bookmark_section">Highlights</string>
+    <string name="watch_bookmark_section_count">Highlights (%1$d)</string>
+    <string name="watch_bookmark_empty">No moments yet. Tap the bookmark icon in the player to mark your favorite second.</string>
+    <string name="watch_bookmark_sheet_hint">Save your favorite seconds, then tap a moment to jump back to it.</string>
+    <string name="watch_bookmark_at">Bookmark at %1$s</string>
+    <string name="watch_bookmark_delete_cd">Delete moment</string>
+    <string name="watch_bookmark_delete_title">Delete moment?</string>
+    <string name="watch_bookmark_delete_msg">The moment “%1$s” will be deleted.</string>
+    <string name="watch_bookmark_deleted">Moment deleted</string>
 </resources>

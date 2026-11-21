@@ -101,6 +101,8 @@ internal object Keys {
     val backupError = stringPreferencesKey("backup_error")
     val backupPromptDismissed = booleanPreferencesKey("backup_prompt_dismissed")
     val backupFolderAdopted = booleanPreferencesKey("backup_folder_adopted")
+    /** First-time player bookmark hint; per install, so a new phone shows it again (kept out of backups). */
+    val bookmarkHintShown = booleanPreferencesKey("bookmark_hint_shown")
 }
 
 /** Where and how the backup file is written; all keys start with "backup_" so the backup itself skips them. */
@@ -133,6 +135,10 @@ class SettingsStore(private val context: Context) {
     }
     suspend fun dismissBackupPrompt() = context.dataStore.edit { it[Keys.backupPromptDismissed] = true }
     suspend fun adoptBackupFolder() = context.dataStore.edit { it[Keys.backupFolderAdopted] = true }
+
+    /** False until the player's one-line bookmark hint has been shown (or tapped away) once. */
+    val bookmarkHintShown: Flow<Boolean> = context.dataStore.data.map { it[Keys.bookmarkHintShown] ?: false }
+    suspend fun dismissBookmarkHint() = context.dataStore.edit { it[Keys.bookmarkHintShown] = true }
 
     /** Every user preference as typed strings, minus install bookkeeping (see isBackedUpSetting). */
     suspend fun exportSettings(): List<SettingEntry> =

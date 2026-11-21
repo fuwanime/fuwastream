@@ -119,6 +119,8 @@ import com.fuwanime.ui.schedule.ScheduleRoute
 import com.fuwanime.ui.profile.ProfileRoute
 import com.fuwanime.ui.settings.SettingsRoute
 import com.fuwanime.ui.stats.StatsRoute
+import com.fuwanime.ui.transfer.QrExportRoute
+import com.fuwanime.ui.transfer.QrScanRoute
 
 internal object Routes {
     const val HOME = "home"
@@ -129,6 +131,8 @@ internal object Routes {
     const val PLAYER = "player/{animeId}/{episodeId}?number={number}&thumb={thumb}&shared={shared}"
     const val TRAILER = "trailer?url={url}&title={title}&thumb={thumb}"
     const val SETTINGS = "settings"
+    const val QR_EXPORT = "qr_export"
+    const val QR_SCAN = "qr_scan"
     const val STATS = "stats"
     const val PROFILE = "profile"
     const val LEGAL = "legal/{type}"
@@ -402,6 +406,8 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
                                     onStats = { nav.navigate(Routes.STATS) },
                                     onSettings = { nav.navigate(Routes.SETTINGS) },
                                     onMangaClick = openManga,
+                                    onQrSend = { nav.navigate(Routes.QR_EXPORT) },
+                                    onQrReceive = { nav.navigate(Routes.QR_SCAN) },
                                 )
                             }
                         }
@@ -470,9 +476,13 @@ fun FuwaNavHost(initialTarget: LaunchTarget? = null, onInitialTargetConsumed: ()
                                     onBack = { nav.popBackStack() },
                                     onOpenLegal = { type -> nav.navigate(Routes.legal(type)) },
                                     onOpenProfile = { nav.navigate(Routes.PROFILE) },
+                                    onQrSend = { nav.navigate(Routes.QR_EXPORT) },
+                                    onQrReceive = { nav.navigate(Routes.QR_SCAN) },
                                 )
                             }
                         }
+                        composable(Routes.QR_EXPORT) { Scoped { QrExportRoute(onBack = { nav.popBackStack() }) } }
+                        composable(Routes.QR_SCAN) { Scoped { QrScanRoute(onBack = { nav.popBackStack() }) } }
                         composable(Routes.PROFILE) { Scoped { ProfileRoute(onBack = { nav.popBackStack() }) } }
                         composable(
                             Routes.LEGAL,

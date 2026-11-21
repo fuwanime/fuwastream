@@ -7,12 +7,14 @@ import androidx.room.Insert
 import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Upsert
+import com.squareup.moshi.JsonClass
 import kotlinx.coroutines.flow.Flow
 
 /**
  * A user-created collection list ("List koleksi"). Independent of [CollectionStatus]: a title keeps
  * its status in favourites while also belonging to any number of custom lists.
  */
+@JsonClass(generateAdapter = true)
 @Entity(tableName = "collection_lists")
 data class CollectionListEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -27,6 +29,7 @@ data class CollectionListEntity(
  * One title inside a list. Title and poster are denormalised (like watch history rows) so the grid
  * renders offline and a title can be listed even when it is not in favourites.
  */
+@JsonClass(generateAdapter = true)
 @Entity(
     tableName = "collection_items",
     primaryKeys = ["listId", "mediaType", "contentId"],
@@ -64,6 +67,8 @@ interface CollectionListDao {
 
     @Query("SELECT * FROM collection_items ORDER BY addedAt DESC")
     fun observeAllItems(): Flow<List<CollectionItemEntity>>
+    @Query("SELECT * FROM collection_items")
+    suspend fun allItems(): List<CollectionItemEntity>
 
     @Query("SELECT * FROM collection_items WHERE mediaType = :mediaType AND contentId = :contentId")
     fun observeMemberships(mediaType: String, contentId: String): Flow<List<CollectionItemEntity>>
