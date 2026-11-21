@@ -192,26 +192,29 @@ private fun ContinueList(context: Context, entries: List<ContinueEntry>, posters
 /** A full-width tonal card in the scrollable list; rows wrap their content height. */
 @Composable
 private fun EntryRow(context: Context, entry: ContinueEntry, poster: Bitmap?, subtitle: String) {
-    Row(
-        GlanceModifier.fillMaxWidth().padding(bottom = 6.dp).widgetCard()
-            .padding(8.dp).clickable(actionStartActivity(entry.target(context))),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        WidgetPoster(entry.title, poster, GlanceModifier.size(22.dp, 33.dp))
-        Spacer(GlanceModifier.width(8.dp))
-        Column(GlanceModifier.defaultWeight()) {
-            Text(
-                entry.title,
-                maxLines = 1,
-                style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = 12.sp, fontWeight = FontWeight.Bold),
-            )
-            Text(
-                subtitle,
-                maxLines = 1,
-                style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 10.sp, fontWeight = FontWeight.Medium),
-            )
-            Spacer(GlanceModifier.height(2.dp))
-            WidgetProgress(entry.progress, height = 4.dp, track = GlanceTheme.colors.surface)
+    // Outer Box carries the gap; the card background lives on the inner Row only.
+    Box(GlanceModifier.fillMaxWidth().padding(bottom = 6.dp)) {
+        Row(
+            GlanceModifier.fillMaxWidth().widgetCard()
+                .padding(8.dp).clickable(actionStartActivity(entry.target(context))),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            WidgetPoster(entry.title, poster, GlanceModifier.size(22.dp, 33.dp))
+            Spacer(GlanceModifier.width(8.dp))
+            Column(GlanceModifier.defaultWeight()) {
+                Text(
+                    entry.title,
+                    maxLines = 1,
+                    style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = 12.sp, fontWeight = FontWeight.Bold),
+                )
+                Text(
+                    subtitle,
+                    maxLines = 1,
+                    style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 10.sp, fontWeight = FontWeight.Medium),
+                )
+                Spacer(GlanceModifier.height(2.dp))
+                WidgetProgress(entry.progress, height = 4.dp, track = GlanceTheme.colors.surface)
+            }
         }
     }
 }

@@ -163,26 +163,30 @@ private fun Hero(context: Context, day: Day, anime: Anime, res: Resources) {
  */
 @Composable
 private fun ScheduleRow(context: Context, anime: Anime, res: Resources, compact: Boolean) {
-    Row(
-        GlanceModifier.fillMaxWidth().padding(bottom = 6.dp).widgetSecondaryCard()
-            .padding(horizontal = 8.dp, vertical = if (compact) 6.dp else 8.dp)
-            .clickable(actionStartActivity(openApp(context, MainActivity.EXTRA_OPEN_ANIME_ID to anime.id))),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        WidgetPill(airTime(anime.nextAirTime).ifBlank { "–" }, primary = true)
-        Spacer(GlanceModifier.width(8.dp))
-        Column(GlanceModifier.defaultWeight()) {
-            Text(
-                anime.title,
-                maxLines = 1,
-                style = TextStyle(color = GlanceTheme.colors.onSecondaryContainer, fontSize = if (compact) 12.sp else 13.sp, fontWeight = FontWeight.Bold),
-            )
-            if (!compact) {
+    // Outer Box carries the gap; the card background lives on the inner Row only, so the bottom
+    // padding shows as transparent space instead of being painted over by the card.
+    Box(GlanceModifier.fillMaxWidth().padding(bottom = 6.dp)) {
+        Row(
+            GlanceModifier.fillMaxWidth().widgetSecondaryCard()
+                .padding(horizontal = 8.dp, vertical = if (compact) 6.dp else 8.dp)
+                .clickable(actionStartActivity(openApp(context, MainActivity.EXTRA_OPEN_ANIME_ID to anime.id))),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            WidgetPill(airTime(anime.nextAirTime).ifBlank { "–" }, primary = true)
+            Spacer(GlanceModifier.width(8.dp))
+            Column(GlanceModifier.defaultWeight()) {
                 Text(
-                    anime.genres.take(2).joinToString(" • "),
+                    anime.title,
                     maxLines = 1,
-                    style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 10.sp),
+                    style = TextStyle(color = GlanceTheme.colors.onSecondaryContainer, fontSize = if (compact) 12.sp else 13.sp, fontWeight = FontWeight.Bold),
                 )
+                if (!compact) {
+                    Text(
+                        anime.genres.take(2).joinToString(" • "),
+                        maxLines = 1,
+                        style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 10.sp),
+                    )
+                }
             }
         }
     }
