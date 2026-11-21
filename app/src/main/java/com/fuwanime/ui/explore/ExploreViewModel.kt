@@ -12,7 +12,6 @@ import com.fuwanime.data.LibraryRepository
 import com.fuwanime.data.SortOrder
 import com.fuwanime.data.isMatureAnimeGenre
 import com.fuwanime.data.local.SettingsStore
-import com.fuwanime.data.local.SavedSearchFilterEntity
 import com.fuwanime.data.manga.Manga
 import com.fuwanime.data.manga.MangaRepository
 import kotlinx.coroutines.coroutineScope
@@ -142,25 +141,6 @@ class ExploreViewModel(
 
     fun removeRecent(query: String) = viewModelScope.launch { library.removeSearch(query) }
     fun clearRecent() = viewModelScope.launch { library.clearSearches() }
-
-    /** Named query+filter combinations; applying one restores the whole search state. */
-    val savedFilters: StateFlow<List<SavedSearchFilterEntity>> =
-        library.savedSearchFilters.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-
-    fun saveCurrentFilter(name: String) {
-        val f = _state.value.filters
-        viewModelScope.launch { library.saveSearchFilter(name, f.query, f.toJson()) }
-    }
-
-    fun applySavedFilter(saved: SavedSearchFilterEntity) {
-        debounceJob?.cancel()
-        val restored = exploreFiltersFromJson(saved.filterJson, saved.query)
-        _state.update { it.copy(filters = restored) }
-        if (restored.query.trim().length >= 2) viewModelScope.launch { library.addSearch(restored.query) }
-        reload()
-    }
-
-    fun deleteSavedFilter(id: Long) = viewModelScope.launch { library.deleteSearchFilter(id) }
 
     fun toggleGenre(genre: String) = updateFilters { it.copy(genres = if (genre in it.genres) it.genres - genre else it.genres + genre) }
     fun setStatus(status: StatusFilter) = updateFilters { it.copy(status = status) }

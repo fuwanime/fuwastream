@@ -57,10 +57,4 @@
     <string name="browse_schedule_continuing">续播</string>
     <string name="browse_schedule_section">%1$s（%2$d）</string>
     <string name="source_kuramanime">Kuramanime</string>
-    <string name="browse_save_filter">保存筛选</string>
-    <string name="browse_save_filter_cd">保存当前搜索和筛选条件</string>
-    <string name="browse_save_filter_title">保存搜索筛选</string>
-    <string name="browse_filter_name">筛选名称</string>
-    <string name="browse_saved_filters">已保存的筛选</string>
-    <string name="browse_delete_filter_cd">删除已保存的筛选</string>
 </resources>

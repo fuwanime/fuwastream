@@ -1,12 +1,12 @@
 package com.fuwanime.ui.library
 
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Delete
@@ -15,6 +15,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SecondaryScrollableTabRow
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -28,27 +30,77 @@ import com.fuwanime.R
 import com.fuwanime.data.Anime
 import com.fuwanime.data.local.CollectionItemEntity
 import com.fuwanime.data.local.CollectionListEntity
-import com.fuwanime.ui.components.TagChip
 import com.fuwanime.ui.components.displayLabel
 
-/** "Semua" (the favourites grid) plus one chip per custom list and a create chip. */
+/** Permanent system tabs of the Koleksi tab row; user-created list ids are always positive. */
+const val TAB_HISTORY = -1L
+const val TAB_ALL = 0L
+
+/**
+ * Google Keep-style label tabs: Riwayat comes first and is permanent (no rename/delete), then "Semua"
+ * (the favourites grid), one tab per custom list, and a trailing ＋ that creates a new list.
+ * Tonal surfaceContainerLow row; the selected tab and the indicator use the primary colour.
+ */
 @Composable
-fun CollectionListChips(
+fun CollectionTabs(
     lists: List<CollectionListEntity>,
-    selectedListId: Long?,
-    onSelect: (Long?) -> Unit,
+    selectedTab: Long,
+    onSelect: (Long) -> Unit,
     onCreate: () -> Unit,
 ) {
-    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        TagChip(stringResource(R.string.ux_status_all), onClick = { onSelect(null) }, selected = selectedListId == null)
+    val tabIds = listOf(TAB_HISTORY, TAB_ALL) + lists.map { it.id }
+    val selectedIndex = tabIds.indexOf(selectedTab).coerceAtLeast(0)
+    SecondaryScrollableTabRow(
+        selectedTabIndex = selectedIndex,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        edgePadding = 16.dp,
+        divider = {},
+    ) {
+        Tab(
+            selected = selectedTab == TAB_HISTORY,
+            onClick = { onSelect(TAB_HISTORY) },
+            selectedContentColor = MaterialTheme.colorScheme.primary,
+            unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        ) { TabLabel(stringResource(R.string.mine_tab_history), selected = selectedTab == TAB_HISTORY) }
+        Tab(
+            selected = selectedTab == TAB_ALL,
+            onClick = { onSelect(TAB_ALL) },
+            selectedContentColor = MaterialTheme.colorScheme.primary,
+            unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        ) { TabLabel(stringResource(R.string.ux_status_all), selected = selectedTab == TAB_ALL) }
         lists.forEach { list ->
-            TagChip(list.displayLabel(), onClick = { onSelect(list.id) }, selected = list.id == selectedListId)
+            Tab(
+                selected = list.id == selectedTab,
+                onClick = { onSelect(list.id) },
+                selectedContentColor = MaterialTheme.colorScheme.primary,
+                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            ) { TabLabel(list.displayLabel(), selected = list.id == selectedTab) }
         }
-        TagChip("＋ " + stringResource(R.string.mine_list_new), onClick = onCreate)
+        // Never selected: a button-shaped tab that opens the create-list dialog.
+        Tab(
+            selected = false,
+            onClick = onCreate,
+            selectedContentColor = MaterialTheme.colorScheme.primary,
+            unselectedContentColor = MaterialTheme.colorScheme.primary,
+        ) {
+            Icon(Icons.Rounded.Add, stringResource(R.string.mine_list_new), Modifier.padding(vertical = 14.dp).size(20.dp))
+        }
     }
 }
 
-/** Name, count and the list's own actions: reorder, rename, delete. Shown while a list is open. */
+@Composable
+private fun TabLabel(text: String, selected: Boolean) {
+    Text(
+        text,
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.padding(vertical = 14.dp),
+    )
+}
+
+/** Name, count and the list's own actions: reorder, rename, delete. Shown while a custom list tab is open. */
 @Composable
 fun ListManageRow(
     list: CollectionListEntity,
@@ -58,8 +110,9 @@ fun ListManageRow(
     onMove: (up: Boolean) -> Unit,
     onRename: () -> Unit,
     onDelete: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(list.displayLabel(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(stringResource(R.string.mine_list_count, count), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

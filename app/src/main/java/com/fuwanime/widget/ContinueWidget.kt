@@ -20,6 +20,8 @@ import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.appWidgetBackground
+import androidx.glance.appwidget.lazy.LazyColumn
+import androidx.glance.appwidget.lazy.items
 import androidx.glance.appwidget.provideContent
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
@@ -57,8 +59,8 @@ class ContinueWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val container = (context.applicationContext as FuwaApp).container
-        val entriesFlow = combine(container.libraryRepository.continueWatching(4), container.mangaLibrary.continueReading) { w, r ->
-            mergeContinue(w, r, limit = 4)
+        val entriesFlow = combine(container.libraryRepository.continueWatching(20), container.mangaLibrary.continueReading) { w, r ->
+            mergeContinue(w, r, limit = 20)
         }
         val initial = entriesFlow.first()
         val initialPosters = loadPosters(context, initial)
@@ -113,8 +115,7 @@ private fun WidgetBody(context: Context, entries: List<ContinueEntry>, posters: 
                 actionStartActivity(openApp(context, MainActivity.EXTRA_OPEN_TAB to TAB_EXPLORE_SEARCH)),
             )
             size.width < widgetWide.width -> Hero(context, entries.first(), posters[entries.first().key], res, featured = false)
-            size.height >= widgetTall.height -> ContinueList(context, entries.take(4), posters, res)
-            else -> Hero(context, entries.first(), posters[entries.first().key], res, featured = true)
+            else -> ContinueList(context, entries, posters, res)
         }
     }
 }
@@ -174,24 +175,26 @@ private fun Hero(context: Context, entry: ContinueEntry, poster: Bitmap?, res: a
     }
 }
 
-/** TALL: the four most recent entries as equal-height tonal cards under a "Continue" header. */
+/** WIDE/TALL: a scrollable list of recent entries as tonal cards under a "Continue" header. */
 @Composable
 private fun ContinueList(context: Context, entries: List<ContinueEntry>, posters: Map<String, Bitmap?>, res: android.content.res.Resources) {
     Column(GlanceModifier.fillMaxSize().padding(12.dp)) {
         WidgetHeader(res.getString(R.string.system_widget_continue))
-        entries.forEachIndexed { i, entry ->
-            if (i > 0) Spacer(GlanceModifier.height(8.dp))
-            EntryRow(context, entry, posters[entry.key], subtitle(entry, res))
+        Spacer(GlanceModifier.height(6.dp))
+        LazyColumn(GlanceModifier.fillMaxWidth().defaultWeight()) {
+            items(entries, itemId = { it.key.hashCode().toLong() }) { entry ->
+                EntryRow(context, entry, posters[entry.key], subtitle(entry, res))
+            }
         }
     }
 }
 
-/** A full-width tonal card; rows share the height by weight so every card stays inside the widget. */
+/** A full-width tonal card in the scrollable list; rows wrap their content height. */
 @Composable
-private fun ColumnScope.EntryRow(context: Context, entry: ContinueEntry, poster: Bitmap?, subtitle: String) {
+private fun EntryRow(context: Context, entry: ContinueEntry, poster: Bitmap?, subtitle: String) {
     Row(
-        GlanceModifier.fillMaxWidth().defaultWeight().widgetCard()
-            .padding(6.dp).clickable(actionStartActivity(entry.target(context))),
+        GlanceModifier.fillMaxWidth().padding(bottom = 6.dp).widgetCard()
+            .padding(8.dp).clickable(actionStartActivity(entry.target(context))),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         WidgetPoster(entry.title, poster, GlanceModifier.size(22.dp, 33.dp))

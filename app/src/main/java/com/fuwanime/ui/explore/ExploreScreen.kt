@@ -42,8 +42,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowDropDown
-import androidx.compose.material.icons.rounded.Bookmark
-import androidx.compose.material.icons.rounded.BookmarkAdd
 import androidx.compose.material.icons.rounded.Casino
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
@@ -52,7 +50,6 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.SearchOff
 import androidx.compose.material.icons.rounded.Sort
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -64,7 +61,6 @@ import androidx.compose.material3.InputChip
 import androidx.compose.material3.InputChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -78,7 +74,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -103,7 +98,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fuwanime.data.SortOrder
 import com.fuwanime.data.MATURE_ANIME_GENRES
-import com.fuwanime.data.local.SavedSearchFilterEntity
 import com.fuwanime.ui.components.ErrorState
 import com.fuwanime.ui.components.LocalNavBarPadding
 import com.fuwanime.ui.components.MessageState
@@ -137,15 +131,13 @@ fun ExploreRoute(focusSearch: Boolean, onAnimeClick: OpenAnime, onMangaClick: (S
     val state by vm.state.collectAsStateWithLifecycle()
     val recent by vm.recentSearches.collectAsStateWithLifecycle()
     val matureContent by vm.matureContent.collectAsStateWithLifecycle()
-    val savedFilters by vm.savedFilters.collectAsStateWithLifecycle()
-    ExploreScreen(state, recent, savedFilters, matureContent, focusSearch, vm, onAnimeClick, onMangaClick)
+    ExploreScreen(state, recent, matureContent, focusSearch, vm, onAnimeClick, onMangaClick)
 }
 
 @Composable
 private fun ExploreScreen(
     state: ExploreUiState,
     recent: List<String>,
-    savedFilters: List<SavedSearchFilterEntity>,
     matureContent: Boolean,
     focusSearch: Boolean,
     vm: ExploreViewModel,
@@ -244,12 +236,6 @@ private fun ExploreScreen(
                 .onFocusChanged { searchFocused = it.isFocused },
         )
 
-        // Saved filters stay one tap away in both modes: applying one restores query + filters.
-        if (savedFilters.isNotEmpty()) {
-            Spacer(Modifier.height(8.dp))
-            SavedFiltersRow(savedFilters, onApply = { vm.applySavedFilter(it); focusManager.clearFocus() }, onDelete = vm::deleteSavedFilter)
-        }
-
         if (!showRecent) {
             Spacer(Modifier.height(12.dp))
             FilterBar(state.filters, matureContent, vm)
@@ -302,66 +288,6 @@ private fun RecentSearches(items: List<String>, topPad: Dp, onPick: (String) -> 
     }
 }
 
-/** Saved searches as tertiary-tonal chips: tap to apply the whole query+filter, trailing cross deletes it. */
-@Composable
-private fun SavedFiltersRow(saved: List<SavedSearchFilterEntity>, onApply: (SavedSearchFilterEntity) -> Unit, onDelete: (Long) -> Unit) {
-    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        item(key = "saved-label") {
-            Text(
-                stringResource(R.string.browse_saved_filters),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(end = 4.dp),
-            )
-        }
-        items(saved, key = { it.id }) { f ->
-            InputChip(
-                selected = false,
-                onClick = { onApply(f) },
-                label = { Text(f.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                leadingIcon = { Icon(Icons.Rounded.Bookmark, null, Modifier.size(18.dp)) },
-                trailingIcon = {
-                    IconButton(onClick = { onDelete(f.id) }, modifier = Modifier.size(24.dp)) {
-                        Icon(Icons.Rounded.Close, stringResource(R.string.browse_delete_filter_cd), Modifier.size(16.dp))
-                    }
-                },
-                shape = RoundedCornerShape(50),
-                border = null,
-                colors = InputChipDefaults.inputChipColors(
-                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                    labelColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                    leadingIconColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                    trailingIconColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                ),
-            )
-        }
-    }
-}
-
-/** Names the current query+filter so it can be re-applied later from the chip row. */
-@Composable
-private fun SaveFilterDialog(suggestedName: String, onSave: (String) -> Unit, onDismiss: () -> Unit) {
-    var name by rememberSaveable { mutableStateOf(suggestedName) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        icon = { Icon(Icons.Rounded.BookmarkAdd, null) },
-        title = { Text(stringResource(R.string.browse_save_filter_title)) },
-        text = {
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text(stringResource(R.string.browse_filter_name)) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        },
-        confirmButton = {
-            TextButton(enabled = name.isNotBlank(), onClick = { onSave(name) }) { Text(stringResource(R.string.browse_save_filter)) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.mine_cancel)) } },
-    )
-}
-
 @Composable
 private fun FilterBar(filters: ExploreFilters, matureContent: Boolean, vm: ExploreViewModel) {
     // One row: the genre picker (a sheet) then the content types, instead of a second endless row of genres.
@@ -390,8 +316,6 @@ private fun FilterBar(filters: ExploreFilters, matureContent: Boolean, vm: Explo
 @Composable
 private fun ResultsHeader(filters: ExploreFilters, vm: ExploreViewModel, onRandom: (() -> Unit)?) {
     var menuOpen by remember { mutableStateOf(false) }
-    var saveOpen by remember { mutableStateOf(false) }
-    val canSave = filters.query.isNotBlank() || filters.activeCount > 0
     val randomCd = stringResource(R.string.browse_random_cd)
     Row(
         Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
@@ -417,13 +341,6 @@ private fun ResultsHeader(filters: ExploreFilters, vm: ExploreViewModel, onRando
             ),
             modifier = Modifier.padding(end = 8.dp).semantics { contentDescription = randomCd },
         )
-        IconButton(onClick = { saveOpen = true }, enabled = canSave) {
-            Icon(
-                Icons.Rounded.BookmarkAdd,
-                stringResource(R.string.browse_save_filter_cd),
-                tint = if (canSave) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
         Box {
             FilledTonalButton(
                 onClick = { menuOpen = true },
@@ -476,16 +393,6 @@ private fun ResultsHeader(filters: ExploreFilters, vm: ExploreViewModel, onRando
                 }
             }
         }
-    }
-    if (saveOpen) {
-        val suggested = filters.query.trim()
-            .ifBlank { filters.genres.joinToString(" + ") }
-            .ifBlank { stringResource(filters.type.label) }
-        SaveFilterDialog(
-            suggestedName = suggested,
-            onSave = { vm.saveCurrentFilter(it); saveOpen = false },
-            onDismiss = { saveOpen = false },
-        )
     }
 }
 

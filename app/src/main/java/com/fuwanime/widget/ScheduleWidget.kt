@@ -21,6 +21,8 @@ import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.appWidgetBackground
 import androidx.glance.appwidget.cornerRadius
+import androidx.glance.appwidget.lazy.LazyColumn
+import androidx.glance.appwidget.lazy.items
 import androidx.glance.appwidget.provideContent
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
@@ -120,12 +122,15 @@ private fun WidgetBody(context: Context, day: Day, state: ScheduleState) {
                 )
                 size.width < widgetWide.width -> Hero(context, day, state.items.first(), res)
                 else -> {
-                    val rows = if (size.height >= widgetTall.height) 4 else 2
+                    val compact = size.height < widgetTall.height
                     Column(GlanceModifier.fillMaxSize().padding(12.dp)) {
                         WidgetHeader(res.getString(R.string.widget_schedule_header, res.getString(day.full)))
-                        state.items.take(rows).forEachIndexed { i, anime ->
-                            if (i > 0) Spacer(GlanceModifier.height(8.dp))
-                            ScheduleRow(context, anime, res, compact = rows == 2)
+                        Spacer(GlanceModifier.height(6.dp))
+                        // Scrollable: the whole day's lineup, not just the first few rows.
+                        LazyColumn(GlanceModifier.fillMaxWidth().defaultWeight()) {
+                            items(state.items, itemId = { it.id.hashCode().toLong() }) { anime ->
+                                ScheduleRow(context, anime, res, compact = compact)
+                            }
                         }
                     }
                 }
@@ -157,10 +162,10 @@ private fun Hero(context: Context, day: Day, anime: Anime, res: Resources) {
  * detail. Rows share the height by weight so they always fit, even at the 110dp minimum.
  */
 @Composable
-private fun ColumnScope.ScheduleRow(context: Context, anime: Anime, res: Resources, compact: Boolean) {
+private fun ScheduleRow(context: Context, anime: Anime, res: Resources, compact: Boolean) {
     Row(
-        GlanceModifier.fillMaxWidth().defaultWeight().widgetSecondaryCard()
-            .padding(horizontal = 8.dp, vertical = if (compact) 3.dp else 6.dp)
+        GlanceModifier.fillMaxWidth().padding(bottom = 6.dp).widgetSecondaryCard()
+            .padding(horizontal = 8.dp, vertical = if (compact) 6.dp else 8.dp)
             .clickable(actionStartActivity(openApp(context, MainActivity.EXTRA_OPEN_ANIME_ID to anime.id))),
         verticalAlignment = Alignment.CenterVertically,
     ) {

@@ -57,10 +57,4 @@
     <string name="browse_schedule_continuing">Lanjutan</string>
     <string name="browse_schedule_section">%1$s (%2$d)</string>
     <string name="source_kuramanime">Kuramanime</string>
-    <string name="browse_save_filter">Simpan filter</string>
-    <string name="browse_save_filter_cd">Simpan pencarian dan filter saat ini</string>
-    <string name="browse_save_filter_title">Simpan filter pencarian</string>
-    <string name="browse_filter_name">Nama filter</string>
-    <string name="browse_saved_filters">Filter tersimpan</string>
-    <string name="browse_delete_filter_cd">Hapus filter tersimpan</string>
 </resources>

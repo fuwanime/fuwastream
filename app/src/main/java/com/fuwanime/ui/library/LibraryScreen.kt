@@ -274,16 +274,27 @@ fun LibraryRoute(
     val lists by vm.lists.collectAsStateWithLifecycle()
     val listItems by vm.listItems.collectAsStateWithLifecycle()
     val animePreferences by vm.animePreferences.collectAsStateWithLifecycle()
-    val pager = rememberPagerState { 4 }
+    val pager = rememberPagerState { 3 }
     val scope = rememberCoroutineScope()
+    // Which Koleksi tab is open: Riwayat (permanent), Semua (favourites) or a custom list's id.
+    var collectionTab by rememberSaveable { mutableStateOf(TAB_HISTORY) }
     var confirmClear by remember { mutableStateOf(false) }
     var confirmDeleteSelected by remember { mutableStateOf(false) }
     var addToListOpen by remember { mutableStateOf(false) }
     var transferChooser by remember { mutableStateOf(false) }
+    var createListOpen by remember { mutableStateOf(false) }
+    var renameTarget by remember { mutableStateOf<CollectionListEntity?>(null) }
+    var deleteTarget by remember { mutableStateOf<CollectionListEntity?>(null) }
     val selecting = selection.isNotEmpty()
+    // Multi-select deletes history entries on Riwayat and favourites on Semua.
+    val selectionPage = if (collectionTab == TAB_HISTORY) 0 else 1
 
+    // A deleted list cannot stay selected; fall back to Semua.
+    LaunchedEffect(lists, collectionTab) {
+        if (collectionTab > 0 && lists.none { it.id == collectionTab }) collectionTab = TAB_ALL
+    }
     // Selection belongs to one tab; leaving it (or pressing back) ends multi-select without deleting anything.
-    LaunchedEffect(pager.currentPage) { vm.clearSelection() }
+    LaunchedEffect(pager.currentPage, collectionTab) { vm.clearSelection() }
     BackHandler(enabled = selecting) { vm.clearSelection() }
 
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
@@ -291,7 +302,8 @@ fun LibraryRoute(
             if (selecting) {
                 IconButton(onClick = { vm.clearSelection() }, modifier = Modifier.padding(end = 4.dp)) { Icon(Icons.Rounded.Close, stringResource(R.string.mine_cancel_select)) }
                 Text(stringResource(R.string.mine_selected_count, selection.size), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                if (pager.currentPage == 1) {
+                // Adding to a list is a favourites action; the Riwayat tab only offers delete.
+                if (pager.currentPage == 0 && collectionTab == TAB_ALL) {
                     FilledTonalIconButton(onClick = { addToListOpen = true }) {
                         Icon(Icons.Rounded.PlaylistAdd, stringResource(R.string.mine_list_add_selected))
                     }
@@ -299,7 +311,7 @@ fun LibraryRoute(
                 }
                 FilledTonalIconButton(
                     onClick = {
-                        if (selection.size >= 2) confirmDeleteSelected = true else vm.deleteSelected(pager.currentPage)
+                        if (selection.size >= 2) confirmDeleteSelected = true else vm.deleteSelected(selectionPage)
                     },
                     colors = IconButtonDefaults.filledTonalIconButtonColors(
                         containerColor = MaterialTheme.colorScheme.errorContainer,
@@ -308,7 +320,7 @@ fun LibraryRoute(
                 ) { Icon(Icons.Rounded.Delete, stringResource(R.string.mine_delete_selected)) }
             } else {
                 Text(stringResource(R.string.common_tab_library), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
-                if (pager.currentPage == 0 && !history.isNullOrEmpty()) {
+                if (pager.currentPage == 0 && collectionTab == TAB_HISTORY && !history.isNullOrEmpty()) {
                     IconButton(onClick = { confirmClear = true }) { Icon(Icons.Rounded.DeleteSweep, stringResource(R.string.mine_clear_history)) }
                 }
                 IconWithTooltip(stringResource(R.string.mine_qr_transfer), Icons.Rounded.QrCode2, { transferChooser = true })
@@ -317,27 +329,46 @@ fun LibraryRoute(
         }
         week?.takeIf { !selecting }?.let { WeekCard(it, onStats) }
         SegmentedTabs(
-            listOf(R.string.mine_tab_history to history?.size, R.string.mine_tab_collection to favorites?.size, R.string.manga_tab to null, R.string.mine_tab_downloads to downloads?.size?.plus(mangaDownloads?.size ?: 0))
+            listOf(R.string.mine_tab_collection to favorites?.size, R.string.manga_tab to null, R.string.mine_tab_downloads to downloads?.size?.plus(mangaDownloads?.size ?: 0))
                 .map { (label, count) -> stringResource(label).let { if (count != null && count > 0) stringResource(R.string.mine_tab_with_count, it, count) else it } },
             selected = pager.currentPage,
             onSelect = { scope.launch { pager.animateScrollToPage(it) } },
         )
         HorizontalPager(pager, Modifier.fillMaxSize(), verticalAlignment = Alignment.Top) { page ->
             when (page) {
-                0 -> HistoryList(history, onResume, onAnimeClick, onRemove = { vm.removeHistory(it) }, selection, vm::toggleSelect)
-                1 -> FavoriteGrid(
-                    favoriteCards, favoriteSort, vm::setFavoriteSort, onAnimeClick, selection, vm::toggleSelect,
-                    lists = lists,
-                    listItems = listItems,
-                    preferences = animePreferences,
-                    onOpenItem = { item -> if (item.mediaType == "MANGA") onMangaClick(item.contentId) else onAnimeClick(item.toAnime(), "library-list") },
-                    onCreateList = vm::createList,
-                    onRenameList = vm::renameList,
-                    onDeleteList = vm::deleteList,
-                    onMoveList = vm::moveList,
-                    onRemoveItem = vm::removeFromList,
-                )
-                2 -> MangaLibraryTab(onOpen = onMangaClick)
+                0 -> Column(Modifier.fillMaxSize()) {
+                    CollectionTabs(lists, collectionTab, onSelect = { collectionTab = it }, onCreate = { createListOpen = true })
+                    val openList = lists.firstOrNull { it.id == collectionTab }
+                    // Manage affordance for the open custom list only; Riwayat and Semua have none.
+                    if (openList != null) {
+                        ListManageRow(
+                            openList,
+                            count = listItems.count { it.listId == openList.id },
+                            canMoveUp = lists.indexOf(openList) > 0,
+                            canMoveDown = lists.indexOf(openList) < lists.lastIndex,
+                            onMove = { vm.moveList(openList.id, it) },
+                            onRename = { renameTarget = openList },
+                            onDelete = { deleteTarget = openList },
+                            modifier = Modifier.padding(start = 16.dp, end = 8.dp),
+                        )
+                    }
+                    Box(Modifier.weight(1f)) {
+                        when {
+                            collectionTab == TAB_HISTORY -> HistoryList(history, onResume, onAnimeClick, onRemove = { vm.removeHistory(it) }, selection, vm::toggleSelect)
+                            collectionTab == TAB_ALL -> FavoriteGrid(
+                                favoriteCards, favoriteSort, vm::setFavoriteSort, onAnimeClick, selection, vm::toggleSelect,
+                                preferences = animePreferences,
+                            )
+                            openList != null -> CollectionListGrid(
+                                items = listItems.filter { it.listId == openList.id },
+                                preferences = animePreferences,
+                                onOpenItem = { item -> if (item.mediaType == "MANGA") onMangaClick(item.contentId) else onAnimeClick(item.toAnime(), "library-list") },
+                                onRemoveItem = vm::removeFromList,
+                            )
+                        }
+                    }
+                }
+                1 -> MangaLibraryTab(onOpen = onMangaClick)
                 else -> Column(Modifier.fillMaxSize()) {
                     // Manga downloads sit above the anime ones, one row per title.
                     MangaDownloadRows(mangaDownloads.orEmpty(), onOpen = onMangaClick, onDelete = mangaVm::deleteDownloads)
@@ -355,9 +386,9 @@ fun LibraryRoute(
             icon = { Icon(Icons.Rounded.Delete, null) },
             title = { Text(pluralStringResource(R.plurals.mine_delete_items_title, selection.size, selection.size)) },
             text = {
-                Text(stringResource(if (pager.currentPage == 0) R.string.mine_delete_history_selected else R.string.mine_delete_favorites_selected))
+                Text(stringResource(if (selectionPage == 0) R.string.mine_delete_history_selected else R.string.mine_delete_favorites_selected))
             },
-            confirmButton = { TextButton(onClick = { vm.deleteSelected(pager.currentPage); confirmDeleteSelected = false }) { Text(stringResource(R.string.mine_delete)) } },
+            confirmButton = { TextButton(onClick = { vm.deleteSelected(selectionPage); confirmDeleteSelected = false }) { Text(stringResource(R.string.mine_delete)) } },
             dismissButton = { TextButton(onClick = { confirmDeleteSelected = false }) { Text(stringResource(R.string.mine_cancel)) } },
         )
     }
@@ -387,6 +418,32 @@ fun LibraryRoute(
             onToggle = { listId, add -> if (add) vm.addSelectedToList(listId) else vm.removeSelectedFromList(listId) },
             onCreate = vm::createListAndAddSelected,
             onDismiss = { addToListOpen = false },
+        )
+    }
+
+    if (createListOpen) {
+        ListNameDialog(
+            title = stringResource(R.string.mine_list_new_title),
+            confirmLabel = stringResource(R.string.mine_list_create),
+            onConfirm = { name, emoji -> vm.createList(name, emoji); createListOpen = false },
+            onDismiss = { createListOpen = false },
+        )
+    }
+    renameTarget?.let { list ->
+        ListNameDialog(
+            title = stringResource(R.string.mine_list_rename_title),
+            confirmLabel = stringResource(R.string.mine_list_rename),
+            initialName = list.name,
+            initialEmoji = list.emoji,
+            onConfirm = { name, emoji -> vm.renameList(list.id, name, emoji); renameTarget = null },
+            onDismiss = { renameTarget = null },
+        )
+    }
+    deleteTarget?.let { list ->
+        DeleteListDialog(
+            list,
+            onConfirm = { vm.deleteList(list.id); deleteTarget = null },
+            onDismiss = { deleteTarget = null },
         )
     }
 
@@ -606,6 +663,7 @@ private fun SegmentedTabs(titles: List<String>, selected: Int, onSelect: (Int) -
     }
 }
 
+/** The "Semua" tab: every favourite with its status/sort filters and multi-select. */
 @Composable
 private fun FavoriteGrid(
     items: List<Pair<FavoriteEntity, Int>>?,
@@ -614,34 +672,16 @@ private fun FavoriteGrid(
     onAnimeClick: OpenAnime,
     selection: Set<String>,
     onToggleSelect: (String) -> Unit,
-    lists: List<CollectionListEntity>,
-    listItems: List<CollectionItemEntity>,
     preferences: Map<String, ContentPreferenceEntity>,
-    onOpenItem: (CollectionItemEntity) -> Unit,
-    onCreateList: (String, String?) -> Unit,
-    onRenameList: (Long, String, String?) -> Unit,
-    onDeleteList: (Long) -> Unit,
-    onMoveList: (Long, Boolean) -> Unit,
-    onRemoveItem: (CollectionItemEntity) -> Unit,
 ) {
     if (items == null) return
     val res = LocalContext.current.resources
     val selecting = selection.isNotEmpty()
     var statusFilter by rememberSaveable { mutableStateOf<CollectionStatus?>(null) }
-    // Which custom list is open; null = the favourites grid with its status/sort filters.
-    var selectedListId by rememberSaveable { mutableStateOf<Long?>(null) }
-    val selectedList = lists.firstOrNull { it.id == selectedListId }
-    LaunchedEffect(selectedListId, lists) { if (selectedListId != null && selectedList == null) selectedListId = null }
-    var createOpen by remember { mutableStateOf(false) }
-    var renameTarget by remember { mutableStateOf<CollectionListEntity?>(null) }
-    var deleteTarget by remember { mutableStateOf<CollectionListEntity?>(null) }
     val shown = remember(items, statusFilter) {
         statusFilter?.let { filter -> items.filter { it.first.collectionStatus == filter.name } } ?: items
     }
-    val shownListItems = remember(listItems, selectedList) {
-        selectedList?.let { list -> listItems.filter { it.listId == list.id } }.orEmpty()
-    }
-    if (items.isEmpty() && lists.isEmpty()) {
+    if (items.isEmpty()) {
         MessageState(Icons.Rounded.FavoriteBorder, stringResource(R.string.mine_favorites_empty_title), message = stringResource(R.string.mine_favorites_empty_body))
         return
     }
@@ -651,104 +691,75 @@ private fun FavoriteGrid(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        item(key = "lists", span = { GridItemSpan(maxLineSpan) }) {
+        item(key = "sort", span = { GridItemSpan(maxLineSpan) }) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                CollectionListChips(lists, selectedList?.id, onSelect = { selectedListId = it }, onCreate = { createOpen = true })
-                if (selectedList != null) {
-                    ListManageRow(
-                        selectedList,
-                        count = shownListItems.size,
-                        canMoveUp = lists.indexOf(selectedList) > 0,
-                        canMoveDown = lists.indexOf(selectedList) < lists.lastIndex,
-                        onMove = { onMoveList(selectedList.id, it) },
-                        onRename = { renameTarget = selectedList },
-                        onDelete = { deleteTarget = selectedList },
-                    )
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TagChip(stringResource(R.string.ux_status_all), onClick = { statusFilter = null }, selected = statusFilter == null)
+                    CollectionStatus.entries.forEach { option ->
+                        TagChip(stringResource(option.collectionLabel()), onClick = { statusFilter = option }, selected = option == statusFilter)
+                    }
+                }
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FavoriteSort.entries.forEach { option ->
+                        TagChip(stringResource(option.label), onClick = { onSort(option) }, selected = option == sort)
+                    }
                 }
             }
         }
-        if (selectedList == null) {
-            item(key = "sort", span = { GridItemSpan(maxLineSpan) }) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        TagChip(stringResource(R.string.ux_status_all), onClick = { statusFilter = null }, selected = statusFilter == null)
-                        CollectionStatus.entries.forEach { option ->
-                            TagChip(stringResource(option.collectionLabel()), onClick = { statusFilter = option }, selected = option == statusFilter)
-                        }
-                    }
-                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FavoriteSort.entries.forEach { option ->
-                            TagChip(stringResource(option.label), onClick = { onSort(option) }, selected = option == sort)
-                        }
-                    }
-                }
-            }
-            if (shown.isEmpty()) {
-                item(key = "emptyFilter", span = { GridItemSpan(maxLineSpan) }) {
-                    Text(
-                        stringResource(R.string.ux_collection_empty_filter),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(vertical = 8.dp),
-                    )
-                }
-            }
-            items(shown, key = { it.first.animeId }) { (fav, newCount) ->
-                val anime = fav.toAnime()
-                PosterCard(
-                    anime,
-                    onClick = { if (selecting) onToggleSelect(fav.animeId) else onAnimeClick(anime, "library-fav") },
-                    sharedOrigin = "library-fav",
-                    badge = newBadgeLabel(res, newCount),
-                    onLongClick = { onToggleSelect(fav.animeId) },
-                    selected = fav.animeId in selection,
-                    rating = preferences[fav.animeId]?.personalRating ?: 0,
+        if (shown.isEmpty()) {
+            item(key = "emptyFilter", span = { GridItemSpan(maxLineSpan) }) {
+                Text(
+                    stringResource(R.string.ux_collection_empty_filter),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 8.dp),
                 )
             }
-        } else {
-            if (shownListItems.isEmpty()) {
-                item(key = "emptyList", span = { GridItemSpan(maxLineSpan) }) {
-                    MessageState(Icons.Rounded.PlaylistAdd, stringResource(R.string.mine_list_empty_title), message = stringResource(R.string.mine_list_empty_body))
-                }
-            }
-            items(shownListItems, key = { "${it.listId}-${it.mediaType}-${it.contentId}" }) { item ->
-                PosterCard(
-                    item.toAnime(),
-                    onClick = { onOpenItem(item) },
-                    sharedOrigin = "library-list",
-                    // Long-press lifts the title out of this list; favourites and status stay untouched.
-                    onLongClick = { onRemoveItem(item) },
-                    longClickLabel = stringResource(R.string.mine_list_remove),
-                    rating = preferences[item.contentId]?.personalRating ?: 0,
-                )
-            }
+        }
+        items(shown, key = { it.first.animeId }) { (fav, newCount) ->
+            val anime = fav.toAnime()
+            PosterCard(
+                anime,
+                onClick = { if (selecting) onToggleSelect(fav.animeId) else onAnimeClick(anime, "library-fav") },
+                sharedOrigin = "library-fav",
+                badge = newBadgeLabel(res, newCount),
+                onLongClick = { onToggleSelect(fav.animeId) },
+                selected = fav.animeId in selection,
+                rating = preferences[fav.animeId]?.personalRating ?: 0,
+            )
         }
     }
+}
 
-    if (createOpen) {
-        ListNameDialog(
-            title = stringResource(R.string.mine_list_new_title),
-            confirmLabel = stringResource(R.string.mine_list_create),
-            onConfirm = { name, emoji -> onCreateList(name, emoji); createOpen = false },
-            onDismiss = { createOpen = false },
-        )
+/** One custom list's titles in the poster grid; long-press lifts a title out of the list. */
+@Composable
+private fun CollectionListGrid(
+    items: List<CollectionItemEntity>,
+    preferences: Map<String, ContentPreferenceEntity>,
+    onOpenItem: (CollectionItemEntity) -> Unit,
+    onRemoveItem: (CollectionItemEntity) -> Unit,
+) {
+    if (items.isEmpty()) {
+        MessageState(Icons.Rounded.PlaylistAdd, stringResource(R.string.mine_list_empty_title), message = stringResource(R.string.mine_list_empty_body))
+        return
     }
-    renameTarget?.let { list ->
-        ListNameDialog(
-            title = stringResource(R.string.mine_list_rename_title),
-            confirmLabel = stringResource(R.string.mine_list_rename),
-            initialName = list.name,
-            initialEmoji = list.emoji,
-            onConfirm = { name, emoji -> onRenameList(list.id, name, emoji); renameTarget = null },
-            onDismiss = { renameTarget = null },
-        )
-    }
-    deleteTarget?.let { list ->
-        DeleteListDialog(
-            list,
-            onConfirm = { onDeleteList(list.id); deleteTarget = null },
-            onDismiss = { deleteTarget = null },
-        )
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(108.dp),
+        contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 16.dp + LocalNavBarPadding.current),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        items(items, key = { "${it.listId}-${it.mediaType}-${it.contentId}" }) { item ->
+            PosterCard(
+                item.toAnime(),
+                onClick = { onOpenItem(item) },
+                sharedOrigin = "library-list",
+                // Long-press lifts the title out of this list; favourites and status stay untouched.
+                onLongClick = { onRemoveItem(item) },
+                longClickLabel = stringResource(R.string.mine_list_remove),
+                rating = preferences[item.contentId]?.personalRating ?: 0,
+            )
+        }
     }
 }
 
