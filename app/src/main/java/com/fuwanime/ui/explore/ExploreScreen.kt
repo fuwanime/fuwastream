@@ -305,13 +305,13 @@ private fun RecentSearches(items: List<String>, topPad: Dp, onPick: (String) -> 
 /** Saved searches as tertiary-tonal chips: tap to apply the whole query+filter, trailing cross deletes it. */
 @Composable
 private fun SavedFiltersRow(saved: List<SavedSearchFilterEntity>, onApply: (SavedSearchFilterEntity) -> Unit, onDelete: (Long) -> Unit) {
-    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         item(key = "saved-label") {
             Text(
                 stringResource(R.string.browse_saved_filters),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.align(Alignment.CenterVertically).padding(end = 4.dp),
+                modifier = Modifier.padding(end = 4.dp),
             )
         }
         items(saved, key = { it.id }) { f ->

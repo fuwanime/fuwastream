@@ -349,21 +349,18 @@ fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit, onOpenProfi
 
             item { Group(stringResource(R.string.mine_group_player)) }
             item {
+                val qualityLabels = mapOf(
+                    "auto" to stringResource(R.string.mine_quality_auto),
+                    "data_saver" to stringResource(R.string.mine_quality_data_saver),
+                    "best" to stringResource(R.string.mine_quality_best),
+                    "manual" to stringResource(R.string.mine_quality_manual),
+                )
                 ChoiceRow(
                     Icons.Rounded.HighQuality,
                     stringResource(R.string.mine_quality_mode),
                     listOf("auto", "data_saver", "best", "manual"),
                     s.qualityMode,
-                    { mode ->
-                        stringResource(
-                            when (mode) {
-                                "data_saver" -> R.string.mine_quality_data_saver
-                                "best" -> R.string.mine_quality_best
-                                "manual" -> R.string.mine_quality_manual
-                                else -> R.string.mine_quality_auto
-                            },
-                        )
-                    },
+                    { mode -> qualityLabels[mode] ?: qualityLabels.getValue("auto") },
                 ) { vm.update { setQualityMode(it) } }
             }
             item {

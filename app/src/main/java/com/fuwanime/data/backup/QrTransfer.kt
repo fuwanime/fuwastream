@@ -51,7 +51,7 @@ object QrFrames {
     /** Joins the collected chunks and undoes Base64 + gzip; null when incomplete or corrupt. */
     fun decode(chunks: Map<Int, String>, total: Int): String? {
         if (total !in 1..MAX_FRAMES || chunks.size != total) return null
-        val joined = (1..total).joinToString("") { chunks[it] ?: return null }
+        val joined = buildString { for (i in 1..total) append(chunks[i] ?: return null) }
         return runCatching {
             val bytes = Base64.decode(joined, Base64.NO_WRAP)
             GZIPInputStream(bytes.inputStream()).use { it.readBytes().toString(Charsets.UTF_8) }

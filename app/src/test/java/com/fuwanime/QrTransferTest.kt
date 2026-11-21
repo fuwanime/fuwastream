@@ -72,7 +72,7 @@ class QrTransferTest {
         val frames = QrFrames.encode("y".repeat(4) + Random(1).nextBytes(6000).joinToString("") { "%02x".format(it) })
         assertTrue(frames.size > 1)
         val chunks = frames.associate { f -> QrFrames.parse(f)!!.let { (i, _, c) -> i to c } }
-        assertNull(QrFrames.decode(chunks.drop(1), frames.size))
+        assertNull(QrFrames.decode(chunks - chunks.keys.first(), frames.size))
         val broken = chunks.toMutableMap()
         broken[1] = "!!!!" + broken[1]!!.drop(4)
         assertNull(QrFrames.decode(broken, frames.size))

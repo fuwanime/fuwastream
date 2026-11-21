@@ -46,9 +46,9 @@ class CollectionListRepository(private val db: FuwaDatabase) {
         if (index < 0 || target !in ordered.indices) return
         // Normalise first: older rows may share a sortOrder, which would make a swap a no-op.
         val moved = ordered.mapIndexed { i, list -> list.copy(sortOrder = i) }.toMutableList()
-        val tmp = moved[index]
-        moved[index] = moved[target]
-        moved[target] = tmp
+        // Swap the sortOrder VALUES (not the list entries) so the reorder actually persists.
+        moved[index] = moved[index].copy(sortOrder = target)
+        moved[target] = moved[target].copy(sortOrder = index)
         moved.forEach { dao.upsertList(it) }
     }
 
