@@ -8,10 +8,14 @@ import com.fuwanime.data.backup.isBackedUpSetting
 import com.fuwanime.data.backup.settingTypeAccepted
 import com.fuwanime.data.backup.shouldWriteBackup
 import com.fuwanime.data.local.ContentPreferenceEntity
+import com.fuwanime.data.local.CollectionItemEntity
+import com.fuwanime.data.local.CollectionListEntity
 import com.fuwanime.data.local.FavoriteEntity
 import com.fuwanime.data.local.MangaFavoriteEntity
 import com.fuwanime.data.local.MangaHistoryEntity
+import com.fuwanime.data.local.PlaybackBookmarkEntity
 import com.fuwanime.data.local.SearchHistoryEntity
+import com.fuwanime.data.local.SavedSearchFilterEntity
 import com.fuwanime.data.local.WatchDailyEntity
 import com.fuwanime.data.local.WatchHistoryEntity
 import org.junit.Assert.assertEquals
@@ -30,12 +34,19 @@ class BackupCodecTest {
         mangaFavorites = listOf(MangaFavoriteEntity("m1", "Chainsaw", null, 3)),
         mangaHistory = listOf(MangaHistoryEntity("c1", "m1", "Chainsaw", "u", "Ch 1", 4, 20, 8)),
         contentPreferences = listOf(ContentPreferenceEntity("ANIME:a", "ANIME", "a", notifyMode = "ALL", updatedAt = 10)),
+        collectionLists = listOf(CollectionListEntity(id = 7, name = "Favoritku", emoji = "🌸", sortOrder = 0, createdAt = 11)),
+        collectionItems = listOf(CollectionItemEntity(listId = 7, mediaType = "ANIME", contentId = "a", title = "Frieren", poster = "p", addedAt = 12)),
+        savedSearchFilters = listOf(SavedSearchFilterEntity(id = 3, name = "Isekai", query = "isekai", filterJson = "{}", createdAt = 13)),
+        playbackBookmarks = listOf(PlaybackBookmarkEntity(id = 5, mediaType = "ANIME", contentId = "a", episodeId = "a-1", positionMs = 900, label = "Momen 00:00", coverUrl = "t", createdAt = 14)),
     )
 
     @Test fun roundTripKeepsEverything() = assertEquals(BackupResult.Ok(file), BackupCodec.decode(BackupCodec.encode(file)))
 
     @Test fun newerFormatIsTooNew() =
-        assertEquals(BackupResult.TooNew, BackupCodec.decode(BackupCodec.encode(file).replace("\"format\":3", "\"format\":4")))
+        assertEquals(
+            BackupResult.TooNew,
+            BackupCodec.decode(BackupCodec.encode(file).replace("\"format\":${BackupCodec.FORMAT}", "\"format\":${BackupCodec.FORMAT + 1}")),
+        )
 
     @Test fun formatOneStillDecodes() {
         val v1 = """{"format":1,"app":"fuwanime","createdAt":1,"favorites":[],"history":[],"watchDaily":[],"searches":[],"settings":[]}"""
@@ -65,8 +76,17 @@ class BackupCodecTest {
 
     @Test fun roundTripCurrentFormat() {
         val json = BackupCodec.encode(file)
-        assertTrue(json.contains("\"format\":3"))
+        assertTrue(json.contains("\"format\":${BackupCodec.FORMAT}"))
         assertEquals(BackupResult.Ok(file), BackupCodec.decode(json))
+    }
+
+    @Test fun formatThreeWithoutListsFiltersBookmarksStillDecodes() {
+        val v3 = """{"format":3,"app":"fuwanime","createdAt":1,"favorites":[],"history":[],"watchDaily":[],"searches":[],"settings":[],"mangaFavorites":[],"mangaHistory":[],"contentPreferences":[]}"""
+        val r = BackupCodec.decode(v3) as BackupResult.Ok
+        assertEquals(emptyList<CollectionListEntity>(), r.file.collectionLists)
+        assertEquals(emptyList<CollectionItemEntity>(), r.file.collectionItems)
+        assertEquals(emptyList<SavedSearchFilterEntity>(), r.file.savedSearchFilters)
+        assertEquals(emptyList<PlaybackBookmarkEntity>(), r.file.playbackBookmarks)
     }
 
     @Test fun truncatedIsCorrupt() = assertEquals(BackupResult.Corrupt, BackupCodec.decode(BackupCodec.encode(file).dropLast(10)))
@@ -88,6 +108,7 @@ class BackupCodecTest {
         assertFalse(isBackedUpSetting("notify_manga_9"))
         assertFalse(isBackedUpSetting("download_baseline_9"))
         assertFalse(isBackedUpSetting("backup_tree_uri"))
+        assertFalse(isBackedUpSetting("bookmark_hint_shown"))
     }
 
     @Test fun existingBackupIsOnlyOverwrittenAfterThisInstallAdoptedTheFolder() {

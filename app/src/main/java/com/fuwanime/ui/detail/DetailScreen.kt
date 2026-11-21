@@ -77,6 +77,7 @@ import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.SwapVert
 import androidx.compose.material3.Button
@@ -161,6 +162,8 @@ import com.fuwanime.data.notify.NotificationAccess
 import com.fuwanime.data.notify.notificationAccess
 import com.fuwanime.data.notify.openNotificationSettings
 import com.fuwanime.ui.components.ErrorState
+import com.fuwanime.ui.components.AddToListDialog
+import com.fuwanime.ui.components.PersonalRatingNoteCard
 import com.fuwanime.ui.components.NetImage
 import com.fuwanime.ui.components.PosterRow
 import com.fuwanime.ui.components.SectionHeader
@@ -184,7 +187,7 @@ fun DetailRoute(
     onGenre: (String) -> Unit,
     onOpenManga: (mangaId: String) -> Unit = {},
 ) {
-    val vm: DetailViewModel = fuwaViewModel(key = "detail") { c, h -> DetailViewModel(c.animeRepository, c.libraryRepository, c.downloadRepository, c.settingsStore, c.animeLinkRepository, c.mangaRepository, h) }
+    val vm: DetailViewModel = fuwaViewModel(key = "detail") { c, h -> DetailViewModel(c.animeRepository, c.libraryRepository, c.downloadRepository, c.settingsStore, c.animeLinkRepository, c.mangaRepository, c.collectionListRepository, h) }
     val state by vm.state.collectAsStateWithLifecycle()
     val favorite by vm.isFavorite.collectAsStateWithLifecycle()
     val collectionStatus by vm.collectionStatus.collectAsStateWithLifecycle()
@@ -250,6 +253,9 @@ private fun DetailScreen(
     val stagger = rememberStaggerState()
     var collectionDialog by rememberSaveable { mutableStateOf(false) }
     var notificationDialog by rememberSaveable { mutableStateOf(false) }
+    var addToListDialog by rememberSaveable { mutableStateOf(false) }
+    val lists by vm.lists.collectAsStateWithLifecycle()
+    val listMemberships by vm.listMemberships.collectAsStateWithLifecycle()
     val resume = remember(progress) { progress.values.maxByOrNull { it.updatedAt } }
     val hazeState = remember { HazeState() }
     // A dark colour from the poster for the header wash and the play button; null keeps the app's own colours.
@@ -362,9 +368,10 @@ private fun DetailScreen(
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.ExtraBold,
                                 maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                             resume?.takeUnless { it.isFinished }?.let { remainingLabel(LocalContext.current.resources, it.positionMs, it.durationMs) }?.let {
-                                Text(it, style = MaterialTheme.typography.labelSmall, modifier = Modifier.alpha(0.75f))
+                                Text(it, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.alpha(0.75f))
                             }
                         }
                     }
@@ -390,6 +397,18 @@ private fun DetailScreen(
                     ) {
                         Icon(Icons.Rounded.Notifications, stringResource(R.string.ux_notification_title))
                     }
+                    Spacer(Modifier.width(8.dp))
+                    FilledTonalIconButton(
+                        onClick = { addToListDialog = true },
+                        modifier = Modifier.size(52.dp).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp)),
+                        shape = RoundedCornerShape(14.dp),
+                    ) {
+                        Icon(
+                            Icons.Rounded.PlaylistAdd,
+                            stringResource(R.string.ux_add_to_list),
+                            tint = if (listMemberships.isNotEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
 
@@ -410,6 +429,14 @@ private fun DetailScreen(
                 }
                 item(key = "synopsis") { Box(Modifier.navEnter(180)) { Synopsis(anime.synopsis) } }
                 item(key = "info") { Box(Modifier.navEnter(200)) { InfoGrid(anime, state.meta) } }
+                item(key = "personal") {
+                    PersonalRatingNoteCard(
+                        rating = preference?.personalRating ?: 0,
+                        note = preference?.personalNote.orEmpty(),
+                        onSave = vm::setPersonal,
+                        modifier = Modifier.navEnter(210).padding(start = 20.dp, end = 20.dp, top = 12.dp),
+                    )
+                }
                 state.meta?.takeIf { it.trailerUrl.isNotBlank() }?.let { meta ->
                     item(key = "trailer") {
                         TrailerCard(
@@ -565,6 +592,15 @@ private fun DetailScreen(
             onMode = vm::setNotificationMode,
             onAutoDownload = vm::setAutoDownload,
             onDismiss = { notificationDialog = false },
+        )
+    }
+    if (addToListDialog) {
+        AddToListDialog(
+            lists = lists,
+            checkedIds = listMemberships,
+            onToggle = vm::toggleList,
+            onCreate = vm::createListAndAdd,
+            onDismiss = { addToListDialog = false },
         )
     }
     }

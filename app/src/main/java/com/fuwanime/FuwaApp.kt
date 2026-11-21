@@ -24,6 +24,7 @@ import okio.Path.Companion.toOkioPath
 import com.fuwanime.data.AnimeRepository
 import com.fuwanime.data.DownloadRepository
 import com.fuwanime.data.LibraryRepository
+import com.fuwanime.data.CollectionListRepository
 import com.fuwanime.data.ProfileRepository
 import com.fuwanime.data.manga.MangaLibrary
 import com.fuwanime.data.local.FuwaDatabase
@@ -75,6 +76,7 @@ class AppContainer(private val app: Application) {
     private val database = FuwaDatabase.create(app)
     val settingsStore = SettingsStore(app)
     val libraryRepository = LibraryRepository(database)
+    val collectionListRepository = CollectionListRepository(database)
     val profileRepository = ProfileRepository(database)
     val mangaLibrary = MangaLibrary(database)
     val animeRepository = AnimeRepository(

@@ -28,4 +28,26 @@
     <string name="widget_stats_summary_line">%1$d episodes · %2$d anime</string>
     <string name="widget_stats_empty">No stats yet</string>
     <string name="widget_stats_empty_hint">Watch an episode first and the numbers will show up here</string>
+
+    <!-- Weekly stats widget -->
+    <string name="widget_weekly_stats_name">Weekly stats</string>
+    <string name="widget_weekly_stats_desc">This week\'s watch time and finished episodes</string>
+    <string name="widget_weekly_stats_title">This week</string>
+    <string name="widget_weekly_stats_time">Watch time</string>
+    <string name="widget_weekly_stats_episodes_line">%1$d episodes finished</string>
+    <string name="widget_weekly_stats_avg">Daily average</string>
+    <string name="widget_weekly_stats_empty">Nothing watched this week yet</string>
+
+    <!-- Widget size configure activity -->
+    <string name="widget_config_title">Widget size</string>
+    <string name="widget_config_subtitle">Choose a size for %1$s</string>
+    <string name="widget_config_small">Small</string>
+    <string name="widget_config_small_desc">2 × 2 · compact</string>
+    <string name="widget_config_medium">Medium</string>
+    <string name="widget_config_medium_desc">4 × 2 · wide</string>
+    <string name="widget_config_large">Large</string>
+    <string name="widget_config_large_desc">4 × 4 · full</string>
+    <string name="widget_config_confirm">Add widget</string>
+    <string name="widget_config_cancel">Cancel</string>
+    <string name="widget_config_hint">You can resize later by long-pressing the widget on the home screen.</string>
 </resources>

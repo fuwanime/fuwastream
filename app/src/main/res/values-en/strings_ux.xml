@@ -48,4 +48,14 @@
     <string name="ux_notification_language">Notification language</string>
     <string name="ux_done">Done</string>
     <string name="ux_collection_empty_filter">No titles with this status</string>
+    <string name="ux_personal_title">Personal rating &amp; note</string>
+    <string name="ux_personal_unrated">Not rated</string>
+    <string name="ux_personal_rating_value">%1$d/10</string>
+    <string name="ux_personal_rating_cd">Personal rating %1$d out of 10</string>
+    <string name="ux_personal_note_hint">Write your thoughts about this title…</string>
+    <string name="ux_personal_save">Save</string>
+    <string name="ux_personal_clear">Clear</string>
+    <string name="ux_personal_saved">Rating &amp; note saved</string>
+    <string name="ux_add_to_list">Add to list</string>
+    <string name="ux_add_to_list_title">Add to a collection list</string>
 </resources>

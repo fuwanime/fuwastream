@@ -28,4 +28,26 @@
     <string name="widget_stats_summary_line">%1$d 集 · %2$d 部动漫</string>
     <string name="widget_stats_empty">暂无统计</string>
     <string name="widget_stats_empty_hint">先看一集，数据就会显示在这里</string>
+
+    <!-- Weekly stats widget -->
+    <string name="widget_weekly_stats_name">每周统计</string>
+    <string name="widget_weekly_stats_desc">本周观看时长和已完成剧集</string>
+    <string name="widget_weekly_stats_title">本周</string>
+    <string name="widget_weekly_stats_time">观看时长</string>
+    <string name="widget_weekly_stats_episodes_line">已完成 %1$d 集</string>
+    <string name="widget_weekly_stats_avg">日均</string>
+    <string name="widget_weekly_stats_empty">本周还没有观看记录</string>
+
+    <!-- Widget size configure activity -->
+    <string name="widget_config_title">小部件尺寸</string>
+    <string name="widget_config_subtitle">为%1$s选择尺寸</string>
+    <string name="widget_config_small">小</string>
+    <string name="widget_config_small_desc">2 × 2 · 紧凑</string>
+    <string name="widget_config_medium">中</string>
+    <string name="widget_config_medium_desc">4 × 2 · 宽</string>
+    <string name="widget_config_large">大</string>
+    <string name="widget_config_large_desc">4 × 4 · 完整</string>
+    <string name="widget_config_confirm">添加小部件</string>
+    <string name="widget_config_cancel">取消</string>
+    <string name="widget_config_hint">之后可长按主屏幕上的小部件调整尺寸。</string>
 </resources>

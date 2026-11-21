@@ -29,6 +29,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -61,8 +63,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.AspectRatio
 import androidx.compose.material.icons.rounded.Bedtime
+import androidx.compose.material.icons.rounded.Bookmark
+import androidx.compose.material.icons.rounded.BookmarkAdd
 import androidx.compose.material.icons.rounded.BrightnessMedium
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.FastRewind
@@ -91,6 +96,7 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
@@ -186,6 +192,7 @@ import com.fuwanime.data.Episode
 import com.fuwanime.data.OpMark
 import com.fuwanime.data.StreamSource
 import com.fuwanime.data.local.AppSettings
+import com.fuwanime.data.local.PlaybackBookmarkEntity
 import com.fuwanime.data.local.VideoResize
 import com.fuwanime.ui.components.NetImage
 import com.fuwanime.util.formatDuration
@@ -301,6 +308,13 @@ fun PlayerRoute(
     val settings by vm.settings.collectAsStateWithLifecycle()
     val opMark by vm.opMark.collectAsStateWithLifecycle()
     val segmentsState by vm.segments.collectAsStateWithLifecycle()
+    val bookmarks by vm.bookmarks.collectAsStateWithLifecycle()
+    val bookmarkHintShown by vm.bookmarkHintShown.collectAsStateWithLifecycle()
+    /** Position the bookmark dialog is saving; null keeps it closed. */
+    var bookmarkDialogAt by remember { mutableStateOf<Long?>(null) }
+    /** One-line discoverability hint, shown until the first bookmark (or tap) dismisses it. */
+    var bookmarkHintVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(bookmarkHintShown) { if (!bookmarkHintShown) bookmarkHintVisible = true }
     val context = LocalContext.current
     val activity = remember(context) { context.findActivity() }
     val view = LocalView.current
@@ -317,6 +331,21 @@ fun PlayerRoute(
     // The nav-arg thumbnail, which is what flew in; the stream may report a different URL for the same image.
     val initialThumbnail = remember { state.episode.thumbnail }
     val playback = remember { PlaybackState() }
+    val openBookmarkDialog: () -> Unit = {
+        bookmarkDialogAt = player.effectivePosition(playback)
+        if (bookmarkHintVisible) {
+            bookmarkHintVisible = false
+            vm.dismissBookmarkHint()
+        }
+    }
+    val dismissBookmarkHint: () -> Unit = {
+        bookmarkHintVisible = false
+        vm.dismissBookmarkHint()
+    }
+    val seekToBookmark: (Long) -> Unit = { pos ->
+        player.seekSafely(pos, playback)
+        player.play()
+    }
     var speed by remember { mutableFloatStateOf(1f) }
     var sleep by remember { mutableStateOf(SleepOption.OFF) }
     var sleepAtMs by remember { mutableStateOf<Long?>(null) }
@@ -526,6 +555,9 @@ fun PlayerRoute(
             onNext = vm::playNext,
             onPrevious = vm::playPrevious,
             onOpenAnime = onOpenAnime,
+            onBookmark = openBookmarkDialog,
+            bookmarkHint = bookmarkHintVisible,
+            onDismissBookmarkHint = dismissBookmarkHint,
             onRetry = {
                 if (state.error != null) vm.retry()
                 else {
@@ -558,6 +590,9 @@ fun PlayerRoute(
                     onPrevious = vm::playPrevious,
                     onDownload = { source -> gate { vm.downloadCurrent(source) } },
                     onDeleteDownload = vm::deleteDownload,
+                    bookmarks = bookmarks,
+                    onSeekBookmark = seekToBookmark,
+                    onDeleteBookmark = vm::deleteBookmark,
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -574,6 +609,9 @@ fun PlayerRoute(
                     onPrevious = vm::playPrevious,
                     onDownload = { source -> gate { vm.downloadCurrent(source) } },
                     onDeleteDownload = vm::deleteDownload,
+                    bookmarks = bookmarks,
+                    onSeekBookmark = seekToBookmark,
+                    onDeleteBookmark = vm::deleteBookmark,
                 )
             }
         }
@@ -647,6 +685,46 @@ fun PlayerRoute(
                 // Re-arm from now so dragging the slider while CUSTOM is active restarts the countdown.
                 if (sleep == SleepOption.CUSTOM) sleepAtMs = sleepDeadline(SleepOption.CUSTOM, System.currentTimeMillis(), minutes)
             },
+            bookmarks = bookmarks,
+            onAddBookmark = {
+                showSettings = false
+                openBookmarkDialog()
+            },
+            onSeekBookmark = { pos ->
+                showSettings = false
+                seekToBookmark(pos)
+            },
+            onDeleteBookmark = vm::deleteBookmark,
+        )
+    }
+
+    // "Momen menarik": save the current second with an optional label; the timestamp is prefilled.
+    bookmarkDialogAt?.let { pos ->
+        var label by remember(pos) { mutableStateOf(res.getString(R.string.watch_bookmark_default_label, formatDuration(pos))) }
+        AlertDialog(
+            onDismissRequest = { bookmarkDialogAt = null },
+            icon = { Icon(Icons.Rounded.BookmarkAdd, null) },
+            title = { Text(stringResource(R.string.watch_bookmark_dialog_title)) },
+            text = {
+                Column {
+                    Text(stringResource(R.string.watch_bookmark_dialog_body, formatDuration(pos)))
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = label,
+                        onValueChange = { if (it.length <= 60) label = it },
+                        label = { Text(stringResource(R.string.watch_bookmark_label)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.saveBookmark(pos, label)
+                    bookmarkDialogAt = null
+                }) { Text(stringResource(R.string.watch_bookmark_save)) }
+            },
+            dismissButton = { TextButton(onClick = { bookmarkDialogAt = null }) { Text(stringResource(R.string.watch_cancel)) } },
         )
     }
     }
@@ -684,6 +762,10 @@ private fun VideoSurface(
     onNext: () -> Unit,
     onPrevious: () -> Unit,
     onOpenAnime: (Anime) -> Unit,
+    onBookmark: () -> Unit,
+    /** One-line first-time hint next to the bookmark button; false once dismissed. */
+    bookmarkHint: Boolean,
+    onDismissBookmarkHint: () -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier,
 ) {
@@ -935,8 +1017,36 @@ private fun VideoSurface(
                 onEnterPip = onEnterPip,
                 onNext = onNext,
                 onPrevious = onPrevious,
+                onBookmark = onBookmark,
                 onInteract = ::scheduleHide,
             )
+        }
+
+        // First-time hint: one line under the top bar naming what the bookmark button does.
+        LaunchedEffect(bookmarkHint, controlsVisible) {
+            if (bookmarkHint && controlsVisible) {
+                delay(6_000)
+                onDismissBookmarkHint()
+            }
+        }
+        if (bookmarkHint && controlsVisible && !locked && !state.loading) {
+            Surface(
+                color = Color.Black.copy(alpha = 0.7f),
+                contentColor = Color.White,
+                shape = RoundedCornerShape(50),
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = if (fullscreen) 76.dp else 60.dp, start = 16.dp, end = 16.dp),
+            ) {
+                Row(
+                    Modifier.clickable(onClick = onDismissBookmarkHint).padding(horizontal = 14.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Rounded.BookmarkAdd, null, Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.watch_bookmark_hint), style = MaterialTheme.typography.labelMedium)
+                }
+            }
         }
 
         val skip = if (!state.loading && playback.error == null && !playback.ended) {
@@ -1058,6 +1168,7 @@ private fun Controls(
     onEnterPip: () -> Unit,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
+    onBookmark: () -> Unit,
     onInteract: () -> Unit,
 ) {
     var scrubbing by remember { mutableStateOf<Float?>(null) }
@@ -1128,6 +1239,7 @@ private fun Controls(
             if (pipSupported) {
                 IconWithTooltip("Picture-in-Picture", Icons.Rounded.PictureInPictureAlt, onEnterPip, tint = Color.White)
             }
+            IconWithTooltip(stringResource(R.string.watch_bookmark_add), Icons.Rounded.BookmarkAdd, { onBookmark(); onInteract() }, tint = Color.White)
             IconWithTooltip(stringResource(R.string.watch_video_settings), Icons.Rounded.Settings, { onOpenSettings(); onInteract() }, tint = Color.White)
         }
 
@@ -1396,6 +1508,9 @@ private fun EpisodeInfo(
     onPrevious: () -> Unit,
     onDownload: (StreamSource) -> Unit,
     onDeleteDownload: () -> Unit,
+    bookmarks: List<PlaybackBookmarkEntity>,
+    onSeekBookmark: (Long) -> Unit,
+    onDeleteBookmark: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -1446,6 +1561,14 @@ private fun EpisodeInfo(
                 Spacer(Modifier.height(12.dp))
                 DownloadRow(state, download, onDownload, onDeleteDownload)
             }
+        }
+        item {
+            BookmarkSection(
+                bookmarks = bookmarks,
+                onSeek = onSeekBookmark,
+                onDelete = onDeleteBookmark,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+            )
         }
         if (state.sources.size > 1) {
             item {
@@ -1535,6 +1658,10 @@ private fun PlayerSettingsSheet(
     onClearOpMark: () -> Unit,
     onSleep: (SleepOption) -> Unit,
     onCustomMinutes: (Int) -> Unit,
+    bookmarks: List<PlaybackBookmarkEntity>,
+    onAddBookmark: () -> Unit,
+    onSeekBookmark: (Long) -> Unit,
+    onDeleteBookmark: (Long) -> Unit,
     /** Null for a downloaded episode: its file can't be handed to another app. */
     onOpenExternal: (() -> Unit)?,
 ) {
@@ -1648,6 +1775,37 @@ private fun PlayerSettingsSheet(
                     TextButton(onClick = onClearOpMark, modifier = Modifier.padding(horizontal = 12.dp)) { Text(stringResource(R.string.watch_op_clear)) }
                 }
             }
+            item {
+                SheetTitle(stringResource(R.string.watch_bookmark_section))
+                Text(
+                    stringResource(R.string.watch_bookmark_sheet_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 20.dp),
+                )
+                Row(Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
+                    OutlinedButton(onClick = onAddBookmark) {
+                        Icon(Icons.Rounded.BookmarkAdd, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(stringResource(R.string.watch_bookmark_at, formatDuration(positionMs)))
+                    }
+                }
+                bookmarks.forEach { b ->
+                    val time = formatDuration(b.positionMs)
+                    ListItem(
+                        headlineContent = { Text(b.label.ifBlank { stringResource(R.string.watch_bookmark_default_label, time) }, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        supportingContent = { Text(time) },
+                        leadingContent = { Icon(Icons.Rounded.Bookmark, null, tint = MaterialTheme.colorScheme.primary) },
+                        trailingContent = {
+                            IconButton(onClick = { onDeleteBookmark(b.id) }) {
+                                Icon(Icons.Rounded.Delete, stringResource(R.string.watch_bookmark_delete_cd), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        modifier = Modifier.clickable { onSeekBookmark(b.positionMs) },
+                    )
+                }
+            }
         }
     }
 }
@@ -1748,5 +1906,80 @@ private fun DownloadRow(
             confirmButton = { TextButton(onClick = { confirmDelete = false; onDelete() }) { Text(stringResource(R.string.watch_delete)) } },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.watch_cancel)) } },
         )
+    }
+}
+
+/** Saved "momen menarik" of the current episode: tap to jump back, long-press (or the bin) to delete. */
+@Composable
+private fun BookmarkSection(
+    bookmarks: List<PlaybackBookmarkEntity>,
+    onSeek: (Long) -> Unit,
+    onDelete: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var confirmDelete by remember { mutableStateOf<PlaybackBookmarkEntity?>(null) }
+    Column(modifier) {
+        Text(
+            if (bookmarks.isEmpty()) stringResource(R.string.watch_bookmark_section)
+            else stringResource(R.string.watch_bookmark_section_count, bookmarks.size),
+            style = MaterialTheme.typography.titleSmall,
+        )
+        Spacer(Modifier.height(8.dp))
+        if (bookmarks.isEmpty()) {
+            Text(
+                stringResource(R.string.watch_bookmark_empty),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                bookmarks.forEach { b ->
+                    BookmarkRow(b, onSeek = { onSeek(b.positionMs) }, onDelete = { confirmDelete = b })
+                }
+            }
+        }
+    }
+    confirmDelete?.let { b ->
+        val label = b.label.ifBlank { stringResource(R.string.watch_bookmark_default_label, formatDuration(b.positionMs)) }
+        AlertDialog(
+            onDismissRequest = { confirmDelete = null },
+            title = { Text(stringResource(R.string.watch_bookmark_delete_title)) },
+            text = { Text(stringResource(R.string.watch_bookmark_delete_msg, label)) },
+            confirmButton = {
+                TextButton(onClick = { onDelete(b.id); confirmDelete = null }) { Text(stringResource(R.string.watch_delete)) }
+            },
+            dismissButton = { TextButton(onClick = { confirmDelete = null }) { Text(stringResource(R.string.watch_cancel)) } },
+        )
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun BookmarkRow(bookmark: PlaybackBookmarkEntity, onSeek: () -> Unit, onDelete: () -> Unit) {
+    val time = formatDuration(bookmark.positionMs)
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth().combinedClickable(onClick = onSeek, onLongClick = onDelete),
+    ) {
+        Row(
+            Modifier.padding(start = 14.dp, top = 4.dp, bottom = 4.dp, end = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Rounded.Bookmark, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    bookmark.label.ifBlank { stringResource(R.string.watch_bookmark_default_label, time) },
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(time, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+            }
+            IconButton(onClick = onDelete) {
+                Icon(Icons.Rounded.Delete, stringResource(R.string.watch_bookmark_delete_cd), tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+            }
+        }
     }
 }

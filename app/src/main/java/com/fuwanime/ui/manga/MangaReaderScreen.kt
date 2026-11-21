@@ -94,8 +94,11 @@ import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateCentroid
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
 import android.view.WindowManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -633,8 +636,42 @@ fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
                             translationY = zoom.offsetY
                         }
                         .pointerInput(Unit) {
-                            detectTapGestures(
-                                onTap = {
+                            // Two-finger pinch zooms straight from 1x (no double-tap needed). A single
+                            // finger still scrolls the pager/webtoon while at 1x (we don't consume it),
+                            // and pans once zoomed. A clean tap toggles controls / advances the page.
+                            val touchSlop = viewConfiguration.touchSlop
+                            awaitEachGesture {
+                                val down = awaitFirstDown(requireUnconsumed = false)
+                                val startPos = down.position
+                                var moved = false
+                                var multiTouch = false
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    val pressed = event.changes.filter { it.pressed }
+                                    if (pressed.size >= 2) {
+                                        multiTouch = true
+                                        moved = true
+                                        val zoomChange = event.calculateZoom()
+                                        val pan = event.calculatePan()
+                                        val centroid = event.calculateCentroid(useCurrent = true)
+                                        if (centroid != Offset.Unspecified && (zoomChange != 1f || pan != Offset.Zero)) {
+                                            zoom = applyPinch(zoom, zoomChange, pan.x, pan.y, centroid.x, centroid.y, size.width.toFloat(), size.height.toFloat())
+                                        }
+                                        event.changes.forEach { it.consume() }
+                                    } else if (pressed.size == 1) {
+                                        val change = pressed.first()
+                                        if ((change.position - startPos).getDistance() > touchSlop) moved = true
+                                        if (zoom.scale > READER_MIN_ZOOM) {
+                                            val pan = event.calculatePan()
+                                            if (pan != Offset.Zero) {
+                                                zoom = applyPan(zoom, pan.x, pan.y, size.width.toFloat(), size.height.toFloat())
+                                                change.consume()
+                                            }
+                                        }
+                                    }
+                                    if (event.changes.all { !it.pressed }) break
+                                }
+                                if (!moved && !multiTouch) {
                                     if (readerMode == ReaderMode.WEBTOON) {
                                         if (next != null && !listState.canScrollForward) openNext()
                                         else controls = controls.toggled(System.currentTimeMillis())
@@ -642,16 +679,6 @@ fun MangaReaderRoute(mangaId: String, chapterId: String, onBack: () -> Unit) {
                                         if (shouldAdvanceReaderOnTap(currentPage, pages.size, next != null)) openNext()
                                         else controls = controls.toggled(System.currentTimeMillis())
                                     }
-                                },
-                                onDoubleTap = { offset ->
-                                    zoom = doubleTapZoom(zoom, offset.x, offset.y, size.width.toFloat(), size.height.toFloat())
-                                },
-                            )
-                        }
-                        .pointerInput(zoom.scale > READER_MIN_ZOOM) {
-                            if (zoom.scale > READER_MIN_ZOOM) {
-                                detectTransformGestures { centroid, pan, zoomChange, _ ->
-                                    zoom = applyPinch(zoom, zoomChange, pan.x, pan.y, centroid.x, centroid.y, size.width.toFloat(), size.height.toFloat())
                                 }
                             }
                         }

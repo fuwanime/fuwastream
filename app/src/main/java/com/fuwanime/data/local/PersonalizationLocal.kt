@@ -1,5 +1,6 @@
 package com.fuwanime.data.local
 
+import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Entity
 import androidx.room.PrimaryKey
@@ -39,6 +40,10 @@ data class ContentPreferenceEntity(
     val hiddenFromContinue: Boolean = false,
     /** -1 = no pre-release reminder, 0 = at release, positive = minutes before release. */
     val reminderMinutes: Int = -1,
+    /** Personal score 0–10; 0 means unrated. Never leaves the device. */
+    @ColumnInfo(defaultValue = "0") val personalRating: Int = 0,
+    /** Free-form private note about this title. */
+    @ColumnInfo(defaultValue = "''") val personalNote: String = "",
     val updatedAt: Long = System.currentTimeMillis(),
 ) {
     companion object {

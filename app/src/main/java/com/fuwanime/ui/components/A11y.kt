@@ -38,12 +38,13 @@ fun IconWithTooltip(
 }
 
 /** What TalkBack reads for one poster card, e.g. "Frieren, Episode 5, Baru, 2 baru, dipilih". */
-fun posterDescription(res: Resources, title: String, caption: String?, badge: String?, isNew: Boolean, airing: Boolean, selected: Boolean): String =
+fun posterDescription(res: Resources, title: String, caption: String?, badge: String?, isNew: Boolean, airing: Boolean, selected: Boolean, rating: Int = 0): String =
     listOfNotNull(
         title,
         caption?.takeIf { it.isNotBlank() },
         res.getString(R.string.common_new).takeIf { isNew },
         res.getString(R.string.common_airing_now).takeIf { airing && !isNew },
         badge?.takeIf { it.isNotBlank() },
+        res.getString(R.string.ux_personal_rating_cd, rating).takeIf { rating > 0 },
         res.getString(R.string.common_selected).takeIf { selected },
     ).joinToString(", ")

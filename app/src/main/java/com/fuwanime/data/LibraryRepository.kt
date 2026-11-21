@@ -13,9 +13,13 @@ import com.fuwanime.data.local.FavoriteEntity
 import com.fuwanime.data.local.FuwaDatabase
 import com.fuwanime.data.local.MangaFavoriteEntity
 import com.fuwanime.data.local.MangaHistoryEntity
+import com.fuwanime.data.local.PlaybackBookmarkEntity
 import com.fuwanime.data.local.SearchHistoryEntity
+import com.fuwanime.data.local.SavedSearchFilterEntity
 import com.fuwanime.data.local.WatchHistoryEntity
 import com.fuwanime.data.local.WatchDailyEntity
+import com.fuwanime.data.local.CollectionItemEntity
+import com.fuwanime.data.local.CollectionListEntity
 import com.fuwanime.data.local.CollectionStatus
 import com.fuwanime.data.local.ContentPreferenceEntity
 import com.fuwanime.data.local.SourceStatEntity
@@ -158,6 +162,10 @@ class LibraryRepository(private val db: FuwaDatabase) {
     suspend fun hideMangaFromContinue(mangaId: String, hidden: Boolean = true) =
         updateTitlePreference("MANGA", mangaId) { it.copy(hiddenFromContinue = hidden) }
 
+    /** Personal rating (0–10, 0 = unrated) and note; stored with the title's other preferences. */
+    suspend fun setPersonal(mediaType: String, contentId: String, rating: Int, note: String) =
+        updateTitlePreference(mediaType, contentId) { it.copy(personalRating = rating.coerceIn(0, 10), personalNote = note.trim()) }
+
     /** Local-only source reliability used by Smart Source; never uploaded. */
     suspend fun sourceStats(): List<SourceStatEntity> = db.sourceStatDao().all()
 
@@ -195,6 +203,39 @@ class LibraryRepository(private val db: FuwaDatabase) {
     suspend fun removeSearch(query: String) = searches.delete(query)
     suspend fun clearSearches() = searches.clear()
 
+    /** Named query+filter combinations the user saved from Jelajah; applying one is handled by the UI. */
+    val savedSearchFilters: Flow<List<SavedSearchFilterEntity>> = db.savedSearchFilterDao().observeAll()
+
+    suspend fun saveSearchFilter(name: String, query: String, filterJson: String) {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return
+        db.savedSearchFilterDao().upsert(SavedSearchFilterEntity(name = trimmed, query = query.trim(), filterJson = filterJson))
+    }
+
+    suspend fun deleteSearchFilter(id: Long) = db.savedSearchFilterDao().delete(id)
+
+    /** Player bookmark moments ("momen menarik"), per episode and per title. */
+    private val bookmarks = db.playbackBookmarkDao()
+
+    fun bookmarksForEpisode(episodeId: String): Flow<List<PlaybackBookmarkEntity>> = bookmarks.observeForEpisode(episodeId)
+
+    fun bookmarksForTitle(mediaType: String, contentId: String): Flow<List<PlaybackBookmarkEntity>> =
+        bookmarks.observeForTitle(mediaType, contentId)
+
+    suspend fun addBookmark(mediaType: String, contentId: String, episodeId: String, positionMs: Long, label: String, coverUrl: String) =
+        bookmarks.upsert(
+            PlaybackBookmarkEntity(
+                mediaType = mediaType,
+                contentId = contentId,
+                episodeId = episodeId,
+                positionMs = positionMs.coerceAtLeast(0),
+                label = label.trim(),
+                coverUrl = coverUrl,
+            ),
+        )
+
+    suspend fun deleteBookmark(id: Long) = bookmarks.delete(id)
+
     /** Deletes every locally stored personal row; used by "Hapus semua data". */
     suspend fun clearAll() = db.withTransaction {
         favorites.clear()
@@ -206,6 +247,10 @@ class LibraryRepository(private val db: FuwaDatabase) {
         mangaHistory.clear()
         preferences.clear()
         db.sourceStatDao().clear()
+        db.collectionListDao().clearItems()
+        db.collectionListDao().clearLists()
+        db.savedSearchFilterDao().clear()
+        bookmarks.clear()
         profile.clearProfile()
         profile.clearQuests()
         profile.clearCounted()
@@ -220,11 +265,18 @@ class LibraryRepository(private val db: FuwaDatabase) {
         val mangaFavorites: List<MangaFavoriteEntity>,
         val mangaHistory: List<MangaHistoryEntity>,
         val contentPreferences: List<ContentPreferenceEntity>,
+        val collectionLists: List<CollectionListEntity> = emptyList(),
+        val collectionItems: List<CollectionItemEntity> = emptyList(),
+        val savedSearchFilters: List<SavedSearchFilterEntity> = emptyList(),
+        val playbackBookmarks: List<PlaybackBookmarkEntity> = emptyList(),
     )
 
     /** Everything that goes into a backup file, read in one transaction so the parts agree. */
     suspend fun snapshot(): Snapshot = db.withTransaction {
-        Snapshot(favorites.allFavorites(), history.all(), daily.all(), searches.all(), mangaFavorites.all(), mangaHistory.all(), preferences.all())
+        Snapshot(
+            favorites.allFavorites(), history.all(), daily.all(), searches.all(), mangaFavorites.all(), mangaHistory.all(), preferences.all(),
+            db.collectionListDao().lists(), db.collectionListDao().allItems(), db.savedSearchFilterDao().all(), bookmarks.all(),
+        )
     }
 
     /** No favourites and no history: a fresh install (or a wiped one). */
@@ -240,5 +292,50 @@ class LibraryRepository(private val db: FuwaDatabase) {
         mangaFavorites.upsertAll(newMangaFavorites(mangaFavorites.all(), file.mangaFavorites))
         mangaHistory.upsertAll(mergeMangaHistory(mangaHistory.all(), file.mangaHistory))
         preferences.upsertAll(mergePreferences(preferences.all(), file.contentPreferences))
+        restoreLists(file)
+        restoreSavedFilters(file)
+        restoreBookmarks(file)
+    }
+
+    /** Same-named lists merge into the local one; new lists are inserted and their items remapped to the new id. */
+    private suspend fun restoreLists(file: BackupFile) {
+        if (file.collectionLists.isEmpty() && file.collectionItems.isEmpty()) return
+        val dao = db.collectionListDao()
+        val byName = dao.lists().associateBy { it.name }.toMutableMap()
+        val idMap = HashMap<Long, Long>()
+        file.collectionLists.forEach { b ->
+            val local = byName[b.name]
+            if (local != null) {
+                idMap[b.id] = local.id
+            } else {
+                val newId = dao.insertList(b.copy(id = 0))
+                idMap[b.id] = newId
+                byName[b.name] = b.copy(id = newId)
+            }
+        }
+        val mine = dao.allItems().mapTo(HashSet()) { Triple(it.listId, it.mediaType, it.contentId) }
+        file.collectionItems.forEach { item ->
+            val listId = idMap[item.listId] ?: return@forEach
+            if (mine.add(Triple(listId, item.mediaType, item.contentId))) dao.upsertItem(item.copy(listId = listId))
+        }
+    }
+
+    /** An identical name+query+filter already on the phone is not duplicated. */
+    private suspend fun restoreSavedFilters(file: BackupFile) {
+        if (file.savedSearchFilters.isEmpty()) return
+        val dao = db.savedSearchFilterDao()
+        val mine = dao.all().mapTo(HashSet()) { Triple(it.name, it.query, it.filterJson) }
+        file.savedSearchFilters.forEach { f ->
+            if (mine.add(Triple(f.name, f.query, f.filterJson))) dao.upsert(f.copy(id = 0))
+        }
+    }
+
+    /** Same title/episode/position keeps the local label; new moments are added. */
+    private suspend fun restoreBookmarks(file: BackupFile) {
+        if (file.playbackBookmarks.isEmpty()) return
+        val mine = bookmarks.all().mapTo(HashSet()) { Triple(it.contentId, it.episodeId, it.positionMs) }
+        file.playbackBookmarks.forEach { b ->
+            if (mine.add(Triple(b.contentId, b.episodeId, b.positionMs))) bookmarks.upsert(b.copy(id = 0))
+        }
     }
 }

@@ -154,4 +154,21 @@
     </plurals>
     <string name="watch_seek_slider_cd">播放进度滑块</string>
     <string name="watch_seek_position">%1$s / 共 %2$s</string>
+    <string name="watch_bookmark_add">标记精彩时刻</string>
+    <string name="watch_bookmark_hint">标记时刻，随时回到这一秒</string>
+    <string name="watch_bookmark_dialog_title">标记精彩时刻</string>
+    <string name="watch_bookmark_dialog_body">已保存位置 %1$s，随时可以回到这一秒。</string>
+    <string name="watch_bookmark_label">标签（可选）</string>
+    <string name="watch_bookmark_default_label">时刻 %1$s</string>
+    <string name="watch_bookmark_save">保存时刻</string>
+    <string name="watch_bookmark_saved">已在 %1$s 标记时刻</string>
+    <string name="watch_bookmark_section">精彩时刻</string>
+    <string name="watch_bookmark_section_count">精彩时刻（%1$d）</string>
+    <string name="watch_bookmark_empty">还没有时刻。点按播放器中的书签图标，标记你最喜欢的一秒。</string>
+    <string name="watch_bookmark_sheet_hint">保存喜欢的瞬间，点按时刻即可跳回那里。</string>
+    <string name="watch_bookmark_at">在 %1$s 标记</string>
+    <string name="watch_bookmark_delete_cd">删除时刻</string>
+    <string name="watch_bookmark_delete_title">删除时刻？</string>
+    <string name="watch_bookmark_delete_msg">时刻“%1$s”将被删除。</string>
+    <string name="watch_bookmark_deleted">时刻已删除</string>
 </resources>

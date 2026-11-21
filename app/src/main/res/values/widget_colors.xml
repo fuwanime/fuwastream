@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Static widget palette for Android 11 and lower, where Glance's cornerRadius is a no-op and
+     rounded shape drawables stand in. These mirror LightScheme exactly (MaterialKolor TonalSpot
+     from BlueSeed #2F6BFF); values-night mirrors DarkScheme with its navy overrides. Keep in sync
+     with ui/theme/Theme.kt. On Android 12+ the widgets use GlanceTheme roles instead. -->
+<resources>
+    <color name="widget_surface">#FFFAF8FF</color>
+    <color name="widget_surface_variant">#FFE2E1EC</color>
+    <color name="widget_primary">#FF4C5C92</color>
+    <color name="widget_primary_container">#FFDBE1FF</color>
+    <color name="widget_secondary_container">#FFDDE1F9</color>
+    <color name="widget_tertiary_container">#FFFFD6F7</color>
+</resources>

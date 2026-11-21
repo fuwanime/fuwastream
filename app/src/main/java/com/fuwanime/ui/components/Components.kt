@@ -45,6 +45,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -192,6 +193,8 @@ fun PosterCard(
     onLongClick: (() -> Unit)? = null,
     /** Multi-select state: outlined, dimmed and checked. */
     selected: Boolean = false,
+    /** Personal rating 1–10; shown as a small star pill on the poster. 0 hides it. */
+    rating: Int = 0,
     /** What TalkBack's actions menu calls [onLongClick]. */
     longClickLabel: String = stringResource(R.string.common_select),
 ) {
@@ -213,7 +216,7 @@ fun PosterCard(
             )
             // One TalkBack item per card; long-press (TalkBack has no such gesture) becomes a named action.
             .semantics(mergeDescendants = true) {
-                contentDescription = posterDescription(res, anime.title, caption, badge, isNew, anime.isOngoing, selected)
+                contentDescription = posterDescription(res, anime.title, caption, badge, isNew, anime.isOngoing, selected, rating)
                 if (onLongClick != null) customActions = listOf(CustomAccessibilityAction(longClickLabel) { onLongClick(); true })
             }
             .padding(8.dp),
@@ -277,6 +280,20 @@ fun PosterCard(
                         tint = colors.primary,
                         modifier = Modifier.size(26.dp),
                     )
+                }
+            }
+            if (rating > 0 && !selected) {
+                // Personal score on the artwork: scrim pill like the airing badge, theme-independent white.
+                Row(
+                    Modifier.align(Alignment.BottomStart).aboveSharedElements().revealWhenLanded(poster).padding(8.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(ImageScrim.copy(alpha = 0.78f))
+                        .padding(horizontal = 7.dp, vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Rounded.Star, null, Modifier.size(12.dp), tint = Color.White)
+                    Spacer(Modifier.width(3.dp))
+                    Text("$rating", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color.White)
                 }
             }
         }

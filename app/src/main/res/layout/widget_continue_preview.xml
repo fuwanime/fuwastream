@@ -1,14 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- What the widget picker shows before the widget is placed (Android 12+).
-     Mirrors the WIDE layout: a soft tonal base holding one rounded resume card.
+     Mirrors the WIDE layout: a primary tonal hero card with the resume poster, title and progress.
      Static previews cannot resolve GlanceTheme tokens, so theme attributes stand in:
      colorControlHighlight = tonal base, colorBackground = card surface, colorAccent = primary. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_preview_background"
     android:orientation="vertical"
-    android:padding="14dp">
+    android:padding="12dp"
+    tools:ignore="HardcodedText">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -20,8 +22,8 @@
         android:padding="10dp">
 
         <View
-            android:layout_width="40dp"
-            android:layout_height="60dp"
+            android:layout_width="44dp"
+            android:layout_height="66dp"
             android:background="@drawable/widget_preview_poster" />
 
         <LinearLayout
@@ -32,17 +34,8 @@
             android:orientation="vertical">
 
             <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/system_widget_continue"
-                android:textColor="?android:attr/colorAccent"
-                android:textSize="11sp"
-                android:textStyle="bold" />
-
-            <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
                 android:ellipsize="end"
                 android:maxLines="2"
                 android:text="@string/widget_continue_desc"
@@ -50,10 +43,20 @@
                 android:textSize="14sp"
                 android:textStyle="bold" />
 
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="Ep 5"
+                android:textColor="?android:attr/textColorSecondary"
+                android:textSize="11sp" />
+
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="6dp"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="6dp"
                 android:background="@drawable/widget_preview_progress_track"
                 android:orientation="horizontal">
 

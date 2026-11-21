@@ -57,6 +57,8 @@ import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PrivacyTip
+import androidx.compose.material.icons.rounded.QrCode2
+import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.HighQuality
@@ -160,7 +162,7 @@ class SettingsViewModel(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit, onOpenProfile: () -> Unit) {
+fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit, onOpenProfile: () -> Unit, onQrSend: () -> Unit = {}, onQrReceive: () -> Unit = {}) {
     val vm: SettingsViewModel = fuwaViewModel { c, _ ->
         SettingsViewModel(c.settingsStore, c.libraryRepository, c.downloadRepository, c.mangaDownloads, c.backupRepository, c::refreshHomeSurfaces)
     }
@@ -346,6 +348,21 @@ fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit, onOpenProfi
             }
 
             item { Group(stringResource(R.string.mine_group_player)) }
+            item {
+                val qualityLabels = mapOf(
+                    "auto" to stringResource(R.string.mine_quality_auto),
+                    "data_saver" to stringResource(R.string.mine_quality_data_saver),
+                    "best" to stringResource(R.string.mine_quality_best),
+                    "manual" to stringResource(R.string.mine_quality_manual),
+                )
+                ChoiceRow(
+                    Icons.Rounded.HighQuality,
+                    stringResource(R.string.mine_quality_mode),
+                    listOf("auto", "data_saver", "best", "manual"),
+                    s.qualityMode,
+                    { mode -> qualityLabels[mode] ?: qualityLabels.getValue("auto") },
+                ) { vm.update { setQualityMode(it) } }
+            }
             item {
                 ChoiceRow(Icons.Rounded.HighQuality, stringResource(R.string.mine_default_quality), listOf(360, 480, 720, 1080), s.preferredQuality, { "${it}p" }) {
                     vm.update { setPreferredQuality(it) }
@@ -537,6 +554,8 @@ fun SettingsRoute(onBack: () -> Unit, onOpenLegal: (String) -> Unit, onOpenProfi
                     }
                 }
                 item { ActionRow(Icons.Rounded.Restore, stringResource(R.string.mine_restore_file), stringResource(R.string.mine_restore_file_desc), restore) }
+                item { ActionRow(Icons.Rounded.QrCode2, stringResource(R.string.mine_qr_send), stringResource(R.string.mine_qr_send_desc), onQrSend) }
+                item { ActionRow(Icons.Rounded.QrCodeScanner, stringResource(R.string.mine_qr_receive), stringResource(R.string.mine_qr_receive_desc), onQrReceive) }
             }
 
             item { Group(stringResource(R.string.mine_group_data)) }

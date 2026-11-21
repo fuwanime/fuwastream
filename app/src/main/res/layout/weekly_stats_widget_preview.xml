@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- What the widget picker shows before the widget is placed (Android 12+); sample values are a mock.
+     Mirrors the WIDE layout: watch time, episodes and the 7-day bars. Static previews cannot resolve
+     GlanceTheme tokens, so theme attributes stand in. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_preview_background"
+    android:orientation="vertical"
+    android:padding="12dp"
+    tools:ignore="HardcodedText">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <View
+            android:layout_width="4dp"
+            android:layout_height="16dp"
+            android:background="?android:attr/colorAccent" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:text="@string/widget_weekly_stats_title"
+            android:textColor="?android:attr/colorAccent"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="6dp"
+        android:layout_weight="1"
+        android:orientation="horizontal">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_marginEnd="8dp"
+            android:layout_weight="1"
+            android:background="@drawable/widget_preview_row"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:padding="6dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="3 jam 20 mnt"
+                android:textColor="?android:attr/textColorPrimary"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="@string/widget_weekly_stats_time"
+                android:textColor="?android:attr/textColorSecondary"
+                android:textSize="9sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_marginEnd="8dp"
+            android:layout_weight="1"
+            android:background="@drawable/widget_preview_row"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:padding="6dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="8"
+                android:textColor="?android:attr/textColorPrimary"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="@string/widget_stats_episodes"
+                android:textColor="?android:attr/textColorSecondary"
+                android:textSize="9sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="@drawable/widget_preview_row"
+            android:gravity="bottom"
+            android:orientation="horizontal"
+            android:padding="6dp">
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="14dp"
+                android:layout_marginEnd="3dp"
+                android:layout_weight="1"
+                android:background="?android:attr/colorControlHighlight" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="24dp"
+                android:layout_marginEnd="3dp"
+                android:layout_weight="1"
+                android:background="?android:attr/colorControlHighlight" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="10dp"
+                android:layout_marginEnd="3dp"
+                android:layout_weight="1"
+                android:background="?android:attr/colorControlHighlight" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="32dp"
+                android:layout_marginEnd="3dp"
+                android:layout_weight="1"
+                android:background="?android:attr/colorControlHighlight" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="18dp"
+                android:layout_marginEnd="3dp"
+                android:layout_weight="1"
+                android:background="?android:attr/colorControlHighlight" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="26dp"
+                android:layout_marginEnd="3dp"
+                android:layout_weight="1"
+                android:background="?android:attr/colorControlHighlight" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1"
+                android:background="?android:attr/colorAccent" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

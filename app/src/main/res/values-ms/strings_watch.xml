@@ -154,4 +154,21 @@
     </plurals>
     <string name="watch_seek_slider_cd">Penggelangsar kedudukan main balik</string>
     <string name="watch_seek_position">%1$s daripada %2$s</string>
+    <string name="watch_bookmark_add">Tanda momen</string>
+    <string name="watch_bookmark_hint">Tanda momen untuk kembali ke detik ini</string>
+    <string name="watch_bookmark_dialog_title">Tanda momen menarik</string>
+    <string name="watch_bookmark_dialog_body">Kedudukan %1$s disimpan supaya anda boleh kembali ke detik ini pada bila-bila masa.</string>
+    <string name="watch_bookmark_label">Label (pilihan)</string>
+    <string name="watch_bookmark_default_label">Momen %1$s</string>
+    <string name="watch_bookmark_save">Simpan momen</string>
+    <string name="watch_bookmark_saved">Momen ditanda pada %1$s</string>
+    <string name="watch_bookmark_section">Momen menarik</string>
+    <string name="watch_bookmark_section_count">Momen menarik (%1$d)</string>
+    <string name="watch_bookmark_empty">Belum ada momen. Ketik ikon penanda buku dalam pemain untuk menandakan detik kegemaran anda.</string>
+    <string name="watch_bookmark_sheet_hint">Simpan detik kegemaran anda, kemudian ketik momen untuk kembali ke sana.</string>
+    <string name="watch_bookmark_at">Tanda pada %1$s</string>
+    <string name="watch_bookmark_delete_cd">Padam momen</string>
+    <string name="watch_bookmark_delete_title">Padam momen?</string>
+    <string name="watch_bookmark_delete_msg">Momen “%1$s” akan dipadam.</string>
+    <string name="watch_bookmark_deleted">Momen dipadam</string>
 </resources>

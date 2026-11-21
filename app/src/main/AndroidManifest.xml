@@ -11,6 +11,9 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- In-app updates: the APK is downloaded and handed to the system installer (distributed outside app stores). -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- QR transfer scanner; devices without a camera can still install and use the rest of the app. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application
         android:name=".FuwaApp"
@@ -36,6 +39,17 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Widget size picker, launched by the launcher when a widget is added (android:configure). -->
+        <activity
+            android:name=".widget.WidgetConfigActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.FuwaNime">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
             </intent-filter>
         </activity>
 
@@ -108,6 +122,18 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/stats_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.WeeklyStatsWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_weekly_stats_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/weekly_stats_widget_info" />
         </receiver>
         <!-- Manga chapter downloads run as WorkManager foreground work (Android 14 needs a declared type). -->
         <service

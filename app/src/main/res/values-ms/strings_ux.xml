@@ -48,4 +48,14 @@
     <string name="ux_notification_language">Bahasa pemberitahuan</string>
     <string name="ux_done">Selesai</string>
     <string name="ux_collection_empty_filter">Tiada tajuk dengan status ini</string>
+    <string name="ux_personal_title">Penilaian &amp; nota peribadi</string>
+    <string name="ux_personal_unrated">Belum dinilai</string>
+    <string name="ux_personal_rating_value">%1$d/10</string>
+    <string name="ux_personal_rating_cd">Penilaian peribadi %1$d daripada 10</string>
+    <string name="ux_personal_note_hint">Tulis pendapat anda tentang judul ini…</string>
+    <string name="ux_personal_save">Simpan</string>
+    <string name="ux_personal_clear">Padam</string>
+    <string name="ux_personal_saved">Penilaian &amp; nota disimpan</string>
+    <string name="ux_add_to_list">Tambah ke senarai</string>
+    <string name="ux_add_to_list_title">Tambah ke senarai koleksi</string>
 </resources>

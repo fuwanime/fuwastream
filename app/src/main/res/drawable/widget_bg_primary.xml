@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- primaryContainer hero card.
+     Used below Android 12 only, where Glance's cornerRadius is a no-op; the color follows the
+     system night mode through values-night, matching ColorProviders(LightScheme, DarkScheme). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <corners android:radius="@dimen/widget_radius_card" />
+    <solid android:color="@color/widget_primary_container" />
+</shape>

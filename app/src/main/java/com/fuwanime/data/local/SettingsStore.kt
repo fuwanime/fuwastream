@@ -30,6 +30,8 @@ data class AppSettings(
     val amoledBlack: Boolean = false,
     /** Preferred stream height (e.g. 720); the closest available source is picked. */
     val preferredQuality: Int = 720,
+    /** Quality preset: "auto" (network-aware), "data_saver", "best", or "manual" ([preferredQuality]). */
+    val qualityMode: String = "auto",
     val autoPlayNext: Boolean = true,
     val autoPip: Boolean = true,
     val doubleTapSeekSeconds: Int = 10,
@@ -66,6 +68,7 @@ internal object Keys {
     val dynamicColor = booleanPreferencesKey("dynamic_color")
     val amoledBlack = booleanPreferencesKey("amoled_black")
     val preferredQuality = intPreferencesKey("preferred_quality")
+    val qualityMode = stringPreferencesKey("quality_mode")
     val autoPlayNext = booleanPreferencesKey("auto_play_next")
     val autoPip = booleanPreferencesKey("auto_pip")
     val doubleTapSeekSeconds = intPreferencesKey("double_tap_seek_seconds")
@@ -98,6 +101,8 @@ internal object Keys {
     val backupError = stringPreferencesKey("backup_error")
     val backupPromptDismissed = booleanPreferencesKey("backup_prompt_dismissed")
     val backupFolderAdopted = booleanPreferencesKey("backup_folder_adopted")
+    /** First-time player bookmark hint; per install, so a new phone shows it again (kept out of backups). */
+    val bookmarkHintShown = booleanPreferencesKey("bookmark_hint_shown")
 }
 
 /** Where and how the backup file is written; all keys start with "backup_" so the backup itself skips them. */
@@ -130,6 +135,10 @@ class SettingsStore(private val context: Context) {
     }
     suspend fun dismissBackupPrompt() = context.dataStore.edit { it[Keys.backupPromptDismissed] = true }
     suspend fun adoptBackupFolder() = context.dataStore.edit { it[Keys.backupFolderAdopted] = true }
+
+    /** False until the player's one-line bookmark hint has been shown (or tapped away) once. */
+    val bookmarkHintShown: Flow<Boolean> = context.dataStore.data.map { it[Keys.bookmarkHintShown] ?: false }
+    suspend fun dismissBookmarkHint() = context.dataStore.edit { it[Keys.bookmarkHintShown] = true }
 
     /** Every user preference as typed strings, minus install bookkeeping (see isBackedUpSetting). */
     suspend fun exportSettings(): List<SettingEntry> =
@@ -189,6 +198,7 @@ class SettingsStore(private val context: Context) {
     suspend fun setDynamicColor(enabled: Boolean) = context.dataStore.edit { it[Keys.dynamicColor] = enabled }
     suspend fun setAmoledBlack(enabled: Boolean) = context.dataStore.edit { it[Keys.amoledBlack] = enabled }
     suspend fun setPreferredQuality(height: Int) = context.dataStore.edit { it[Keys.preferredQuality] = height }
+    suspend fun setQualityMode(mode: String) = context.dataStore.edit { it[Keys.qualityMode] = mode }
     suspend fun setAutoPlayNext(enabled: Boolean) = context.dataStore.edit { it[Keys.autoPlayNext] = enabled }
     suspend fun setAutoPip(enabled: Boolean) = context.dataStore.edit { it[Keys.autoPip] = enabled }
     suspend fun setDoubleTapSeekSeconds(seconds: Int) = context.dataStore.edit { it[Keys.doubleTapSeekSeconds] = seconds }
@@ -311,6 +321,7 @@ internal fun Preferences.toSettings(): AppSettings {
         dynamicColor = this[Keys.dynamicColor] ?: d.dynamicColor,
         amoledBlack = this[Keys.amoledBlack] ?: d.amoledBlack,
         preferredQuality = this[Keys.preferredQuality] ?: d.preferredQuality,
+        qualityMode = this[Keys.qualityMode] ?: d.qualityMode,
         autoPlayNext = this[Keys.autoPlayNext] ?: d.autoPlayNext,
         autoPip = this[Keys.autoPip] ?: d.autoPip,
         doubleTapSeekSeconds = this[Keys.doubleTapSeekSeconds] ?: d.doubleTapSeekSeconds,
