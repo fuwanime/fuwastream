@@ -42,6 +42,7 @@ atau mengirim data pengguna. Sumber: `gradle/libs.versions.toml` + `app/build.gr
 | `https://xyz-api.animein.net` | Retrofit (katalog), WorkManager (notifikasi), DownloadManager (unduhan) | IP, User-Agent, permintaan katalog/stream |
 | `https://api.shngm.io` | Retrofit (katalog manga Shinigami) | IP, User-Agent, permintaan katalog |
 | `https://api.komiku.org` | Retrofit (katalog manga Komiku) | IP, User-Agent, permintaan katalog |
+| `https://rawkuma.net` dan `https://cdn.rawkuma.com` | OkHttp / Coil (katalog dan halaman manga raw Jepang) | IP, User-Agent, permintaan katalog/gambar |
 | `https://comix.ws` | WebView tersembunyi (katalog manga Comix) | IP, User-Agent, cookie/local storage WebView |
 | CDN gambar manga | OkHttp / Coil / pengunduh halaman | IP, User-Agent, permintaan gambar |
 | Server model ML Kit (Google) | ML Kit Translate (unduh model sekali pakai) | IP, User-Agent |

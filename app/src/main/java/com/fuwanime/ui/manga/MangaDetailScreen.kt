@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import com.fuwanime.data.manga.isKomikuId
 import com.fuwanime.data.manga.isKakaMangaId
 import com.fuwanime.data.manga.isMangaParkId
+import com.fuwanime.data.manga.isRawkumaId
 import com.fuwanime.data.manga.isShinigamiId
 import com.fuwanime.data.manga.isWebtoonId
 import androidx.compose.foundation.BorderStroke
@@ -343,7 +344,8 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
                 fun isRead(c: MangaChapter) = c.id in readIds || numberKey(c) in readNumbers
                 val resumed = target != null && isRead(target)
                 val sources = remember(state.chapters) {
-                    state.chapters.orEmpty().map { sourceRank(it.id) }.distinct().sorted().map { SOURCE_NAMES[it] }
+                    state.chapters.orEmpty().map { sourceRank(it.id) }.distinct().sorted()
+                        .map { SOURCE_NAMES.getOrElse(it) { "MangaPark" } }
                 }
                 val ranges = remember(inApp) { inApp?.let { chapterRanges(it) }.orEmpty() }
                 var picked by rememberSaveable(mangaId) { mutableIntStateOf(-1) }
@@ -371,6 +373,7 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
                             isWebtoonId(mangaId) -> "WEBTOON"
                             isKakaMangaId(mangaId) -> "MangaKakalot"
                             isMangaParkId(mangaId) -> "MangaPark"
+                            isRawkumaId(mangaId) -> "Rawkuma"
                             else -> "MangaPark"
                         }
                         InfoTable(manga, sources.ifEmpty { listOf(own) }.joinToString(" + "), inApp?.maxOfOrNull { it.publishAt }?.takeIf { it > 0 })
@@ -511,6 +514,7 @@ fun MangaDetailRoute(mangaId: String, onBack: () -> Unit, onRead: (mangaId: Stri
                                         isWebtoonId(mangaId) -> R.string.manga_credit_webtoon
                                         isKakaMangaId(mangaId) -> R.string.manga_credit_kakamanga
                                         isMangaParkId(mangaId) -> R.string.manga_credit_mangapark
+                                        isRawkumaId(mangaId) -> R.string.manga_credit_rawkuma
                                         else -> R.string.manga_credit_mangapark
                                     },
                                 )
@@ -593,7 +597,8 @@ private fun MangaDetailSkeleton() {
     }
 }
 
-private val SOURCE_NAMES = listOf("Shinigami", "Komiku", "MangaPark", "WEBTOON", "MangaKakalot", "MangaPark") // indexed by sourceRank
+// Indexed by sourceRank: 0 Shinigami, 1 Komiku, 2 WEBTOON, 3 MangaKakalot, 4 MangaPark, 5 Rawkuma.
+private val SOURCE_NAMES = listOf("Shinigami", "Komiku", "WEBTOON", "MangaKakalot", "MangaPark", "Rawkuma")
 private val LANG_LABELS = mapOf(ChapterLang.ID to R.string.manga_lang_id, ChapterLang.EN to R.string.manga_lang_en, ChapterLang.RAW to R.string.manga_lang_raw)
 
 /** "Ch. 12", or the chapter title for a oneshot without a number. */

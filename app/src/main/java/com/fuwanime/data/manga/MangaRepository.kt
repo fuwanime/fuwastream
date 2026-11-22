@@ -16,6 +16,11 @@ enum class MangaOrder { POPULAR, LATEST, RELEVANCE }
 
 data class MangaPage(val items: List<Manga>, val total: Int, val offset: Int)
 
+/** Rawkuma is searched by title, or browsed only under the explicit Manga chip. */
+internal fun shouldUseRawkuma(query: String, type: MangaType?, hasGenreFilter: Boolean): Boolean =
+    type != MangaType.MANHWA && type != MangaType.MANHUA &&
+        (query.isNotBlank() || (type == MangaType.MANGA && !hasGenreFilter))
+
 class MangaRepository(
     private val appLanguage: () -> String,
     private val now: () -> Long = System::currentTimeMillis,
@@ -29,6 +34,8 @@ class MangaRepository(
     private val kakaManga: KakaMangaSource? = null,
     /** English source (MangaPark); ids start with "mp:". */
     private val mangaPark: MangaParkSource? = null,
+    /** Raw Japanese manga source; ids start with "rk:". */
+    private val rawkuma: RawkumaSource? = null,
     /** "Konten dewasa" setting: explicit genres stay out of the genre sheet while it is off. */
     private val mature: suspend () -> Boolean = { false },
 ) {
@@ -46,15 +53,43 @@ class MangaRepository(
         type: MangaType? = null,
     ): MangaPage {
         val q = query.trim()
+        // Rawkuma is raw Japanese manga: never let it fill Manhwa/Manhua results.
+        val useRawkuma = shouldUseRawkuma(q, type, tagIds.isNotEmpty())
         if (q.isNotBlank()) {
-            val items = dedupeByTitle(searchEnglish(q))
+            val items = coroutineScope {
+                val english = async { searchEnglish(q) }
+                val raw = async { if (useRawkuma) searchRawkuma(q) else emptyList() }
+                // English stays first: when both sources have a title, keep its translated entry in the grid.
+                dedupeByTitle(english.await() + raw.await())
+            }
             return MangaPage(items, items.size, 0)
         }
         // No native tag/status filter on MP/KK; return general listings and let UI degrade gracefully.
         val pageNum = (offset / PAGE_SIZE).coerceAtLeast(0) + 1
-        val items = dedupeByTitle(browseEnglish(pageNum))
+        // Rawkuma joins only the explicit Manga chip; its listing carries no genres to filter by.
+        val items = coroutineScope {
+            val english = async { browseEnglish(pageNum) }
+            val raw = async { if (useRawkuma) browseRawkuma(pageNum) else emptyList() }
+            dedupeByTitle(english.await() + raw.await())
+        }
         val total = if (items.size >= PAGE_SIZE / 2) offset + items.size + PAGE_SIZE else offset + items.size
         return MangaPage(items, total, offset)
+    }
+
+    private suspend fun searchRawkuma(query: String): List<Manga> = try {
+        withTimeoutOrNull(RAWKUMA_TIMEOUT_MS) { rawkuma?.search(query).orEmpty() }.orEmpty()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        emptyList()
+    }
+
+    private suspend fun browseRawkuma(page: Int): List<Manga> = try {
+        withTimeoutOrNull(RAWKUMA_TIMEOUT_MS) { rawkuma?.browse(page)?.items.orEmpty() }.orEmpty()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        emptyList()
     }
 
     private suspend fun searchEnglish(query: String): List<Manga> = coroutineScope {
@@ -145,6 +180,7 @@ class MangaRepository(
             ?: look { shinigami?.find(names) }
             ?: look { komiku?.find(names) }
             ?: look { webtoon?.find(names) }
+            ?: look { rawkuma?.find(names) }
     }
 
     /** [manga] plus the same title on the other sources; a lookup that fails or takes over timeout is left out. */
@@ -157,6 +193,8 @@ class MangaRepository(
             if (isWebtoonId(manga.id)) null else async { look { webtoon?.find(names) } },
             if (isKakaMangaId(manga.id)) null else async { look { kakaManga?.find(names) } },
             if (isMangaParkId(manga.id)) null else async { look { mangaPark?.find(names) } },
+            rawkuma?.takeIf { !isRawkumaId(manga.id) && manga.allowsRawkuma() }
+                ?.let { source -> async { look { source.find(names) } } },
         ).awaitAll().filterNotNull()
         (listOf(manga) + others).distinctBy { it.id }.also { sourceCache[manga.id] = it }
     }
@@ -179,7 +217,7 @@ class MangaRepository(
         if (results.firstOrNull()?.isFailure == true || merged.isEmpty()) {
             val names = (listOf(manga.title) + manga.altTitles).filter { it.isNotBlank() }.distinct()
             val knownIds = found.mapTo(HashSet()) { it.id }
-            val alts = findAlternatives(names).filter { it.id !in knownIds }
+            val alts = findAlternatives(names, includeRaw = manga.allowsRawkuma()).filter { it.id !in knownIds }
             if (alts.isNotEmpty()) {
                 val extra = alts.map { m ->
                     async { runCatching { withTimeoutOrNull(OTHER_CHAPTERS_TIMEOUT_MS) { chapters(m.id) }.orEmpty() } }
@@ -196,13 +234,14 @@ class MangaRepository(
         mergedCache.remove(mangaId)
     }
 
-    private suspend fun findAlternatives(names: List<String>): List<Manga> = coroutineScope {
+    private suspend fun findAlternatives(names: List<String>, includeRaw: Boolean = true): List<Manga> = coroutineScope {
         val lookups = buildList<suspend () -> Manga?> {
             if (mangaPark != null) add { mangaPark.find(names) }
             if (kakaManga != null) add { kakaManga.find(names) }
             if (webtoon != null) add { webtoon.find(names) }
             if (shinigami != null) add { shinigami.find(names) }
             if (komiku != null) add { komiku.find(names) }
+            if (includeRaw && rawkuma != null) add { rawkuma.find(names) }
         }
         if (lookups.isEmpty()) return@coroutineScope emptyList()
         lookups.map { fn -> async { runCatching { withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { fn() } }.getOrNull() } }
@@ -215,6 +254,7 @@ class MangaRepository(
         if (isWebtoonId(id)) return webtoon?.detail(id) ?: throw notFound()
         if (isKakaMangaId(id)) return kakaManga?.detail(id) ?: throw notFound()
         if (isMangaParkId(id)) return mangaPark?.detail(id) ?: throw notFound()
+        if (isRawkumaId(id)) return rawkuma?.detail(id) ?: throw notFound()
         throw notFound()
     }
 
@@ -224,6 +264,7 @@ class MangaRepository(
         if (isWebtoonId(id)) return webtoon?.chapters(id).orEmpty()
         if (isKakaMangaId(id)) return kakaManga?.chapters(id).orEmpty()
         if (isMangaParkId(id)) return mangaPark?.chapters(id).orEmpty()
+        if (isRawkumaId(id)) return rawkuma?.chapters(id).orEmpty()
         return emptyList()
     }
 
@@ -243,6 +284,7 @@ class MangaRepository(
         if (isWebtoonId(chapterId)) return webtoon?.pages(chapterId).orEmpty()
         if (isKakaMangaId(chapterId)) return kakaManga?.pages(chapterId).orEmpty()
         if (isMangaParkId(chapterId)) return mangaPark?.pages(chapterId).orEmpty()
+        if (isRawkumaId(chapterId)) return rawkuma?.pages(chapterId).orEmpty()
         return emptyList()
     }
 
@@ -250,6 +292,10 @@ class MangaRepository(
     suspend fun tags(): List<MangaTag> = mangaGenresFromAllSources()
         .filter { mature() || !isMatureAnimeGenre(it) }
         .map { name -> MangaTag(id = name, name = name, group = "genre") }
+
+    /** Rawkuma has Japanese originals; it is only relevant to Manga entries (unknown type still passes). */
+    private fun Manga.allowsRawkuma(): Boolean =
+        type == null || (!type.equals("Manhwa", ignoreCase = true) && !type.equals("Manhua", ignoreCase = true))
 
     private fun notFound() = UiTextException(UiText(R.string.manga_error_not_found))
 
@@ -261,6 +307,8 @@ class MangaRepository(
         const val OTHER_CHAPTERS_TIMEOUT_MS = 15_000L
         const val PRIMARY_CHAPTERS_TIMEOUT_MS = 20_000L
         const val EN_TIMEOUT_MS = 20_000L
+        /** Cloudflare sometimes stalls Rawkuma; never hold the other sources' results for it. */
+        const val RAWKUMA_TIMEOUT_MS = 12_000L
         const val RELEASES_TTL_MS = 30 * 60_000L
     }
 }

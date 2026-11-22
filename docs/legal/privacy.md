@@ -1,6 +1,6 @@
 # Kebijakan Privasi FuwaStream
 
-Terakhir diperbarui: 1 November 2026
+Terakhir diperbarui: 22 November 2026
 
 ## Ringkasan
 
@@ -37,6 +37,7 @@ Agar dapat menampilkan konten, aplikasi terhubung langsung dari perangkat ke:
 | `xyz-api.animein.net` | Katalog anime, jadwal, poster, tautan aliran video | Alamat IP, User-Agent, permintaan katalog |
 | `api.shngm.io` | Katalog dan chapter manga Shinigami | Alamat IP, User-Agent, permintaan katalog |
 | `api.komiku.org` | Katalog dan chapter manga Komiku | Alamat IP, User-Agent, permintaan katalog |
+| `rawkuma.net` + `cdn.rawkuma.com` | Katalog, chapter raw Jepang, dan gambar manga Rawkuma | Alamat IP, User-Agent, permintaan katalog/gambar |
 | `comix.ws` + CDN gambar | Katalog, chapter, dan gambar manga Comix | Alamat IP, User-Agent, cookie/local storage WebView |
 | `api.github.com` | Pemeriksaan versi baru aplikasi | Alamat IP, User-Agent |
 | Server model ML Kit (Google) | Unduh model terjemahan sekali pakai | Alamat IP, User-Agent |
