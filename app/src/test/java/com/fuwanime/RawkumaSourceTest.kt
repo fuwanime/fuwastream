@@ -6,6 +6,8 @@ import com.fuwanime.data.manga.MangaStatus
 import com.fuwanime.data.manga.MangaType
 import com.fuwanime.data.manga.RawkumaSource
 import com.fuwanime.data.manga.isRawkumaId
+import com.fuwanime.data.manga.mangaTranslateCacheKey
+import com.fuwanime.data.manga.mangaTranslateSourceLanguage
 import com.fuwanime.data.manga.shouldUseRawkuma
 import com.fuwanime.data.manga.sourceRank
 import okhttp3.OkHttpClient
@@ -171,5 +173,17 @@ class RawkumaSourceTest {
     @Test fun rawSourceRanksBelowTranslatedSources() {
         assertTrue(sourceRank("mp:sample|chapter") < sourceRank("rk:sample|chapter"))
         assertTrue(sourceRank("rk:sample|chapter") < sourceRank("unknown:chapter"))
+    }
+
+    @Test fun rawkumaTranslationUsesJapaneseAndFreshCache() {
+        val chapterId = "rk:sample|chapter-191.435906"
+
+        assertEquals("ja", mangaTranslateSourceLanguage(chapterId, null))
+        assertEquals("ja", mangaTranslateSourceLanguage(chapterId, "JA"))
+        assertEquals("ja", mangaTranslateSourceLanguage("mp:sample|chapter", "ja-JP"))
+        assertEquals("en", mangaTranslateSourceLanguage("mp:sample|chapter", "en"))
+        assertEquals("en", mangaTranslateSourceLanguage("mp:sample|chapter", null))
+        assertTrue(mangaTranslateCacheKey(chapterId).startsWith("ja_v1_"))
+        assertEquals("mp_sample|chapter", mangaTranslateCacheKey("mp:sample|chapter"))
     }
 }

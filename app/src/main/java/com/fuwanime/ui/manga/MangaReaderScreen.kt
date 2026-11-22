@@ -372,6 +372,7 @@ class MangaReaderViewModel(
                 _state.value.manga?.title.orEmpty(),
                 chapter.number?.let { appContext.getString(R.string.manga_chapter_number, it) }
                     ?: chapter.title.orEmpty(),
+                chapter.language,
             )
             settings.setMangaTranslate(true)
             watchTranslationWork(chapter.id, pages.size)

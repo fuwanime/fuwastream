@@ -41,6 +41,22 @@ private const val MT_RESEND_VERIFICATION = "/api/v1/auth/resend-verification"
 private const val AKUNLAMA_API = "https://akunlama.com/api"
 private const val DEFAULT_REG_DOMAIN = "akunlama.com"
 
+/** MangaTranslate expects ISO language codes. Rawkuma ids are a safe fallback for old queued work. */
+internal fun mangaTranslateSourceLanguage(chapterId: String, declaredLanguage: String?): String {
+    val language = declaredLanguage
+        ?.trim()
+        ?.lowercase()
+        ?.replace('_', '-')
+        ?.substringBefore('-')
+    return if (language in setOf("ja", "jp", "jpn") || isRawkumaId(chapterId)) "ja" else "en"
+}
+
+/** Rawkuma had briefly used the English OCR path; isolate Japanese results from that stale cache. */
+internal fun mangaTranslateCacheKey(chapterId: String): String {
+    val safeId = chapterId.replace(':', '_').replace('/', '_')
+    return if (isRawkumaId(chapterId)) "ja_v1_$safeId" else safeId
+}
+
 private val MT_DEFAULT_PROXIES = listOf(
     "http://103.237.102.191:11111",
     "http://121.101.131.110:8080",
@@ -179,7 +195,7 @@ class MangaTranslateV2ChapterTranslator(
         .build()
 
     override fun chapterDir(cacheDir: File, chapterId: String): File =
-        File(cacheDir, "mangatranslate/${chapterId.replace(':', '_').replace('/', '_')}")
+        File(cacheDir, "mangatranslate/${mangaTranslateCacheKey(chapterId)}")
 
     override fun cachedChapterPages(cacheDir: File, chapterId: String, pageCount: Int): List<String>? {
         val slots = cachedChapterPageSlots(cacheDir, chapterId, pageCount)
@@ -200,10 +216,12 @@ class MangaTranslateV2ChapterTranslator(
         chapterId: String,
         pageUrls: List<String>,
         cacheDir: File,
+        sourceLanguage: String,
         onProgress: (done: Int, total: Int) -> Unit,
     ): List<String> = withContext(Dispatchers.IO) {
         translationLock.lockInterruptibly()
         try {
+            val normalizedSourceLanguage = mangaTranslateSourceLanguage(chapterId, sourceLanguage)
             val outDir = chapterDir(cacheDir, chapterId)
             outDir.mkdirs()
             val outputFiles = pageUrls.indices.map { pageFile(outDir, it) }
@@ -226,7 +244,7 @@ class MangaTranslateV2ChapterTranslator(
             for (i in pending) {
                 checkInterrupted()
                 try {
-                    translatePageWithRetry(pageUrls[i], outputFiles[i])
+                    translatePageWithRetry(pageUrls[i], outputFiles[i], normalizedSourceLanguage)
                     doneCount++
                     onProgress(doneCount, pageUrls.size)
                 } catch (e: TranslatorBusyException) {
@@ -247,14 +265,14 @@ class MangaTranslateV2ChapterTranslator(
         }
     }
 
-    private fun translatePageWithRetry(url: String, out: File) {
+    private fun translatePageWithRetry(url: String, out: File, sourceLanguage: String) {
         var last: Throwable? = null
         val maxAttempts = 3
         for (attempt in 1..maxAttempts) {
             checkInterrupted()
             try {
                 val bytes = downloadPage(url)
-                val translated = translateOne(bytes)
+                val translated = translateOne(bytes, sourceLanguage)
                 saveAsPng(translated, out)
                 return
             } catch (e: InterruptedException) {
@@ -496,7 +514,7 @@ class MangaTranslateV2ChapterTranslator(
             "timeout polling task" in m
     }
 
-    private fun translateOne(imageBytes: ByteArray): ByteArray {
+    private fun translateOne(imageBytes: ByteArray, sourceLanguage: String): ByteArray {
         var attempts = 0
         var lastErr: Throwable? = null
         while (attempts < 2) {
@@ -504,7 +522,7 @@ class MangaTranslateV2ChapterTranslator(
             val apiKey = ensureUsableKey()
             attempts++
             try {
-                return translateOneWithKey(apiKey, imageBytes)
+                return translateOneWithKey(apiKey, imageBytes, sourceLanguage)
             } catch (e: InterruptedException) {
                 Thread.currentThread().interrupt()
                 throw e
@@ -618,7 +636,7 @@ class MangaTranslateV2ChapterTranslator(
         throw (lastError as? Exception) ?: IOException("Gagal mengunduh hasil terjemahan", lastError)
     }
 
-    private fun translateOneWithKey(apiKey: String, imageBytes: ByteArray): ByteArray {
+    private fun translateOneWithKey(apiKey: String, imageBytes: ByteArray, sourceLanguage: String): ByteArray {
         checkInterrupted()
         val apiClient = apiClientForKey(apiKey)
         val contentType = detectMime(imageBytes)
@@ -663,14 +681,13 @@ class MangaTranslateV2ChapterTranslator(
             if (!resp.isSuccessful) throw MtV2Exception("Upload ke storage gagal HTTP ${resp.code}", resp.code, JSONObject())
         }
 
-        // 3) submit translate (English scanlation -> Indonesian)
+        // 3) submit translation to Indonesian using the chapter's actual source language.
         checkInterrupted()
         val submitBody = JSONObject().apply {
             put("upload_id", uploadId)
             put("files", JSONArray().put(JSONObject().apply { put("index", index); put("upload_intent", uploadIntent) }))
             put("target_language", "id")
-            // The manga model rejects requests without a source language; FuwaStream manga sources are English.
-            put("source_language", "en")
+            put("source_language", sourceLanguage)
             put("model", "manga")
             put("translator", "auto")
         }
