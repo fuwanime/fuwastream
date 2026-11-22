@@ -490,6 +490,7 @@ class IsMangaChapterTranslator(
         chapterId: String,
         pageUrls: List<String>,
         cacheDir: File,
+        sourceLanguage: String,
         onProgress: (done: Int, total: Int) -> Unit,
     ): List<String> = withContext(Dispatchers.IO) {
         val outDir = chapterDir(cacheDir, chapterId)
@@ -713,6 +714,7 @@ interface MangaChapterTranslator {
         chapterId: String,
         pageUrls: List<String>,
         cacheDir: File,
+        sourceLanguage: String = "en",
         onProgress: (done: Int, total: Int) -> Unit = { _, _ -> },
     ): List<String>
 }

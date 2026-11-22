@@ -29,6 +29,7 @@ class MangaTranslateWorker(context: Context, params: WorkerParameters) : Corouti
 
     override suspend fun doWork(): Result {
         val chapterId = inputData.getString(KEY_CHAPTER) ?: return Result.failure()
+        val sourceLanguage = mangaTranslateSourceLanguage(chapterId, inputData.getString(KEY_SOURCE_LANGUAGE))
         val mangaTitle = inputData.getString(KEY_MANGA_TITLE).orEmpty()
         val chapterLabel = inputData.getString(KEY_CHAPTER_LABEL).orEmpty()
         val c = (applicationContext as FuwaApp).container
@@ -42,7 +43,12 @@ class MangaTranslateWorker(context: Context, params: WorkerParameters) : Corouti
             if (cached != null) {
                 return Result.success(workDataOf(KEY_DONE to pages.size, KEY_TOTAL to pages.size))
             }
-            val translated = c.mangaTranslator.translateChapter(chapterId, pages, applicationContext.cacheDir) { done, total ->
+            val translated = c.mangaTranslator.translateChapter(
+                chapterId,
+                pages,
+                applicationContext.cacheDir,
+                sourceLanguage,
+            ) { done, total ->
                 // Progress callbacks are not suspending; use the async WorkManager APIs here.
                 runCatching { setForegroundAsync(info(title, done, total)) }
                 setProgressAsync(workDataOf(KEY_DONE to done, KEY_TOTAL to total))
@@ -90,6 +96,7 @@ class MangaTranslateWorker(context: Context, params: WorkerParameters) : Corouti
         const val KEY_CHAPTER = "chapterId"
         const val KEY_MANGA_TITLE = "mangaTitle"
         const val KEY_CHAPTER_LABEL = "chapterLabel"
+        const val KEY_SOURCE_LANGUAGE = "sourceLanguage"
         const val KEY_DONE = "done"
         const val KEY_TOTAL = "total"
         const val KEY_ERROR = "error"
@@ -100,7 +107,13 @@ class MangaTranslateWorker(context: Context, params: WorkerParameters) : Corouti
         fun uniqueName(chapterId: String): String = "manga_translate_$chapterId"
 
         /** Enqueues (or keeps) a background translation for [chapterId]. */
-        fun enqueue(context: Context, chapterId: String, mangaTitle: String, chapterLabel: String) {
+        fun enqueue(
+            context: Context,
+            chapterId: String,
+            mangaTitle: String,
+            chapterLabel: String,
+            sourceLanguage: String = "en",
+        ) {
             val request = OneTimeWorkRequestBuilder<MangaTranslateWorker>()
                 .setConstraints(
                     Constraints.Builder()
@@ -112,6 +125,7 @@ class MangaTranslateWorker(context: Context, params: WorkerParameters) : Corouti
                         KEY_CHAPTER to chapterId,
                         KEY_MANGA_TITLE to mangaTitle,
                         KEY_CHAPTER_LABEL to chapterLabel,
+                        KEY_SOURCE_LANGUAGE to mangaTranslateSourceLanguage(chapterId, sourceLanguage),
                     ),
                 )
                 .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
