@@ -101,7 +101,7 @@ class MangaParkSource(private val client: OkHttpClient) {
                 out[slug] = Manga(idFor(slug), title, null, "", emptyList(), MangaStatus.UNKNOWN, null, null)
             }
         }
-        if (out.isNotEmpty()) return enrichListCovers(html, out)
+        if (out.isNotEmpty()) return finishSearch(html, out)
         // Fallback: card links
         val cardRe = Regex("""href="/manga/([^"/?#]+)"""")
         val titleAttr = Regex("""title="([^"]+)"""")
@@ -113,10 +113,16 @@ class MangaParkSource(private val client: OkHttpClient) {
                 ?: continue
             if (slug !in out) out[slug] = Manga(idFor(slug), title, null, "", emptyList(), MangaStatus.UNKNOWN, null, null)
         }
-        return enrichListCovers(html, out)
+        return finishSearch(html, out)
     }
 
-    private fun enrichListCovers(html: String, items: LinkedHashMap<String, Manga>): List<Manga> {
+    private fun finishSearch(html: String, items: LinkedHashMap<String, Manga>): List<Manga> {
+        enrichListCovers(html, items)
+        enrichTypes(html, items)
+        return items.values.toList()
+    }
+
+    private fun enrichListCovers(html: String, items: LinkedHashMap<String, Manga>) {
         // Try to associate nearby cover images to slugs
         val blockRe = Regex("""(?s)<a[^>]+href="/manga/([^"/?#]+)"[^>]*>.*?</a>""")
         for (b in blockRe.findAll(html)) {
@@ -126,7 +132,18 @@ class MangaParkSource(private val client: OkHttpClient) {
             val img = Regex("""<img[^>]+(?:src|data-src)="([^"]+)"""").find(b.value)?.groupValues?.getOrNull(1)
             if (!img.isNullOrBlank()) items[slug] = cur.copy(coverUrl = absUrl(img))
         }
-        return items.values.toList()
+    }
+
+    /** Card type labels ("Manhwa", "Manhua", …) keyed by slug; JSON-LD search results omit them. */
+    private fun enrichTypes(html: String, items: LinkedHashMap<String, Manga>) {
+        val typeRe = Regex("""<span class="type">\s*(Manhwa|Manhua|Manga)\s*</span>""", RegexOption.IGNORE_CASE)
+        for (m in typeRe.findAll(html)) {
+            val type = normalizedType(m.groupValues[1]) ?: continue
+            val after = html.substring(m.range.last + 1, minOf(html.length, m.range.last + 600))
+            val slug = Regex("""href="/manga/([^"/?#]+)"""").find(after)?.groupValues?.get(1) ?: continue
+            val cur = items[slug] ?: continue
+            if (cur.type == null) items[slug] = cur.copy(type = type)
+        }
     }
 
     internal fun parseDetail(html: String, slug: String): Manga {
@@ -159,6 +176,10 @@ class MangaParkSource(private val client: OkHttpClient) {
                 m.value.substringAfterLast('/').substringBefore('?').replace('-', ' ').trim().ifBlank { null }
             }.toList(),
         ).take(12)
+        val type = Regex("""Type:\s*</span>\s*<span[^>]*>\s*(Manga|Manhwa|Manhua)\s*</span>""", RegexOption.IGNORE_CASE)
+            .find(html)?.groupValues?.getOrNull(1)
+            ?: Regex("""<span class="type">\s*(Manga|Manhwa|Manhua)\s*</span>""", RegexOption.IGNORE_CASE)
+                .find(html)?.groupValues?.getOrNull(1)
         return Manga(
             id = idFor(slug),
             title = title,
@@ -169,7 +190,7 @@ class MangaParkSource(private val client: OkHttpClient) {
             year = null,
             author = author,
             altTitles = alts,
-            type = "Manga",
+            type = normalizedType(type) ?: "Manga",
         )
     }
 
@@ -244,6 +265,13 @@ class MangaParkSource(private val client: OkHttpClient) {
 
     private fun slugify(name: String): String = name.lowercase(Locale.ENGLISH)
         .replace(Regex("[^a-z0-9]+"), "-").trim('-')
+
+    private fun normalizedType(raw: String?): String? = when (raw?.trim()?.lowercase(Locale.ENGLISH)) {
+        "manga" -> "Manga"
+        "manhwa" -> "Manhwa"
+        "manhua" -> "Manhua"
+        else -> null
+    }
 
     private fun parseDate(raw: String): Long {
         val s = raw.trim()

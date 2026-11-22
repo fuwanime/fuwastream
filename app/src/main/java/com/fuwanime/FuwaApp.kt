@@ -3,6 +3,7 @@ package com.fuwanime
 import com.fuwanime.data.manga.KomikuSource
 import com.fuwanime.data.manga.KakaMangaSource
 import com.fuwanime.data.manga.MangaParkSource
+import com.fuwanime.data.manga.RawkumaSource
 import com.fuwanime.data.manga.ShinigamiApi
 import com.fuwanime.data.manga.ShinigamiSource
 import com.fuwanime.data.manga.WebtoonSource
@@ -174,6 +175,7 @@ class AppContainer(private val app: Application) {
             webtoon = WebtoonSource(mangaHttpClient),
             kakaManga = KakaMangaSource(mangaHttpClient),
             mangaPark = MangaParkSource(mangaHttpClient),
+            rawkuma = RawkumaSource(mangaHttpClient, mature = { settingsStore.matureContent.first() }),
             mature = { settingsStore.matureContent.first() },
         )
     }

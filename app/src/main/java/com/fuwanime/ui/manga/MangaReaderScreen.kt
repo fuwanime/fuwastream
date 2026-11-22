@@ -4,6 +4,7 @@ import com.fuwanime.data.manga.isKomikuId
 import com.fuwanime.data.manga.isShinigamiId
 import com.fuwanime.data.manga.isKakaMangaId
 import com.fuwanime.data.manga.isMangaParkId
+import com.fuwanime.data.manga.isRawkumaId
 import com.fuwanime.data.manga.isWebtoonId
 import android.app.Activity
 import android.content.Context
@@ -913,6 +914,7 @@ private fun Credit(chapter: MangaChapter, modifier: Modifier = Modifier) {
             isWebtoonId(chapter.id) -> stringResource(R.string.manga_reader_source_webtoon)
             isKakaMangaId(chapter.id) -> stringResource(R.string.manga_reader_source_kakamanga)
             isMangaParkId(chapter.id) -> stringResource(R.string.manga_reader_source_mangapark)
+            isRawkumaId(chapter.id) -> stringResource(R.string.manga_reader_source_rawkuma)
             chapter.group != null -> stringResource(R.string.manga_reader_scanlation, chapter.group)
             else -> chapter.group ?: stringResource(R.string.manga_reader_source_mangapark)
         },

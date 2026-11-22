@@ -84,6 +84,8 @@ class ShinigamiTest {
         assertTrue(needsDoh("api.shngm.io"))
         assertTrue(needsDoh("assets.shngm.id"))
         assertTrue(needsDoh("komiku.org"))
+        assertTrue(needsDoh("rawkuma.net"))
+        assertTrue(needsDoh("cdn.rawkuma.com"))
         assertFalse(needsDoh("xyz-api.animein.net"))
         assertFalse(needsDoh("evilshngm.io"))
     }

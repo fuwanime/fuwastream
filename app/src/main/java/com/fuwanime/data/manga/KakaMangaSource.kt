@@ -203,7 +203,23 @@ class KakaMangaSource(private val client: OkHttpClient) {
                 }
             }
         }
-        return out.values.toList()
+        val types = typesBySlug(html)
+        return out.values.map { m ->
+            types[m.id.removePrefix(KK_PREFIX).substringBefore('|')]?.let { m.copy(type = it) } ?: m
+        }
+    }
+
+    /** Card labels ("Manga"/"Manhwa"/"Manhua") keyed by slug, so list filters do not mix formats. */
+    private fun typesBySlug(html: String): Map<String, String> {
+        val out = HashMap<String, String>()
+        val typeRe = Regex("""<span[^>]*>\s*(Manhwa|Manhua|Manga)\s*</span>""", RegexOption.IGNORE_CASE)
+        for (m in typeRe.findAll(html)) {
+            val type = normalizedType(m.groupValues[1]) ?: continue
+            val after = html.substring(m.range.last + 1, minOf(html.length, m.range.last + 1_000))
+            val slug = Regex("""href="/manga/([^"/?#]+)"""").find(after)?.groupValues?.get(1) ?: continue
+            out.putIfAbsent(slug, type)
+        }
+        return out
     }
 
     internal fun parseDetail(html: String, slug: String, base: String): Manga {
@@ -234,6 +250,12 @@ class KakaMangaSource(private val client: OkHttpClient) {
         )
         val alts = Regex("""Alternative[^<]*</[^>]+>\s*([^<]+)""", RegexOption.IGNORE_CASE).find(infoBlock)?.groupValues?.getOrNull(1)
             ?.split(';', ',', '/')?.map { it.trim() }?.filter { it.isNotBlank() }.orEmpty()
+        val type = Regex("""(?s)"genre"\s*:\s*\[(.*?)\]""").find(html)?.groupValues?.getOrNull(1)
+            ?.let { Regex(""""(Manhwa|Manhua|Manga)"""", RegexOption.IGNORE_CASE).find(it)?.groupValues?.getOrNull(1) }
+            ?: Regex("""(?s)>\s*(?:Type|Format)\s*<.{0,300}?>\s*(Manhwa|Manhua|Manga)\s*<""", RegexOption.IGNORE_CASE)
+                .find(html)?.groupValues?.getOrNull(1)
+            ?: Regex("""<span[^>]*class="[^"]*(?:font-bold|uppercase)[^"]*"[^>]*>\s*(Manhwa|Manhua|Manga)\s*</span>""", RegexOption.IGNORE_CASE)
+                .find(html)?.groupValues?.getOrNull(1)
         return Manga(
             id = idFor(slug, base),
             title = title,
@@ -244,7 +266,7 @@ class KakaMangaSource(private val client: OkHttpClient) {
             year = null,
             author = authors.joinToString().ifBlank { null },
             altTitles = alts,
-            type = "Manga",
+            type = normalizedType(type) ?: "Manga",
         )
     }
 
@@ -329,6 +351,13 @@ class KakaMangaSource(private val client: OkHttpClient) {
 
     private fun slugify(name: String): String = name.lowercase(Locale.ENGLISH)
         .replace(Regex("[^a-z0-9]+"), "-").trim('-')
+
+    private fun normalizedType(raw: String?): String? = when (raw?.trim()?.lowercase(Locale.ENGLISH)) {
+        "manga" -> "Manga"
+        "manhwa" -> "Manhwa"
+        "manhua" -> "Manhua"
+        else -> null
+    }
 
     private fun parseIsoDate(raw: String): Long {
         val s = raw.trim()

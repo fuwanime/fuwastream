@@ -22,6 +22,8 @@ private val DOH_DOMAINS = listOf(
     "shngm.id",
     "komiku.org",
     "komiku.to",
+    "rawkuma.net",
+    "rawkuma.com",
 )
 
 /** Manga hosts that Indonesian ISP DNS may block; they are resolved over HTTPS. */

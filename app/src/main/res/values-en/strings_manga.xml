@@ -130,9 +130,11 @@
     <string name="manga_reader_source_webtoon">WEBTOON</string>
     <string name="manga_reader_source_kakamanga">KakaManga</string>
     <string name="manga_reader_source_mangapark">MangaPark</string>
+    <string name="manga_reader_source_rawkuma">Rawkuma</string>
     <string name="manga_credit_webtoon">Source: WEBTOON</string>
     <string name="manga_credit_kakamanga">Source: KakaManga</string>
     <string name="manga_credit_mangapark">Source: MangaPark</string>
+    <string name="manga_credit_rawkuma">Source: Rawkuma</string>
     <string name="manga_settings_keep_screen_on">Keep screen on while reading</string>
     <string name="manga_settings_keep_screen_on_desc">Prevents the screen from sleeping in the reader</string>
     <string name="manga_reader_show_controls">Show reader controls</string>
