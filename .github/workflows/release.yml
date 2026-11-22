@@ -57,6 +57,36 @@ jobs:
         with:
           gradle-version: "9.3.1"
 
+      # Robolectric downloads its android-all jars to ~/.m2 at TEST runtime (NOT via Gradle,
+      # so setup-gradle's ~/.gradle cache does NOT cover them). Without this cache every run
+      # re-downloads from Maven Central and the whole test suite fails with
+      # IOException/HttpURLConnection whenever the network to Maven is slow or blocked.
+      - name: Cache Robolectric android-all jars
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.m2/repository/org/robolectric
+          key: ${{ runner.os }}-robolectric-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-robolectric-
+
+      # Prefetch the SDK-35 android-all jar the tests use (@Config(sdk = [35])) with retries, so a
+      # flaky Maven Central can't fail the test step. Skipped when the cache already restored it.
+      - name: Prefetch Robolectric android-all jar (retry on flaky network)
+        run: |
+          DIR="$HOME/.m2/repository/org/robolectric/android-all-instrumented/15-robolectric-13954326-i7"
+          JAR="$DIR/android-all-instrumented-15-robolectric-13954326-i7.jar"
+          if [ -f "$JAR" ]; then echo "Robolectric jar sudah ada (cache)."; exit 0; fi
+          mkdir -p "$DIR"
+          URL="https://repo1.maven.org/maven2/org/robolectric/android-all-instrumented/15-robolectric-13954326-i7/android-all-instrumented-15-robolectric-13954326-i7.jar"
+          for attempt in 1 2 3 4 5; do
+            echo "Download percobaan $attempt..."
+            if curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors --connect-timeout 30 -o "$JAR" "$URL"; then
+              echo "Berhasil."; break
+            fi
+            sleep 10
+          done
+          test -f "$JAR"
+
       - name: Hitung versi SemVer
         id: semver
         run: |
